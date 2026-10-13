@@ -441,6 +441,8 @@ This deletes the collected `starchorus.json` and your saved settings as well, an
 
 | Symptom | Likely cause | What to do |
 |---|---|---|
+| ssh warns 'REMOTE HOST IDENTIFICATION HAS CHANGED' after a system update | the update gave the Pager new SSH host keys | if you have just updated the Pager yourself, run `ssh-keygen -R 172.16.52.1` and connect again |
+| after a system update the page loads slowly or partly | the update removed `uhttpd`; the payload falls back to its small netcat server | it usually still works; for a sturdier server add `uhttpd` again ([docs/display-paths.md](docs/display-paths.md), route A) |
 | `ping` gets no reply | cable or Wi-Fi not connected, or a different address | check the connection; check the address in Hak5's documentation ([section 2](#2-connect-to-the-pager)) |
 | `ssh` says 'Connection refused' or 'timed out' | wrong address, or the Pager is still starting | wait a minute, check the address, try again |
 | `Permission denied` after the password | wrong root password | see Hak5's documentation |

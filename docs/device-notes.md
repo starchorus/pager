@@ -52,7 +52,7 @@ therefore runs **without** `opkg` and **without** internet access on the device.
 | `start-stop-daemon` | present | detaches the fallback server cleanly from the payload run |
 | `airodump-ng` | missing | optional source; only after `opkg install -d mmc aircrack-ng` |
 | `python3` | missing | no `python3 -m http.server` |
-| `uhttpd` | may be present | installed as `/usr/sbin/uhttpd`, not enabled at boot and not running by default; the payload uses it when it is present. If it is missing, it can be added as a local `.ipk`, see [display-paths.md](display-paths.md) |
+| `uhttpd` | may be present | installed as `/usr/sbin/uhttpd`, not enabled at boot and not running by default; the payload uses it when it is present. If it is missing, it can be added as a local `.ipk`, see [display-paths.md](display-paths.md). Seen on 13 October 2026: a system update on the Pager removed it (same firmware 24.10.1, new SSH host keys, `/root` intact); the payload then fell back to the netcat server, which served a browser cleanly |
 | BusyBox `httpd` | missing | applet not compiled in |
 | `nginx`, `lighttpd`, `php` | missing | – |
 
