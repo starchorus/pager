@@ -90,9 +90,11 @@ rowif "HTML network surface = $n (want 0)" [ "$n" = 0 ]
 # the target is exactly starchorus.json (a query string may follow, nothing else: "starchorus.json.bak" is another file)
 nf=$(grep -o 'fetch(' "$H" | wc -l | tr -d ' '); nw=$(grep -oE 'fetch\("starchorus\.json[?"]' "$H" | wc -l | tr -d ' ')
 rowif "fetch( = $nf, to starchorus.json = $nw (want 1/1)" [ "$nf/$nw" = 1/1 ]
-nx=$(grep -cE "$NETX" "$H")
-rowif "other network APIs in page = $nx (want 0)" [ "$nx" = 0 ]
-[ "$nx" = 0 ] || grep -nE "$NETX" "$H" | show
+# the one <link> allowed is the inline favicon: a data: URI on a line of its own, which the browser never fetches
+NETX_ICON='^<link rel="icon" type="image/svg\+xml" href="data:image/svg\+xml,[^"]*">$'
+nx=$(grep -E "$NETX" "$H" | grep -cvE "$NETX_ICON")
+rowif "other network APIs in page = $nx (want 0; inline data: favicon exempt)" [ "$nx" = 0 ]
+[ "$nx" = 0 ] || grep -nE "$NETX" "$H" | grep -vE "$NETX_ICON" | show
 # external URLs only in the font-licence header (section 00 / before the first marker)
 nu=$(awk '/==== [0-9]+ /{match($0,/==== [0-9]+/); s=substr($0,RSTART+5,RLENGTH-5)} /https?:\/\//{if (s+0 != 0) n++} END{print n+0}' "$H")
 rowif "URLs outside the §00 licence header = $nu" [ "$nu" = 0 ]
