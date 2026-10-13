@@ -1,0 +1,190 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "02:00:5e:a0:00:01",
+   "ssid": "aged-01",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -38,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "3c:22:fb:10:20:31",
+     "rssi": -55,
+     "last_seen": 1789299400
+    }
+   ],
+   "last_seen": 1789300000
+  },
+  {
+   "bssid": "02:00:5e:a0:00:02",
+   "ssid": "aged-02",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -44,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299970
+  },
+  {
+   "bssid": "02:00:5e:a0:00:03",
+   "ssid": "aged-03",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -49,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299941
+  },
+  {
+   "bssid": "02:00:5e:a0:00:04",
+   "ssid": "aged-04",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -53,
+   "security": "Open",
+   "clients": [
+    {
+     "mac": "8c:f5:a3:11:21:32",
+     "rssi": -60,
+     "last_seen": 1789299980
+    },
+    {
+     "mac": "24:6f:28:aa:bb:cc",
+     "rssi": -63,
+     "last_seen": 1789298000
+    }
+   ],
+   "last_seen": 1789299940
+  },
+  {
+   "bssid": "02:00:5e:a0:00:05",
+   "ssid": "aged-05",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -57,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299701
+  },
+  {
+   "bssid": "02:00:5e:a0:00:06",
+   "ssid": "aged-06",
+   "channel": 100,
+   "band": "5GHz",
+   "freq": 5500,
+   "rssi": -61,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299700
+  },
+  {
+   "bssid": "02:00:5e:a0:00:07",
+   "ssid": "aged-07",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299101
+  },
+  {
+   "bssid": "02:00:5e:a0:00:08",
+   "ssid": "aged-08",
+   "channel": 5,
+   "band": "6GHz",
+   "freq": 5975,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299100
+  },
+  {
+   "bssid": "02:00:5e:a0:00:09",
+   "ssid": "aged-09",
+   "channel": 37,
+   "band": "6GHz",
+   "freq": 6135,
+   "rssi": -71,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789296400
+  },
+  {
+   "bssid": "02:00:5e:a0:00:0a",
+   "ssid": "aged-10",
+   "channel": 3,
+   "band": "2.4GHz",
+   "freq": 2422,
+   "rssi": -74,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789300030
+  },
+  {
+   "bssid": "02:00:5e:a0:00:0b",
+   "ssid": "aged-11",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -77,
+   "security": "WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:a0:00:0c",
+   "ssid": "aged-12",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -80,
+   "security": "WPA2",
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:a0:00:0d",
+   "ssid": "aged-13",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -84,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 0
+  },
+  {
+   "bssid": "02:00:5e:a0:00:0e",
+   "ssid": "aged-14",
+   "channel": 69,
+   "band": "6GHz",
+   "freq": 6295,
+   "rssi": -87,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789300301
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "3c:22:fb:44:55:66",
+   "rssi": -58,
+   "last_seen": 1789299800
+  },
+  {
+   "mac": "a6:31:42:53:64:75",
+   "rssi": -66,
+   "randomized": true
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Feature request
+description: Propose a new feature or an improvement.
+title: "[Proposal] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Starchorus is strictly passive. The boundary is set out in [CONTRIBUTING.md](https://github.com/starchorus/pager/blob/main/CONTRIBUTING.md) and [SECURITY.md](https://github.com/starchorus/pager/blob/main/SECURITY.md).
+
+        **Privacy:** do not include real SSIDs, MAC addresses or capture files.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Starchorus do instead? Which data does it read to do so?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+  - type: textarea
+    id: passivity
+    attributes:
+      label: Would this transmit anything?
+      description: >
+        Features that transmit are outside the scope of the project, even as an option.
+    validations:
+      required: true
+  - type: checkboxes
+    id: receive-only
+    attributes:
+      label: Confirmation
+      options:
+        - label: The proposal is receive-only. It sends no frames and no probe requests, and associates with no network.
+          required: true
+        - label: The proposal contains no real SSIDs, MAC addresses or capture files.
+          required: true

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Question or contact
+description: Ask a question, including about security, or request contact for a confidential matter.
+title: "[Contact] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public. Report a vulnerability privately instead, through [Report a vulnerability](https://github.com/starchorus/pager/security/advisories/new). For a breach of the [Code of Conduct](https://github.com/starchorus/pager/blob/main/CODE_OF_CONDUCT.md) in confidence, write only a request for contact here, without details. Reproducible faults belong in the 'Bug report' form.
+
+        **Privacy:** do not include real SSIDs, MAC addresses or capture files.
+  - type: textarea
+    id: message
+    attributes:
+      label: Message
+      description: The question, or for a confidential matter only the request for contact.
+    validations:
+      required: true

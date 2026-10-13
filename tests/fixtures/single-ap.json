@@ -1,0 +1,22 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "24:a4:3c:0e:ee:7f",
+   "ssid": "GuestNet",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -46,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299996
+  }
+ ],
+ "unassociated": []
+}

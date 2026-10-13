@@ -1,0 +1,50 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# .githooks/pre-commit -- runs the fast, Chrome-free checks (tools/quick.sh, tier T1) on what is about to be committed.
+# Activate (per clone, local git config):  sh tools/install-hooks.sh        Diagnose:  sh tools/install-hooks.sh --check
+#   and  git config --show-origin --get core.hooksPath   (a worktree-local value beats the repo value).
+# It checks the INDEX, not the working tree: `git checkout-index` exports exactly what would be committed into a temp
+# directory and tools/quick.sh runs there (no .git in the export). An unstaged edit neither hides a staged violation nor
+# raises a false alarm. `git commit <paths>` and `-a` are covered the same way (git points the hook at the right index).
+# Path filter: the hook only runs when a staged path is the page (also index.html), the collector, a display script, payload*,
+# starchorus-serve.sh, or below tests/, tools/, library/, packaging/, .githooks/ or .github/. Deletions count as staged.
+#   Blind spot, on purpose named: a commit that stages only OTHER files (docs/, README, ...) skips the hook, so
+#   the documentation-drift rows (tools/regress.d/doc-drift.sh) are not seen until the next code commit or tools/regress.sh.
+# When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too.
+# On red: only the red rows are shown, exit 1, nothing is committed. If quick.sh cannot run at all (exit 2: a tool such as jq is
+# missing, "MISSING: <tool>") the hook says so instead of "red" and refuses the commit as well.
+# Emergency exit: `git commit --no-verify`. It leaves no trace in git, so the commit text must say why and name the substitute
+#   proof (for example the tools/regress.sh run that was green on this tree).
+# NOT proven: that the running page is passive (T1 reads source text), anything under BusyBox, anything on the device; a green
+#   hook does not replace tools/regress.sh (T2) before viewer commits and releases.
+set -u
+top=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
+cd "$top" || exit 1
+staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames) || { echo "pre-commit: cannot list the index" >&2; exit 1; }
+if ! printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|tests/|tools/|\.githooks/|\.github/)'; then
+  exit 0   # only files outside the filter: T1 has nothing to say about them (see the blind spot above)
+fi
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-hook.XXXXXX") || { echo "pre-commit: mktemp failed" >&2; exit 1; }
+trap 'rm -rf "$tmp"' EXIT
+trap 'exit 130' INT TERM HUP
+git checkout-index -a -f --prefix="$tmp/" || { echo "pre-commit: checkout-index of the index failed" >&2; exit 1; }
+[ -f "$tmp/tools/quick.sh" ] || { echo "pre-commit: tools/quick.sh is not in the index, nothing to run (--no-verify to bypass)" >&2; exit 1; }
+unset STARCHORUS_ROOT   # harness.sh would prefer it over the exported tree
+if printf '%s\n' "$staged" | grep -Eq '^tools/passivity-(check|mutate)\.sh$'; then QUICK_MUTATE=1; export QUICK_MUTATE; fi
+( cd "$tmp" && sh tools/quick.sh hook ) > "$tmp/quick.out" 2>&1; rc=$?
+if [ "$rc" = 0 ]; then
+  tail -n 1 "$tmp/quick.out" | sed 's/^/pre-commit: /'
+  exit 0
+fi
+if [ "$rc" = 2 ]; then   # a setup problem (a tool is missing: "MISSING: <tool>"), not a finding about the staged tree
+  echo "pre-commit: tools/quick.sh could not run (exit 2: a tool is missing or the setup is broken); nothing was committed:" >&2
+  tail -n 15 "$tmp/quick.out" | cut -c1-200 >&2
+  echo "pre-commit: fix the setup and commit again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
+  exit 1
+fi
+echo "pre-commit: tier T1 (tools/quick.sh) is red on the staged tree; nothing was committed. Red rows:" >&2
+awk '/^note: quick drop-ins/ { print; next } / FAIL$/ { print; show = 1; next } /^    / && show { print; next } { show = 0 }' "$tmp/quick.out" | cut -c1-200 >&2
+if ! grep -q ' FAIL$' "$tmp/quick.out"; then echo "(no FAIL row: the run itself broke, last lines follow)" >&2; tail -n 15 "$tmp/quick.out" >&2; fi
+tail -n 1 "$tmp/quick.out" >&2
+echo "pre-commit: fix and stage again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
+exit 1

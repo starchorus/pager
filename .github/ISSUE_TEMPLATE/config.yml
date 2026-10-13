@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability (private)
+    url: https://github.com/starchorus/pager/security/advisories/new
+    about: Seen only by the maintainer. For anything that could let Starchorus transmit, or expose captured data.
+  - name: Security and passivity (security policy)
+    url: https://github.com/starchorus/pager/blob/main/SECURITY.md
+    about: The passivity contract, privacy and how to report a concern. Questions and requests for contact go through the 'Question or contact' form.

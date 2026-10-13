@@ -1,0 +1,261 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "iw-scan-ACTIVE",
+ "aps": [
+  {
+   "bssid": "50:c7:bf:ec:14:20",
+   "ssid": "Corner Café Guest",
+   "channel": 48,
+   "band": "5GHz",
+   "freq": 5240,
+   "rssi": -81,
+   "security": "Open",
+   "clients": [],
+   "vendor": "TP-Link"
+  },
+  {
+   "bssid": "2c:91:ab:f0:79:2c",
+   "ssid": "BT Smart Hub",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -73,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "2c:91:ab:f0:79:31",
+   "ssid": "BT Smart Hub",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -70,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "2c:91:ab:f0:79:32",
+   "ssid": "BT Smart Hub",
+   "channel": 213,
+   "band": "6GHz",
+   "freq": 7015,
+   "rssi": -71,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "f0:18:98:b2:9a:a6",
+   "ssid": "Max's iPhone",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -53,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Apple"
+  },
+  {
+   "bssid": "7c:03:ab:65:28:df",
+   "ssid": "EE-Hub-8895",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -70,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "7c:03:ab:65:28:e2",
+   "ssid": "EE-Hub-8895",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -69,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Sagemcom"
+  },
+  {
+   "bssid": "2c:fd:a1:10:1e:33",
+   "ssid": "ASUS_48_5G",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -72,
+   "security": "WPA/WPA2",
+   "clients": []
+  },
+  {
+   "bssid": "50:c7:bf:58:ee:e6",
+   "ssid": "TP-Link_Extender",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -72,
+   "security": "WEP",
+   "clients": []
+  },
+  {
+   "bssid": "50:c7:bf:58:ee:e8",
+   "ssid": "TP-Link_Extender",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -74,
+   "security": "WEP",
+   "clients": []
+  },
+  {
+   "bssid": "48:46:fb:8d:31:d7",
+   "ssid": "HUAWEI-18B2",
+   "channel": 5,
+   "band": "2.4GHz",
+   "freq": 2432,
+   "rssi": -46,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "60:e3:27:a7:47:70",
+   "ssid": "TP-Link_42DD",
+   "channel": 101,
+   "band": "6GHz",
+   "freq": 6455,
+   "rssi": -53,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "TP-Link"
+  },
+  {
+   "bssid": "24:6f:28:29:d4:b5",
+   "ssid": "ESP_5B0224",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -83,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Espressif"
+  },
+  {
+   "bssid": "2c:fd:a1:ca:09:17",
+   "ssid": "ASUS_1C_5G",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -76,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "3c:22:fb:0e:cc:6e",
+   "ssid": "Max's iPhone",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -59,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Apple"
+  },
+  {
+   "bssid": "b8:ec:a3:d6:53:54",
+   "ssid": "",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -87,
+   "security": "WPA",
+   "clients": [],
+   "vendor": "Zyxel"
+  },
+  {
+   "bssid": "b8:ec:a3:d6:53:57",
+   "ssid": "",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -88,
+   "security": "WPA",
+   "clients": []
+  },
+  {
+   "bssid": "f4:f5:d8:9a:4d:93",
+   "ssid": "MeshNode-Garden",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -42,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Google"
+  },
+  {
+   "bssid": "f4:f5:d8:9a:4d:95",
+   "ssid": "MeshNode-Garden",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -43,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Google"
+  },
+  {
+   "bssid": "f4:f5:d8:00:65:93",
+   "ssid": "MeshNode-Garden",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -41,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Google"
+  },
+  {
+   "bssid": "f4:f5:d8:00:65:96",
+   "ssid": "MeshNode-Garden",
+   "channel": 157,
+   "band": "5GHz",
+   "freq": 5785,
+   "rssi": -44,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "b8:ec:a3:38:ba:eb",
+   "ssid": "TALKTALKD12919",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -65,
+   "security": "WPA2/WPA3",
+   "clients": []
+  },
+  {
+   "bssid": "b8:ec:a3:38:ba:f0",
+   "ssid": "TALKTALKD12919",
+   "channel": 60,
+   "band": "5GHz",
+   "freq": 5300,
+   "rssi": -67,
+   "security": "WPA2/WPA3",
+   "clients": [],
+   "vendor": "Zyxel"
+  },
+  {
+   "bssid": "b8:ec:a3:4d:48:45",
+   "ssid": "TALKTALK1BA178",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -80,
+   "security": "WPA2/WPA3",
+   "clients": []
+  }
+ ],
+ "unassociated": []
+}

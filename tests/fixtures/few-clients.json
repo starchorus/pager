@@ -1,0 +1,121 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "airodump-csv",
+ "aps": [
+  {
+   "bssid": "7c:03:ab:2e:15:ca",
+   "ssid": "PLUSNET-EE65",
+   "channel": 12,
+   "band": "2.4GHz",
+   "freq": 2467,
+   "rssi": -81,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Sagemcom"
+  },
+  {
+   "bssid": "7c:03:ab:2e:15:cc",
+   "ssid": "PLUSNET-EE65",
+   "channel": 144,
+   "band": "5GHz",
+   "freq": 5720,
+   "rssi": -84,
+   "security": "WPA3/WPA2",
+   "clients": [
+    {
+     "mac": "04:5d:4b:d6:25:65",
+     "rssi": -89
+    }
+   ]
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e1",
+   "ssid": "",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -74,
+   "security": "WPA2",
+   "clients": []
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e4",
+   "ssid": "",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -75,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology"
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e5",
+   "ssid": "",
+   "channel": 169,
+   "band": "6GHz",
+   "freq": 6795,
+   "rssi": -73,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "f4:f5:d8:00:8a:9b",
+     "rssi": -80
+    },
+    {
+     "mac": "8c:8d:28:15:4a:6d",
+     "rssi": -76,
+     "vendor": "Intel Corporate"
+    }
+   ],
+   "vendor": "Arcadyan Technology"
+  },
+  {
+   "bssid": "48:46:fb:23:37:cd",
+   "ssid": "_The Cloud",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "Open",
+   "clients": [
+    {
+     "mac": "a2:d1:3c:44:7e:33",
+     "rssi": -78
+    },
+    {
+     "mac": "54:60:09:e5:61:43",
+     "rssi": -70,
+     "vendor": "Google"
+    }
+   ],
+   "vendor": "Huawei"
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "ba:e8:41:f7:45:c5",
+   "rssi": -71
+  },
+  {
+   "mac": "74:c2:46:61:51:64",
+   "rssi": -64
+  },
+  {
+   "mac": "3c:a9:f4:d7:18:35",
+   "rssi": -60,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "88:36:6c:fb:96:59",
+   "rssi": -72
+  },
+  {
+   "mac": "f2:8f:6c:68:08:23",
+   "rssi": -61
+  }
+ ]
+}

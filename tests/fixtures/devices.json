@@ -1,0 +1,292 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "44:4e:6d:aa:bb:10",
+   "ssid": "BT Smart Hub",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -50,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "3c:22:fb:10:20:31",
+     "rssi": -55,
+     "vendor": "Apple"
+    },
+    {
+     "mac": "8c:f5:a3:11:21:32",
+     "rssi": -61,
+     "vendor": "Samsung Electronics"
+    }
+   ],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299929
+  },
+  {
+   "bssid": "44:4e:6d:aa:bb:11",
+   "ssid": "BT Smart Hub",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -52,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299931
+  },
+  {
+   "bssid": "44:4e:6d:aa:bb:12",
+   "ssid": "BT Smart Hub",
+   "channel": 37,
+   "band": "6GHz",
+   "freq": 6135,
+   "rssi": -60,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299932
+  },
+  {
+   "bssid": "78:8a:20:cc:dd:20",
+   "ssid": "UniFi-Home",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -55,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789300000
+  },
+  {
+   "bssid": "78:8a:20:cc:dd:21",
+   "ssid": "UniFi-Home",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -57,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299982
+  },
+  {
+   "bssid": "50:c7:bf:ee:00:40",
+   "ssid": "Office-Main",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "24:6f:28:aa:bb:cc",
+     "rssi": -52,
+     "vendor": "Espressif"
+    }
+   ],
+   "vendor": "TP-Link",
+   "last_seen": 1789299945
+  },
+  {
+   "bssid": "50:c7:bf:ee:00:41",
+   "ssid": "Office-Guest",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -49,
+   "security": "Open",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299742
+  },
+  {
+   "bssid": "50:c7:bf:ee:00:42",
+   "ssid": "Office-IoT",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -50,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299959
+  },
+  {
+   "bssid": "50:c7:bf:ee:00:43",
+   "ssid": "Office-Voice",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -51,
+   "security": "WPA3",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299943
+  },
+  {
+   "bssid": "24:de:c6:01:00:01",
+   "ssid": "eduroam",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -58,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299929
+  },
+  {
+   "bssid": "58:97:bd:02:00:01",
+   "ssid": "eduroam",
+   "channel": 48,
+   "band": "5GHz",
+   "freq": 5240,
+   "rssi": -63,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Cisco Systems",
+   "last_seen": 1789299937
+  },
+  {
+   "bssid": "9c:1c:12:03:00:01",
+   "ssid": "eduroam",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299979
+  },
+  {
+   "bssid": "f0:9f:c2:04:00:01",
+   "ssid": "GuestNet",
+   "channel": 157,
+   "band": "5GHz",
+   "freq": 5785,
+   "rssi": -61,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299799
+  },
+  {
+   "bssid": "b8:ec:a3:05:00:01",
+   "ssid": "GuestNet",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Zyxel",
+   "last_seen": 1789299720
+  },
+  {
+   "bssid": "9c:3d:cf:07:00:01",
+   "ssid": "Netgear-Home",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Netgear",
+   "last_seen": 1789299932
+  },
+  {
+   "bssid": "2c:fd:a1:08:00:01",
+   "ssid": "ASUS-RT",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -72,
+   "security": "WPA3",
+   "clients": [],
+   "vendor": "ASUSTek",
+   "last_seen": 1789299991
+  },
+  {
+   "bssid": "a2:11:22:aa:bb:10",
+   "ssid": "AndroidAP-1",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -74,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "a2:11:22:aa:bb:11",
+   "ssid": "AndroidAP-2",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -76,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299951
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "3c:22:fb:44:55:66",
+   "rssi": -58,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "dc:a6:32:12:34:56",
+   "rssi": -64,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "64:cc:2e:77:88:99",
+   "rssi": -70,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "a6:31:42:53:64:75",
+   "rssi": -66,
+   "randomized": true
+  },
+  {
+   "mac": "ee:11:22:33:44:55",
+   "rssi": -80,
+   "randomized": true
+  },
+  {
+   "mac": "5c:aa:fd:0a:0b:0c",
+   "rssi": -60,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "94:65:2d:ab:cd:ef",
+   "rssi": -73,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "b2:44:55:66:77:88",
+   "rssi": -85,
+   "randomized": true
+  },
+  {
+   "mac": "48:46:fb:01:02:03",
+   "rssi": -68,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "84:cc:a8:aa:bb:cc",
+   "rssi": null,
+   "vendor": "Espressif"
+  }
+ ]
+}

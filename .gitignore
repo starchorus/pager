@@ -1,0 +1,22 @@
+# Runtime artifacts written by the collector / server
+starchorus.json
+*.tmp.*
+*.pid
+*.fifo
+collect.log
+cap/
+serve/
+.starchorus-http-handler.sh
+httpd.pid
+
+# Local backups, downloaded packages, OS cruft
+orig/
+ipk/
+*.ipk
+.DS_Store
+
+# Ephemeral verification/render output
+out/
+
+# Python bytecode from tools/*.py imports
+__pycache__/

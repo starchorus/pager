@@ -1,0 +1,3754 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "7c:03:ab:2e:15:ca",
+   "ssid": "PLUSNET-EE65",
+   "channel": 12,
+   "band": "2.4GHz",
+   "freq": 2467,
+   "rssi": -81,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299295
+  },
+  {
+   "bssid": "7c:03:ab:2e:15:cc",
+   "ssid": "PLUSNET-EE65",
+   "channel": 144,
+   "band": "5GHz",
+   "freq": 5720,
+   "rssi": -84,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299983
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e1",
+   "ssid": "",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -74,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299947
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e4",
+   "ssid": "",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -75,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299384
+  },
+  {
+   "bssid": "44:4e:6d:ed:a7:e5",
+   "ssid": "",
+   "channel": 169,
+   "band": "6GHz",
+   "freq": 6795,
+   "rssi": -73,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299188
+  },
+  {
+   "bssid": "00:e0:fc:93:0f:23",
+   "ssid": "_The Cloud",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -57,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789298843
+  },
+  {
+   "bssid": "00:e0:fc:93:0f:24",
+   "ssid": "_The Cloud",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -59,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299324
+  },
+  {
+   "bssid": "00:e0:fc:93:0f:25",
+   "ssid": "_The Cloud",
+   "channel": 5,
+   "band": "6GHz",
+   "freq": 5975,
+   "rssi": -59,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299808
+  },
+  {
+   "bssid": "48:46:fb:65:8a:ac",
+   "ssid": "HUAWEI-0661",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -73,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299471
+  },
+  {
+   "bssid": "48:46:fb:65:8a:ad",
+   "ssid": "HUAWEI-0661",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299278
+  },
+  {
+   "bssid": "00:e0:fc:5a:60:e5",
+   "ssid": "BTWi-fi",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -76,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299500
+  },
+  {
+   "bssid": "00:e0:fc:5a:60:e9",
+   "ssid": "BTWi-fi",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -83,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299694
+  },
+  {
+   "bssid": "48:46:fb:5f:c9:33",
+   "ssid": "",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -35,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299742
+  },
+  {
+   "bssid": "48:46:fb:5f:c9:34",
+   "ssid": "",
+   "channel": 165,
+   "band": "5GHz",
+   "freq": 5825,
+   "rssi": -36,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299113
+  },
+  {
+   "bssid": "f0:9f:c2:7c:07:bc",
+   "ssid": "GuestNet",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -87,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789298863
+  },
+  {
+   "bssid": "f0:9f:c2:7c:07:c0",
+   "ssid": "GuestNet",
+   "channel": 140,
+   "band": "5GHz",
+   "freq": 5700,
+   "rssi": -80,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299135
+  },
+  {
+   "bssid": "44:4e:6d:61:51:64",
+   "ssid": "BT-WholeHome",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -75,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299737
+  },
+  {
+   "bssid": "44:4e:6d:61:51:65",
+   "ssid": "BT-WholeHome",
+   "channel": 120,
+   "band": "5GHz",
+   "freq": 5600,
+   "rssi": -72,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299785
+  },
+  {
+   "bssid": "44:4e:6d:61:51:66",
+   "ssid": "BT-WholeHome",
+   "channel": 25,
+   "band": "6GHz",
+   "freq": 6075,
+   "rssi": -71,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299158
+  },
+  {
+   "bssid": "48:46:fb:fb:96:59",
+   "ssid": "BTWi-fi",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -71,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299501
+  },
+  {
+   "bssid": "48:46:fb:fb:96:5a",
+   "ssid": "BTWi-fi",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -74,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299523
+  },
+  {
+   "bssid": "48:46:fb:25:8f:6c",
+   "ssid": "BTWi-fi",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -69,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299407
+  },
+  {
+   "bssid": "48:46:fb:25:8f:6e",
+   "ssid": "BTWi-fi",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -73,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789298915
+  },
+  {
+   "bssid": "7c:03:ab:e6:a9:47",
+   "ssid": "PLUSNET-1159",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -79,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299870
+  },
+  {
+   "bssid": "7c:03:ab:e6:a9:48",
+   "ssid": "PLUSNET-1159",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -77,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299603
+  },
+  {
+   "bssid": "8c:f5:a3:25:26:e7",
+   "ssid": "Lisa's Galaxy S23",
+   "channel": 136,
+   "band": "5GHz",
+   "freq": 5680,
+   "rssi": -71,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Samsung Electronics",
+   "last_seen": 1789299769
+  },
+  {
+   "bssid": "00:e0:fc:ff:07:c3",
+   "ssid": "SKY14AB",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -50,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299871
+  },
+  {
+   "bssid": "3c:a6:2f:ea:e1:ec",
+   "ssid": "BT-Hub6-38",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -46,
+   "security": "WPA3",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789298958
+  },
+  {
+   "bssid": "3c:a6:2f:ea:e1:ed",
+   "ssid": "BT-Hub6-38",
+   "channel": 132,
+   "band": "5GHz",
+   "freq": 5660,
+   "rssi": -48,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299897
+  },
+  {
+   "bssid": "78:8a:20:fe:f8:82",
+   "ssid": "GuestNet",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -75,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299604
+  },
+  {
+   "bssid": "78:8a:20:fe:f8:85",
+   "ssid": "GuestNet",
+   "channel": 104,
+   "band": "5GHz",
+   "freq": 5520,
+   "rssi": -73,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299053
+  },
+  {
+   "bssid": "7c:03:ab:a2:6b:45",
+   "ssid": "VMAEF7AC8",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -47,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299451
+  },
+  {
+   "bssid": "48:46:fb:fc:a1:e7",
+   "ssid": "SKY1285",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299228
+  },
+  {
+   "bssid": "00:1b:d4:cf:e8:61",
+   "ssid": "DIRECT-18-HP OfficeJet",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -63,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789298454
+  },
+  {
+   "bssid": "b0:be:76:27:65:66",
+   "ssid": "TP-Link_8741",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -67,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299692
+  },
+  {
+   "bssid": "b0:be:76:51:c9:72",
+   "ssid": "TP-Link_1578",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -61,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789298601
+  },
+  {
+   "bssid": "b0:be:76:51:c9:78",
+   "ssid": "TP-Link_1578",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -66,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299432
+  },
+  {
+   "bssid": "f0:9f:c2:af:ed:a7",
+   "ssid": "GuestNet",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -65,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299567
+  },
+  {
+   "bssid": "70:b3:d5:9e:a4:86",
+   "ssid": "O\"Neil & Sons Guest",
+   "channel": 157,
+   "band": "5GHz",
+   "freq": 5785,
+   "rssi": -75,
+   "security": "Open",
+   "clients": [],
+   "vendor": "O\"Neil & Sons",
+   "last_seen": 1789299122
+  },
+  {
+   "bssid": "3c:a6:2f:20:db:11",
+   "ssid": "BT-Hub6-EA",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -50,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299914
+  },
+  {
+   "bssid": "3c:a6:2f:20:db:14",
+   "ssid": "BT-Hub6-EA",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -50,
+   "security": "WPA3",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299429
+  },
+  {
+   "bssid": "3c:a6:2f:e0:94:54",
+   "ssid": "BT-WholeHome",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -66,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299717
+  },
+  {
+   "bssid": "3c:a6:2f:e0:94:59",
+   "ssid": "BT-WholeHome",
+   "channel": 100,
+   "band": "5GHz",
+   "freq": 5500,
+   "rssi": -67,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299536
+  },
+  {
+   "bssid": "3c:a6:2f:e0:94:5e",
+   "ssid": "BT-WholeHome",
+   "channel": 60,
+   "band": "5GHz",
+   "freq": 5300,
+   "rssi": -63,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299039
+  },
+  {
+   "bssid": "7c:03:ab:16:cd:3e",
+   "ssid": "",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -63,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299755
+  },
+  {
+   "bssid": "7c:03:ab:16:cd:43",
+   "ssid": "",
+   "channel": 124,
+   "band": "5GHz",
+   "freq": 5620,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299378
+  },
+  {
+   "bssid": "34:2c:c4:f3:a2:37",
+   "ssid": "PLUSNET-C87F",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -54,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299627
+  },
+  {
+   "bssid": "34:2c:c4:f3:a2:39",
+   "ssid": "PLUSNET-C87F",
+   "channel": 157,
+   "band": "5GHz",
+   "freq": 5785,
+   "rssi": -56,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789298846
+  },
+  {
+   "bssid": "50:c7:bf:b5:7d:ff",
+   "ssid": "TP-Link_Extender",
+   "channel": 48,
+   "band": "5GHz",
+   "freq": 5240,
+   "rssi": -80,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299669
+  },
+  {
+   "bssid": "00:e0:fc:6f:6e:45",
+   "ssid": "HUAWEI-86D0",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -65,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789298459
+  },
+  {
+   "bssid": "00:e0:fc:6f:6e:4b",
+   "ssid": "HUAWEI-86D0",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -65,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789298495
+  },
+  {
+   "bssid": "7c:03:ab:de:d7:40",
+   "ssid": "EE-Hub-A666",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -83,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299401
+  },
+  {
+   "bssid": "24:a4:3c:3b:af:60",
+   "ssid": "Office-5G",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -63,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299692
+  },
+  {
+   "bssid": "50:c7:bf:1f:44:ec",
+   "ssid": "TP-Link_F465",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -41,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299837
+  },
+  {
+   "bssid": "b0:be:76:14:66:5c",
+   "ssid": "TP-Link_ACED",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -72,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299080
+  },
+  {
+   "bssid": "b0:be:76:14:66:5e",
+   "ssid": "TP-Link_ACED",
+   "channel": 144,
+   "band": "5GHz",
+   "freq": 5720,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789298812
+  },
+  {
+   "bssid": "24:de:c6:cf:61:ae",
+   "ssid": "eduroam",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -71,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299464
+  },
+  {
+   "bssid": "24:de:c6:cf:61:b4",
+   "ssid": "eduroam",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299874
+  },
+  {
+   "bssid": "24:de:c6:51:cf:44",
+   "ssid": "eduroam",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299841
+  },
+  {
+   "bssid": "24:de:c6:51:cf:48",
+   "ssid": "eduroam",
+   "channel": 165,
+   "band": "5GHz",
+   "freq": 5825,
+   "rssi": -76,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299763
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "b8:27:eb:41:7a:f6",
+   "rssi": -71,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "48:46:fb:8c:8b:61",
+   "rssi": -80,
+   "probes": [
+    "Airport_Free_WiFi"
+   ]
+  },
+  {
+   "mac": "54:60:09:14:1f:04",
+   "rssi": -70,
+   "vendor": "Google"
+  },
+  {
+   "mac": "8c:8d:28:71:8e:25",
+   "rssi": -67
+  },
+  {
+   "mac": "94:65:2d:f5:b5:6b",
+   "rssi": -69,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "22:e5:6d:e3:d9:84",
+   "rssi": -68
+  },
+  {
+   "mac": "e4:5f:01:94:5e:da",
+   "rssi": -70
+  },
+  {
+   "mac": "e4:5f:01:28:2a:dd",
+   "rssi": -69
+  },
+  {
+   "mac": "50:32:75:9e:6d:29",
+   "rssi": -74,
+   "probes": [
+    "Office-5G",
+    "TP-Link_ACED",
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "e4:5f:01:90:49:70",
+   "rssi": -77,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "34:7e:5c:e0:9c:ea",
+   "rssi": -74,
+   "vendor": "Sonos",
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "SKY1285",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "74:c2:46:2b:b9:bb",
+   "rssi": -70,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "28:18:78:c7:4f:5a",
+   "rssi": -82,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "b8:27:eb:0b:71:1d",
+   "rssi": -78,
+   "probes": [
+    "Sky WiFi",
+    "Starbucks WiFi",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "50:32:75:9c:2b:ab",
+   "rssi": -63,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "HUAWEI-86D0"
+   ]
+  },
+  {
+   "mac": "3c:a9:f4:0d:49:31",
+   "rssi": -74
+  },
+  {
+   "mac": "00:e0:fc:eb:c9:b3",
+   "rssi": -72,
+   "vendor": "Huawei",
+   "probes": [
+    "O\"Neil & Sons Guest"
+   ]
+  },
+  {
+   "mac": "70:b3:d5:f9:25:17",
+   "rssi": -67,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "3c:a9:f4:ed:0c:b9",
+   "rssi": -78,
+   "probes": [
+    "Office-5G",
+    "PLUSNET-EE65",
+    "TP-Link_8741"
+   ]
+  },
+  {
+   "mac": "88:36:6c:4a:7d:53",
+   "rssi": -83
+  },
+  {
+   "mac": "b8:27:eb:8c:1e:f1",
+   "rssi": -70,
+   "vendor": "Raspberry Pi Foundation",
+   "probes": [
+    "BT-Hub6",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "28:6c:07:1f:ea:08",
+   "rssi": -68
+  },
+  {
+   "mac": "66:f1:72:e2:5e:8f",
+   "rssi": -69,
+   "probes": [
+    "Office-5G",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "dc:a6:32:f5:85:f8",
+   "rssi": -71,
+   "probes": [
+    "_The Cloud"
+   ]
+  },
+  {
+   "mac": "94:65:2d:71:cc:19",
+   "rssi": -76,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "34:7e:5c:1d:79:05",
+   "rssi": -65,
+   "probes": [
+    "TP-Link_F465",
+    "Anna's iPhone",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:d4:50:a4",
+   "rssi": -77,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "84:cc:a8:88:1b:4d",
+   "rssi": -70
+  },
+  {
+   "mac": "42:b4:8a:31:f5:ef",
+   "rssi": -68
+  },
+  {
+   "mac": "d8:3a:dd:9b:09:60",
+   "rssi": -58,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "de:50:9f:a1:9f:cf",
+   "rssi": -62
+  },
+  {
+   "mac": "e2:b8:26:47:36:c9",
+   "rssi": -65
+  },
+  {
+   "mac": "e2:c1:f3:79:96:3a",
+   "rssi": -72
+  },
+  {
+   "mac": "66:94:c0:98:ac:c8",
+   "rssi": -83,
+   "probes": [
+    "GuestNet",
+    "AndroidAP",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "24:6f:28:a8:9e:8c",
+   "rssi": -68
+  },
+  {
+   "mac": "c2:34:48:30:43:5b",
+   "rssi": -70
+  },
+  {
+   "mac": "3c:a9:f4:33:74:10",
+   "rssi": -82,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "50:32:75:ae:da:47",
+   "rssi": -65,
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "TP-Link_1578",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "d2:cd:a2:7d:09:85",
+   "rssi": -69
+  },
+  {
+   "mac": "e2:c1:68:aa:96:34",
+   "rssi": -78
+  },
+  {
+   "mac": "f0:f0:a4:b4:48:65",
+   "rssi": -66
+  },
+  {
+   "mac": "54:60:09:0d:65:2a",
+   "rssi": -63,
+   "vendor": "Google"
+  },
+  {
+   "mac": "ba:ed:3f:e7:45:7a",
+   "rssi": -77
+  },
+  {
+   "mac": "50:32:75:87:56:ab",
+   "rssi": -69,
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "74:c2:46:b9:54:5f",
+   "rssi": -70
+  },
+  {
+   "mac": "04:5d:4b:5c:46:9d",
+   "rssi": -77
+  },
+  {
+   "mac": "a4:83:e7:51:66:d2",
+   "rssi": -65,
+   "vendor": "Apple",
+   "probes": [
+    "DIRECT-18-HP OfficeJet"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:58:ac:43",
+   "rssi": -77,
+   "vendor": "Sony",
+   "probes": [
+    "BTWi-fi",
+    "TP-Link_F465",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "4e:fe:34:f0:b0:d2",
+   "rssi": -77
+  },
+  {
+   "mac": "88:36:6c:90:f8:ed",
+   "rssi": -64
+  },
+  {
+   "mac": "00:e0:fc:dd:d7:0c",
+   "rssi": -78,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "e4:5f:01:9c:23:7d",
+   "rssi": -92,
+   "vendor": "Raspberry Pi Foundation",
+   "probes": [
+    "PLUSNET-C87F",
+    "BTWi-fi",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:1a:f3:35",
+   "rssi": -68
+  },
+  {
+   "mac": "2a:d7:54:71:d7:3e",
+   "rssi": -74
+  },
+  {
+   "mac": "42:e8:00:97:7c:99",
+   "rssi": -66
+  },
+  {
+   "mac": "04:5d:4b:48:b6:76",
+   "rssi": -43,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "94:65:2d:69:67:97",
+   "rssi": -88,
+   "probes": [
+    "Underground WiFi",
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "94:65:2d:08:58:67",
+   "rssi": -67
+  },
+  {
+   "mac": "8c:f5:a3:36:9c:a0",
+   "rssi": -70
+  },
+  {
+   "mac": "ee:28:56:72:9d:3d",
+   "rssi": -84,
+   "probes": [
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "56:97:8b:be:3b:75",
+   "rssi": -66
+  },
+  {
+   "mac": "42:ec:27:e1:25:17",
+   "rssi": -69,
+   "probes": [
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "3c:a9:f4:54:91:61",
+   "rssi": -45,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "28:6c:07:4d:11:ec",
+   "rssi": -75,
+   "probes": [
+    "Hotel-Guest",
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "2a:a4:f7:10:95:59",
+   "rssi": -58,
+   "probes": [
+    "GuestNet",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "24:6f:28:df:78:e1",
+   "rssi": -72,
+   "probes": [
+    "eduroam",
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "7e:85:12:67:1a:e5",
+   "rssi": -74,
+   "probes": [
+    "BT-Hub6",
+    "O2 Wifi",
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "42:fe:de:e2:86:0f",
+   "rssi": -82,
+   "probes": [
+    "Lisa's Galaxy S23",
+    "BT-Hub6-EA",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "74:c2:46:4a:1b:9f",
+   "rssi": -65,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "5c:aa:fd:ff:2d:57",
+   "rssi": -77,
+   "vendor": "Sonos",
+   "probes": [
+    "VMAEF7AC8"
+   ]
+  },
+  {
+   "mac": "00:a0:c6:1f:a1:d2",
+   "rssi": -82,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "f0:18:98:41:fa:44",
+   "rssi": -72,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "42:c9:98:f1:d9:27",
+   "rssi": -72
+  },
+  {
+   "mac": "f0:f0:a4:97:81:3c",
+   "rssi": -74,
+   "probes": [
+    "Office-5G",
+    "BTWi-fi",
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "00:e0:fc:6f:14:52",
+   "rssi": -87,
+   "vendor": "Huawei",
+   "probes": [
+    "BT-Hub6",
+    "Anna's iPhone",
+    "GWR WiFi"
+   ]
+  },
+  {
+   "mac": "a6:ec:c9:6d:c3:c1",
+   "rssi": -68
+  },
+  {
+   "mac": "5e:68:cc:6d:ef:9d",
+   "rssi": -71,
+   "probes": [
+    "BT-Hub6",
+    "_The Cloud"
+   ]
+  },
+  {
+   "mac": "28:6c:07:f9:68:c4",
+   "rssi": -66,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "28:6c:07:86:c9:6f",
+   "rssi": -54,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "74:c2:46:3d:0a:a4",
+   "rssi": -63
+  },
+  {
+   "mac": "98:b6:e9:a6:83:1c",
+   "rssi": -59,
+   "vendor": "Nintendo",
+   "probes": [
+    "PLUSNET-C87F",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:10:6a:9f",
+   "rssi": -76,
+   "vendor": "Espressif",
+   "probes": [
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:a0:e7:c1",
+   "rssi": -72,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "98:b6:e9:b6:73:34",
+   "rssi": -74,
+   "vendor": "Nintendo",
+   "probes": [
+    "BTWi-fi",
+    "SKY14AB"
+   ]
+  },
+  {
+   "mac": "12:f7:05:98:22:6e",
+   "rssi": -62
+  },
+  {
+   "mac": "28:18:78:78:84:2e",
+   "rssi": -74
+  },
+  {
+   "mac": "70:b3:d5:c4:a8:91",
+   "rssi": -69,
+   "vendor": "O\"Neil & Sons",
+   "probes": [
+    "SKY14AB",
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:b3:7a:2f",
+   "rssi": -68
+  },
+  {
+   "mac": "94:65:2d:83:9d:0b",
+   "rssi": -66
+  },
+  {
+   "mac": "ce:99:f0:a6:81:25",
+   "rssi": -60,
+   "probes": [
+    "TP-Link_Extender",
+    "PLUSNET-1159",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:5f:f0:c4",
+   "rssi": -53,
+   "probes": [
+    "EE-Hub-A666",
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:26:18:d2",
+   "rssi": -80,
+   "probes": [
+    "PLUSNET-1159",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "98:b6:e9:13:45:8b",
+   "rssi": -65,
+   "vendor": "Nintendo",
+   "probes": [
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "a4:cf:12:62:8a:74",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "3c:22:fb:7a:fc:28",
+   "rssi": -87,
+   "probes": [
+    "BTWi-fi",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "00:e0:fc:87:b1:35",
+   "rssi": -74,
+   "probes": [
+    "BT-Hub6",
+    "Lisa's Galaxy S23",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "54:60:09:52:51:aa",
+   "rssi": -74
+  },
+  {
+   "mac": "28:18:78:d4:92:bb",
+   "rssi": -82,
+   "probes": [
+    "PLUSNET-EE65",
+    "Airport_Free_WiFi"
+   ]
+  },
+  {
+   "mac": "56:20:23:34:9e:39",
+   "rssi": -72,
+   "probes": [
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "94:65:2d:14:53:d3",
+   "rssi": -67
+  },
+  {
+   "mac": "04:5d:4b:81:80:bc",
+   "rssi": -45,
+   "probes": [
+    "DIRECT-18-HP OfficeJet"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:d7:40:89",
+   "rssi": -78,
+   "probes": [
+    "Anna's iPhone",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:76:5e:07",
+   "rssi": -63,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "8e:81:cb:c5:47:18",
+   "rssi": -68,
+   "probes": [
+    "TP-Link_8741",
+    "Hotel-Guest",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "f0:18:98:63:92:b6",
+   "rssi": -86
+  },
+  {
+   "mac": "f6:bf:22:9e:e0:91",
+   "rssi": -68,
+   "probes": [
+    "PLUSNET-EE65",
+    "Starbucks WiFi",
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "88:36:6c:48:c7:6e",
+   "rssi": -68,
+   "probes": [
+    "PLUSNET-EE65",
+    "GWR WiFi",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "8e:dd:3d:4d:a5:09",
+   "rssi": -70
+  },
+  {
+   "mac": "34:7e:5c:cc:8c:a4",
+   "rssi": -69,
+   "vendor": "Sonos",
+   "probes": [
+    "Hotel-Guest",
+    "Airport_Free_WiFi",
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "22:9e:28:02:5d:ac",
+   "rssi": -75
+  },
+  {
+   "mac": "54:60:09:d1:f7:10",
+   "rssi": -68,
+   "vendor": "Google",
+   "probes": [
+    "AndroidAP",
+    "Airport_Free_WiFi",
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:8d:60:94",
+   "rssi": -74
+  },
+  {
+   "mac": "8c:f5:a3:5a:0d:56",
+   "rssi": -71
+  },
+  {
+   "mac": "50:32:75:ee:05:6b",
+   "rssi": -72,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "BT-Hub6",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:7d:fd:cc",
+   "rssi": -71,
+   "vendor": "Sonos",
+   "probes": [
+    "O2 Wifi",
+    "SKY1285"
+   ]
+  },
+  {
+   "mac": "94:65:2d:cd:d1:80",
+   "rssi": -78
+  },
+  {
+   "mac": "46:a5:c6:bd:8d:ba",
+   "rssi": -82
+  },
+  {
+   "mac": "a2:87:ab:6d:5c:6c",
+   "rssi": -77
+  },
+  {
+   "mac": "b2:4f:49:be:b3:5d",
+   "rssi": -40
+  },
+  {
+   "mac": "1e:30:a4:68:0a:59",
+   "rssi": -70
+  },
+  {
+   "mac": "5c:f8:a1:f2:70:ff",
+   "rssi": -72,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "82:c7:a4:5d:b6:05",
+   "rssi": -75,
+   "probes": [
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:b0:e1:d9",
+   "rssi": -76
+  },
+  {
+   "mac": "ee:ef:d6:c4:75:c0",
+   "rssi": -77
+  },
+  {
+   "mac": "ee:91:17:1b:a6:4d",
+   "rssi": -79
+  },
+  {
+   "mac": "8a:60:f0:cd:1a:40",
+   "rssi": -75,
+   "probes": [
+    "PLUSNET-1159",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "42:35:80:85:21:5e",
+   "rssi": -69
+  },
+  {
+   "mac": "5c:aa:fd:b2:e8:6a",
+   "rssi": -74,
+   "probes": [
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "50:32:75:36:e1:fb",
+   "rssi": -70
+  },
+  {
+   "mac": "8c:f5:a3:21:4d:bb",
+   "rssi": -67,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "Anna's iPhone",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "92:d5:5d:c6:0f:ee",
+   "rssi": -57
+  },
+  {
+   "mac": "6a:64:dc:c1:07:ad",
+   "rssi": -79
+  },
+  {
+   "mac": "f4:f5:d8:6b:5c:41",
+   "rssi": -63,
+   "vendor": "Google"
+  },
+  {
+   "mac": "82:84:b0:b7:9d:64",
+   "rssi": -85
+  },
+  {
+   "mac": "dc:a6:32:d1:66:4a",
+   "rssi": -38,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "42:30:b1:d5:78:fc",
+   "rssi": -78
+  },
+  {
+   "mac": "92:e8:73:f4:c6:65",
+   "rssi": -66,
+   "probes": [
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "da:90:e1:89:95:06",
+   "rssi": -78
+  },
+  {
+   "mac": "da:43:80:c6:d7:8e",
+   "rssi": -76,
+   "probes": [
+    "Airport_Free_WiFi",
+    "eduroam",
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "8c:8d:28:e8:6b:2d",
+   "rssi": -67
+  },
+  {
+   "mac": "a4:83:e7:4f:f0:25",
+   "rssi": -46,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "16:0a:ca:dd:75:38",
+   "rssi": -83
+  },
+  {
+   "mac": "f4:f5:d8:6b:fe:bd",
+   "rssi": -65
+  },
+  {
+   "mac": "22:55:81:f2:3d:dd",
+   "rssi": -69
+  },
+  {
+   "mac": "a4:83:e7:37:b3:d3",
+   "rssi": -59,
+   "probes": [
+    "TP-Link_8741",
+    "Airport_Free_WiFi",
+    "TP-Link_Extender"
+   ]
+  },
+  {
+   "mac": "3a:3f:22:79:42:2d",
+   "rssi": -71
+  },
+  {
+   "mac": "de:1b:6f:e7:57:35",
+   "rssi": -74
+  },
+  {
+   "mac": "8c:8d:28:4f:49:58",
+   "rssi": -66,
+   "vendor": "Intel Corporate",
+   "probes": [
+    "DIRECT-18-HP OfficeJet",
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "3c:22:fb:75:4e:38",
+   "rssi": -61,
+   "probes": [
+    "HUAWEI-86D0",
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "0e:38:fc:99:17:c7",
+   "rssi": -85,
+   "probes": [
+    "DIRECT-18-HP OfficeJet",
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "da:fa:68:46:31:c9",
+   "rssi": -68
+  },
+  {
+   "mac": "86:bc:2b:db:f4:c4",
+   "rssi": -70
+  },
+  {
+   "mac": "16:c3:a5:cc:72:32",
+   "rssi": -78
+  },
+  {
+   "mac": "be:75:f9:04:bf:d0",
+   "rssi": -69
+  },
+  {
+   "mac": "74:c2:46:bb:bc:9a",
+   "rssi": -64,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "5e:3c:b0:1b:2f:6d",
+   "rssi": -66,
+   "probes": [
+    "PLUSNET-1159",
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "28:18:78:cd:2d:92",
+   "rssi": -73,
+   "probes": [
+    "Starbucks WiFi",
+    "Hotel-Guest",
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "f0:f0:a4:80:a8:10",
+   "rssi": -61,
+   "vendor": "Amazon Technologies",
+   "probes": [
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "f2:ca:2a:46:ae:0b",
+   "rssi": -70
+  },
+  {
+   "mac": "f4:f5:d8:02:f5:d6",
+   "rssi": -81,
+   "vendor": "Google"
+  },
+  {
+   "mac": "2e:47:c1:e5:df:3c",
+   "rssi": -62,
+   "probes": [
+    "GuestNet",
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "50:32:75:3b:b6:39",
+   "rssi": -78
+  },
+  {
+   "mac": "62:d4:a5:47:3f:4f",
+   "rssi": -75
+  },
+  {
+   "mac": "f0:18:98:dd:c1:66",
+   "rssi": -81
+  },
+  {
+   "mac": "94:65:2d:35:55:a5",
+   "rssi": -82,
+   "vendor": "OnePlus",
+   "probes": [
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "be:c6:e7:ec:b7:4b",
+   "rssi": -72
+  },
+  {
+   "mac": "f0:f0:a4:85:b3:d2",
+   "rssi": -66,
+   "probes": [
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "8e:7c:6d:dd:21:5c",
+   "rssi": -73,
+   "probes": [
+    "Underground WiFi",
+    "eduroam",
+    "VMAEF7AC8"
+   ]
+  },
+  {
+   "mac": "f0:f0:a4:5f:34:9c",
+   "rssi": -66,
+   "probes": [
+    "Anna's iPhone",
+    "GWR WiFi",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "48:46:fb:51:fa:aa",
+   "rssi": -76,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "76:6f:66:b0:3d:53",
+   "rssi": -66
+  },
+  {
+   "mac": "28:18:78:a6:ba:37",
+   "rssi": -73,
+   "probes": [
+    "TP-Link_Extender",
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:38:7f:b7",
+   "rssi": -75,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "9a:81:43:86:f8:26",
+   "rssi": -60,
+   "probes": [
+    "SKY1285",
+    "O2 Wifi",
+    "BT-WholeHome"
+   ]
+  },
+  {
+   "mac": "98:b6:e9:51:43:2d",
+   "rssi": -73,
+   "probes": [
+    "DIRECT-18-HP OfficeJet",
+    "eduroam"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:9c:1b:da",
+   "rssi": -67
+  },
+  {
+   "mac": "28:18:78:b0:6e:8a",
+   "rssi": -71
+  },
+  {
+   "mac": "32:9a:01:34:3d:63",
+   "rssi": -77,
+   "probes": [
+    "SKY14AB",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "26:0f:d3:49:27:df",
+   "rssi": -77,
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "Hotel-Guest",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "be:65:34:d5:47:f8",
+   "rssi": -60
+  },
+  {
+   "mac": "3c:a9:f4:45:99:83",
+   "rssi": -73,
+   "vendor": "Intel Corporate",
+   "probes": [
+    "O2 Wifi",
+    "_The Cloud",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "a4:cf:12:da:0a:fa",
+   "rssi": -73,
+   "probes": [
+    "BTWi-fi",
+    "Sky WiFi",
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "52:50:10:37:39:98",
+   "rssi": -85,
+   "probes": [
+    "GWR WiFi"
+   ]
+  },
+  {
+   "mac": "a4:83:e7:d4:10:4c",
+   "rssi": -78
+  },
+  {
+   "mac": "3c:a9:f4:00:be:22",
+   "rssi": -80,
+   "probes": [
+    "Office-5G",
+    "eduroam"
+   ]
+  },
+  {
+   "mac": "f0:f0:a4:d0:b3:ab",
+   "rssi": -73,
+   "vendor": "Amazon Technologies",
+   "probes": [
+    "Office-5G",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "ba:b4:e8:78:d4:59",
+   "rssi": -68
+  },
+  {
+   "mac": "ee:71:aa:5e:79:85",
+   "rssi": -75
+  },
+  {
+   "mac": "96:21:9a:a8:68:11",
+   "rssi": -80,
+   "probes": [
+    "Sky WiFi",
+    "DIRECT-18-HP OfficeJet",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "3c:a9:f4:7d:e2:6f",
+   "rssi": -76,
+   "vendor": "Intel Corporate",
+   "probes": [
+    "SKY14AB",
+    "HUAWEI-0661",
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "2e:45:d6:77:ad:69",
+   "rssi": -66,
+   "probes": [
+    "O2 Wifi",
+    "Lisa's Galaxy S23",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "2e:07:1a:ff:10:c2",
+   "rssi": -65,
+   "probes": [
+    "HUAWEI-86D0",
+    "VMAEF7AC8",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "5e:73:a3:af:46:45",
+   "rssi": -75,
+   "probes": [
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "f0:18:98:62:79:45",
+   "rssi": -70
+  },
+  {
+   "mac": "28:18:78:be:3d:8b",
+   "rssi": -64,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "48:46:fb:19:3f:9d",
+   "rssi": -83,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "00:e0:4c:86:2f:29",
+   "rssi": -73,
+   "probes": [
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "d8:3a:dd:5f:52:a9",
+   "rssi": -93,
+   "probes": [
+    "BT-Hub6",
+    "TP-Link_ACED",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "00:a0:c6:b3:fa:ee",
+   "rssi": -64,
+   "vendor": "Qualcomm",
+   "probes": [
+    "PLUSNET-1159",
+    "TP-Link_F465",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:1a:90:53",
+   "rssi": -82,
+   "vendor": "Sony",
+   "probes": [
+    "PLUSNET-1159",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "a4:83:e7:0c:70:d9",
+   "rssi": -70
+  },
+  {
+   "mac": "06:9b:15:ac:85:bd",
+   "rssi": -76,
+   "probes": [
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "a6:b6:49:d5:db:eb",
+   "rssi": -78,
+   "probes": [
+    "Lisa's Galaxy S23",
+    "TP-Link_ACED",
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:ef:93:57",
+   "rssi": -65,
+   "probes": [
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:50:ad:91",
+   "rssi": -74
+  },
+  {
+   "mac": "c2:fe:cd:89:fe:ec",
+   "rssi": -65,
+   "probes": [
+    "Sky WiFi",
+    "Avanti WiFi",
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "42:8f:e2:19:2b:8f",
+   "rssi": -47,
+   "probes": [
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "c2:82:63:34:da:b4",
+   "rssi": -72,
+   "probes": [
+    "Hotel-Guest",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:a1:af:64",
+   "rssi": -65,
+   "probes": [
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "dc:a6:32:41:7e:8c",
+   "rssi": -75
+  },
+  {
+   "mac": "72:0b:af:f1:cc:21",
+   "rssi": -67,
+   "probes": [
+    "eduroam",
+    "Airport_Free_WiFi",
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "8a:c7:9f:82:5f:85",
+   "rssi": -61,
+   "probes": [
+    "Starbucks WiFi",
+    "TP-Link_Extender",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "8c:f5:a3:df:d0:c9",
+   "rssi": -74,
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "BT-Hub6-38",
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "70:b3:d5:fb:73:c4",
+   "rssi": -74,
+   "probes": [
+    "PLUSNET-EE65",
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "f0:f0:a4:3c:4e:dc",
+   "rssi": -89,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "8c:8d:28:a9:a8:1b",
+   "rssi": -68
+  },
+  {
+   "mac": "dc:a6:32:ed:1d:aa",
+   "rssi": -63,
+   "vendor": "Raspberry Pi Foundation",
+   "probes": [
+    "PLUSNET-EE65",
+    "GWR WiFi"
+   ]
+  },
+  {
+   "mac": "1e:7f:93:66:ba:7b",
+   "rssi": -70
+  },
+  {
+   "mac": "00:e0:fc:1a:b5:97",
+   "rssi": -72,
+   "probes": [
+    "BT-Hub6-38",
+    "Airport_Free_WiFi"
+   ]
+  },
+  {
+   "mac": "74:c2:46:f2:28:3e",
+   "rssi": -76,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "d8:3a:dd:80:d6:06",
+   "rssi": -77,
+   "probes": [
+    "BTWi-fi",
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "8a:89:15:1d:e9:1f",
+   "rssi": -72
+  },
+  {
+   "mac": "f6:81:1c:24:01:89",
+   "rssi": -74
+  },
+  {
+   "mac": "70:b3:d5:7d:ce:7a",
+   "rssi": -82
+  },
+  {
+   "mac": "46:1c:f2:ce:08:c4",
+   "rssi": -81
+  },
+  {
+   "mac": "7e:a1:3d:ab:9b:0b",
+   "rssi": -78,
+   "probes": [
+    "Lisa's Galaxy S23",
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "d8:3a:dd:d2:cc:62",
+   "rssi": -67,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "5c:f8:a1:68:e7:de",
+   "rssi": -74,
+   "vendor": "Murata Manufacturing",
+   "probes": [
+    "PLUSNET-1159",
+    "AndroidAP",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "dc:a6:32:2d:e9:f2",
+   "rssi": -79,
+   "probes": [
+    "PLUSNET-EE65",
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:26:74:97",
+   "rssi": -77,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "00:a0:c6:de:6c:98",
+   "rssi": -80,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "c2:d5:b0:da:84:2e",
+   "rssi": -90
+  },
+  {
+   "mac": "ca:64:de:1e:ff:1a",
+   "rssi": -76,
+   "probes": [
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "00:e0:fc:ba:f4:80",
+   "rssi": -69,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "64:cc:2e:0c:45:a6",
+   "rssi": -78,
+   "probes": [
+    "eduroam"
+   ]
+  },
+  {
+   "mac": "fa:55:fd:f9:94:d7",
+   "rssi": -61
+  },
+  {
+   "mac": "1e:ec:e1:0b:94:b4",
+   "rssi": -71
+  },
+  {
+   "mac": "64:cc:2e:ba:6e:c2",
+   "rssi": -71
+  },
+  {
+   "mac": "d8:3a:dd:0c:bf:cb",
+   "rssi": -72,
+   "probes": [
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "74:c2:46:69:5b:0d",
+   "rssi": -77,
+   "vendor": "Amazon Technologies",
+   "probes": [
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "54:60:09:87:0a:fa",
+   "rssi": -60,
+   "vendor": "Google",
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "AndroidAP",
+    "_The Cloud"
+   ]
+  },
+  {
+   "mac": "ba:ac:6f:f2:a0:0e",
+   "rssi": -75
+  },
+  {
+   "mac": "b8:27:eb:b7:72:72",
+   "rssi": -77,
+   "probes": [
+    "SKY1285",
+    "Airport_Free_WiFi",
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "5c:f8:a1:59:5d:57",
+   "rssi": -81,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "a6:f5:ba:1e:75:fc",
+   "rssi": -84,
+   "probes": [
+    "Office-5G",
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "02:a5:16:b4:fb:c5",
+   "rssi": -62,
+   "probes": [
+    "TP-Link_1578"
+   ]
+  },
+  {
+   "mac": "06:8b:16:4e:a5:1b",
+   "rssi": -69
+  },
+  {
+   "mac": "28:18:78:01:7f:95",
+   "rssi": -74,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "52:53:31:f0:61:9f",
+   "rssi": -43
+  },
+  {
+   "mac": "00:e0:4c:7d:d3:c7",
+   "rssi": -64,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "f0:f0:a4:91:0b:97",
+   "rssi": -80,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "6a:ec:be:e8:2e:cb",
+   "rssi": -90
+  },
+  {
+   "mac": "62:38:7e:ab:da:9e",
+   "rssi": -69
+  },
+  {
+   "mac": "24:6f:28:06:4b:c7",
+   "rssi": -41,
+   "probes": [
+    "SKY14AB",
+    "GuestNet"
+   ]
+  },
+  {
+   "mac": "8c:f5:a3:58:23:ed",
+   "rssi": -91,
+   "probes": [
+    "AndroidAP",
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "00:e0:4c:ac:09:06",
+   "rssi": -66,
+   "vendor": "Realtek",
+   "probes": [
+    "TP-Link_1578",
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "00:e0:fc:5a:33:5e",
+   "rssi": -71,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "64:cc:2e:1d:b0:11",
+   "rssi": -70
+  },
+  {
+   "mac": "94:65:2d:a4:84:5e",
+   "rssi": -70,
+   "vendor": "OnePlus",
+   "probes": [
+    "Anna's iPhone",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "1a:c4:81:c6:5e:d4",
+   "rssi": -81
+  },
+  {
+   "mac": "62:21:80:5f:79:c3",
+   "rssi": -67
+  },
+  {
+   "mac": "24:6f:28:c4:a3:fc",
+   "rssi": -73,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "32:b8:be:a8:c7:4b",
+   "rssi": -75
+  },
+  {
+   "mac": "28:6c:07:68:05:ff",
+   "rssi": -74
+  },
+  {
+   "mac": "f0:18:98:27:11:42",
+   "rssi": -77,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "98:b6:e9:53:ba:1a",
+   "rssi": -77,
+   "vendor": "Nintendo",
+   "probes": [
+    "TP-Link_Extender",
+    "TP-Link_1578"
+   ]
+  },
+  {
+   "mac": "74:c2:46:c3:4a:2c",
+   "rssi": -74
+  },
+  {
+   "mac": "12:75:92:5c:61:e6",
+   "rssi": -63,
+   "probes": [
+    "Lisa's Galaxy S23",
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "5e:d1:4c:c1:31:c6",
+   "rssi": -69
+  },
+  {
+   "mac": "a2:d8:c8:94:92:43",
+   "rssi": -55
+  },
+  {
+   "mac": "28:18:78:37:14:87",
+   "rssi": -63,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "28:6c:07:c9:ae:80",
+   "rssi": -72,
+   "vendor": "Xiaomi",
+   "probes": [
+    "Avanti WiFi",
+    "SKY14AB"
+   ]
+  },
+  {
+   "mac": "28:18:78:8e:77:f7",
+   "rssi": -83,
+   "probes": [
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:1f:de:8f",
+   "rssi": -68,
+   "vendor": "Espressif",
+   "probes": [
+    "BTWi-fi",
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "34:7e:5c:e5:0f:86",
+   "rssi": -67,
+   "vendor": "Sonos",
+   "probes": [
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "ca:00:3a:00:01:a8",
+   "rssi": -78,
+   "probes": [
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "d8:3a:dd:0d:21:dc",
+   "rssi": -77
+  },
+  {
+   "mac": "88:36:6c:89:a2:cb",
+   "rssi": -82,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "a4:cf:12:67:40:52",
+   "rssi": -71
+  },
+  {
+   "mac": "b2:bd:32:12:47:eb",
+   "rssi": -67
+  },
+  {
+   "mac": "8e:be:39:1d:0d:f3",
+   "rssi": -79,
+   "probes": [
+    "TP-Link_8741",
+    "Anna's iPhone",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "b6:2f:b0:3d:be:be",
+   "rssi": -68,
+   "probes": [
+    "TP-Link_Extender"
+   ]
+  },
+  {
+   "mac": "74:c2:46:1b:a7:92",
+   "rssi": -71,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "5c:aa:fd:f6:50:88",
+   "rssi": -76,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "8c:8d:28:94:25:e9",
+   "rssi": -70
+  },
+  {
+   "mac": "04:5d:4b:f5:b6:29",
+   "rssi": -75
+  },
+  {
+   "mac": "a4:cf:12:e3:4c:d8",
+   "rssi": -36,
+   "vendor": "Espressif",
+   "probes": [
+    "O2 Wifi",
+    "Airport_Free_WiFi"
+   ]
+  },
+  {
+   "mac": "9a:bc:c4:6d:05:01",
+   "rssi": -56
+  },
+  {
+   "mac": "26:6d:aa:e4:5d:1a",
+   "rssi": -75
+  },
+  {
+   "mac": "4e:26:37:13:aa:f0",
+   "rssi": -72,
+   "probes": [
+    "SKY14AB",
+    "Sky WiFi"
+   ]
+  },
+  {
+   "mac": "28:6c:07:f0:fd:9a",
+   "rssi": -62,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "50:32:75:d6:50:ea",
+   "rssi": -77
+  },
+  {
+   "mac": "f0:18:98:7a:47:91",
+   "rssi": -74,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "5a:7c:ac:d7:72:ed",
+   "rssi": -86,
+   "probes": [
+    "PLUSNET-1159",
+    "_The Cloud"
+   ]
+  },
+  {
+   "mac": "de:f8:ba:65:bc:27",
+   "rssi": -77
+  },
+  {
+   "mac": "74:c2:46:41:2e:dd",
+   "rssi": -72,
+   "vendor": "Amazon Technologies",
+   "probes": [
+    "GWR WiFi",
+    "Office-5G",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:b4:ee:b4",
+   "rssi": -77
+  },
+  {
+   "mac": "a4:cf:12:93:c5:16",
+   "rssi": -67,
+   "vendor": "Espressif",
+   "probes": [
+    "TP-Link_F465",
+    "PLUSNET-EE65",
+    "TP-Link_8741"
+   ]
+  },
+  {
+   "mac": "dc:a6:32:c1:3b:48",
+   "rssi": -63,
+   "probes": [
+    "TP-Link_F465",
+    "BT-Hub6-38",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:fa:73:30",
+   "rssi": -65,
+   "probes": [
+    "SKY14AB"
+   ]
+  },
+  {
+   "mac": "da:9c:f5:0f:6b:a6",
+   "rssi": -76,
+   "probes": [
+    "DIRECT-18-HP OfficeJet"
+   ]
+  },
+  {
+   "mac": "d2:2a:07:7b:e8:ef",
+   "rssi": -71
+  },
+  {
+   "mac": "48:46:fb:84:44:b8",
+   "rssi": -73,
+   "probes": [
+    "BT-Hub6-38",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "24:6f:28:40:ae:2e",
+   "rssi": -70,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "dc:a6:32:a2:97:96",
+   "rssi": -76
+  },
+  {
+   "mac": "94:65:2d:43:a0:3d",
+   "rssi": -72,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "00:e0:4c:2f:4a:18",
+   "rssi": -79,
+   "probes": [
+    "Starbucks WiFi",
+    "BT-WholeHome"
+   ]
+  },
+  {
+   "mac": "24:6f:28:e0:47:ee",
+   "rssi": -68,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "ae:00:fc:c1:2f:6c",
+   "rssi": -78
+  },
+  {
+   "mac": "5e:a8:68:db:ec:15",
+   "rssi": -78
+  },
+  {
+   "mac": "6e:01:6d:c2:51:f3",
+   "rssi": -73,
+   "probes": [
+    "TP-Link_1578"
+   ]
+  },
+  {
+   "mac": "28:6c:07:fd:6a:3d",
+   "rssi": -75,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "4a:2e:7b:91:b2:df",
+   "rssi": -70
+  },
+  {
+   "mac": "be:a7:4a:4e:17:c6",
+   "rssi": -74
+  },
+  {
+   "mac": "f0:f0:a4:b3:0f:29",
+   "rssi": -65,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "42:c3:ac:5a:5e:35",
+   "rssi": -76,
+   "probes": [
+    "PLUSNET-C87F",
+    "AndroidAP",
+    "TP-Link_ACED"
+   ]
+  },
+  {
+   "mac": "26:60:c1:a1:f0:2e",
+   "rssi": -82
+  },
+  {
+   "mac": "ee:b5:2d:f1:33:86",
+   "rssi": -68,
+   "probes": [
+    "GWR WiFi",
+    "BT-WholeHome",
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "36:a8:66:72:3e:ea",
+   "rssi": -67,
+   "probes": [
+    "Lisa's Galaxy S23",
+    "GWR WiFi",
+    "DIRECT-18-HP OfficeJet"
+   ]
+  },
+  {
+   "mac": "e4:5f:01:68:2c:d4",
+   "rssi": -70
+  },
+  {
+   "mac": "de:27:d4:24:d2:7d",
+   "rssi": -67,
+   "probes": [
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "00:e0:4c:74:ff:20",
+   "rssi": -70,
+   "probes": [
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:bc:08:e9",
+   "rssi": -73
+  },
+  {
+   "mac": "98:b6:e9:2f:8a:1a",
+   "rssi": -67,
+   "vendor": "Nintendo",
+   "probes": [
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "a4:83:e7:0e:b8:03",
+   "rssi": -69,
+   "vendor": "Apple",
+   "probes": [
+    "Lisa's Galaxy S23"
+   ]
+  },
+  {
+   "mac": "3e:fc:31:b0:c5:8a",
+   "rssi": -68,
+   "probes": [
+    "HUAWEI-86D0",
+    "TP-Link_1578",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "a4:cf:12:99:ec:1a",
+   "rssi": -69,
+   "probes": [
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "8c:f5:a3:f3:43:c0",
+   "rssi": -84,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "70:b3:d5:39:9d:dc",
+   "rssi": -68,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "34:7e:5c:29:d1:ec",
+   "rssi": -75,
+   "probes": [
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "f6:ad:57:35:c3:ec",
+   "rssi": -65
+  },
+  {
+   "mac": "34:7e:5c:38:5d:aa",
+   "rssi": -75,
+   "vendor": "Sonos",
+   "probes": [
+    "TP-Link_F465",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "06:7d:65:eb:f6:b2",
+   "rssi": -75
+  },
+  {
+   "mac": "06:2e:6b:15:79:33",
+   "rssi": -73,
+   "probes": [
+    "BT-Hub6-EA",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "3e:8e:f1:41:b3:8a",
+   "rssi": -69,
+   "probes": [
+    "Airport_Free_WiFi",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "e4:5f:01:45:4b:83",
+   "rssi": -86
+  },
+  {
+   "mac": "88:36:6c:ab:26:1e",
+   "rssi": -70,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "70:b3:d5:18:e4:66",
+   "rssi": -56,
+   "probes": [
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "ce:ec:69:4c:e7:e2",
+   "rssi": -78,
+   "probes": [
+    "EE-Hub-A666",
+    "AndroidAP",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "8c:8d:28:50:01:cb",
+   "rssi": -65
+  },
+  {
+   "mac": "84:cc:a8:0a:58:9d",
+   "rssi": -61,
+   "probes": [
+    "BT-Hub6-EA",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "2a:1b:1a:ef:f8:25",
+   "rssi": -59,
+   "probes": [
+    "BTWi-fi",
+    "TP-Link_Extender",
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "3c:22:fb:57:bb:ba",
+   "rssi": -64,
+   "vendor": "Apple",
+   "probes": [
+    "HUAWEI-86D0"
+   ]
+  },
+  {
+   "mac": "fe:65:11:6b:ec:cb",
+   "rssi": -90
+  },
+  {
+   "mac": "ca:8c:21:31:9c:ca",
+   "rssi": -86,
+   "probes": [
+    "eduroam",
+    "GuestNet",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "da:17:ad:64:9a:73",
+   "rssi": -77
+  },
+  {
+   "mac": "00:e0:fc:fa:88:b7",
+   "rssi": -79,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "4a:c1:1c:b1:42:7e",
+   "rssi": -73
+  },
+  {
+   "mac": "64:cc:2e:37:e0:ed",
+   "rssi": -62,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "34:7e:5c:1e:e1:c5",
+   "rssi": -89,
+   "probes": [
+    "BT-Hub6-38",
+    "BTWi-fi",
+    "Airport_Free_WiFi"
+   ]
+  },
+  {
+   "mac": "ee:a3:6b:81:b7:2d",
+   "rssi": -69
+  },
+  {
+   "mac": "94:65:2d:32:40:72",
+   "rssi": -72,
+   "probes": [
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "fe:fd:0e:e5:89:14",
+   "rssi": -60,
+   "probes": [
+    "Sky WiFi",
+    "Hotel-Guest",
+    "VMAEF7AC8"
+   ]
+  },
+  {
+   "mac": "e2:a8:5a:d4:a8:40",
+   "rssi": -72
+  },
+  {
+   "mac": "9a:2b:ca:bb:68:61",
+   "rssi": -77
+  },
+  {
+   "mac": "2e:1f:f1:53:19:ab",
+   "rssi": -73,
+   "probes": [
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "72:4b:0e:51:fc:d7",
+   "rssi": -67,
+   "probes": [
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "e4:5f:01:9c:60:dc",
+   "rssi": -74,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "46:a5:67:7d:97:4f",
+   "rssi": -92
+  },
+  {
+   "mac": "f2:bc:6e:22:57:97",
+   "rssi": -75
+  },
+  {
+   "mac": "b2:b6:17:68:dd:7a",
+   "rssi": -72,
+   "probes": [
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "8c:f5:a3:40:e2:32",
+   "rssi": -74,
+   "probes": [
+    "HUAWEI-0661"
+   ]
+  },
+  {
+   "mac": "74:c2:46:c9:87:01",
+   "rssi": -74
+  },
+  {
+   "mac": "f6:65:3f:f6:90:72",
+   "rssi": -72
+  },
+  {
+   "mac": "be:19:3d:1a:ec:c7",
+   "rssi": -65,
+   "probes": [
+    "PLUSNET-1159",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:02:7c:40",
+   "rssi": -72,
+   "vendor": "Google",
+   "probes": [
+    "Lisa's Galaxy S23",
+    "O2 Wifi",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "94:65:2d:d5:3a:07",
+   "rssi": -70,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "84:cc:a8:9b:e7:49",
+   "rssi": -80,
+   "vendor": "Espressif",
+   "probes": [
+    "Office-5G",
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:fa:5f:fc",
+   "rssi": -77
+  },
+  {
+   "mac": "ee:e0:45:94:8c:dc",
+   "rssi": -71,
+   "probes": [
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:62:8b:9a",
+   "rssi": -66,
+   "probes": [
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "a4:cf:12:21:bb:ec",
+   "rssi": -79,
+   "probes": [
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:2b:c1:ea",
+   "rssi": -86
+  },
+  {
+   "mac": "a4:cf:12:ea:20:46",
+   "rssi": -69,
+   "vendor": "Espressif",
+   "probes": [
+    "TP-Link_Extender"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:36:27:25",
+   "rssi": -73
+  },
+  {
+   "mac": "8c:f5:a3:0b:66:b1",
+   "rssi": -69,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "eduroam"
+   ]
+  },
+  {
+   "mac": "50:32:75:84:51:17",
+   "rssi": -68,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "Lisa's Galaxy S23",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:08:d2:0e",
+   "rssi": -68,
+   "vendor": "Google"
+  },
+  {
+   "mac": "3c:22:fb:b3:af:7e",
+   "rssi": -78,
+   "vendor": "Apple",
+   "probes": [
+    "Starbucks WiFi"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:86:65:84",
+   "rssi": -64,
+   "probes": [
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "b6:0d:83:13:9e:3a",
+   "rssi": -73,
+   "probes": [
+    "TP-Link_Extender"
+   ]
+  },
+  {
+   "mac": "66:ef:8b:60:ba:00",
+   "rssi": -76,
+   "probes": [
+    "TP-Link_ACED"
+   ]
+  },
+  {
+   "mac": "28:6c:07:7c:76:a5",
+   "rssi": -74,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "64:cc:2e:73:0e:7c",
+   "rssi": -76,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "b8:27:eb:12:57:78",
+   "rssi": -53,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "a4:83:e7:ca:e8:f1",
+   "rssi": -73,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "7a:67:03:63:28:5b",
+   "rssi": -69
+  },
+  {
+   "mac": "94:65:2d:f1:48:97",
+   "rssi": -68
+  },
+  {
+   "mac": "34:7e:5c:33:99:89",
+   "rssi": -64,
+   "probes": [
+    "VMAEF7AC8",
+    "HUAWEI-86D0"
+   ]
+  },
+  {
+   "mac": "28:6c:07:b6:4a:fd",
+   "rssi": -74
+  },
+  {
+   "mac": "e2:3d:08:a2:75:df",
+   "rssi": -66
+  },
+  {
+   "mac": "28:18:78:89:2e:19",
+   "rssi": -84,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "64:cc:2e:c8:b7:98",
+   "rssi": -71,
+   "vendor": "Xiaomi",
+   "probes": [
+    "TP-Link_F465",
+    "BTWi-fi",
+    "GWR WiFi"
+   ]
+  },
+  {
+   "mac": "7a:2d:e7:03:66:e5",
+   "rssi": -67,
+   "probes": [
+    "BT-Hub6-38"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:b6:bd:e1",
+   "rssi": -63,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "3c:22:fb:d9:a5:60",
+   "rssi": -86
+  },
+  {
+   "mac": "16:f9:b0:93:fc:51",
+   "rssi": -84,
+   "probes": [
+    "AndroidAP",
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "34:7e:5c:ee:f2:5a",
+   "rssi": -71,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "00:e0:fc:b8:82:de",
+   "rssi": -67,
+   "probes": [
+    "VMAEF7AC8"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:c3:e0:c9",
+   "rssi": -74,
+   "vendor": "Sonos",
+   "probes": [
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "5c:f8:a1:77:4d:63",
+   "rssi": -77,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "34:7e:5c:0f:5a:fd",
+   "rssi": -70,
+   "vendor": "Sonos",
+   "probes": [
+    "TP-Link_F465",
+    "Starbucks WiFi",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "e4:5f:01:06:1b:c8",
+   "rssi": -72,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "8c:8d:28:11:7a:f3",
+   "rssi": -63,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "de:72:66:51:fb:f8",
+   "rssi": -74
+  },
+  {
+   "mac": "5a:cb:34:74:05:86",
+   "rssi": -74
+  },
+  {
+   "mac": "00:e0:fc:7b:f6:e9",
+   "rssi": -73,
+   "vendor": "Huawei",
+   "probes": [
+    "Anna's iPhone",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "f0:18:98:38:2b:16",
+   "rssi": -72
+  },
+  {
+   "mac": "ea:4b:ec:76:e3:65",
+   "rssi": -61
+  },
+  {
+   "mac": "36:2a:72:5e:81:91",
+   "rssi": -66,
+   "probes": [
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "00:e0:4c:84:05:fc",
+   "rssi": -53
+  },
+  {
+   "mac": "e4:5f:01:d0:a2:23",
+   "rssi": -82
+  },
+  {
+   "mac": "fa:4b:ea:81:ce:09",
+   "rssi": -81
+  },
+  {
+   "mac": "5c:f8:a1:d9:bc:35",
+   "rssi": -65,
+   "vendor": "Murata Manufacturing",
+   "probes": [
+    "VMAEF7AC8",
+    "eduroam",
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "3c:a9:f4:b5:4f:3c",
+   "rssi": -72,
+   "vendor": "Intel Corporate",
+   "probes": [
+    "DIRECT-18-HP OfficeJet",
+    "BTWi-fi",
+    "BT-Hub6-38"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:9a:bc:06",
+   "rssi": -79,
+   "probes": [
+    "BT-Hub6"
+   ]
+  },
+  {
+   "mac": "00:e0:4c:77:0a:77",
+   "rssi": -68,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "f0:f0:a4:22:60:93",
+   "rssi": -38
+  },
+  {
+   "mac": "94:65:2d:d2:ec:bb",
+   "rssi": -65,
+   "probes": [
+    "Underground WiFi",
+    "_The Cloud",
+    "PLUSNET-EE65"
+   ]
+  },
+  {
+   "mac": "74:c2:46:34:23:93",
+   "rssi": -67,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "48:46:fb:db:7a:58",
+   "rssi": -82,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "e2:db:0a:d0:e5:e4",
+   "rssi": -68
+  },
+  {
+   "mac": "6a:d5:77:db:ba:8f",
+   "rssi": -76
+  },
+  {
+   "mac": "84:cc:a8:26:27:8f",
+   "rssi": -44
+  },
+  {
+   "mac": "52:c1:73:fd:aa:94",
+   "rssi": -63
+  },
+  {
+   "mac": "00:e0:4c:83:1e:d6",
+   "rssi": -59,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "b8:27:eb:20:bc:fd",
+   "rssi": -64,
+   "vendor": "Raspberry Pi Foundation",
+   "probes": [
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "f4:f5:d8:45:88:82",
+   "rssi": -68,
+   "probes": [
+    "BT-Hub6-EA",
+    "Airport_Free_WiFi",
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:61:3c:c7",
+   "rssi": -64,
+   "vendor": "Sonos",
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "BT-Hub6-EA"
+   ]
+  },
+  {
+   "mac": "04:5d:4b:47:bf:a7",
+   "rssi": -70,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "de:5b:2d:38:4f:9a",
+   "rssi": -79
+  },
+  {
+   "mac": "00:e0:fc:9b:b9:7c",
+   "rssi": -62,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "28:6c:07:db:69:35",
+   "rssi": -62
+  },
+  {
+   "mac": "00:e0:4c:d3:56:ea",
+   "rssi": -66,
+   "vendor": "Realtek",
+   "probes": [
+    "HUAWEI-0661",
+    "BT-WholeHome"
+   ]
+  },
+  {
+   "mac": "f2:d8:05:f8:1a:29",
+   "rssi": -76
+  },
+  {
+   "mac": "74:c2:46:4f:d3:e5",
+   "rssi": -64,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "12:a8:fd:2f:19:5a",
+   "rssi": -68,
+   "probes": [
+    "PLUSNET-1159"
+   ]
+  },
+  {
+   "mac": "da:3a:be:0d:51:30",
+   "rssi": -77
+  },
+  {
+   "mac": "64:cc:2e:98:df:9e",
+   "rssi": -80,
+   "vendor": "Xiaomi",
+   "probes": [
+    "PLUSNET-C87F",
+    "Airport_Free_WiFi",
+    "BT-WholeHome"
+   ]
+  },
+  {
+   "mac": "8c:8d:28:dd:4f:26",
+   "rssi": -89,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "d6:88:4b:f4:35:57",
+   "rssi": -71
+  },
+  {
+   "mac": "3c:22:fb:96:39:c7",
+   "rssi": -92,
+   "vendor": "Apple",
+   "probes": [
+    "Office-5G"
+   ]
+  },
+  {
+   "mac": "b8:27:eb:ad:c8:ef",
+   "rssi": -66,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "8c:f5:a3:35:df:d1",
+   "rssi": -56,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "f4:f5:d8:fa:fa:db",
+   "rssi": -68,
+   "vendor": "Google",
+   "probes": [
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "94:65:2d:a9:c6:c2",
+   "rssi": -75,
+   "vendor": "OnePlus",
+   "probes": [
+    "BT-Hub6",
+    "O2 Wifi",
+    "TP-Link_F465"
+   ]
+  },
+  {
+   "mac": "e6:8a:4c:2a:e9:28",
+   "rssi": -82
+  },
+  {
+   "mac": "b8:27:eb:18:d2:5b",
+   "rssi": -61,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "f0:18:98:c7:5c:f2",
+   "rssi": -69,
+   "probes": [
+    "Airport_Free_WiFi",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "8e:5f:55:a2:15:1e",
+   "rssi": -79
+  },
+  {
+   "mac": "de:49:3d:ee:9d:23",
+   "rssi": -72
+  },
+  {
+   "mac": "5a:59:11:5c:26:ba",
+   "rssi": -64,
+   "probes": [
+    "Anna's iPhone",
+    "BTWi-fi",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "f0:18:98:c3:d3:3e",
+   "rssi": -67
+  },
+  {
+   "mac": "98:b6:e9:69:c7:f6",
+   "rssi": -72,
+   "vendor": "Nintendo",
+   "probes": [
+    "Anna's iPhone",
+    "AndroidAP",
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "16:c0:72:e0:89:51",
+   "rssi": -69
+  },
+  {
+   "mac": "3c:a9:f4:e4:ef:03",
+   "rssi": -62,
+   "vendor": "Intel Corporate",
+   "probes": [
+    "Lisa's Galaxy S23",
+    "DIRECT-18-HP OfficeJet"
+   ]
+  },
+  {
+   "mac": "00:e0:fc:e0:47:8b",
+   "rssi": -86,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "e6:56:e0:6e:8c:b9",
+   "rssi": -64
+  },
+  {
+   "mac": "2a:1c:47:20:8f:ec",
+   "rssi": -80,
+   "probes": [
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "48:46:fb:e6:df:19",
+   "rssi": -52,
+   "vendor": "Huawei",
+   "probes": [
+    "GWR WiFi",
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "70:b3:d5:e0:2c:9b",
+   "rssi": -78,
+   "vendor": "O\"Neil & Sons",
+   "probes": [
+    "PLUSNET-C87F"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:bb:f5:8d",
+   "rssi": -77,
+   "vendor": "Sonos",
+   "probes": [
+    "GuestNet",
+    "AndroidAP"
+   ]
+  },
+  {
+   "mac": "d8:3a:dd:c0:99:a3",
+   "rssi": -85,
+   "vendor": "Åsgard Optics Ltd",
+   "probes": [
+    "PLUSNET-C87F",
+    "O2 Wifi"
+   ]
+  },
+  {
+   "mac": "84:cc:a8:5a:30:c6",
+   "rssi": -59,
+   "probes": [
+    "BTWi-fi"
+   ]
+  },
+  {
+   "mac": "8c:f5:a3:7c:38:c2",
+   "rssi": -68,
+   "probes": [
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "9e:6c:e7:29:98:f2",
+   "rssi": -78
+  },
+  {
+   "mac": "8c:8d:28:28:28:2c",
+   "rssi": -54,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "b8:27:eb:3e:25:6e",
+   "rssi": -80
+  },
+  {
+   "mac": "42:c8:dd:cc:93:18",
+   "rssi": -80,
+   "probes": [
+    "TP-Link_Extender",
+    "SKY14AB",
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "88:36:6c:70:79:6e",
+   "rssi": -70,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "b2:f5:26:2b:d8:b4",
+   "rssi": -70,
+   "probes": [
+    "AndroidAP",
+    "GWR WiFi"
+   ]
+  },
+  {
+   "mac": "a4:cf:12:07:b6:23",
+   "rssi": -43,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "dc:a6:32:c9:1a:f6",
+   "rssi": -75
+  },
+  {
+   "mac": "92:30:dc:71:d2:25",
+   "rssi": -80,
+   "probes": [
+    "SKY14AB"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:49:70:00",
+   "rssi": -68
+  },
+  {
+   "mac": "4a:6c:9e:88:77:cc",
+   "rssi": -64,
+   "probes": [
+    "eduroam",
+    "TP-Link_F465",
+    "Hotel-Guest"
+   ]
+  },
+  {
+   "mac": "3c:a9:f4:4a:8e:4a",
+   "rssi": -70,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "5c:f8:a1:c4:da:b8",
+   "rssi": -71,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "fa:76:ef:66:ff:e8",
+   "rssi": -68,
+   "probes": [
+    "O\"Neil & Sons Guest",
+    "TP-Link_1578"
+   ]
+  },
+  {
+   "mac": "24:6f:28:b4:48:41",
+   "rssi": -78,
+   "vendor": "Espressif",
+   "probes": [
+    "Avanti WiFi",
+    "PLUSNET-1159",
+    "TP-Link_1578"
+   ]
+  },
+  {
+   "mac": "5c:aa:fd:f4:fe:15",
+   "rssi": -75
+  },
+  {
+   "mac": "94:65:2d:05:f3:e9",
+   "rssi": -70
+  },
+  {
+   "mac": "dc:a6:32:71:bb:fd",
+   "rssi": -73,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "04:5d:4b:fe:f0:b1",
+   "rssi": -68,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "64:cc:2e:86:de:85",
+   "rssi": -69,
+   "probes": [
+    "Underground WiFi"
+   ]
+  },
+  {
+   "mac": "50:32:75:6c:13:76",
+   "rssi": -72,
+   "vendor": "Samsung Electronics",
+   "probes": [
+    "O2 Wifi",
+    "BTWi-fi",
+    "TP-Link_Extender"
+   ]
+  },
+  {
+   "mac": "64:cc:2e:71:2e:22",
+   "rssi": -70,
+   "probes": [
+    "EE-Hub-A666"
+   ]
+  },
+  {
+   "mac": "70:b3:d5:96:9c:9c",
+   "rssi": -81
+  },
+  {
+   "mac": "34:7e:5c:8f:99:33",
+   "rssi": -69
+  },
+  {
+   "mac": "e4:5f:01:bd:4c:1e",
+   "rssi": -72,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "34:7e:5c:b8:2a:2c",
+   "rssi": -71,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "00:e0:fc:4b:fb:1f",
+   "rssi": -75,
+   "probes": [
+    "PLUSNET-1159",
+    "Sky WiFi",
+    "Avanti WiFi"
+   ]
+  },
+  {
+   "mac": "00:a0:c6:12:7a:97",
+   "rssi": -60
+  },
+  {
+   "mac": "3c:a9:f4:2e:1f:a0",
+   "rssi": -46,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "50:32:75:04:22:40",
+   "rssi": -77
+  },
+  {
+   "mac": "a4:cf:12:46:75:e0",
+   "rssi": -68,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "3c:22:fb:b6:03:d6",
+   "rssi": -62,
+   "probes": [
+    "SKY1285"
+   ]
+  },
+  {
+   "mac": "3e:41:27:2f:1c:90",
+   "rssi": -73,
+   "probes": [
+    "TP-Link_F465",
+    "DIRECT-18-HP OfficeJet",
+    "Anna's iPhone"
+   ]
+  },
+  {
+   "mac": "00:e0:4c:cc:ab:b3",
+   "rssi": -64,
+   "probes": [
+    "BT-Hub6",
+    "TP-Link_Extender",
+    "BT-WholeHome"
+   ]
+  },
+  {
+   "mac": "be:f6:e0:71:f1:6e",
+   "rssi": -72
+  }
+ ]
+}

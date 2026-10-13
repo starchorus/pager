@@ -1,0 +1,6602 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "78:8a:20:2c:d8:10",
+   "ssid": "Office-5G",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -74,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299917
+  },
+  {
+   "bssid": "24:a4:3c:8e:03:51",
+   "ssid": "GuestNet",
+   "channel": 10,
+   "band": "2.4GHz",
+   "freq": 2457,
+   "rssi": -60,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299947
+  },
+  {
+   "bssid": "48:46:fb:eb:3f:c1",
+   "ssid": "SKY46A3",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -59,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299925
+  },
+  {
+   "bssid": "24:a4:3c:74:94:28",
+   "ssid": "",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -77,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "24:a4:3c:74:94:29",
+   "ssid": "",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -78,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299907
+  },
+  {
+   "bssid": "00:e0:fc:8a:70:a6",
+   "ssid": "SKYBB68",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -61,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299997
+  },
+  {
+   "bssid": "60:e3:27:a1:6c:ff",
+   "ssid": "TP-Link_Extender",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -66,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299996
+  },
+  {
+   "bssid": "48:46:fb:cc:b9:70",
+   "ssid": "BTWi-fi",
+   "channel": 13,
+   "band": "2.4GHz",
+   "freq": 2472,
+   "rssi": -59,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299955
+  },
+  {
+   "bssid": "48:46:fb:cc:b9:72",
+   "ssid": "BTWi-fi",
+   "channel": 132,
+   "band": "5GHz",
+   "freq": 5660,
+   "rssi": -64,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299877
+  },
+  {
+   "bssid": "58:97:bd:80:05:3a",
+   "ssid": "DIRECT-45-HP OfficeJet",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -72,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Cisco Systems",
+   "last_seen": 1789299979
+  },
+  {
+   "bssid": "54:60:09:86:5b:36",
+   "ssid": "Chromecast8A39",
+   "channel": 221,
+   "band": "6GHz",
+   "freq": 7055,
+   "rssi": -74,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299835
+  },
+  {
+   "bssid": "34:2c:c4:1d:7b:28",
+   "ssid": "VM64B50AF",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -56,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299802
+  },
+  {
+   "bssid": "9c:3d:cf:87:d8:6c",
+   "ssid": "NETGEAR-Legacy",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -78,
+   "security": "WEP",
+   "clients": [],
+   "vendor": "Netgear",
+   "last_seen": 1789299952
+  },
+  {
+   "bssid": "f4:f5:d8:20:ad:0a",
+   "ssid": "MeshNode-Garden",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -54,
+   "security": "OWE",
+   "clients": [],
+   "last_seen": 1789299829
+  },
+  {
+   "bssid": "f4:f5:d8:20:ad:0c",
+   "ssid": "MeshNode-Garden",
+   "channel": 140,
+   "band": "5GHz",
+   "freq": 5700,
+   "rssi": -51,
+   "security": "OWE",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299943
+  },
+  {
+   "bssid": "f4:f5:d8:20:ad:12",
+   "ssid": "MeshNode-Garden",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -50,
+   "security": "OWE",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299925
+  },
+  {
+   "bssid": "48:46:fb:f8:6d:43",
+   "ssid": "BTWi-fi",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -77,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299919
+  },
+  {
+   "bssid": "48:46:fb:f8:6d:45",
+   "ssid": "BTWi-fi",
+   "channel": 128,
+   "band": "5GHz",
+   "freq": 5640,
+   "rssi": -85,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299879
+  },
+  {
+   "bssid": "28:6c:07:32:1f:ce",
+   "ssid": "",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -51,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299796
+  },
+  {
+   "bssid": "28:6c:07:32:1f:d0",
+   "ssid": "",
+   "channel": 60,
+   "band": "5GHz",
+   "freq": 5300,
+   "rssi": -54,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Xiaomi",
+   "last_seen": 1789299980
+  },
+  {
+   "bssid": "34:2c:c4:26:e2:32",
+   "ssid": "Virgin Media WiFi",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299972
+  },
+  {
+   "bssid": "b8:27:eb:1e:54:c2",
+   "ssid": "Pi-Hole-AP",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -69,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Raspberry Pi Foundation",
+   "last_seen": 1789299704
+  },
+  {
+   "bssid": "48:46:fb:f9:4f:61",
+   "ssid": "_The Cloud",
+   "channel": 4,
+   "band": "2.4GHz",
+   "freq": 2427,
+   "rssi": -65,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299957
+  },
+  {
+   "bssid": "48:46:fb:f9:4f:66",
+   "ssid": "_The Cloud",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -72,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "50:c7:bf:78:ce:3d",
+   "ssid": "",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -56,
+   "security": "WEP",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299993
+  },
+  {
+   "bssid": "2c:91:ab:a0:7a:87",
+   "ssid": "BT Smart Hub",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299989
+  },
+  {
+   "bssid": "78:8a:20:33:25:6d",
+   "ssid": "Café-Guest",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -83,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299985
+  },
+  {
+   "bssid": "78:8a:20:33:25:6e",
+   "ssid": "Café-Guest",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -85,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "00:e0:fc:3b:36:4f",
+   "ssid": "SKY5E90",
+   "channel": 3,
+   "band": "2.4GHz",
+   "freq": 2422,
+   "rssi": -50,
+   "security": "WPA",
+   "clients": [],
+   "last_seen": 1789299929
+  },
+  {
+   "bssid": "00:e0:fc:3b:36:51",
+   "ssid": "SKY5E90",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -51,
+   "security": "WPA",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299920
+  },
+  {
+   "bssid": "f0:9f:c2:d8:8d:16",
+   "ssid": "Office-5G",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -52,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "70:b3:d5:26:4c:12",
+   "ssid": "",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -64,
+   "security": "Open",
+   "clients": [],
+   "vendor": "O\"Neil & Sons",
+   "last_seen": 1789299841
+  },
+  {
+   "bssid": "f0:9f:c2:14:b7:6b",
+   "ssid": "Village-Mesh",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -79,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299968
+  },
+  {
+   "bssid": "24:a4:3c:79:53:5a",
+   "ssid": "Village-Mesh",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -59,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299959
+  },
+  {
+   "bssid": "24:a4:3c:79:53:5b",
+   "ssid": "Village-Mesh",
+   "channel": 56,
+   "band": "5GHz",
+   "freq": 5280,
+   "rssi": -59,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299844
+  },
+  {
+   "bssid": "a4:83:e7:13:f0:71",
+   "ssid": "Max's iPhone",
+   "channel": 60,
+   "band": "5GHz",
+   "freq": 5300,
+   "rssi": -81,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299976
+  },
+  {
+   "bssid": "64:cc:2e:8e:b3:cc",
+   "ssid": "",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Xiaomi",
+   "last_seen": 1789299952
+  },
+  {
+   "bssid": "3c:a6:2f:b0:a0:df",
+   "ssid": "BT Smart Hub",
+   "channel": 7,
+   "band": "2.4GHz",
+   "freq": 2442,
+   "rssi": -84,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299917
+  },
+  {
+   "bssid": "3c:a6:2f:b0:a0:e4",
+   "ssid": "BT Smart Hub",
+   "channel": 48,
+   "band": "5GHz",
+   "freq": 5240,
+   "rssi": -87,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299898
+  },
+  {
+   "bssid": "48:46:fb:64:ba:dc",
+   "ssid": "BTWi-fi",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -84,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299829
+  },
+  {
+   "bssid": "48:46:fb:64:ba:e2",
+   "ssid": "BTWi-fi",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -90,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299992
+  },
+  {
+   "bssid": "48:46:fb:3f:99:9e",
+   "ssid": "BTWi-fi",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -90,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299954
+  },
+  {
+   "bssid": "48:46:fb:3f:99:a1",
+   "ssid": "BTWi-fi",
+   "channel": 116,
+   "band": "5GHz",
+   "freq": 5580,
+   "rssi": -90,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299825
+  },
+  {
+   "bssid": "9c:1c:12:9a:cf:00",
+   "ssid": "eduroam",
+   "channel": 4,
+   "band": "2.4GHz",
+   "freq": 2427,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299966
+  },
+  {
+   "bssid": "9c:1c:12:9a:cf:02",
+   "ssid": "eduroam",
+   "channel": 120,
+   "band": "5GHz",
+   "freq": 5600,
+   "rssi": -61,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299988
+  },
+  {
+   "bssid": "9c:1c:12:a4:ee:e2",
+   "ssid": "eduroam",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Aruba / HPE",
+   "last_seen": 1789299913
+  },
+  {
+   "bssid": "9c:1c:12:a4:ee:e4",
+   "ssid": "eduroam",
+   "channel": 132,
+   "band": "5GHz",
+   "freq": 5660,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299989
+  },
+  {
+   "bssid": "2c:fd:a1:9e:73:65",
+   "ssid": "ASUS_52_5G",
+   "channel": 37,
+   "band": "6GHz",
+   "freq": 6135,
+   "rssi": -80,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299896
+  },
+  {
+   "bssid": "44:4e:6d:c4:fd:cc",
+   "ssid": "BT Smart Hub",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -67,
+   "security": "OWE",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299778
+  },
+  {
+   "bssid": "5c:aa:fd:a2:e2:da",
+   "ssid": "Sonos-3D75E1",
+   "channel": 136,
+   "band": "5GHz",
+   "freq": 5680,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299960
+  },
+  {
+   "bssid": "34:2c:c4:8c:e1:27",
+   "ssid": "PLUSNET-5FE8",
+   "channel": 10,
+   "band": "2.4GHz",
+   "freq": 2457,
+   "rssi": -56,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299990
+  },
+  {
+   "bssid": "5c:aa:fd:1f:69:d7",
+   "ssid": "Sonos-2447C4",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -66,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299810
+  },
+  {
+   "bssid": "60:e3:27:d6:70:f9",
+   "ssid": "TP-Link_0CF0",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -53,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299994
+  },
+  {
+   "bssid": "60:e3:27:d6:70:fc",
+   "ssid": "TP-Link_0CF0",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -54,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "b0:be:76:41:0d:c9",
+   "ssid": "Corner Café Guest",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -77,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299781
+  },
+  {
+   "bssid": "b0:be:76:41:0d:cd",
+   "ssid": "Corner Café Guest",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -79,
+   "security": "Open",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299773
+  },
+  {
+   "bssid": "00:1b:d4:c2:8e:d7",
+   "ssid": "DIRECT-51-HP OfficeJet",
+   "channel": 2,
+   "band": "2.4GHz",
+   "freq": 2417,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299989
+  },
+  {
+   "bssid": "7c:03:ab:14:0f:7e",
+   "ssid": "Virgin Media WiFi",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -61,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299994
+  },
+  {
+   "bssid": "7c:03:ab:14:0f:7f",
+   "ssid": "Virgin Media WiFi",
+   "channel": 144,
+   "band": "5GHz",
+   "freq": 5720,
+   "rssi": -62,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299891
+  },
+  {
+   "bssid": "f0:9f:c2:3a:53:9f",
+   "ssid": "Café-Guest",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -55,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299930
+  },
+  {
+   "bssid": "3c:a6:2f:26:7c:34",
+   "ssid": "BT Smart Hub",
+   "channel": 10,
+   "band": "2.4GHz",
+   "freq": 2457,
+   "rssi": -70,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299963
+  },
+  {
+   "bssid": "3c:a6:2f:26:7c:35",
+   "ssid": "BT Smart Hub",
+   "channel": 140,
+   "band": "5GHz",
+   "freq": 5700,
+   "rssi": -67,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299824
+  },
+  {
+   "bssid": "b0:be:76:ae:06:d7",
+   "ssid": "TP-Link_Extender",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299850
+  },
+  {
+   "bssid": "b0:be:76:ae:06:dd",
+   "ssid": "TP-Link_Extender",
+   "channel": 124,
+   "band": "5GHz",
+   "freq": 5620,
+   "rssi": -67,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299909
+  },
+  {
+   "bssid": "f4:f5:d8:ee:df:89",
+   "ssid": "MeshNode-Garden",
+   "channel": 5,
+   "band": "2.4GHz",
+   "freq": 2432,
+   "rssi": -62,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299949
+  },
+  {
+   "bssid": "f4:f5:d8:ee:df:8c",
+   "ssid": "MeshNode-Garden",
+   "channel": 124,
+   "band": "5GHz",
+   "freq": 5620,
+   "rssi": -57,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299839
+  },
+  {
+   "bssid": "f4:f5:d8:ee:df:8e",
+   "ssid": "MeshNode-Garden",
+   "channel": 165,
+   "band": "5GHz",
+   "freq": 5825,
+   "rssi": -68,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Google",
+   "last_seen": 1789299940
+  },
+  {
+   "bssid": "48:46:fb:8d:05:61",
+   "ssid": "SKY0FA5",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299833
+  },
+  {
+   "bssid": "48:46:fb:8d:05:67",
+   "ssid": "SKY0FA5",
+   "channel": 120,
+   "band": "5GHz",
+   "freq": 5600,
+   "rssi": -78,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299904
+  },
+  {
+   "bssid": "60:e3:27:71:cf:7c",
+   "ssid": "Corner Café Guest",
+   "channel": 4,
+   "band": "2.4GHz",
+   "freq": 2427,
+   "rssi": -55,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299984
+  },
+  {
+   "bssid": "60:e3:27:71:cf:81",
+   "ssid": "Corner Café Guest",
+   "channel": 112,
+   "band": "5GHz",
+   "freq": 5560,
+   "rssi": -61,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299760
+  },
+  {
+   "bssid": "7c:03:ab:5e:62:6e",
+   "ssid": "PLUSNET-ABE8",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -57,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299844
+  },
+  {
+   "bssid": "7c:03:ab:5e:62:71",
+   "ssid": "PLUSNET-ABE8",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -64,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299945
+  },
+  {
+   "bssid": "78:8a:20:40:8c:17",
+   "ssid": "GuestNet",
+   "channel": 12,
+   "band": "2.4GHz",
+   "freq": 2467,
+   "rssi": -75,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299917
+  },
+  {
+   "bssid": "34:2c:c4:f5:e1:ae",
+   "ssid": "Virgin Media WiFi",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -72,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299891
+  },
+  {
+   "bssid": "b8:ec:a3:d5:73:c2",
+   "ssid": "TALKTALK2CF214",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -78,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299975
+  },
+  {
+   "bssid": "34:2c:c4:26:50:01",
+   "ssid": "PLUSNET-D913",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -62,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299988
+  },
+  {
+   "bssid": "2c:91:ab:77:87:65",
+   "ssid": "",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -55,
+   "security": "WPA3",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299989
+  },
+  {
+   "bssid": "2c:91:ab:77:87:6a",
+   "ssid": "",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -58,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299874
+  },
+  {
+   "bssid": "28:6c:07:8b:fc:e0",
+   "ssid": "Xiaomi_2159",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -65,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299940
+  },
+  {
+   "bssid": "28:6c:07:8b:fc:e1",
+   "ssid": "Xiaomi_2159",
+   "channel": 120,
+   "band": "5GHz",
+   "freq": 5600,
+   "rssi": -62,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Xiaomi",
+   "last_seen": 1789299982
+  },
+  {
+   "bssid": "2c:91:ab:89:14:59",
+   "ssid": "BT Smart Hub",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -67,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299994
+  },
+  {
+   "bssid": "24:a4:3c:2e:f0:b2",
+   "ssid": "Café-Guest",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -69,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299915
+  },
+  {
+   "bssid": "24:a4:3c:2e:f0:b4",
+   "ssid": "Café-Guest",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -69,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299758
+  },
+  {
+   "bssid": "34:2c:c4:ce:00:ec",
+   "ssid": "PLUSNET-F9C1",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299990
+  },
+  {
+   "bssid": "34:2c:c4:ce:00:f0",
+   "ssid": "PLUSNET-F9C1",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299997
+  },
+  {
+   "bssid": "34:2c:c4:7a:51:9f",
+   "ssid": "PLUSNET-1684",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -79,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299597
+  },
+  {
+   "bssid": "34:2c:c4:7a:51:a0",
+   "ssid": "PLUSNET-1684",
+   "channel": 124,
+   "band": "5GHz",
+   "freq": 5620,
+   "rssi": -80,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299940
+  },
+  {
+   "bssid": "a4:83:e7:d4:f7:f1",
+   "ssid": "Max's iPhone",
+   "channel": 2,
+   "band": "2.4GHz",
+   "freq": 2417,
+   "rssi": -49,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Apple",
+   "last_seen": 1789299781
+  },
+  {
+   "bssid": "84:cc:a8:fa:4c:e4",
+   "ssid": "ESP_428DA8",
+   "channel": 136,
+   "band": "5GHz",
+   "freq": 5680,
+   "rssi": -61,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299852
+  },
+  {
+   "bssid": "b8:ec:a3:c3:c5:4d",
+   "ssid": "TALKTALKACEA67",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -79,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Zyxel",
+   "last_seen": 1789299985
+  },
+  {
+   "bssid": "b8:ec:a3:c3:c5:52",
+   "ssid": "TALKTALKACEA67",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -83,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299932
+  },
+  {
+   "bssid": "58:97:bd:4f:26:f0",
+   "ssid": "DIRECT-E3-HP OfficeJet",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -58,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299998
+  },
+  {
+   "bssid": "48:46:fb:a2:f9:12",
+   "ssid": "_The Cloud",
+   "channel": 144,
+   "band": "5GHz",
+   "freq": 5720,
+   "rssi": -50,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299929
+  },
+  {
+   "bssid": "3c:a6:2f:32:33:e3",
+   "ssid": "BT Smart Hub",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -37,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299922
+  },
+  {
+   "bssid": "3c:a6:2f:32:33:e6",
+   "ssid": "BT Smart Hub",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -38,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299809
+  },
+  {
+   "bssid": "3c:a6:2f:32:33:e9",
+   "ssid": "BT Smart Hub",
+   "channel": 112,
+   "band": "5GHz",
+   "freq": 5560,
+   "rssi": -40,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299949
+  },
+  {
+   "bssid": "7c:03:ab:7b:fe:49",
+   "ssid": "Virgin Media WiFi",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -77,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299880
+  },
+  {
+   "bssid": "b8:ec:a3:80:e9:9a",
+   "ssid": "TALKTALK8E80E9",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -43,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299906
+  },
+  {
+   "bssid": "48:46:fb:97:0b:ca",
+   "ssid": "BTWi-fi",
+   "channel": 3,
+   "band": "2.4GHz",
+   "freq": 2422,
+   "rssi": -62,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299932
+  },
+  {
+   "bssid": "48:46:fb:97:0b:cf",
+   "ssid": "BTWi-fi",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -65,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299904
+  },
+  {
+   "bssid": "48:46:fb:fe:92:75",
+   "ssid": "BTWi-fi",
+   "channel": 7,
+   "band": "2.4GHz",
+   "freq": 2442,
+   "rssi": -72,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299951
+  },
+  {
+   "bssid": "48:46:fb:fe:92:78",
+   "ssid": "BTWi-fi",
+   "channel": 64,
+   "band": "5GHz",
+   "freq": 5320,
+   "rssi": -69,
+   "security": "Open",
+   "clients": [],
+   "vendor": "Huawei",
+   "last_seen": 1789299957
+  },
+  {
+   "bssid": "b0:be:76:e1:11:ba",
+   "ssid": "",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -84,
+   "security": "Open",
+   "clients": [],
+   "vendor": "TP-Link",
+   "last_seen": 1789299980
+  },
+  {
+   "bssid": "44:4e:6d:bb:8b:54",
+   "ssid": "BT-Hub6-9A",
+   "channel": 2,
+   "band": "2.4GHz",
+   "freq": 2417,
+   "rssi": -53,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299949
+  },
+  {
+   "bssid": "44:4e:6d:bb:8b:57",
+   "ssid": "BT-Hub6-9A",
+   "channel": 161,
+   "band": "5GHz",
+   "freq": 5805,
+   "rssi": -60,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Arcadyan Technology",
+   "last_seen": 1789299755
+  },
+  {
+   "bssid": "58:97:bd:cb:bb:2e",
+   "ssid": "DIRECT-3E-HP OfficeJet",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -53,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Cisco Systems",
+   "last_seen": 1789299997
+  },
+  {
+   "bssid": "34:2c:c4:ed:9a:d1",
+   "ssid": "",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299924
+  },
+  {
+   "bssid": "3c:a6:2f:c6:e8:bd",
+   "ssid": "BT Smart Hub",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -78,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299811
+  },
+  {
+   "bssid": "34:2c:c4:e3:e3:78",
+   "ssid": "PLUSNET-4D3F",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -90,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299861
+  },
+  {
+   "bssid": "34:2c:c4:e3:e3:79",
+   "ssid": "PLUSNET-4D3F",
+   "channel": 153,
+   "band": "5GHz",
+   "freq": 5765,
+   "rssi": -89,
+   "security": "WEP",
+   "clients": [],
+   "vendor": "Sagemcom",
+   "last_seen": 1789299961
+  },
+  {
+   "bssid": "78:8a:20:2e:6c:0a",
+   "ssid": "Office-5G",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -40,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299978
+  },
+  {
+   "bssid": "2c:fd:a1:4b:01:8d",
+   "ssid": "ASUS_74_5G",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -61,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299952
+  },
+  {
+   "bssid": "2c:fd:a1:40:d7:3a",
+   "ssid": "ASUS_30_5G",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -63,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299968
+  },
+  {
+   "bssid": "b8:ec:a3:cd:da:37",
+   "ssid": "TALKTALKB3E719",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -80,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "vendor": "Zyxel",
+   "last_seen": 1789299952
+  },
+  {
+   "bssid": "b8:ec:a3:cd:da:38",
+   "ssid": "TALKTALKB3E719",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -84,
+   "security": "WPA3/WPA2",
+   "clients": [],
+   "last_seen": 1789299817
+  },
+  {
+   "bssid": "78:8a:20:a6:c3:96",
+   "ssid": "GuestNet",
+   "channel": 124,
+   "band": "5GHz",
+   "freq": 5620,
+   "rssi": -78,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299814
+  },
+  {
+   "bssid": "2c:fd:a1:30:a0:da",
+   "ssid": "ASUS_36_5G",
+   "channel": 108,
+   "band": "5GHz",
+   "freq": 5540,
+   "rssi": -71,
+   "security": "WPA2",
+   "clients": [],
+   "vendor": "ASUSTek",
+   "last_seen": 1789299873
+  },
+  {
+   "bssid": "24:a4:3c:2b:2f:dd",
+   "ssid": "",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -47,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299930
+  },
+  {
+   "bssid": "24:a4:3c:2b:2f:e2",
+   "ssid": "",
+   "channel": 40,
+   "band": "5GHz",
+   "freq": 5200,
+   "rssi": -54,
+   "security": "WEP",
+   "clients": [],
+   "vendor": "Ubiquiti",
+   "last_seen": 1789299988
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "2e:b9:09:b9:9e:5c",
+   "rssi": -76
+  },
+  {
+   "mac": "f6:73:46:4f:27:97",
+   "rssi": -77
+  },
+  {
+   "mac": "f0:18:98:ac:43:c0",
+   "rssi": -63,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "64:cc:2e:e0:16:d2",
+   "rssi": -65,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "00:e0:4c:77:7a:9e",
+   "rssi": -63
+  },
+  {
+   "mac": "54:60:09:bc:e1:ec",
+   "rssi": -74
+  },
+  {
+   "mac": "66:80:1a:f6:be:34",
+   "rssi": -79
+  },
+  {
+   "mac": "24:6f:28:91:2a:52",
+   "rssi": -72,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "f0:f0:a4:e6:b2:0d",
+   "rssi": -68,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "98:b6:e9:29:bf:72",
+   "rssi": -66,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "84:cc:a8:13:92:f1",
+   "rssi": -67
+  },
+  {
+   "mac": "00:e0:4c:02:28:09",
+   "rssi": -80,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "24:6f:28:93:79:9a",
+   "rssi": -82,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "00:a0:c6:20:38:ff",
+   "rssi": -75
+  },
+  {
+   "mac": "d2:b4:7b:d5:5f:2b",
+   "rssi": -39
+  },
+  {
+   "mac": "d8:3a:dd:0a:c7:f0",
+   "rssi": -82,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "a4:83:e7:b6:22:b0",
+   "rssi": -60,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "84:cc:a8:16:b4:ad",
+   "rssi": -65
+  },
+  {
+   "mac": "00:a0:c6:f5:5d:45",
+   "rssi": -67,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "62:a1:9e:cb:f2:81",
+   "rssi": -77
+  },
+  {
+   "mac": "8c:f5:a3:a9:8b:3f",
+   "rssi": -88
+  },
+  {
+   "mac": "00:e0:4c:c5:ad:5f",
+   "rssi": -71,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "5c:f8:a1:28:dc:5c",
+   "rssi": -65
+  },
+  {
+   "mac": "9a:e4:da:55:e3:b3",
+   "rssi": -76
+  },
+  {
+   "mac": "5c:f8:a1:8c:1d:26",
+   "rssi": -74
+  },
+  {
+   "mac": "64:cc:2e:0f:49:e0",
+   "rssi": -86,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "f0:18:98:4e:e6:bd",
+   "rssi": -71,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "28:18:78:cb:a0:8e",
+   "rssi": -78,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "24:6f:28:86:85:e4",
+   "rssi": -73,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "70:b3:d5:66:3e:45",
+   "rssi": -80
+  },
+  {
+   "mac": "aa:21:94:99:50:59",
+   "rssi": -66
+  },
+  {
+   "mac": "24:6f:28:66:47:79",
+   "rssi": -76
+  },
+  {
+   "mac": "84:cc:a8:2c:21:9e",
+   "rssi": -42,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "50:32:75:40:a2:25",
+   "rssi": -79,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "56:dd:1c:3f:4e:9b",
+   "rssi": -71
+  },
+  {
+   "mac": "92:80:64:8c:40:9b",
+   "rssi": -77
+  },
+  {
+   "mac": "56:57:ac:15:0e:29",
+   "rssi": -63
+  },
+  {
+   "mac": "88:36:6c:0f:fe:94",
+   "rssi": -90
+  },
+  {
+   "mac": "00:a0:c6:25:1e:50",
+   "rssi": -72,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "4a:a3:b0:cc:42:bd",
+   "rssi": -60
+  },
+  {
+   "mac": "e6:48:31:19:94:c4",
+   "rssi": -68
+  },
+  {
+   "mac": "64:cc:2e:a7:a0:61",
+   "rssi": -69
+  },
+  {
+   "mac": "02:c9:ea:7b:6e:b4",
+   "rssi": -80
+  },
+  {
+   "mac": "94:65:2d:92:04:37",
+   "rssi": -47,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "04:5d:4b:bb:17:cd",
+   "rssi": -73,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "00:e0:4c:8f:3c:41",
+   "rssi": -75
+  },
+  {
+   "mac": "00:e0:fc:bb:49:65",
+   "rssi": -68
+  },
+  {
+   "mac": "94:65:2d:e9:4c:47",
+   "rssi": -70,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "9a:fa:99:f3:08:bc",
+   "rssi": -72
+  },
+  {
+   "mac": "0e:87:74:1a:f5:57",
+   "rssi": -67
+  },
+  {
+   "mac": "98:b6:e9:4b:7c:10",
+   "rssi": -68
+  },
+  {
+   "mac": "88:36:6c:68:d2:f1",
+   "rssi": -69
+  },
+  {
+   "mac": "46:a6:f4:c0:a0:58",
+   "rssi": -65
+  },
+  {
+   "mac": "5c:aa:fd:f7:62:7e",
+   "rssi": -80,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "dc:a6:32:93:6a:fa",
+   "rssi": -74,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "3e:ca:b0:4a:94:15",
+   "rssi": -61
+  },
+  {
+   "mac": "48:46:fb:e2:83:f5",
+   "rssi": -77,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "36:7c:19:73:77:1a",
+   "rssi": -73
+  },
+  {
+   "mac": "f2:46:02:50:d0:f3",
+   "rssi": -64
+  },
+  {
+   "mac": "12:76:13:59:d5:5a",
+   "rssi": -67
+  },
+  {
+   "mac": "ce:5f:94:13:04:98",
+   "rssi": -56
+  },
+  {
+   "mac": "f6:ef:8b:62:39:a9",
+   "rssi": -58
+  },
+  {
+   "mac": "5c:aa:fd:5f:07:ac",
+   "rssi": -60
+  },
+  {
+   "mac": "04:5d:4b:da:a7:2c",
+   "rssi": -72,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "94:65:2d:a5:7f:03",
+   "rssi": -76,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "0a:b8:78:1f:3c:ee",
+   "rssi": -72
+  },
+  {
+   "mac": "d8:3a:dd:9f:3c:97",
+   "rssi": -88,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "28:18:78:d4:f1:6f",
+   "rssi": -65
+  },
+  {
+   "mac": "3c:a9:f4:e4:b9:27",
+   "rssi": -74
+  },
+  {
+   "mac": "46:a7:e2:3b:69:fa",
+   "rssi": -65
+  },
+  {
+   "mac": "8c:f5:a3:e8:43:d4",
+   "rssi": -84,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "04:5d:4b:82:01:6f",
+   "rssi": -51
+  },
+  {
+   "mac": "50:32:75:f1:10:92",
+   "rssi": -35,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "88:36:6c:bf:c3:e5",
+   "rssi": -70
+  },
+  {
+   "mac": "84:cc:a8:b2:3c:5b",
+   "rssi": -90
+  },
+  {
+   "mac": "a4:83:e7:98:ed:d9",
+   "rssi": -59
+  },
+  {
+   "mac": "b6:8d:60:39:10:d6",
+   "rssi": -59
+  },
+  {
+   "mac": "22:11:e4:18:7d:16",
+   "rssi": -59
+  },
+  {
+   "mac": "62:47:94:77:a3:a4",
+   "rssi": -77
+  },
+  {
+   "mac": "88:36:6c:99:8c:1f",
+   "rssi": -58
+  },
+  {
+   "mac": "28:6c:07:da:fd:18",
+   "rssi": -85
+  },
+  {
+   "mac": "de:4c:99:c0:5e:f2",
+   "rssi": -77
+  },
+  {
+   "mac": "4e:1d:d3:d5:44:c6",
+   "rssi": -82
+  },
+  {
+   "mac": "28:18:78:2f:61:1a",
+   "rssi": -69,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "50:32:75:60:6f:f5",
+   "rssi": -63,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "62:f5:7c:68:cb:7a",
+   "rssi": -77
+  },
+  {
+   "mac": "98:b6:e9:ee:b7:9d",
+   "rssi": -59,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "94:65:2d:a3:68:bd",
+   "rssi": -75,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "da:4e:64:a8:75:c2",
+   "rssi": -91
+  },
+  {
+   "mac": "aa:fa:fb:eb:56:b4",
+   "rssi": -72
+  },
+  {
+   "mac": "8c:f5:a3:11:26:18",
+   "rssi": -73
+  },
+  {
+   "mac": "f0:f0:a4:22:4d:04",
+   "rssi": -79,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "94:65:2d:f9:08:03",
+   "rssi": -63
+  },
+  {
+   "mac": "8a:08:dc:5b:36:31",
+   "rssi": -69
+  },
+  {
+   "mac": "ba:cb:28:bf:cf:eb",
+   "rssi": -71
+  },
+  {
+   "mac": "f0:f0:a4:99:29:10",
+   "rssi": -63,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "52:ff:de:a9:30:15",
+   "rssi": -74
+  },
+  {
+   "mac": "94:65:2d:8a:17:26",
+   "rssi": -73
+  },
+  {
+   "mac": "a2:6a:49:cb:27:99",
+   "rssi": -81
+  },
+  {
+   "mac": "ca:c4:47:28:b1:1b",
+   "rssi": -75
+  },
+  {
+   "mac": "04:5d:4b:a7:0f:8b",
+   "rssi": -72
+  },
+  {
+   "mac": "ce:5f:c2:2b:97:7e",
+   "rssi": -69
+  },
+  {
+   "mac": "a4:cf:12:c7:a2:b8",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "42:5f:dc:e5:d0:34",
+   "rssi": -42
+  },
+  {
+   "mac": "e4:5f:01:c5:06:95",
+   "rssi": -36,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "74:c2:46:56:c2:56",
+   "rssi": -70,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "88:36:6c:99:f7:27",
+   "rssi": -74,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "70:b3:d5:64:ea:36",
+   "rssi": -72,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "00:e0:fc:e1:ab:dc",
+   "rssi": -52
+  },
+  {
+   "mac": "6e:a0:5a:cb:a3:95",
+   "rssi": -69
+  },
+  {
+   "mac": "74:c2:46:a6:c0:8f",
+   "rssi": -73
+  },
+  {
+   "mac": "28:6c:07:0d:ec:6b",
+   "rssi": -66,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "88:36:6c:ff:47:9b",
+   "rssi": -67,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "fe:d6:12:b8:2b:37",
+   "rssi": -74
+  },
+  {
+   "mac": "48:46:fb:55:16:cc",
+   "rssi": -83
+  },
+  {
+   "mac": "76:e4:bf:c8:ed:4d",
+   "rssi": -71
+  },
+  {
+   "mac": "3a:d4:2b:3b:48:b2",
+   "rssi": -75
+  },
+  {
+   "mac": "94:65:2d:31:e0:e7",
+   "rssi": -76,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "24:6f:28:0b:af:37",
+   "rssi": -71
+  },
+  {
+   "mac": "5a:da:ec:76:cf:5e",
+   "rssi": -67
+  },
+  {
+   "mac": "04:5d:4b:0e:65:e6",
+   "rssi": -72
+  },
+  {
+   "mac": "50:32:75:34:5f:bb",
+   "rssi": -73,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "fa:c6:c8:3a:b2:b4",
+   "rssi": -76
+  },
+  {
+   "mac": "dc:a6:32:2b:44:a0",
+   "rssi": -81,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "4e:d6:46:c4:d8:5f",
+   "rssi": -80
+  },
+  {
+   "mac": "28:6c:07:55:fa:93",
+   "rssi": -86,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "8c:f5:a3:b7:04:f8",
+   "rssi": -75,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "70:b3:d5:d4:e3:fa",
+   "rssi": -64,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "f0:f0:a4:95:10:8c",
+   "rssi": -74,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "70:b3:d5:39:3a:89",
+   "rssi": -70
+  },
+  {
+   "mac": "f0:18:98:e1:6f:d9",
+   "rssi": -80,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "00:e0:4c:86:b2:2c",
+   "rssi": -72,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "74:c2:46:6b:b3:db",
+   "rssi": -77,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "ba:56:a5:95:94:88",
+   "rssi": -71
+  },
+  {
+   "mac": "8c:8d:28:45:d2:1e",
+   "rssi": -68
+  },
+  {
+   "mac": "a6:c9:fa:48:89:d4",
+   "rssi": -63
+  },
+  {
+   "mac": "2e:8e:bc:e8:f9:a7",
+   "rssi": -63
+  },
+  {
+   "mac": "ea:20:cb:6f:db:6c",
+   "rssi": -63
+  },
+  {
+   "mac": "9a:42:f8:af:18:17",
+   "rssi": -81
+  },
+  {
+   "mac": "5e:e9:00:db:67:43",
+   "rssi": -70
+  },
+  {
+   "mac": "82:b8:80:2a:be:54",
+   "rssi": -79
+  },
+  {
+   "mac": "5c:f8:a1:2e:30:00",
+   "rssi": -91,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "3c:22:fb:af:3d:d8",
+   "rssi": -79
+  },
+  {
+   "mac": "22:34:a0:bc:99:46",
+   "rssi": -76
+  },
+  {
+   "mac": "a4:cf:12:23:04:54",
+   "rssi": -67,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "a4:cf:12:d2:e2:6f",
+   "rssi": -84,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "5c:f8:a1:a1:47:7e",
+   "rssi": -72,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "b8:27:eb:0d:9a:69",
+   "rssi": -81
+  },
+  {
+   "mac": "7e:c5:39:7b:ff:24",
+   "rssi": -72
+  },
+  {
+   "mac": "28:18:78:a2:43:c6",
+   "rssi": -77
+  },
+  {
+   "mac": "50:32:75:08:22:07",
+   "rssi": -79,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "d8:3a:dd:d4:d8:cd",
+   "rssi": -51,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "34:7e:5c:2a:9e:28",
+   "rssi": -65
+  },
+  {
+   "mac": "50:32:75:9e:df:7a",
+   "rssi": -69,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "00:a0:c6:1c:9e:59",
+   "rssi": -80,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "5c:aa:fd:55:be:40",
+   "rssi": -73
+  },
+  {
+   "mac": "24:6f:28:0f:ab:db",
+   "rssi": -76,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "ea:1c:ff:55:bc:50",
+   "rssi": -74
+  },
+  {
+   "mac": "36:01:16:06:7d:17",
+   "rssi": -80
+  },
+  {
+   "mac": "f0:18:98:d6:72:a4",
+   "rssi": -75,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "2a:3d:1a:5b:72:17",
+   "rssi": -70
+  },
+  {
+   "mac": "9a:2c:e9:04:bc:66",
+   "rssi": -65
+  },
+  {
+   "mac": "74:c2:46:ed:bc:fc",
+   "rssi": -69
+  },
+  {
+   "mac": "a4:cf:12:03:d1:0c",
+   "rssi": -73,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "3c:22:fb:ab:00:c0",
+   "rssi": -80
+  },
+  {
+   "mac": "f2:48:8f:2f:16:76",
+   "rssi": -66
+  },
+  {
+   "mac": "28:18:78:ea:2b:30",
+   "rssi": -67
+  },
+  {
+   "mac": "46:95:85:a1:c9:a7",
+   "rssi": -79
+  },
+  {
+   "mac": "26:45:37:4f:36:54",
+   "rssi": -67
+  },
+  {
+   "mac": "f4:f5:d8:e7:9d:ed",
+   "rssi": -73,
+   "vendor": "Google"
+  },
+  {
+   "mac": "92:6e:a7:4b:2e:7f",
+   "rssi": -69
+  },
+  {
+   "mac": "52:cf:e7:7f:30:ec",
+   "rssi": -74
+  },
+  {
+   "mac": "24:6f:28:06:1f:71",
+   "rssi": -71,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "5c:aa:fd:26:0b:21",
+   "rssi": -78,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "3c:a9:f4:a9:3e:15",
+   "rssi": -65
+  },
+  {
+   "mac": "70:b3:d5:0f:c3:da",
+   "rssi": -89,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "f0:18:98:7d:97:ff",
+   "rssi": -70,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "8e:46:d6:66:7f:09",
+   "rssi": -67
+  },
+  {
+   "mac": "70:b3:d5:b0:a4:c6",
+   "rssi": -71,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "34:7e:5c:1d:f1:b7",
+   "rssi": -35
+  },
+  {
+   "mac": "8c:8d:28:7e:7b:88",
+   "rssi": -78
+  },
+  {
+   "mac": "98:b6:e9:b5:58:5a",
+   "rssi": -73,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "48:46:fb:0e:b4:48",
+   "rssi": -83
+  },
+  {
+   "mac": "dc:a6:32:59:fb:13",
+   "rssi": -59,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "f2:a9:67:42:ae:5a",
+   "rssi": -73
+  },
+  {
+   "mac": "42:ba:25:bf:ca:33",
+   "rssi": -69
+  },
+  {
+   "mac": "5e:f9:a2:59:b6:72",
+   "rssi": -77
+  },
+  {
+   "mac": "b8:27:eb:41:5a:00",
+   "rssi": -70
+  },
+  {
+   "mac": "f0:18:98:5d:a2:71",
+   "rssi": -78
+  },
+  {
+   "mac": "ba:55:2d:ab:e4:05",
+   "rssi": -78
+  },
+  {
+   "mac": "2a:83:37:00:18:c5",
+   "rssi": -72
+  },
+  {
+   "mac": "98:b6:e9:b3:c0:33",
+   "rssi": -75
+  },
+  {
+   "mac": "f0:f0:a4:53:e7:25",
+   "rssi": -70
+  },
+  {
+   "mac": "a6:c0:52:26:2f:ad",
+   "rssi": -39
+  },
+  {
+   "mac": "5e:50:1b:33:a9:69",
+   "rssi": -78
+  },
+  {
+   "mac": "5c:aa:fd:90:98:79",
+   "rssi": -77,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "0e:2c:96:f5:66:31",
+   "rssi": -79
+  },
+  {
+   "mac": "3a:cb:f1:fa:87:2e",
+   "rssi": -40
+  },
+  {
+   "mac": "28:18:78:c3:bd:5f",
+   "rssi": -74,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "16:31:2b:b0:d3:74",
+   "rssi": -77
+  },
+  {
+   "mac": "88:36:6c:f3:78:f3",
+   "rssi": -71,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "a4:cf:12:3d:e5:58",
+   "rssi": -71
+  },
+  {
+   "mac": "66:15:d8:28:de:67",
+   "rssi": -73
+  },
+  {
+   "mac": "22:c6:cb:a6:8d:ea",
+   "rssi": -81
+  },
+  {
+   "mac": "d2:d4:4c:4b:33:36",
+   "rssi": -81
+  },
+  {
+   "mac": "48:46:fb:d2:87:c4",
+   "rssi": -68
+  },
+  {
+   "mac": "28:6c:07:8d:ce:49",
+   "rssi": -69
+  },
+  {
+   "mac": "74:c2:46:19:f3:89",
+   "rssi": -77
+  },
+  {
+   "mac": "f2:74:44:99:e2:a4",
+   "rssi": -88
+  },
+  {
+   "mac": "3c:a9:f4:60:e2:6c",
+   "rssi": -68
+  },
+  {
+   "mac": "8c:f5:a3:51:21:9f",
+   "rssi": -80
+  },
+  {
+   "mac": "a4:83:e7:58:62:66",
+   "rssi": -71
+  },
+  {
+   "mac": "34:7e:5c:bc:ed:cb",
+   "rssi": -86
+  },
+  {
+   "mac": "be:e4:5a:f2:b3:b0",
+   "rssi": -68
+  },
+  {
+   "mac": "b8:27:eb:0e:c5:19",
+   "rssi": -63,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "f0:f0:a4:73:69:89",
+   "rssi": -79
+  },
+  {
+   "mac": "94:65:2d:43:58:04",
+   "rssi": -61,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "34:7e:5c:d8:c0:b2",
+   "rssi": -85,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "8c:8d:28:03:bf:90",
+   "rssi": -75,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "8a:8d:85:98:60:4c",
+   "rssi": -65
+  },
+  {
+   "mac": "04:5d:4b:a3:47:0d",
+   "rssi": -72
+  },
+  {
+   "mac": "de:c6:12:61:af:71",
+   "rssi": -70
+  },
+  {
+   "mac": "48:46:fb:99:57:5c",
+   "rssi": -77,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "28:6c:07:ab:2d:71",
+   "rssi": -78,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "8a:ed:3c:f0:1b:24",
+   "rssi": -76
+  },
+  {
+   "mac": "3e:98:d3:1b:4d:46",
+   "rssi": -61
+  },
+  {
+   "mac": "00:a0:c6:49:a1:5c",
+   "rssi": -83
+  },
+  {
+   "mac": "28:6c:07:a0:1d:02",
+   "rssi": -56,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "26:de:db:ce:db:f4",
+   "rssi": -71
+  },
+  {
+   "mac": "6a:07:a4:61:09:02",
+   "rssi": -80
+  },
+  {
+   "mac": "42:c4:9c:55:21:17",
+   "rssi": -72
+  },
+  {
+   "mac": "ae:44:af:fa:b7:60",
+   "rssi": -62
+  },
+  {
+   "mac": "76:6c:0b:56:3f:bb",
+   "rssi": -62
+  },
+  {
+   "mac": "98:b6:e9:82:18:18",
+   "rssi": -79
+  },
+  {
+   "mac": "98:b6:e9:3f:81:f2",
+   "rssi": -62
+  },
+  {
+   "mac": "3c:22:fb:9a:d7:33",
+   "rssi": -71
+  },
+  {
+   "mac": "8c:8d:28:3c:90:3a",
+   "rssi": -75
+  },
+  {
+   "mac": "5c:aa:fd:67:b7:d1",
+   "rssi": -74,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "00:e0:fc:78:01:06",
+   "rssi": -38
+  },
+  {
+   "mac": "22:33:83:76:e9:97",
+   "rssi": -67
+  },
+  {
+   "mac": "52:94:b8:a0:da:3b",
+   "rssi": -80
+  },
+  {
+   "mac": "64:cc:2e:a8:b7:e0",
+   "rssi": -72
+  },
+  {
+   "mac": "28:18:78:af:5d:3a",
+   "rssi": -74,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "88:36:6c:55:39:43",
+   "rssi": -73
+  },
+  {
+   "mac": "94:65:2d:e0:5c:c2",
+   "rssi": -87
+  },
+  {
+   "mac": "84:cc:a8:f7:f9:39",
+   "rssi": -66
+  },
+  {
+   "mac": "7a:30:dd:7f:f6:b1",
+   "rssi": -63
+  },
+  {
+   "mac": "a4:cf:12:1b:05:50",
+   "rssi": -68
+  },
+  {
+   "mac": "e4:5f:01:7b:a9:8e",
+   "rssi": -76,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "04:5d:4b:78:28:eb",
+   "rssi": -72,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "f2:34:ce:d3:12:00",
+   "rssi": -66
+  },
+  {
+   "mac": "dc:a6:32:69:e9:ae",
+   "rssi": -68,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "94:65:2d:ba:e7:3a",
+   "rssi": -44,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "b8:27:eb:bf:36:17",
+   "rssi": -66
+  },
+  {
+   "mac": "88:36:6c:36:82:64",
+   "rssi": -72,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "00:e0:fc:37:d4:17",
+   "rssi": -78
+  },
+  {
+   "mac": "00:e0:4c:ea:44:ff",
+   "rssi": -68,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "d8:3a:dd:5a:58:41",
+   "rssi": -79,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "e4:5f:01:c4:d6:7f",
+   "rssi": -74,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "da:a0:6f:66:6b:94",
+   "rssi": -65
+  },
+  {
+   "mac": "84:cc:a8:5b:a5:3b",
+   "rssi": -73
+  },
+  {
+   "mac": "b8:27:eb:d8:06:36",
+   "rssi": -85,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "54:60:09:88:52:92",
+   "rssi": -80
+  },
+  {
+   "mac": "1a:e7:34:72:c7:79",
+   "rssi": -61
+  },
+  {
+   "mac": "b8:27:eb:18:c3:c6",
+   "rssi": -68,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "86:e2:73:bc:64:63",
+   "rssi": -79
+  },
+  {
+   "mac": "26:58:3d:c1:14:db",
+   "rssi": -88
+  },
+  {
+   "mac": "3c:22:fb:a9:ee:4f",
+   "rssi": -72,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "dc:a6:32:fb:b7:25",
+   "rssi": -68
+  },
+  {
+   "mac": "5e:ce:2f:b2:71:6d",
+   "rssi": -71
+  },
+  {
+   "mac": "96:f3:04:3a:b1:e4",
+   "rssi": -68
+  },
+  {
+   "mac": "1a:c3:3a:c5:83:90",
+   "rssi": -81
+  },
+  {
+   "mac": "d8:3a:dd:e4:f9:16",
+   "rssi": -50,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "22:55:03:21:6b:6d",
+   "rssi": -83
+  },
+  {
+   "mac": "5c:f8:a1:24:4e:0c",
+   "rssi": -75,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "16:80:24:74:84:d0",
+   "rssi": -71
+  },
+  {
+   "mac": "32:20:17:25:b7:36",
+   "rssi": -77
+  },
+  {
+   "mac": "3c:a9:f4:90:e0:c3",
+   "rssi": -77,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "ca:49:98:bf:05:48",
+   "rssi": -80
+  },
+  {
+   "mac": "c2:9c:6b:b0:6c:d3",
+   "rssi": -71
+  },
+  {
+   "mac": "86:3a:5c:1b:ec:25",
+   "rssi": -70
+  },
+  {
+   "mac": "36:f9:a9:b6:41:78",
+   "rssi": -75
+  },
+  {
+   "mac": "ea:9c:4e:ba:a1:db",
+   "rssi": -82
+  },
+  {
+   "mac": "7e:8d:b8:44:a9:f5",
+   "rssi": -82
+  },
+  {
+   "mac": "28:6c:07:29:8f:47",
+   "rssi": -76
+  },
+  {
+   "mac": "50:32:75:26:09:0f",
+   "rssi": -68
+  },
+  {
+   "mac": "8e:4c:bb:c8:72:94",
+   "rssi": -71
+  },
+  {
+   "mac": "3c:a9:f4:cb:ba:05",
+   "rssi": -76
+  },
+  {
+   "mac": "4e:51:5b:4a:f7:b7",
+   "rssi": -69
+  },
+  {
+   "mac": "72:69:b8:c6:f0:e8",
+   "rssi": -88
+  },
+  {
+   "mac": "a2:8c:86:59:c0:c1",
+   "rssi": -80
+  },
+  {
+   "mac": "98:b6:e9:72:cf:b4",
+   "rssi": -79
+  },
+  {
+   "mac": "3c:22:fb:47:e1:54",
+   "rssi": -82,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "36:d4:a9:3a:f6:f5",
+   "rssi": -73
+  },
+  {
+   "mac": "88:36:6c:0b:7c:16",
+   "rssi": -68,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "a4:cf:12:1c:55:84",
+   "rssi": -67
+  },
+  {
+   "mac": "a4:83:e7:91:2b:6e",
+   "rssi": -66,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "a4:cf:12:5d:87:55",
+   "rssi": -69
+  },
+  {
+   "mac": "50:32:75:75:c1:c5",
+   "rssi": -75,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "a4:cf:12:31:5a:f3",
+   "rssi": -53
+  },
+  {
+   "mac": "3c:a9:f4:f6:42:00",
+   "rssi": -66
+  },
+  {
+   "mac": "88:36:6c:bd:16:db",
+   "rssi": -78,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "8c:8d:28:d9:44:82",
+   "rssi": -70,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "b8:27:eb:d1:83:60",
+   "rssi": -78,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "98:b6:e9:69:a1:d1",
+   "rssi": -64,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "5c:aa:fd:85:d8:bb",
+   "rssi": -72
+  },
+  {
+   "mac": "94:65:2d:5b:bd:f7",
+   "rssi": -76,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "c6:3c:75:e4:52:33",
+   "rssi": -69
+  },
+  {
+   "mac": "8c:f5:a3:52:c7:02",
+   "rssi": -77
+  },
+  {
+   "mac": "5c:f8:a1:2d:20:86",
+   "rssi": -69,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "b8:27:eb:1d:59:fd",
+   "rssi": -66,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "b8:27:eb:63:11:76",
+   "rssi": -70
+  },
+  {
+   "mac": "3c:a9:f4:8d:cc:b4",
+   "rssi": -78
+  },
+  {
+   "mac": "02:2e:91:b2:b1:8d",
+   "rssi": -65
+  },
+  {
+   "mac": "3c:22:fb:85:59:d0",
+   "rssi": -65
+  },
+  {
+   "mac": "00:e0:fc:3b:83:80",
+   "rssi": -74
+  },
+  {
+   "mac": "00:a0:c6:eb:0e:f6",
+   "rssi": -82,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "f0:f0:a4:75:a1:d3",
+   "rssi": -76
+  },
+  {
+   "mac": "2e:af:26:5b:f3:a0",
+   "rssi": -60
+  },
+  {
+   "mac": "34:7e:5c:5d:61:ff",
+   "rssi": -71
+  },
+  {
+   "mac": "7a:4f:36:3d:28:fc",
+   "rssi": -72
+  },
+  {
+   "mac": "f0:18:98:f6:be:a1",
+   "rssi": -67,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "d8:3a:dd:8f:cb:71",
+   "rssi": -62
+  },
+  {
+   "mac": "5c:f8:a1:f4:10:b1",
+   "rssi": -80,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "00:a0:c6:a1:04:06",
+   "rssi": -64
+  },
+  {
+   "mac": "ba:5f:86:79:89:f1",
+   "rssi": -56
+  },
+  {
+   "mac": "88:36:6c:be:ba:cd",
+   "rssi": -74,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "72:8a:78:dd:c3:64",
+   "rssi": -69
+  },
+  {
+   "mac": "28:6c:07:d7:ff:44",
+   "rssi": -68
+  },
+  {
+   "mac": "e4:5f:01:f9:99:80",
+   "rssi": -73
+  },
+  {
+   "mac": "8e:31:e6:ab:85:b8",
+   "rssi": -80
+  },
+  {
+   "mac": "5c:aa:fd:b0:0a:d2",
+   "rssi": -66,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "28:6c:07:91:b5:a6",
+   "rssi": -68
+  },
+  {
+   "mac": "3c:a9:f4:c3:92:ed",
+   "rssi": -73
+  },
+  {
+   "mac": "c2:28:52:af:74:a0",
+   "rssi": -66
+  },
+  {
+   "mac": "8e:8a:e3:b9:e6:d3",
+   "rssi": -62
+  },
+  {
+   "mac": "82:6b:55:cb:34:30",
+   "rssi": -70
+  },
+  {
+   "mac": "8c:f5:a3:0d:cb:2a",
+   "rssi": -75,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "f0:f0:a4:7e:91:e2",
+   "rssi": -59
+  },
+  {
+   "mac": "a4:83:e7:11:b6:a6",
+   "rssi": -64
+  },
+  {
+   "mac": "84:cc:a8:5a:e9:de",
+   "rssi": -62
+  },
+  {
+   "mac": "be:74:2d:e2:9d:bb",
+   "rssi": -83
+  },
+  {
+   "mac": "84:cc:a8:b0:92:f0",
+   "rssi": -71
+  },
+  {
+   "mac": "94:65:2d:99:04:dc",
+   "rssi": -71
+  },
+  {
+   "mac": "de:7f:53:c7:c1:70",
+   "rssi": -70
+  },
+  {
+   "mac": "74:c2:46:8b:91:89",
+   "rssi": -80,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "00:e0:4c:8b:fb:60",
+   "rssi": -70,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "a4:83:e7:5f:34:90",
+   "rssi": -67,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "f6:af:d7:9f:ff:be",
+   "rssi": -73
+  },
+  {
+   "mac": "00:e0:fc:29:4a:1c",
+   "rssi": -77,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "5c:aa:fd:c3:06:3e",
+   "rssi": -76
+  },
+  {
+   "mac": "00:e0:4c:7e:11:65",
+   "rssi": -73,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "dc:a6:32:a5:51:15",
+   "rssi": -90
+  },
+  {
+   "mac": "fa:65:b8:1a:6f:39",
+   "rssi": -74
+  },
+  {
+   "mac": "24:6f:28:ca:7c:04",
+   "rssi": -73
+  },
+  {
+   "mac": "a4:cf:12:be:2d:7f",
+   "rssi": -72,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "8c:f5:a3:1e:b6:4e",
+   "rssi": -83
+  },
+  {
+   "mac": "7a:b1:e0:62:0a:c1",
+   "rssi": -82
+  },
+  {
+   "mac": "00:e0:4c:96:fa:61",
+   "rssi": -63
+  },
+  {
+   "mac": "ea:52:23:4f:e6:97",
+   "rssi": -62
+  },
+  {
+   "mac": "d8:3a:dd:c2:5e:09",
+   "rssi": -79
+  },
+  {
+   "mac": "e4:5f:01:20:c6:61",
+   "rssi": -74
+  },
+  {
+   "mac": "a2:31:22:16:42:5b",
+   "rssi": -80
+  },
+  {
+   "mac": "f6:32:10:c6:fa:83",
+   "rssi": -75
+  },
+  {
+   "mac": "6e:28:ef:1f:b8:d4",
+   "rssi": -49
+  },
+  {
+   "mac": "f0:18:98:24:9b:27",
+   "rssi": -71
+  },
+  {
+   "mac": "7e:61:62:7f:5b:d4",
+   "rssi": -74
+  },
+  {
+   "mac": "5c:f8:a1:35:55:5c",
+   "rssi": -71
+  },
+  {
+   "mac": "00:e0:4c:b4:a1:a6",
+   "rssi": -80
+  },
+  {
+   "mac": "76:c0:82:b8:e7:e5",
+   "rssi": -80
+  },
+  {
+   "mac": "1a:08:45:9a:03:99",
+   "rssi": -81
+  },
+  {
+   "mac": "34:7e:5c:4f:30:13",
+   "rssi": -71,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "76:83:99:2f:cc:6f",
+   "rssi": -66
+  },
+  {
+   "mac": "3a:13:c3:28:1c:ab",
+   "rssi": -74
+  },
+  {
+   "mac": "88:36:6c:3d:74:05",
+   "rssi": -83
+  },
+  {
+   "mac": "4a:71:4e:19:c9:e4",
+   "rssi": -65
+  },
+  {
+   "mac": "3c:a9:f4:71:dd:94",
+   "rssi": -69
+  },
+  {
+   "mac": "04:5d:4b:86:2b:cc",
+   "rssi": -76
+  },
+  {
+   "mac": "4e:65:f9:ca:64:7e",
+   "rssi": -66
+  },
+  {
+   "mac": "3c:a9:f4:39:d3:d8",
+   "rssi": -73,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "0a:56:b3:e2:4a:e1",
+   "rssi": -65
+  },
+  {
+   "mac": "3c:a9:f4:39:1b:7c",
+   "rssi": -87
+  },
+  {
+   "mac": "3a:e6:f1:0b:a9:6b",
+   "rssi": -64
+  },
+  {
+   "mac": "8e:48:09:c0:16:82",
+   "rssi": -81
+  },
+  {
+   "mac": "8c:f5:a3:ee:04:22",
+   "rssi": -74,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "28:18:78:37:09:95",
+   "rssi": -61
+  },
+  {
+   "mac": "8c:8d:28:a1:f8:2d",
+   "rssi": -71,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "a4:83:e7:14:7e:9c",
+   "rssi": -66,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "dc:a6:32:78:8d:1f",
+   "rssi": -69
+  },
+  {
+   "mac": "a4:83:e7:8f:73:4d",
+   "rssi": -67,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "f0:f0:a4:d5:7b:4e",
+   "rssi": -65,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "00:e0:4c:43:69:46",
+   "rssi": -64
+  },
+  {
+   "mac": "84:cc:a8:dc:4a:50",
+   "rssi": -71,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "24:6f:28:5e:a2:4a",
+   "rssi": -69
+  },
+  {
+   "mac": "00:e0:4c:8c:4d:60",
+   "rssi": -67,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "34:7e:5c:76:76:76",
+   "rssi": -77
+  },
+  {
+   "mac": "94:65:2d:bf:5e:c6",
+   "rssi": -75,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "1e:07:8a:d3:71:67",
+   "rssi": -79
+  },
+  {
+   "mac": "70:b3:d5:a6:ea:7e",
+   "rssi": -58,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "98:b6:e9:a0:c9:13",
+   "rssi": -66
+  },
+  {
+   "mac": "04:5d:4b:14:c6:19",
+   "rssi": -71,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "b8:27:eb:ec:55:d8",
+   "rssi": -74,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "00:e0:4c:2e:39:5c",
+   "rssi": -77
+  },
+  {
+   "mac": "84:cc:a8:c9:d3:a5",
+   "rssi": -85,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "e2:80:a5:53:3f:2e",
+   "rssi": -81
+  },
+  {
+   "mac": "28:18:78:2b:c4:51",
+   "rssi": -78,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "a4:cf:12:53:4a:5b",
+   "rssi": -70
+  },
+  {
+   "mac": "b8:27:eb:5c:3c:43",
+   "rssi": -49
+  },
+  {
+   "mac": "70:b3:d5:02:fc:79",
+   "rssi": -86,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "00:e0:4c:28:03:7d",
+   "rssi": -86
+  },
+  {
+   "mac": "56:1c:b2:12:4a:10",
+   "rssi": -80
+  },
+  {
+   "mac": "dc:a6:32:a9:2c:19",
+   "rssi": -81,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "28:6c:07:e9:b8:12",
+   "rssi": -69,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "98:b6:e9:22:da:21",
+   "rssi": -67,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "f4:f5:d8:6b:1d:37",
+   "rssi": -74
+  },
+  {
+   "mac": "3c:a9:f4:f7:93:da",
+   "rssi": -77
+  },
+  {
+   "mac": "84:cc:a8:fe:fe:fc",
+   "rssi": -92
+  },
+  {
+   "mac": "96:00:3c:0c:ee:3c",
+   "rssi": -75
+  },
+  {
+   "mac": "f0:18:98:aa:b3:6c",
+   "rssi": -70,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "2a:99:a5:03:3a:aa",
+   "rssi": -63
+  },
+  {
+   "mac": "56:a9:ad:f5:f2:12",
+   "rssi": -73
+  },
+  {
+   "mac": "00:a0:c6:ab:ec:d3",
+   "rssi": -81
+  },
+  {
+   "mac": "a4:83:e7:6a:a9:b5",
+   "rssi": -46,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "64:cc:2e:c7:5f:3b",
+   "rssi": -69
+  },
+  {
+   "mac": "e4:5f:01:10:8b:d3",
+   "rssi": -77,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "96:39:bf:13:67:2f",
+   "rssi": -80
+  },
+  {
+   "mac": "f6:61:ae:f7:9e:a7",
+   "rssi": -63
+  },
+  {
+   "mac": "84:cc:a8:69:12:eb",
+   "rssi": -64,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "92:2c:aa:ef:17:34",
+   "rssi": -81
+  },
+  {
+   "mac": "dc:a6:32:6b:a4:66",
+   "rssi": -75,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "e2:8b:4c:50:8c:3a",
+   "rssi": -77
+  },
+  {
+   "mac": "ba:8a:48:91:7d:57",
+   "rssi": -90
+  },
+  {
+   "mac": "84:cc:a8:0e:f1:19",
+   "rssi": -76,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "00:e0:4c:b6:9f:aa",
+   "rssi": -38
+  },
+  {
+   "mac": "3c:a9:f4:ee:43:2f",
+   "rssi": -76
+  },
+  {
+   "mac": "00:a0:c6:f0:76:72",
+   "rssi": -79,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "be:5d:a9:a6:e8:f9",
+   "rssi": -71
+  },
+  {
+   "mac": "64:cc:2e:90:b2:41",
+   "rssi": -41
+  },
+  {
+   "mac": "50:32:75:9a:ec:cd",
+   "rssi": -73
+  },
+  {
+   "mac": "5e:c4:21:ae:6a:dc",
+   "rssi": -75
+  },
+  {
+   "mac": "74:c2:46:58:27:f9",
+   "rssi": -83,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "3e:5a:9d:cf:23:37",
+   "rssi": -67
+  },
+  {
+   "mac": "12:6f:47:00:4b:4c",
+   "rssi": -82
+  },
+  {
+   "mac": "e6:69:a2:99:9b:de",
+   "rssi": -79
+  },
+  {
+   "mac": "d8:3a:dd:ce:41:96",
+   "rssi": -55,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "3c:22:fb:b7:38:90",
+   "rssi": -82
+  },
+  {
+   "mac": "ce:c3:de:6c:58:f3",
+   "rssi": -74
+  },
+  {
+   "mac": "28:18:78:d5:4e:93",
+   "rssi": -78
+  },
+  {
+   "mac": "fe:45:2b:46:d4:e9",
+   "rssi": -70
+  },
+  {
+   "mac": "5c:f8:a1:5c:e8:d9",
+   "rssi": -70
+  },
+  {
+   "mac": "70:b3:d5:79:89:d2",
+   "rssi": -75
+  },
+  {
+   "mac": "1e:bc:39:f6:28:48",
+   "rssi": -69
+  },
+  {
+   "mac": "34:7e:5c:ee:28:2d",
+   "rssi": -85,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "50:32:75:9f:1b:af",
+   "rssi": -74
+  },
+  {
+   "mac": "00:e0:fc:d7:b4:96",
+   "rssi": -53,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "5c:aa:fd:1f:f2:56",
+   "rssi": -91
+  },
+  {
+   "mac": "f2:40:27:8e:81:43",
+   "rssi": -75
+  },
+  {
+   "mac": "82:39:59:4d:e4:bd",
+   "rssi": -62
+  },
+  {
+   "mac": "f0:18:98:af:2b:4a",
+   "rssi": -73
+  },
+  {
+   "mac": "88:36:6c:c4:79:e1",
+   "rssi": -62
+  },
+  {
+   "mac": "82:1a:55:ed:cc:f3",
+   "rssi": -83
+  },
+  {
+   "mac": "f0:f0:a4:c2:c7:f2",
+   "rssi": -78,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "98:b6:e9:a1:15:31",
+   "rssi": -77
+  },
+  {
+   "mac": "5c:f8:a1:8b:ab:8a",
+   "rssi": -70,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "74:c2:46:63:ac:5c",
+   "rssi": -76,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "8c:8d:28:e4:b3:70",
+   "rssi": -35
+  },
+  {
+   "mac": "22:6f:3e:3d:2c:42",
+   "rssi": -77
+  },
+  {
+   "mac": "28:6c:07:38:5e:81",
+   "rssi": -71,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "ea:da:a5:83:52:25",
+   "rssi": -81
+  },
+  {
+   "mac": "5c:aa:fd:87:5b:e1",
+   "rssi": -66,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "c6:fb:37:49:dc:6f",
+   "rssi": -70
+  },
+  {
+   "mac": "12:24:80:e4:09:fe",
+   "rssi": -66
+  },
+  {
+   "mac": "f0:18:98:c7:88:4d",
+   "rssi": -68
+  },
+  {
+   "mac": "70:b3:d5:f4:df:ce",
+   "rssi": -79
+  },
+  {
+   "mac": "f0:f0:a4:01:c4:f6",
+   "rssi": -76,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "12:bb:ae:29:eb:94",
+   "rssi": -66
+  },
+  {
+   "mac": "1e:61:99:c7:36:b7",
+   "rssi": -72
+  },
+  {
+   "mac": "16:0c:7a:fa:c7:20",
+   "rssi": -67
+  },
+  {
+   "mac": "70:b3:d5:e6:08:12",
+   "rssi": -77,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "e6:77:24:12:48:fa",
+   "rssi": -73
+  },
+  {
+   "mac": "f0:18:98:7c:42:07",
+   "rssi": -79,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "64:cc:2e:20:36:3a",
+   "rssi": -51,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "04:5d:4b:a6:3d:46",
+   "rssi": -70,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "16:ab:20:3d:8c:48",
+   "rssi": -60
+  },
+  {
+   "mac": "72:44:33:c0:50:08",
+   "rssi": -69
+  },
+  {
+   "mac": "06:2d:91:d5:f3:40",
+   "rssi": -67
+  },
+  {
+   "mac": "28:6c:07:13:5c:ff",
+   "rssi": -77
+  },
+  {
+   "mac": "dc:a6:32:b2:d6:02",
+   "rssi": -78
+  },
+  {
+   "mac": "d8:3a:dd:70:ed:6a",
+   "rssi": -54,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "94:65:2d:fe:5a:51",
+   "rssi": -73
+  },
+  {
+   "mac": "00:e0:fc:e8:16:35",
+   "rssi": -88
+  },
+  {
+   "mac": "24:6f:28:24:78:e3",
+   "rssi": -67
+  },
+  {
+   "mac": "a6:38:a6:74:32:79",
+   "rssi": -62
+  },
+  {
+   "mac": "fe:1b:df:4a:6e:e8",
+   "rssi": -68
+  },
+  {
+   "mac": "00:a0:c6:63:b7:8a",
+   "rssi": -77,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "ee:d6:57:af:70:97",
+   "rssi": -73
+  },
+  {
+   "mac": "64:cc:2e:75:2c:d2",
+   "rssi": -74
+  },
+  {
+   "mac": "34:7e:5c:07:db:7e",
+   "rssi": -63,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "42:d5:16:14:f0:11",
+   "rssi": -72
+  },
+  {
+   "mac": "8c:8d:28:e7:fd:7b",
+   "rssi": -81,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "88:36:6c:6f:43:b7",
+   "rssi": -65,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "e2:e8:ed:46:cf:5e",
+   "rssi": -66
+  },
+  {
+   "mac": "00:a0:c6:00:24:c5",
+   "rssi": -68
+  },
+  {
+   "mac": "62:ab:1c:ba:1a:38",
+   "rssi": -65
+  },
+  {
+   "mac": "f0:18:98:bb:bb:59",
+   "rssi": -71
+  },
+  {
+   "mac": "a6:3a:f4:6b:73:a4",
+   "rssi": -82
+  },
+  {
+   "mac": "da:1b:20:be:b0:e7",
+   "rssi": -76
+  },
+  {
+   "mac": "b8:27:eb:e7:bc:21",
+   "rssi": -75,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "c6:93:27:37:54:8d",
+   "rssi": -73
+  },
+  {
+   "mac": "0a:d5:43:f2:b1:d7",
+   "rssi": -70
+  },
+  {
+   "mac": "b8:27:eb:60:20:0b",
+   "rssi": -69
+  },
+  {
+   "mac": "00:e0:fc:a7:f8:e3",
+   "rssi": -63,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "dc:a6:32:57:85:74",
+   "rssi": -75,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "00:a0:c6:55:52:92",
+   "rssi": -72,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "a4:cf:12:52:79:3b",
+   "rssi": -74,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "1a:b0:4b:be:e5:53",
+   "rssi": -68
+  },
+  {
+   "mac": "0e:ff:4a:ea:a3:4f",
+   "rssi": -68
+  },
+  {
+   "mac": "9e:94:4b:e2:ad:39",
+   "rssi": -93
+  },
+  {
+   "mac": "dc:a6:32:0c:cd:70",
+   "rssi": -69,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "66:8e:64:0b:2a:e4",
+   "rssi": -74
+  },
+  {
+   "mac": "70:b3:d5:a2:1c:b8",
+   "rssi": -55,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "98:b6:e9:be:06:91",
+   "rssi": -77,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "ee:e2:93:53:d9:d4",
+   "rssi": -80
+  },
+  {
+   "mac": "3c:a9:f4:49:6a:9b",
+   "rssi": -69,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "98:b6:e9:2d:03:d1",
+   "rssi": -70
+  },
+  {
+   "mac": "e6:66:5f:c3:94:fb",
+   "rssi": -72
+  },
+  {
+   "mac": "e6:0d:01:4e:86:99",
+   "rssi": -92
+  },
+  {
+   "mac": "b8:27:eb:d5:5b:fb",
+   "rssi": -68
+  },
+  {
+   "mac": "8e:22:b9:f6:df:84",
+   "rssi": -78
+  },
+  {
+   "mac": "0a:53:1d:4a:a3:ec",
+   "rssi": -82
+  },
+  {
+   "mac": "52:8b:b8:d6:b6:18",
+   "rssi": -70
+  },
+  {
+   "mac": "28:6c:07:30:55:a5",
+   "rssi": -87
+  },
+  {
+   "mac": "dc:a6:32:8a:b9:31",
+   "rssi": -75
+  },
+  {
+   "mac": "fe:ae:53:34:6f:4f",
+   "rssi": -70
+  },
+  {
+   "mac": "24:6f:28:d5:eb:27",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "84:cc:a8:e2:af:58",
+   "rssi": -66
+  },
+  {
+   "mac": "a4:cf:12:74:9d:40",
+   "rssi": -88,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "24:6f:28:27:09:f7",
+   "rssi": -71
+  },
+  {
+   "mac": "8c:f5:a3:f0:3c:81",
+   "rssi": -51,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "66:5e:b3:0e:2e:4a",
+   "rssi": -69
+  },
+  {
+   "mac": "48:46:fb:b4:52:7b",
+   "rssi": -72
+  },
+  {
+   "mac": "54:60:09:90:57:02",
+   "rssi": -67
+  },
+  {
+   "mac": "fa:5e:e1:36:5c:b5",
+   "rssi": -82
+  },
+  {
+   "mac": "e4:5f:01:3f:ee:38",
+   "rssi": -79
+  },
+  {
+   "mac": "b8:27:eb:14:2a:a7",
+   "rssi": -68,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "00:e0:4c:73:d0:94",
+   "rssi": -82
+  },
+  {
+   "mac": "94:65:2d:bc:5b:06",
+   "rssi": -69
+  },
+  {
+   "mac": "3c:a9:f4:3d:49:ca",
+   "rssi": -66,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "52:ba:65:ad:66:ce",
+   "rssi": -68
+  },
+  {
+   "mac": "8e:b6:f3:cf:f8:8e",
+   "rssi": -67
+  },
+  {
+   "mac": "24:6f:28:80:fa:fe",
+   "rssi": -81,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "70:b3:d5:0d:5b:c3",
+   "rssi": -62
+  },
+  {
+   "mac": "32:fc:ee:67:96:fe",
+   "rssi": -70
+  },
+  {
+   "mac": "a4:83:e7:10:dc:3c",
+   "rssi": -72,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "00:a0:c6:12:10:5a",
+   "rssi": -66
+  },
+  {
+   "mac": "84:cc:a8:9f:c7:f9",
+   "rssi": -75
+  },
+  {
+   "mac": "94:65:2d:f3:50:1c",
+   "rssi": -62,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "b8:27:eb:a4:1f:0e",
+   "rssi": -63
+  },
+  {
+   "mac": "a4:83:e7:ae:c2:31",
+   "rssi": -74,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "7a:2b:21:9c:3a:ac",
+   "rssi": -74
+  },
+  {
+   "mac": "f0:18:98:eb:d8:d7",
+   "rssi": -71,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "98:b6:e9:a5:32:fa",
+   "rssi": -88,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "a6:99:ba:df:67:fe",
+   "rssi": -82
+  },
+  {
+   "mac": "f4:f5:d8:93:87:18",
+   "rssi": -69,
+   "vendor": "Google"
+  },
+  {
+   "mac": "3c:a9:f4:30:ac:8b",
+   "rssi": -72,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "dc:a6:32:99:dd:a0",
+   "rssi": -76,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "00:a0:c6:5c:09:5f",
+   "rssi": -71
+  },
+  {
+   "mac": "5c:f8:a1:1e:66:ba",
+   "rssi": -62,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "dc:a6:32:de:d2:a3",
+   "rssi": -75
+  },
+  {
+   "mac": "96:83:78:cf:7a:3a",
+   "rssi": -80
+  },
+  {
+   "mac": "9e:f8:df:d8:12:67",
+   "rssi": -81
+  },
+  {
+   "mac": "28:6c:07:15:f8:0a",
+   "rssi": -69,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "92:d0:ba:2e:cb:47",
+   "rssi": -68
+  },
+  {
+   "mac": "8e:2e:79:3e:a0:a8",
+   "rssi": -79
+  },
+  {
+   "mac": "74:c2:46:d8:6f:49",
+   "rssi": -75,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "8c:f5:a3:fb:bf:39",
+   "rssi": -73,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "34:7e:5c:4a:b9:f3",
+   "rssi": -65
+  },
+  {
+   "mac": "8c:f5:a3:7a:81:c4",
+   "rssi": -55,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "24:6f:28:79:e2:c6",
+   "rssi": -70,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "7a:6b:52:e0:a2:d0",
+   "rssi": -59
+  },
+  {
+   "mac": "2e:f1:d3:aa:d8:33",
+   "rssi": -78
+  },
+  {
+   "mac": "e4:5f:01:e8:0e:1a",
+   "rssi": -74
+  },
+  {
+   "mac": "84:cc:a8:01:cd:66",
+   "rssi": -79
+  },
+  {
+   "mac": "84:cc:a8:d2:a3:e7",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "aa:65:2b:d4:bc:5d",
+   "rssi": -70
+  },
+  {
+   "mac": "a4:83:e7:0b:75:2d",
+   "rssi": -81
+  },
+  {
+   "mac": "64:cc:2e:19:cd:db",
+   "rssi": -63
+  },
+  {
+   "mac": "3c:22:fb:de:e8:fd",
+   "rssi": -68,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "8a:fd:c3:42:dc:69",
+   "rssi": -73
+  },
+  {
+   "mac": "88:36:6c:5c:d1:4a",
+   "rssi": -67,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "e6:bd:ea:2b:05:f0",
+   "rssi": -72
+  },
+  {
+   "mac": "98:b6:e9:d8:83:25",
+   "rssi": -76,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "f0:18:98:02:81:c3",
+   "rssi": -39,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "f0:18:98:5b:85:56",
+   "rssi": -63
+  },
+  {
+   "mac": "d6:85:3b:a0:16:41",
+   "rssi": -70
+  },
+  {
+   "mac": "34:7e:5c:b8:dc:90",
+   "rssi": -74
+  },
+  {
+   "mac": "5c:f8:a1:54:a1:fb",
+   "rssi": -65
+  },
+  {
+   "mac": "00:e0:4c:1b:60:4c",
+   "rssi": -85,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "24:6f:28:fd:14:e2",
+   "rssi": -76,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "70:b3:d5:39:4b:3f",
+   "rssi": -71,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "34:7e:5c:6c:02:5c",
+   "rssi": -75,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "8c:8d:28:a8:0d:91",
+   "rssi": -60
+  },
+  {
+   "mac": "e4:5f:01:4e:0e:29",
+   "rssi": -79,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "34:7e:5c:02:a8:16",
+   "rssi": -67
+  },
+  {
+   "mac": "84:cc:a8:6c:18:90",
+   "rssi": -77,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "04:5d:4b:82:5b:7a",
+   "rssi": -54
+  },
+  {
+   "mac": "66:c6:ce:91:4e:3d",
+   "rssi": -63
+  },
+  {
+   "mac": "84:cc:a8:b7:31:bc",
+   "rssi": -69
+  },
+  {
+   "mac": "94:65:2d:89:d8:2e",
+   "rssi": -82
+  },
+  {
+   "mac": "f0:18:98:ae:ed:72",
+   "rssi": -77
+  },
+  {
+   "mac": "3c:a9:f4:94:ef:df",
+   "rssi": -77,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "dc:a6:32:7f:da:97",
+   "rssi": -78
+  },
+  {
+   "mac": "d8:3a:dd:37:d9:d3",
+   "rssi": -54,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "22:3a:ec:5b:5d:c9",
+   "rssi": -77
+  },
+  {
+   "mac": "ee:87:ae:5f:6c:5e",
+   "rssi": -49
+  },
+  {
+   "mac": "5c:aa:fd:36:de:09",
+   "rssi": -74,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "70:b3:d5:9b:b8:ca",
+   "rssi": -69
+  },
+  {
+   "mac": "62:08:60:0d:6b:f6",
+   "rssi": -65
+  },
+  {
+   "mac": "54:60:09:2c:9a:ed",
+   "rssi": -76,
+   "vendor": "Google"
+  },
+  {
+   "mac": "4e:f8:f1:0a:e6:7c",
+   "rssi": -78
+  },
+  {
+   "mac": "02:dd:d4:fd:94:12",
+   "rssi": -83
+  },
+  {
+   "mac": "70:b3:d5:76:1f:09",
+   "rssi": -77,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "94:65:2d:3b:fd:b1",
+   "rssi": -59,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "6e:b0:e0:76:70:ad",
+   "rssi": -67
+  },
+  {
+   "mac": "b8:27:eb:c7:d5:b8",
+   "rssi": -66
+  },
+  {
+   "mac": "f4:f5:d8:90:2c:f7",
+   "rssi": -80,
+   "vendor": "Google"
+  },
+  {
+   "mac": "70:b3:d5:9b:78:6b",
+   "rssi": -74
+  },
+  {
+   "mac": "5c:aa:fd:b6:51:59",
+   "rssi": -74
+  },
+  {
+   "mac": "f0:f0:a4:3d:72:f9",
+   "rssi": -70,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "f0:18:98:88:4d:35",
+   "rssi": -72
+  },
+  {
+   "mac": "24:6f:28:36:34:15",
+   "rssi": -79
+  },
+  {
+   "mac": "6a:50:95:e2:ff:32",
+   "rssi": -69
+  },
+  {
+   "mac": "6e:d4:03:7d:f2:ae",
+   "rssi": -80
+  },
+  {
+   "mac": "8a:d4:b8:7d:4d:d7",
+   "rssi": -63
+  },
+  {
+   "mac": "00:a0:c6:b9:0f:e2",
+   "rssi": -68,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "ae:54:de:1f:c9:12",
+   "rssi": -93
+  },
+  {
+   "mac": "8c:f5:a3:97:d6:cd",
+   "rssi": -67
+  },
+  {
+   "mac": "b2:8f:4b:ce:e4:69",
+   "rssi": -65
+  },
+  {
+   "mac": "00:e0:4c:b0:cf:65",
+   "rssi": -79
+  },
+  {
+   "mac": "84:cc:a8:91:6d:2f",
+   "rssi": -78
+  },
+  {
+   "mac": "52:0e:84:7b:9b:d8",
+   "rssi": -74
+  },
+  {
+   "mac": "d8:3a:dd:b5:3f:18",
+   "rssi": -70
+  },
+  {
+   "mac": "3c:22:fb:e8:ad:78",
+   "rssi": -71
+  },
+  {
+   "mac": "f0:f0:a4:b3:99:91",
+   "rssi": -85
+  },
+  {
+   "mac": "84:cc:a8:c1:7e:35",
+   "rssi": -78,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "de:29:2f:1f:d9:42",
+   "rssi": -69
+  },
+  {
+   "mac": "28:18:78:ce:ca:87",
+   "rssi": -78
+  },
+  {
+   "mac": "88:36:6c:53:49:41",
+   "rssi": -62,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "d8:3a:dd:3c:6c:e9",
+   "rssi": -72,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "88:36:6c:38:3d:bd",
+   "rssi": -66
+  },
+  {
+   "mac": "dc:a6:32:96:f8:0e",
+   "rssi": -42
+  },
+  {
+   "mac": "8c:f5:a3:9c:91:6e",
+   "rssi": -74,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "1e:f6:9e:e7:ac:c1",
+   "rssi": -64
+  },
+  {
+   "mac": "84:cc:a8:46:eb:e6",
+   "rssi": -72
+  },
+  {
+   "mac": "88:36:6c:c6:77:ca",
+   "rssi": -72,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "26:0c:9e:3f:2b:62",
+   "rssi": -89
+  },
+  {
+   "mac": "8c:f5:a3:60:f3:09",
+   "rssi": -75,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "74:c2:46:e3:2b:a4",
+   "rssi": -71,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "88:36:6c:0c:a2:c3",
+   "rssi": -86,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "5a:49:5d:82:2d:4e",
+   "rssi": -71
+  },
+  {
+   "mac": "e4:5f:01:5c:0d:1d",
+   "rssi": -75,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "aa:c0:3d:1a:67:7a",
+   "rssi": -70
+  },
+  {
+   "mac": "98:b6:e9:3a:89:1f",
+   "rssi": -78,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "0e:77:09:89:33:7e",
+   "rssi": -76
+  },
+  {
+   "mac": "00:e0:4c:2a:68:48",
+   "rssi": -74,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "5c:f8:a1:e7:15:00",
+   "rssi": -75
+  },
+  {
+   "mac": "1e:8b:80:c2:b3:6c",
+   "rssi": -79
+  },
+  {
+   "mac": "f0:18:98:52:23:99",
+   "rssi": -79,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "5c:f8:a1:6b:a2:af",
+   "rssi": -67
+  },
+  {
+   "mac": "34:7e:5c:7d:a4:ae",
+   "rssi": -81,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "0e:02:04:58:d3:fa",
+   "rssi": -79
+  },
+  {
+   "mac": "50:32:75:0f:e3:3f",
+   "rssi": -59,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "02:ec:bd:62:e3:04",
+   "rssi": -69
+  },
+  {
+   "mac": "8a:62:2e:9b:71:77",
+   "rssi": -77
+  },
+  {
+   "mac": "f4:f5:d8:03:64:ca",
+   "rssi": -70,
+   "vendor": "Google"
+  },
+  {
+   "mac": "64:cc:2e:63:59:21",
+   "rssi": -72
+  },
+  {
+   "mac": "34:7e:5c:62:0b:81",
+   "rssi": -61
+  },
+  {
+   "mac": "d2:a5:dd:d0:8c:3e",
+   "rssi": -61
+  },
+  {
+   "mac": "f0:f0:a4:18:8e:d7",
+   "rssi": -78
+  },
+  {
+   "mac": "00:e0:fc:29:0c:73",
+   "rssi": -71
+  },
+  {
+   "mac": "92:31:0e:f5:dd:0c",
+   "rssi": -68
+  },
+  {
+   "mac": "00:e0:fc:80:7e:37",
+   "rssi": -70,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "74:c2:46:25:e0:30",
+   "rssi": -66
+  },
+  {
+   "mac": "12:c1:a0:21:41:1f",
+   "rssi": -82
+  },
+  {
+   "mac": "50:32:75:34:1c:1a",
+   "rssi": -77,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "d6:05:e8:c4:ed:db",
+   "rssi": -70
+  },
+  {
+   "mac": "a4:83:e7:e8:a8:62",
+   "rssi": -76,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "84:cc:a8:83:b5:d7",
+   "rssi": -90,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "42:1e:41:9f:df:b7",
+   "rssi": -76
+  },
+  {
+   "mac": "9a:95:bc:04:4a:1d",
+   "rssi": -64
+  },
+  {
+   "mac": "8c:f5:a3:d8:b0:64",
+   "rssi": -79
+  },
+  {
+   "mac": "fe:a9:ab:99:d6:a8",
+   "rssi": -71
+  },
+  {
+   "mac": "f0:18:98:fd:70:01",
+   "rssi": -70
+  },
+  {
+   "mac": "00:e0:fc:c0:69:cc",
+   "rssi": -76,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "50:32:75:b7:0f:3a",
+   "rssi": -71,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "a4:83:e7:65:65:91",
+   "rssi": -82,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "00:e0:fc:7d:5b:64",
+   "rssi": -83,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "98:b6:e9:38:ad:6b",
+   "rssi": -71,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "64:cc:2e:de:21:3c",
+   "rssi": -73,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "28:18:78:a2:db:7d",
+   "rssi": -71
+  },
+  {
+   "mac": "b8:27:eb:4c:a7:7e",
+   "rssi": -76,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "70:b3:d5:6b:29:f0",
+   "rssi": -63
+  },
+  {
+   "mac": "ca:ff:ed:5b:a4:bf",
+   "rssi": -81
+  },
+  {
+   "mac": "04:5d:4b:12:6a:70",
+   "rssi": -88
+  },
+  {
+   "mac": "6a:d9:c1:50:bf:82",
+   "rssi": -70
+  },
+  {
+   "mac": "48:46:fb:75:15:ee",
+   "rssi": -70
+  },
+  {
+   "mac": "5c:f8:a1:d1:bc:fe",
+   "rssi": -70,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "48:46:fb:2a:96:28",
+   "rssi": -70
+  },
+  {
+   "mac": "2a:13:66:aa:64:a8",
+   "rssi": -68
+  },
+  {
+   "mac": "54:60:09:46:85:04",
+   "rssi": -72
+  },
+  {
+   "mac": "ce:06:f1:4c:cb:74",
+   "rssi": -83
+  },
+  {
+   "mac": "00:a0:c6:ec:ae:2b",
+   "rssi": -72,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "88:36:6c:6b:e0:e6",
+   "rssi": -79
+  },
+  {
+   "mac": "0e:b5:ad:73:d6:d9",
+   "rssi": -52
+  },
+  {
+   "mac": "e4:5f:01:0b:10:47",
+   "rssi": -81,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "ce:68:c8:20:c5:60",
+   "rssi": -66
+  },
+  {
+   "mac": "dc:a6:32:2f:57:35",
+   "rssi": -80
+  },
+  {
+   "mac": "70:b3:d5:0d:5f:65",
+   "rssi": -57,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "50:32:75:e8:1d:bc",
+   "rssi": -73
+  },
+  {
+   "mac": "88:36:6c:c8:50:38",
+   "rssi": -67,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "f4:f5:d8:42:69:9e",
+   "rssi": -72,
+   "vendor": "Google"
+  },
+  {
+   "mac": "dc:a6:32:67:ea:8d",
+   "rssi": -78,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "74:c2:46:a8:fb:eb",
+   "rssi": -83,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "48:46:fb:98:c8:59",
+   "rssi": -48,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "5c:f8:a1:ea:c4:5d",
+   "rssi": -68
+  },
+  {
+   "mac": "64:cc:2e:8c:95:22",
+   "rssi": -73
+  },
+  {
+   "mac": "fe:3e:bc:27:35:a6",
+   "rssi": -74
+  },
+  {
+   "mac": "02:ec:c3:af:cc:63",
+   "rssi": -70
+  },
+  {
+   "mac": "36:a7:ed:f8:ec:22",
+   "rssi": -68
+  },
+  {
+   "mac": "94:65:2d:8e:52:57",
+   "rssi": -78
+  },
+  {
+   "mac": "3e:56:27:05:8b:4e",
+   "rssi": -81
+  },
+  {
+   "mac": "f4:f5:d8:e2:18:34",
+   "rssi": -67,
+   "vendor": "Google"
+  },
+  {
+   "mac": "02:c1:67:7f:bf:7a",
+   "rssi": -63
+  },
+  {
+   "mac": "62:70:31:55:55:16",
+   "rssi": -70
+  },
+  {
+   "mac": "aa:61:6a:ca:db:3d",
+   "rssi": -72
+  },
+  {
+   "mac": "a2:c7:6c:ea:70:21",
+   "rssi": -67
+  },
+  {
+   "mac": "b2:22:6f:d2:9a:ff",
+   "rssi": -68
+  },
+  {
+   "mac": "64:cc:2e:80:30:a6",
+   "rssi": -66
+  },
+  {
+   "mac": "84:cc:a8:aa:59:a2",
+   "rssi": -67
+  },
+  {
+   "mac": "00:e0:4c:c3:77:06",
+   "rssi": -71,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "dc:a6:32:79:db:7c",
+   "rssi": -71
+  },
+  {
+   "mac": "62:79:e3:a8:44:8e",
+   "rssi": -40
+  },
+  {
+   "mac": "88:36:6c:93:0c:75",
+   "rssi": -72
+  },
+  {
+   "mac": "16:71:c3:a4:5d:e2",
+   "rssi": -74
+  },
+  {
+   "mac": "8c:f5:a3:48:68:40",
+   "rssi": -65,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "f4:f5:d8:78:28:da",
+   "rssi": -69
+  },
+  {
+   "mac": "7a:92:e5:67:8b:f6",
+   "rssi": -73
+  },
+  {
+   "mac": "04:5d:4b:c1:55:f1",
+   "rssi": -77,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "94:65:2d:0a:c3:da",
+   "rssi": -73
+  },
+  {
+   "mac": "a4:cf:12:59:83:c2",
+   "rssi": -83,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "4e:64:4f:61:02:06",
+   "rssi": -78
+  },
+  {
+   "mac": "28:18:78:fb:cf:d4",
+   "rssi": -66
+  },
+  {
+   "mac": "50:32:75:d1:13:3f",
+   "rssi": -77,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "da:b2:fa:bc:1d:c5",
+   "rssi": -67
+  },
+  {
+   "mac": "b2:4b:85:e9:4b:82",
+   "rssi": -72
+  },
+  {
+   "mac": "64:cc:2e:06:3b:2f",
+   "rssi": -77
+  },
+  {
+   "mac": "54:60:09:d8:54:da",
+   "rssi": -79,
+   "vendor": "Google"
+  },
+  {
+   "mac": "98:b6:e9:9d:d2:2d",
+   "rssi": -67,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "6e:9d:03:56:fb:00",
+   "rssi": -68
+  },
+  {
+   "mac": "88:36:6c:d5:93:dc",
+   "rssi": -83,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "3e:6c:5f:66:1e:5d",
+   "rssi": -73
+  },
+  {
+   "mac": "de:37:55:28:96:2b",
+   "rssi": -76
+  },
+  {
+   "mac": "94:65:2d:f8:33:04",
+   "rssi": -73,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "12:6c:03:c0:88:f8",
+   "rssi": -66
+  },
+  {
+   "mac": "00:e0:fc:a1:7a:b8",
+   "rssi": -76
+  },
+  {
+   "mac": "ba:33:01:e9:cd:47",
+   "rssi": -66
+  },
+  {
+   "mac": "74:c2:46:bc:e7:f3",
+   "rssi": -45
+  },
+  {
+   "mac": "e4:5f:01:08:b8:17",
+   "rssi": -63
+  },
+  {
+   "mac": "f0:f0:a4:f8:cc:29",
+   "rssi": -72,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "8c:8d:28:c5:96:63",
+   "rssi": -65
+  },
+  {
+   "mac": "d8:3a:dd:10:41:fe",
+   "rssi": -75
+  },
+  {
+   "mac": "64:cc:2e:e4:3b:f6",
+   "rssi": -76
+  },
+  {
+   "mac": "22:de:0e:52:a7:c4",
+   "rssi": -79
+  },
+  {
+   "mac": "24:6f:28:45:fb:2e",
+   "rssi": -71
+  },
+  {
+   "mac": "2a:c1:c3:df:77:72",
+   "rssi": -67
+  },
+  {
+   "mac": "62:bc:41:a0:c2:00",
+   "rssi": -73
+  },
+  {
+   "mac": "54:60:09:c6:d8:a3",
+   "rssi": -69
+  },
+  {
+   "mac": "f0:f0:a4:36:ca:04",
+   "rssi": -69
+  },
+  {
+   "mac": "96:ff:e9:4b:91:4a",
+   "rssi": -73
+  },
+  {
+   "mac": "aa:3f:8c:f4:6e:fd",
+   "rssi": -65
+  },
+  {
+   "mac": "8c:f5:a3:aa:4e:6b",
+   "rssi": -82
+  },
+  {
+   "mac": "28:6c:07:f9:c8:99",
+   "rssi": -70
+  },
+  {
+   "mac": "a4:83:e7:c8:ac:d8",
+   "rssi": -62
+  },
+  {
+   "mac": "b8:27:eb:90:63:c9",
+   "rssi": -72,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "8c:f5:a3:9b:ea:53",
+   "rssi": -78
+  },
+  {
+   "mac": "62:b9:34:4b:c0:da",
+   "rssi": -86
+  },
+  {
+   "mac": "12:b6:f2:5b:1a:3c",
+   "rssi": -70
+  },
+  {
+   "mac": "04:5d:4b:7d:11:3c",
+   "rssi": -77,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "28:6c:07:c0:2d:ed",
+   "rssi": -79
+  },
+  {
+   "mac": "24:6f:28:3b:2a:3e",
+   "rssi": -73,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "a4:83:e7:f5:8c:30",
+   "rssi": -63
+  },
+  {
+   "mac": "84:cc:a8:32:a6:20",
+   "rssi": -81
+  },
+  {
+   "mac": "04:5d:4b:0a:c9:fa",
+   "rssi": -71,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "f4:f5:d8:3c:5c:5c",
+   "rssi": -84,
+   "vendor": "Google"
+  },
+  {
+   "mac": "16:69:52:2c:83:11",
+   "rssi": -75
+  },
+  {
+   "mac": "64:cc:2e:d8:00:7f",
+   "rssi": -68,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "b8:27:eb:e3:47:fb",
+   "rssi": -68
+  },
+  {
+   "mac": "f4:f5:d8:32:16:79",
+   "rssi": -66,
+   "vendor": "Google"
+  },
+  {
+   "mac": "f4:f5:d8:44:6e:b7",
+   "rssi": -73,
+   "vendor": "Google"
+  },
+  {
+   "mac": "5e:e9:2a:82:d9:49",
+   "rssi": -79
+  },
+  {
+   "mac": "86:be:53:d6:4e:a1",
+   "rssi": -68
+  },
+  {
+   "mac": "50:32:75:8a:3f:38",
+   "rssi": -73
+  },
+  {
+   "mac": "2a:aa:8b:4a:73:8c",
+   "rssi": -71
+  },
+  {
+   "mac": "8c:8d:28:3f:59:9c",
+   "rssi": -54
+  },
+  {
+   "mac": "b8:27:eb:8a:32:18",
+   "rssi": -67,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "48:46:fb:ce:f4:41",
+   "rssi": -69,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "82:bd:7f:d6:ea:5d",
+   "rssi": -74
+  },
+  {
+   "mac": "00:a0:c6:92:8d:db",
+   "rssi": -81
+  },
+  {
+   "mac": "3c:a9:f4:9c:d0:a0",
+   "rssi": -68
+  },
+  {
+   "mac": "72:54:1d:2b:92:fc",
+   "rssi": -74
+  },
+  {
+   "mac": "84:cc:a8:f5:fe:3f",
+   "rssi": -56,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "3c:22:fb:d9:b0:7d",
+   "rssi": -71
+  },
+  {
+   "mac": "f0:18:98:e5:56:73",
+   "rssi": -51,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "b2:d8:fd:c2:57:bf",
+   "rssi": -84
+  },
+  {
+   "mac": "24:6f:28:94:99:f7",
+   "rssi": -77,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "04:5d:4b:6f:9c:12",
+   "rssi": -64
+  },
+  {
+   "mac": "ea:98:b5:36:02:b3",
+   "rssi": -71
+  },
+  {
+   "mac": "b2:33:dc:fb:65:2b",
+   "rssi": -74
+  },
+  {
+   "mac": "3c:22:fb:4f:80:73",
+   "rssi": -67,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "28:6c:07:89:37:e0",
+   "rssi": -76
+  },
+  {
+   "mac": "62:61:91:14:44:ca",
+   "rssi": -65
+  },
+  {
+   "mac": "16:65:f5:88:3c:d7",
+   "rssi": -64
+  },
+  {
+   "mac": "ce:43:38:37:0a:40",
+   "rssi": -82
+  },
+  {
+   "mac": "74:c2:46:1a:af:db",
+   "rssi": -72
+  },
+  {
+   "mac": "5c:f8:a1:7e:4e:5f",
+   "rssi": -77,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "74:c2:46:db:65:f2",
+   "rssi": -70
+  },
+  {
+   "mac": "46:3d:43:cd:13:8c",
+   "rssi": -74
+  },
+  {
+   "mac": "5c:f8:a1:09:66:2e",
+   "rssi": -79
+  },
+  {
+   "mac": "f0:f0:a4:ac:da:f5",
+   "rssi": -82,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "3a:ba:8f:b3:d6:7e",
+   "rssi": -74
+  },
+  {
+   "mac": "a6:92:f1:8f:33:dc",
+   "rssi": -70
+  },
+  {
+   "mac": "28:18:78:ab:9b:39",
+   "rssi": -71,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "ba:79:8d:6b:c4:2c",
+   "rssi": -52
+  },
+  {
+   "mac": "66:e4:32:26:af:9a",
+   "rssi": -65
+  },
+  {
+   "mac": "54:60:09:4e:16:41",
+   "rssi": -64,
+   "vendor": "Google"
+  },
+  {
+   "mac": "48:46:fb:bb:e5:3c",
+   "rssi": -72
+  },
+  {
+   "mac": "d8:3a:dd:0b:55:8c",
+   "rssi": -59
+  },
+  {
+   "mac": "54:60:09:cb:fd:26",
+   "rssi": -64,
+   "vendor": "Google"
+  },
+  {
+   "mac": "98:b6:e9:cd:8b:69",
+   "rssi": -70,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "d8:3a:dd:e9:84:9b",
+   "rssi": -70
+  },
+  {
+   "mac": "36:72:17:79:95:14",
+   "rssi": -62
+  },
+  {
+   "mac": "16:6b:3b:00:b1:bc",
+   "rssi": -67
+  },
+  {
+   "mac": "5c:aa:fd:44:d1:96",
+   "rssi": -74,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "86:83:08:36:c3:83",
+   "rssi": -92
+  },
+  {
+   "mac": "f0:f0:a4:a6:89:68",
+   "rssi": -77
+  },
+  {
+   "mac": "a4:cf:12:e4:76:de",
+   "rssi": -78,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "56:fb:5c:90:0a:9e",
+   "rssi": -69
+  },
+  {
+   "mac": "c6:23:49:24:da:7d",
+   "rssi": -70
+  },
+  {
+   "mac": "84:cc:a8:06:33:c1",
+   "rssi": -76,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "16:7f:2a:89:49:06",
+   "rssi": -77
+  },
+  {
+   "mac": "00:e0:fc:2b:67:47",
+   "rssi": -61,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "64:cc:2e:9d:a9:f5",
+   "rssi": -71,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "12:97:34:d4:48:00",
+   "rssi": -90
+  },
+  {
+   "mac": "96:c4:39:fb:56:38",
+   "rssi": -65
+  },
+  {
+   "mac": "b8:27:eb:b6:27:aa",
+   "rssi": -71,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "28:6c:07:db:ab:5c",
+   "rssi": -60
+  },
+  {
+   "mac": "dc:a6:32:92:b2:35",
+   "rssi": -79,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "50:32:75:01:4c:4b",
+   "rssi": -75,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "94:65:2d:22:39:da",
+   "rssi": -68
+  },
+  {
+   "mac": "ca:a3:fd:d9:f6:d3",
+   "rssi": -54
+  },
+  {
+   "mac": "84:cc:a8:7d:c4:d6",
+   "rssi": -61
+  },
+  {
+   "mac": "2e:70:2c:78:b9:01",
+   "rssi": -80
+  },
+  {
+   "mac": "28:18:78:f2:44:38",
+   "rssi": -72,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "b8:27:eb:eb:49:d7",
+   "rssi": -64,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "42:49:c1:0d:d9:be",
+   "rssi": -83
+  },
+  {
+   "mac": "64:cc:2e:0f:4b:bb",
+   "rssi": -46,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "28:6c:07:f0:47:99",
+   "rssi": -60,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "3c:22:fb:92:38:4f",
+   "rssi": -71,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "ce:e8:84:9c:74:d8",
+   "rssi": -75
+  },
+  {
+   "mac": "2e:40:6c:cd:1c:70",
+   "rssi": -74
+  },
+  {
+   "mac": "50:32:75:ef:f4:a0",
+   "rssi": -64
+  },
+  {
+   "mac": "8c:f5:a3:be:d9:63",
+   "rssi": -88,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "7a:53:36:21:6c:05",
+   "rssi": -79
+  },
+  {
+   "mac": "62:7b:89:2b:16:f7",
+   "rssi": -63
+  },
+  {
+   "mac": "ba:cb:63:a1:c8:b6",
+   "rssi": -54
+  },
+  {
+   "mac": "d8:3a:dd:33:4c:0c",
+   "rssi": -73
+  },
+  {
+   "mac": "f0:18:98:94:52:4d",
+   "rssi": -75
+  },
+  {
+   "mac": "66:52:ae:e5:43:ad",
+   "rssi": -83
+  },
+  {
+   "mac": "5c:f8:a1:14:c6:7a",
+   "rssi": -83,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "70:b3:d5:31:07:49",
+   "rssi": -69
+  },
+  {
+   "mac": "3c:a9:f4:ff:30:e8",
+   "rssi": -70,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "3c:a9:f4:24:5b:eb",
+   "rssi": -69,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "e6:3f:f9:14:ba:92",
+   "rssi": -68
+  },
+  {
+   "mac": "ba:bf:2a:d3:e6:86",
+   "rssi": -63
+  },
+  {
+   "mac": "f0:18:98:1d:7d:04",
+   "rssi": -83,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "f0:f0:a4:c6:ec:2f",
+   "rssi": -78,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "00:a0:c6:37:2b:5c",
+   "rssi": -66
+  },
+  {
+   "mac": "a2:a2:af:f8:6c:f3",
+   "rssi": -62
+  },
+  {
+   "mac": "a4:cf:12:f0:4a:6d",
+   "rssi": -77,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "28:18:78:dc:f2:6d",
+   "rssi": -89,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "52:48:23:8c:cf:29",
+   "rssi": -63
+  },
+  {
+   "mac": "88:36:6c:6d:84:5e",
+   "rssi": -75
+  },
+  {
+   "mac": "64:cc:2e:65:b2:d6",
+   "rssi": -67,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "5c:f8:a1:b5:c7:05",
+   "rssi": -75
+  },
+  {
+   "mac": "a4:cf:12:a5:a2:07",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "a2:d0:86:01:e6:40",
+   "rssi": -62
+  },
+  {
+   "mac": "6e:55:c1:6e:b2:6b",
+   "rssi": -77
+  },
+  {
+   "mac": "3c:22:fb:bd:ba:08",
+   "rssi": -79,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "00:a0:c6:d3:d2:b4",
+   "rssi": -71,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "00:e0:fc:3a:5a:ea",
+   "rssi": -75,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "5c:f8:a1:91:32:2c",
+   "rssi": -79
+  },
+  {
+   "mac": "88:36:6c:35:fe:33",
+   "rssi": -77
+  },
+  {
+   "mac": "f4:f5:d8:72:e8:c3",
+   "rssi": -69,
+   "vendor": "Google"
+  },
+  {
+   "mac": "48:46:fb:ed:d3:ca",
+   "rssi": -81,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "5c:aa:fd:9d:d4:7b",
+   "rssi": -71,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "06:bf:a2:ab:57:dc",
+   "rssi": -67
+  },
+  {
+   "mac": "8c:f5:a3:db:41:c7",
+   "rssi": -68
+  },
+  {
+   "mac": "64:cc:2e:df:76:32",
+   "rssi": -73
+  },
+  {
+   "mac": "5c:aa:fd:51:a5:68",
+   "rssi": -66,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "2e:0c:42:e8:b7:5f",
+   "rssi": -50
+  },
+  {
+   "mac": "dc:a6:32:63:7d:c1",
+   "rssi": -66
+  },
+  {
+   "mac": "8c:8d:28:38:eb:3e",
+   "rssi": -74,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "3c:a9:f4:27:fd:b9",
+   "rssi": -57
+  },
+  {
+   "mac": "70:b3:d5:27:6b:d6",
+   "rssi": -63,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "64:cc:2e:5c:98:05",
+   "rssi": -65
+  },
+  {
+   "mac": "aa:f7:02:51:82:3e",
+   "rssi": -81
+  },
+  {
+   "mac": "06:6e:ba:3a:6f:0f",
+   "rssi": -81
+  },
+  {
+   "mac": "34:7e:5c:8c:f6:66",
+   "rssi": -70
+  },
+  {
+   "mac": "b8:27:eb:ef:fd:df",
+   "rssi": -62
+  },
+  {
+   "mac": "34:7e:5c:c9:34:9f",
+   "rssi": -71,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "5c:f8:a1:e4:d8:8b",
+   "rssi": -68
+  },
+  {
+   "mac": "28:18:78:20:e6:55",
+   "rssi": -77
+  },
+  {
+   "mac": "da:b4:cb:0f:3a:5c",
+   "rssi": -76
+  },
+  {
+   "mac": "6a:be:4a:a0:3e:04",
+   "rssi": -76
+  },
+  {
+   "mac": "a6:ee:a4:77:21:c5",
+   "rssi": -70
+  },
+  {
+   "mac": "50:32:75:d7:de:a2",
+   "rssi": -71
+  },
+  {
+   "mac": "fe:17:8c:d7:3d:3f",
+   "rssi": -68
+  },
+  {
+   "mac": "0a:09:02:ec:91:43",
+   "rssi": -79
+  },
+  {
+   "mac": "f0:18:98:ac:08:23",
+   "rssi": -77,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "be:28:a0:fc:18:c9",
+   "rssi": -77
+  },
+  {
+   "mac": "70:b3:d5:3e:bf:34",
+   "rssi": -69,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "d6:57:2d:61:bc:02",
+   "rssi": -36
+  },
+  {
+   "mac": "24:6f:28:18:9b:26",
+   "rssi": -69,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "98:b6:e9:8a:57:46",
+   "rssi": -76
+  },
+  {
+   "mac": "88:36:6c:e4:3e:7b",
+   "rssi": -74
+  },
+  {
+   "mac": "e4:5f:01:f7:73:2f",
+   "rssi": -69,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "f4:f5:d8:27:26:fd",
+   "rssi": -65,
+   "vendor": "Google"
+  },
+  {
+   "mac": "3a:6a:a0:9f:e8:4e",
+   "rssi": -51
+  },
+  {
+   "mac": "46:ba:c5:e7:67:cc",
+   "rssi": -68
+  },
+  {
+   "mac": "36:ec:36:38:7b:08",
+   "rssi": -73
+  },
+  {
+   "mac": "0e:e7:b4:87:3c:2b",
+   "rssi": -68
+  },
+  {
+   "mac": "00:e0:fc:1b:e1:8b",
+   "rssi": -70,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "6e:5a:8d:fc:dd:37",
+   "rssi": -53
+  },
+  {
+   "mac": "24:6f:28:70:3a:1b",
+   "rssi": -66
+  },
+  {
+   "mac": "ce:c9:33:70:89:fd",
+   "rssi": -71
+  },
+  {
+   "mac": "48:46:fb:93:93:01",
+   "rssi": -64,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "76:a1:23:55:5f:aa",
+   "rssi": -74
+  },
+  {
+   "mac": "0e:db:ab:0a:5a:87",
+   "rssi": -79
+  },
+  {
+   "mac": "be:00:fa:7e:f1:38",
+   "rssi": -67
+  },
+  {
+   "mac": "76:4b:30:33:9b:ab",
+   "rssi": -48
+  },
+  {
+   "mac": "5c:aa:fd:f9:81:ba",
+   "rssi": -62,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "94:65:2d:39:8a:0a",
+   "rssi": -74,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "4a:fe:0f:7d:dc:b8",
+   "rssi": -66
+  },
+  {
+   "mac": "8c:8d:28:8c:e6:59",
+   "rssi": -60,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "04:5d:4b:d5:8d:9e",
+   "rssi": -64,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "ea:93:38:04:ff:4b",
+   "rssi": -76
+  },
+  {
+   "mac": "96:9b:f9:93:21:96",
+   "rssi": -84
+  },
+  {
+   "mac": "8c:f5:a3:fa:9c:02",
+   "rssi": -40,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "b8:27:eb:4f:2c:8a",
+   "rssi": -67,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "3c:a9:f4:94:70:10",
+   "rssi": -72,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "8c:8d:28:85:9a:9f",
+   "rssi": -69,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "84:cc:a8:66:80:45",
+   "rssi": -81,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "00:a0:c6:5d:c0:df",
+   "rssi": -74,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "d8:3a:dd:b7:ef:b5",
+   "rssi": -67,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "88:36:6c:2d:47:9a",
+   "rssi": -73
+  },
+  {
+   "mac": "b8:27:eb:1b:c9:40",
+   "rssi": -71,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "8c:f5:a3:2b:1c:8a",
+   "rssi": -92
+  },
+  {
+   "mac": "fa:1f:3e:1b:68:49",
+   "rssi": -73
+  },
+  {
+   "mac": "84:cc:a8:72:4f:9a",
+   "rssi": -69
+  },
+  {
+   "mac": "54:60:09:3a:22:00",
+   "rssi": -61,
+   "vendor": "Google"
+  },
+  {
+   "mac": "74:c2:46:68:35:f2",
+   "rssi": -77,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "f6:78:85:e0:3f:dd",
+   "rssi": -83
+  },
+  {
+   "mac": "46:57:66:f3:f5:94",
+   "rssi": -63
+  },
+  {
+   "mac": "34:7e:5c:c8:c5:36",
+   "rssi": -65,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "9e:3d:c7:05:9b:11",
+   "rssi": -67
+  },
+  {
+   "mac": "b6:ef:ea:8d:04:51",
+   "rssi": -65
+  },
+  {
+   "mac": "d8:3a:dd:6b:b2:c7",
+   "rssi": -78
+  },
+  {
+   "mac": "00:a0:c6:47:8e:9b",
+   "rssi": -66
+  },
+  {
+   "mac": "94:65:2d:c0:f1:5c",
+   "rssi": -64
+  },
+  {
+   "mac": "aa:ce:22:17:0f:51",
+   "rssi": -71
+  },
+  {
+   "mac": "70:b3:d5:f3:a5:76",
+   "rssi": -80
+  },
+  {
+   "mac": "28:6c:07:c4:d7:20",
+   "rssi": -73,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "2e:bf:0f:59:a4:37",
+   "rssi": -77
+  },
+  {
+   "mac": "54:60:09:64:81:fb",
+   "rssi": -86,
+   "vendor": "Google"
+  },
+  {
+   "mac": "5e:62:2c:0c:31:68",
+   "rssi": -58
+  },
+  {
+   "mac": "50:32:75:ae:5e:fe",
+   "rssi": -34,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "84:cc:a8:22:e0:da",
+   "rssi": -68
+  },
+  {
+   "mac": "84:cc:a8:98:33:3c",
+   "rssi": -79,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "b8:27:eb:80:c7:b7",
+   "rssi": -34,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "d8:3a:dd:9f:cc:1d",
+   "rssi": -69
+  },
+  {
+   "mac": "5c:aa:fd:0f:10:ad",
+   "rssi": -73,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "a2:78:fc:25:12:b1",
+   "rssi": -70
+  },
+  {
+   "mac": "3c:a9:f4:f5:42:8a",
+   "rssi": -73
+  },
+  {
+   "mac": "94:65:2d:9b:74:0a",
+   "rssi": -77
+  },
+  {
+   "mac": "98:b6:e9:09:f6:1a",
+   "rssi": -87,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "d6:3b:e0:3c:bc:b4",
+   "rssi": -72
+  },
+  {
+   "mac": "06:d3:17:07:7f:1d",
+   "rssi": -74
+  },
+  {
+   "mac": "5a:16:a0:b3:7d:95",
+   "rssi": -71
+  },
+  {
+   "mac": "50:32:75:80:69:fd",
+   "rssi": -80
+  },
+  {
+   "mac": "f0:f0:a4:e3:9a:bb",
+   "rssi": -66
+  },
+  {
+   "mac": "32:b1:d2:f8:8f:28",
+   "rssi": -77
+  },
+  {
+   "mac": "7a:6b:3e:be:48:12",
+   "rssi": -79
+  },
+  {
+   "mac": "24:6f:28:0a:ff:11",
+   "rssi": -75,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "22:8e:c4:fd:09:c3",
+   "rssi": -81
+  },
+  {
+   "mac": "d2:9c:10:b2:0d:ac",
+   "rssi": -68
+  },
+  {
+   "mac": "f4:f5:d8:0e:ae:de",
+   "rssi": -71
+  },
+  {
+   "mac": "98:b6:e9:93:ed:d9",
+   "rssi": -62
+  },
+  {
+   "mac": "64:cc:2e:c3:ef:79",
+   "rssi": -77,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "7a:ac:ca:13:8c:b9",
+   "rssi": -93
+  },
+  {
+   "mac": "3c:22:fb:3f:9d:a4",
+   "rssi": -72
+  },
+  {
+   "mac": "a4:83:e7:e1:04:ee",
+   "rssi": -63,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "3c:a9:f4:8d:a0:20",
+   "rssi": -77,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "5c:aa:fd:fd:41:74",
+   "rssi": -78
+  },
+  {
+   "mac": "16:e1:a2:15:74:1f",
+   "rssi": -74
+  },
+  {
+   "mac": "5c:aa:fd:08:b4:16",
+   "rssi": -73
+  },
+  {
+   "mac": "74:c2:46:68:a6:be",
+   "rssi": -66
+  },
+  {
+   "mac": "da:49:0c:a7:b8:ab",
+   "rssi": -69
+  },
+  {
+   "mac": "b8:27:eb:0f:52:bc",
+   "rssi": -67,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "a4:83:e7:36:6c:a0",
+   "rssi": -76
+  },
+  {
+   "mac": "6e:10:4c:c3:28:27",
+   "rssi": -81
+  },
+  {
+   "mac": "d8:3a:dd:d6:3e:1a",
+   "rssi": -72
+  },
+  {
+   "mac": "96:a8:7c:b9:76:e9",
+   "rssi": -78
+  },
+  {
+   "mac": "74:c2:46:e3:d1:b9",
+   "rssi": -73,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "f0:f0:a4:e5:d6:75",
+   "rssi": -67
+  },
+  {
+   "mac": "7e:46:85:92:ae:a0",
+   "rssi": -69
+  },
+  {
+   "mac": "f6:5c:e8:07:55:3d",
+   "rssi": -78
+  },
+  {
+   "mac": "94:65:2d:33:40:11",
+   "rssi": -68
+  },
+  {
+   "mac": "98:b6:e9:d8:b5:41",
+   "rssi": -36,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "00:e0:fc:37:17:25",
+   "rssi": -73
+  },
+  {
+   "mac": "88:36:6c:e6:df:94",
+   "rssi": -75
+  },
+  {
+   "mac": "d8:3a:dd:2a:4d:03",
+   "rssi": -73
+  },
+  {
+   "mac": "98:b6:e9:a4:e0:5a",
+   "rssi": -82
+  },
+  {
+   "mac": "a2:da:92:a5:c4:a3",
+   "rssi": -69
+  },
+  {
+   "mac": "f0:18:98:6b:dc:8e",
+   "rssi": -73
+  },
+  {
+   "mac": "8e:e0:72:56:93:84",
+   "rssi": -68
+  },
+  {
+   "mac": "f0:f0:a4:8e:48:31",
+   "rssi": -69,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "54:60:09:03:fa:0d",
+   "rssi": -72,
+   "vendor": "Google"
+  },
+  {
+   "mac": "5c:f8:a1:e3:40:e8",
+   "rssi": -74,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "5c:f8:a1:fc:86:2c",
+   "rssi": -75
+  },
+  {
+   "mac": "24:6f:28:b5:28:71",
+   "rssi": -84
+  },
+  {
+   "mac": "d8:3a:dd:25:a1:13",
+   "rssi": -77,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "e4:5f:01:61:12:04",
+   "rssi": -72,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "f6:f8:5f:fe:90:43",
+   "rssi": -69
+  },
+  {
+   "mac": "f4:f5:d8:01:de:22",
+   "rssi": -75,
+   "vendor": "Google"
+  },
+  {
+   "mac": "98:b6:e9:78:b2:f7",
+   "rssi": -72
+  },
+  {
+   "mac": "f0:f0:a4:95:f8:fa",
+   "rssi": -74
+  },
+  {
+   "mac": "3a:d6:e4:a6:7e:d9",
+   "rssi": -77
+  },
+  {
+   "mac": "e4:5f:01:3a:b1:cb",
+   "rssi": -66
+  },
+  {
+   "mac": "88:36:6c:78:0e:94",
+   "rssi": -84,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "88:36:6c:1f:a5:85",
+   "rssi": -71
+  },
+  {
+   "mac": "1a:f8:70:ad:17:9d",
+   "rssi": -70
+  },
+  {
+   "mac": "56:38:a8:42:0a:0a",
+   "rssi": -78
+  },
+  {
+   "mac": "50:32:75:19:6b:b9",
+   "rssi": -63
+  },
+  {
+   "mac": "04:5d:4b:75:94:52",
+   "rssi": -67
+  },
+  {
+   "mac": "f0:18:98:0a:34:cb",
+   "rssi": -70
+  },
+  {
+   "mac": "74:c2:46:11:8b:3f",
+   "rssi": -35
+  },
+  {
+   "mac": "34:7e:5c:2b:27:25",
+   "rssi": -62
+  },
+  {
+   "mac": "a4:cf:12:30:c8:63",
+   "rssi": -72
+  },
+  {
+   "mac": "5c:f8:a1:0b:9a:8c",
+   "rssi": -73,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "5c:f8:a1:2f:71:d0",
+   "rssi": -64
+  },
+  {
+   "mac": "d8:3a:dd:7d:c3:08",
+   "rssi": -74
+  },
+  {
+   "mac": "00:e0:4c:72:0c:cb",
+   "rssi": -61
+  },
+  {
+   "mac": "8c:8d:28:9f:aa:49",
+   "rssi": -75
+  },
+  {
+   "mac": "70:b3:d5:7f:2a:48",
+   "rssi": -69,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "f0:f0:a4:1e:fc:81",
+   "rssi": -70,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "88:36:6c:02:89:6b",
+   "rssi": -71
+  },
+  {
+   "mac": "e4:5f:01:78:a4:ec",
+   "rssi": -74
+  },
+  {
+   "mac": "3e:27:c0:41:06:52",
+   "rssi": -59
+  },
+  {
+   "mac": "6e:3a:13:d9:fd:57",
+   "rssi": -88
+  },
+  {
+   "mac": "88:36:6c:cc:04:97",
+   "rssi": -76,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "34:7e:5c:a5:be:54",
+   "rssi": -73,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "5c:aa:fd:f1:ec:6b",
+   "rssi": -69
+  },
+  {
+   "mac": "84:cc:a8:54:f2:05",
+   "rssi": -63,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "66:30:ea:a9:30:1f",
+   "rssi": -92
+  },
+  {
+   "mac": "50:32:75:b3:73:b0",
+   "rssi": -68
+  },
+  {
+   "mac": "dc:a6:32:bc:ce:82",
+   "rssi": -74
+  },
+  {
+   "mac": "42:6e:8f:5b:86:34",
+   "rssi": -60
+  },
+  {
+   "mac": "34:7e:5c:f2:6b:56",
+   "rssi": -81,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "46:54:f3:00:a5:27",
+   "rssi": -73
+  },
+  {
+   "mac": "94:65:2d:a7:9a:3c",
+   "rssi": -65,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "94:65:2d:b5:9f:a2",
+   "rssi": -69
+  },
+  {
+   "mac": "34:7e:5c:49:df:e2",
+   "rssi": -63,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "5c:f8:a1:b2:5b:0c",
+   "rssi": -86
+  },
+  {
+   "mac": "54:60:09:c3:bf:5b",
+   "rssi": -71
+  },
+  {
+   "mac": "b6:02:9e:a8:30:bc",
+   "rssi": -78
+  },
+  {
+   "mac": "8e:cb:16:81:8c:1d",
+   "rssi": -73
+  },
+  {
+   "mac": "94:65:2d:e8:fb:58",
+   "rssi": -72,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "06:5a:43:2a:d6:3d",
+   "rssi": -72
+  },
+  {
+   "mac": "86:08:aa:a2:56:bb",
+   "rssi": -86
+  },
+  {
+   "mac": "04:5d:4b:d5:1f:21",
+   "rssi": -84,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "1a:65:d1:58:01:9f",
+   "rssi": -69
+  },
+  {
+   "mac": "00:e0:fc:ee:2c:ed",
+   "rssi": -68,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "06:05:6f:bf:eb:29",
+   "rssi": -71
+  },
+  {
+   "mac": "dc:a6:32:61:43:9e",
+   "rssi": -69,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "76:8b:66:5a:97:84",
+   "rssi": -70
+  },
+  {
+   "mac": "fa:ba:b2:e6:57:12",
+   "rssi": -69
+  },
+  {
+   "mac": "5c:f8:a1:b1:93:6a",
+   "rssi": -75,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "34:7e:5c:2e:6b:84",
+   "rssi": -74,
+   "vendor": "Sonos"
+  },
+  {
+   "mac": "94:65:2d:47:ef:a5",
+   "rssi": -65,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "f0:18:98:a5:35:b7",
+   "rssi": -76
+  },
+  {
+   "mac": "8c:8d:28:5f:b7:9c",
+   "rssi": -41,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "5c:f8:a1:cc:f2:7c",
+   "rssi": -72,
+   "vendor": "Murata Manufacturing"
+  },
+  {
+   "mac": "ca:14:77:37:d7:da",
+   "rssi": -79
+  },
+  {
+   "mac": "5a:65:47:42:aa:1b",
+   "rssi": -66
+  },
+  {
+   "mac": "4a:ea:ca:54:eb:00",
+   "rssi": -74
+  },
+  {
+   "mac": "56:68:df:2e:7d:4e",
+   "rssi": -71
+  },
+  {
+   "mac": "28:18:78:02:f4:51",
+   "rssi": -68,
+   "vendor": "Microsoft"
+  },
+  {
+   "mac": "98:b6:e9:ed:7c:31",
+   "rssi": -76,
+   "vendor": "Nintendo"
+  },
+  {
+   "mac": "04:5d:4b:a7:90:d9",
+   "rssi": -81
+  },
+  {
+   "mac": "a4:83:e7:71:5b:78",
+   "rssi": -78,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "04:5d:4b:27:75:46",
+   "rssi": -64,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "28:6c:07:d9:4d:91",
+   "rssi": -36,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "28:6c:07:53:cb:36",
+   "rssi": -77,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "8c:8d:28:cf:06:52",
+   "rssi": -71,
+   "vendor": "Intel Corporate"
+  },
+  {
+   "mac": "04:5d:4b:d8:1b:9b",
+   "rssi": -77,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "ea:f2:ab:ba:39:5b",
+   "rssi": -67
+  },
+  {
+   "mac": "a4:cf:12:03:ac:84",
+   "rssi": -78,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "00:a0:c6:de:18:ed",
+   "rssi": -73,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "28:18:78:81:d9:ac",
+   "rssi": -78
+  },
+  {
+   "mac": "86:96:b6:d5:08:e4",
+   "rssi": -72
+  },
+  {
+   "mac": "f0:18:98:ca:7f:59",
+   "rssi": -78,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "70:b3:d5:dc:8c:b0",
+   "rssi": -79
+  },
+  {
+   "mac": "00:a0:c6:14:27:a7",
+   "rssi": -72,
+   "vendor": "Qualcomm"
+  },
+  {
+   "mac": "8c:8d:28:c3:28:ac",
+   "rssi": -60
+  },
+  {
+   "mac": "5c:aa:fd:28:dd:3b",
+   "rssi": -73
+  },
+  {
+   "mac": "d8:3a:dd:7c:19:bf",
+   "rssi": -71
+  },
+  {
+   "mac": "28:6c:07:8d:17:cc",
+   "rssi": -67
+  },
+  {
+   "mac": "d6:09:d4:42:8c:88",
+   "rssi": -74
+  },
+  {
+   "mac": "72:a6:71:20:93:eb",
+   "rssi": -70
+  },
+  {
+   "mac": "00:e0:fc:c7:f3:06",
+   "rssi": -81,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "70:b3:d5:6b:57:c7",
+   "rssi": -70,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "48:46:fb:2a:6a:bd",
+   "rssi": -93,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "00:a0:c6:0f:4f:55",
+   "rssi": -75
+  },
+  {
+   "mac": "b8:27:eb:fb:78:c0",
+   "rssi": -82
+  },
+  {
+   "mac": "24:6f:28:31:ca:6f",
+   "rssi": -66,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "04:5d:4b:d1:b4:6f",
+   "rssi": -75,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "b2:a2:c8:73:ce:fd",
+   "rssi": -59
+  },
+  {
+   "mac": "5e:93:01:ab:ed:58",
+   "rssi": -75
+  },
+  {
+   "mac": "de:d2:60:0e:72:46",
+   "rssi": -58
+  },
+  {
+   "mac": "88:36:6c:0b:a6:7f",
+   "rssi": -75,
+   "vendor": "LG Electronics"
+  },
+  {
+   "mac": "28:18:78:0b:c7:62",
+   "rssi": -72
+  },
+  {
+   "mac": "6a:43:96:21:0f:69",
+   "rssi": -81
+  },
+  {
+   "mac": "00:e0:4c:7b:5a:ec",
+   "rssi": -62
+  },
+  {
+   "mac": "64:cc:2e:7d:ec:23",
+   "rssi": -77,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "98:b6:e9:24:d5:85",
+   "rssi": -92
+  },
+  {
+   "mac": "a4:83:e7:e0:f6:1e",
+   "rssi": -76,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "d8:3a:dd:e1:db:3f",
+   "rssi": -67,
+   "vendor": "Åsgard Optics Ltd"
+  },
+  {
+   "mac": "24:6f:28:56:bb:d3",
+   "rssi": -82
+  },
+  {
+   "mac": "a2:ea:fb:7d:85:af",
+   "rssi": -72
+  },
+  {
+   "mac": "00:e0:4c:84:8c:12",
+   "rssi": -65
+  },
+  {
+   "mac": "28:18:78:95:9d:51",
+   "rssi": -73
+  },
+  {
+   "mac": "b8:27:eb:4f:41:4b",
+   "rssi": -68
+  },
+  {
+   "mac": "dc:a6:32:4b:06:84",
+   "rssi": -72,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "04:5d:4b:f4:57:b0",
+   "rssi": -67
+  },
+  {
+   "mac": "70:b3:d5:56:f6:59",
+   "rssi": -80,
+   "vendor": "O\"Neil & Sons"
+  },
+  {
+   "mac": "50:32:75:af:73:9e",
+   "rssi": -72,
+   "vendor": "Samsung Electronics"
+  },
+  {
+   "mac": "6a:ff:eb:06:74:67",
+   "rssi": -80
+  },
+  {
+   "mac": "3a:22:8a:28:1c:e4",
+   "rssi": -79
+  },
+  {
+   "mac": "74:c2:46:74:e9:5a",
+   "rssi": -72,
+   "vendor": "Amazon Technologies"
+  },
+  {
+   "mac": "3c:a9:f4:61:20:43",
+   "rssi": -67
+  },
+  {
+   "mac": "00:a0:c6:32:1a:a3",
+   "rssi": -71
+  },
+  {
+   "mac": "00:e0:4c:2a:f3:65",
+   "rssi": -63,
+   "vendor": "Realtek"
+  },
+  {
+   "mac": "d2:e2:63:e9:00:80",
+   "rssi": -76
+  },
+  {
+   "mac": "70:b3:d5:5a:a8:f7",
+   "rssi": -75
+  },
+  {
+   "mac": "8a:e1:39:5d:f9:03",
+   "rssi": -76
+  },
+  {
+   "mac": "94:65:2d:fd:53:5b",
+   "rssi": -60,
+   "vendor": "OnePlus"
+  },
+  {
+   "mac": "28:6c:07:63:37:76",
+   "rssi": -77,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "f2:99:6b:4f:a5:50",
+   "rssi": -58
+  },
+  {
+   "mac": "5a:f2:d5:89:75:86",
+   "rssi": -75
+  },
+  {
+   "mac": "dc:a6:32:bd:4a:9c",
+   "rssi": -70,
+   "vendor": "Raspberry Pi Foundation"
+  },
+  {
+   "mac": "04:5d:4b:d5:02:ce",
+   "rssi": -72,
+   "vendor": "Sony"
+  },
+  {
+   "mac": "84:cc:a8:e9:8c:09",
+   "rssi": -79
+  },
+  {
+   "mac": "a4:83:e7:a4:da:c3",
+   "rssi": -75,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "6e:8c:36:26:7c:52",
+   "rssi": -76
+  },
+  {
+   "mac": "f0:18:98:c7:f9:7f",
+   "rssi": -82,
+   "vendor": "Apple"
+  },
+  {
+   "mac": "8c:8d:28:1c:af:8d",
+   "rssi": -71
+  },
+  {
+   "mac": "50:32:75:a6:d3:4d",
+   "rssi": -74
+  },
+  {
+   "mac": "3c:a9:f4:e0:7d:a7",
+   "rssi": -65
+  },
+  {
+   "mac": "06:22:a0:b8:e4:6d",
+   "rssi": -73
+  },
+  {
+   "mac": "00:a0:c6:b9:aa:65",
+   "rssi": -64
+  },
+  {
+   "mac": "3e:da:ca:f9:18:1e",
+   "rssi": -72
+  },
+  {
+   "mac": "a4:83:e7:df:10:a7",
+   "rssi": -61
+  },
+  {
+   "mac": "3c:a9:f4:39:51:2c",
+   "rssi": -80
+  },
+  {
+   "mac": "54:60:09:25:dc:8d",
+   "rssi": -76,
+   "vendor": "Google"
+  },
+  {
+   "mac": "5a:e8:dd:0a:cd:96",
+   "rssi": -68
+  },
+  {
+   "mac": "d6:84:72:a7:ea:66",
+   "rssi": -86
+  },
+  {
+   "mac": "48:46:fb:4e:60:4b",
+   "rssi": -72,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "84:cc:a8:b2:23:a7",
+   "rssi": -63
+  },
+  {
+   "mac": "54:60:09:9b:53:d9",
+   "rssi": -71
+  },
+  {
+   "mac": "e2:c0:0d:e3:6a:c2",
+   "rssi": -62
+  },
+  {
+   "mac": "24:6f:28:2f:59:3e",
+   "rssi": -38,
+   "vendor": "Espressif"
+  },
+  {
+   "mac": "48:46:fb:a2:d4:61",
+   "rssi": -77,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "00:a0:c6:08:03:c2",
+   "rssi": -79
+  },
+  {
+   "mac": "48:46:fb:b8:9e:21",
+   "rssi": -72,
+   "vendor": "Huawei"
+  },
+  {
+   "mac": "ce:08:8c:a5:17:48",
+   "rssi": -80
+  },
+  {
+   "mac": "06:4f:47:f0:13:1f",
+   "rssi": -47
+  },
+  {
+   "mac": "d6:d6:58:59:4d:5c",
+   "rssi": -69
+  },
+  {
+   "mac": "64:cc:2e:0f:fe:68",
+   "rssi": -62,
+   "vendor": "Xiaomi"
+  },
+  {
+   "mac": "0a:0e:f0:11:49:d0",
+   "rssi": -68
+  },
+  {
+   "mac": "64:cc:2e:33:07:b2",
+   "rssi": -47
+  }
+ ]
+}

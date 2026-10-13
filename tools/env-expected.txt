@@ -1,0 +1,6 @@
+shellcheck 0.11.0
+python3 3.14.6
+jq jq-1.7.1-apple
+sqlite3 3.54.0
+chrome Google Chrome 153.0.8010.48
+os Darwin 27.0.0

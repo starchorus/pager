@@ -1,0 +1,342 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device",
+  "max_age": 0,
+  "interval": 5,
+  "own_bssids": [
+   "00:c0:ca:98:76:54"
+  ],
+  "own_ssids": [
+   "my-own-net"
+  ]
+ },
+ "source": "recon-db",
+ "channels": [
+  {
+   "freq": 2412,
+   "last_heard": 1789299997,
+   "busy_pct": 10,
+   "noise": -95
+  },
+  {
+   "freq": 2422,
+   "last_heard": 1789299990,
+   "busy_pct": 19,
+   "noise": -94
+  },
+  {
+   "freq": 2437,
+   "last_heard": 1789299983,
+   "busy_pct": 28,
+   "noise": -93
+  },
+  {
+   "freq": 2452,
+   "last_heard": 1789299976,
+   "busy_pct": 37,
+   "noise": -92
+  },
+  {
+   "freq": 2462,
+   "last_heard": 1789299969,
+   "busy_pct": 46,
+   "noise": -91
+  },
+  {
+   "freq": 5180,
+   "last_heard": 1789299962,
+   "busy_pct": 55,
+   "noise": -95
+  },
+  {
+   "freq": 5220,
+   "last_heard": 1789299955,
+   "busy_pct": 64,
+   "noise": -94
+  },
+  {
+   "freq": 5500,
+   "last_heard": 1789299948,
+   "busy_pct": 73,
+   "noise": -93
+  },
+  {
+   "freq": 5745,
+   "last_heard": 1789299941,
+   "busy_pct": 82,
+   "noise": -92
+  },
+  {
+   "freq": 5785,
+   "last_heard": 1789299934,
+   "busy_pct": 91,
+   "noise": -91
+  },
+  {
+   "freq": 5975,
+   "last_heard": 1789299927,
+   "busy_pct": 0,
+   "noise": -95
+  }
+ ],
+ "aps": [
+  {
+   "bssid": "02:00:5e:b0:00:01",
+   "ssid": "sec-01",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -42,
+   "security": "Open",
+   "last_seen": 1789299990,
+   "auth": [
+    "open"
+   ],
+   "clients": [
+    {
+     "mac": "3c:22:fb:10:20:31",
+     "rssi": -55
+    }
+   ]
+  },
+  {
+   "bssid": "02:00:5e:b0:00:02",
+   "ssid": "sec-02",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -55,
+   "security": "WEP",
+   "last_seen": 1789299980,
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:03",
+   "ssid": "sec-03",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -47,
+   "security": "WPA2",
+   "last_seen": 1789299970,
+   "akm": [
+    "psk"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": [
+    {
+     "mac": "8c:f5:a3:11:21:32",
+     "rssi": -60,
+     "vendor": "Samsung Electronics"
+    }
+   ]
+  },
+  {
+   "bssid": "02:00:5e:b0:00:04",
+   "ssid": "sec-04",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -51,
+   "security": "WPA3",
+   "last_seen": 1789299960,
+   "akm": [
+    "sae"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open",
+    "sae"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:05",
+   "ssid": "sec-05",
+   "channel": 100,
+   "band": "5GHz",
+   "freq": 5500,
+   "rssi": -58,
+   "security": "WPA3/WPA2",
+   "last_seen": 1789299950,
+   "akm": [
+    "psk",
+    "sae"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open",
+    "sae"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:06",
+   "ssid": "sec-06",
+   "channel": 5,
+   "band": "6GHz",
+   "freq": 5975,
+   "rssi": -61,
+   "security": "OWE",
+   "last_seen": 1789299940,
+   "akm": [
+    "owe"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:07",
+   "ssid": "sec-07",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -64,
+   "security": "WPA2-Enterprise",
+   "last_seen": 1789299930,
+   "akm": [
+    "1x"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:08",
+   "ssid": "sec-08",
+   "channel": 157,
+   "band": "5GHz",
+   "freq": 5785,
+   "rssi": -67,
+   "security": "WPA3-Enterprise",
+   "last_seen": 1789299920,
+   "akm": [
+    "1x-suiteb-sha256"
+   ],
+   "cipher": {
+    "group": "gcmp128",
+    "pairwise": [
+     "gcmp128"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:09",
+   "ssid": "sec-09",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -70,
+   "security": "WPA (TKIP)",
+   "last_seen": 1789299910,
+   "akm": [
+    "psk"
+   ],
+   "cipher": {
+    "group": "tkip",
+    "pairwise": [
+     "tkip"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:0a",
+   "ssid": "sec-10",
+   "channel": 3,
+   "band": "2.4GHz",
+   "freq": 2422,
+   "rssi": -73,
+   "security": "WPA2 (TKIP)",
+   "last_seen": 1789299900,
+   "akm": [
+    "psk"
+   ],
+   "cipher": {
+    "group": "tkip",
+    "pairwise": [
+     "tkip"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "clients": []
+  },
+  {
+   "bssid": "02:00:5e:b0:00:0b",
+   "ssid": "",
+   "channel": 9,
+   "band": "2.4GHz",
+   "freq": 2452,
+   "rssi": -76,
+   "security": "WPA2",
+   "last_seen": 1789299890,
+   "akm": [
+    "psk"
+   ],
+   "cipher": {
+    "group": "ccmp128",
+    "pairwise": [
+     "ccmp128"
+    ]
+   },
+   "auth": [
+    "open"
+   ],
+   "responded_ssids": 3,
+   "clients": []
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "a6:31:42:53:64:75",
+   "rssi": -66,
+   "randomized": true
+  }
+ ]
+}

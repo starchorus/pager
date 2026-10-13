@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# T1 on other hardware: the same quick tier as the pre-commit hook (tools/quick.sh), without Chrome.
+# What this run does NOT prove: that the running page is passive (source text only), anything under
+# BusyBox, a Chrome regression run (T2 = sh tools/regress.sh stays local, before a release).
+# The runner may have a different ShellCheck version from the development machine and report more strictly
+# (for instance SC2015 on A && B || C); green locally does not mean green on the runner, and the runner decides.
+name: quick (T1)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tools (shellcheck, jq, python3 are present on ubuntu-latest; print the versions)
+        run: |
+          shellcheck --version | sed -n 2p
+          jq --version
+          python3 -V
+      - name: T1 quick tier with mutation probe
+        run: QUICK_MUTATE=1 sh tools/quick.sh ci

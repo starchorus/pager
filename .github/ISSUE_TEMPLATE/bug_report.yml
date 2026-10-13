@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Bug report
+description: Something behaves differently from how it is described.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Privacy:** do not include real SSIDs, MAC addresses or capture files (recon database, `starchorus.json`, pcap, screenshots with legible names).
+
+        To reproduce the problem, use the page's demo (without `starchorus.json`) or synthetic data: the fixtures under `tests/fixtures/` or `python3 tools/gen-testdata.py`.
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Collector (starchorus-collect.sh)
+        - Page (starchorus.html)
+        - Dashboard script (starchorus-display.sh)
+        - Payload (payload.sh)
+        - Fallback server (starchorus-serve.sh)
+        - Tools (tools/)
+        - Documentation
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Data source
+      options:
+        - Recon database (read-only)
+        - Monitor mode
+        - Active scan (opt-in, STARCHORUS_ALLOW_ACTIVE=1)
+        - Demo or synthetic fixture
+        - Not applicable
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Starchorus version
+      description: "The `# Version:` header of the scripts, or `STARCHORUS.version` in the browser console."
+  - type: textarea
+    id: device
+    attributes:
+      label: Device (OS, BusyBox)
+      description: >
+        For the collector, dashboard, payload or fallback server: the device's operating system or
+        firmware version, and the output of `uname -srm`, `busybox | head -n 1` and `jq --version`.
+      render: text
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: Only for faults in the page.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Ideally with the demo or a fixture from `tests/fixtures/`.
+      placeholder: |
+        1. Put tests/fixtures/single-ap.json next to the page as starchorus.json
+        2. Open the page, press key …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: Shortened. Replace MAC addresses and SSIDs with placeholders first.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I have removed every real SSID, MAC address and capture file.
+          required: true

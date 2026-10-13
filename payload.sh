@@ -1,0 +1,120 @@
+#!/bin/sh
+#
+# Title:        Starchorus (passive)
+# Description:  STRICTLY PASSIVE Wi-Fi landscape visualiser. Starts the passive collector
+#               (recon.db read / monitor-mode RX only -- never transmits) and serves the
+#               visualisation on a high local port of the management address. Contains NO active/offensive feature.
+# Author:       Starchorus
+# Version:      0.1.0
+# Category:     reconnaissance
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Drop this whole folder at /root/loot/starchorus on the device (starchorus-collect.sh, starchorus.html
+# as index.html, and this payload.sh). Run it from the Payloads UI or by hand. Stop with
+# `./payload.sh stop`.  Everything here is receive-only.
+
+STARCHORUS_DIR=${STARCHORUS_DIR:-/root/loot/starchorus}      # persistent eMMC (== /mmc/root/loot/starchorus)
+STARCHORUS_PORT=${STARCHORUS_PORT:-8199}                # NOT 1471 (mgmt UI) and NOT 80
+# The page server listens on one address: auto (default) = the IPv4 address of br-lan (USB-C and management Wi-Fi), else
+# 172.16.52.1 when an interface has it, else 127.0.0.1 (with a note); an explicit IPv4 address; or all = 0.0.0.0, every
+# interface -- the page and starchorus.json (every captured MAC and SSID) then reach every network the device is on.
+STARCHORUS_BIND=${STARCHORUS_BIND:-auto}
+export STARCHORUS_OUTDIR="$STARCHORUS_DIR"
+export STARCHORUS_INTERVAL="${STARCHORUS_INTERVAL:-5}"
+
+cd "$STARCHORUS_DIR" 2>/dev/null || { echo "no $STARCHORUS_DIR" >&2; exit 1; }
+
+# ipv4 TEXT -> 0 iff TEXT is a dotted-quad IPv4 address (four parts 0-255, no leading zero)
+ipv4() {
+    printf '%s\n' "$1" | awk -F. 'NR == 1 && NF == 4 { for (i = 1; i <= 4; i++) if ($i !~ /^(0|[1-9][0-9]?[0-9]?)$/ || $i + 0 > 255) exit 1; ok = 1 }
+        END { exit !(ok && NR == 1) }'
+}
+
+# bind_addr -> the address the page server listens on, per STARCHORUS_BIND. auto reads `ip -4 -o addr` (read-only). An
+# invalid value is treated as auto (with a note); every interface (0.0.0.0) only ever comes from `all`.
+bind_addr() {
+    case $STARCHORUS_BIND in
+        all)  echo 0.0.0.0; return 0 ;;
+        auto) ;;
+        *)    if [ "$STARCHORUS_BIND" != 0.0.0.0 ] && ipv4 "$STARCHORUS_BIND"; then printf '%s\n' "$STARCHORUS_BIND"; return 0; fi
+              echo "STARCHORUS_BIND=$STARCHORUS_BIND ignored (auto, all or an IPv4 address); using auto" >&2 ;;
+    esac
+    ips=$(ip -4 -o addr 2>/dev/null)
+    a=$(printf '%s\n' "$ips" | awk '$2 == "br-lan" || $2 ~ /^br-lan@/ { for (i = 3; i < NF; i++) if ($i == "inet") { a = $(i + 1); sub(/\/.*/, "", a); print a; exit } }')
+    if [ "$a" != 0.0.0.0 ] && ipv4 "$a"; then printf '%s\n' "$a"; return 0; fi
+    if printf '%s\n' "$ips" | awk '{ for (i = 3; i < NF; i++) if ($i == "inet" && index($(i + 1), "172.16.52.1/") == 1) f = 1 } END { exit !f }'; then
+        echo 172.16.52.1; return 0
+    fi
+    echo "no br-lan address: the page listens on 127.0.0.1 only (set STARCHORUS_BIND to an address, or to all)" >&2
+    echo 127.0.0.1
+}
+
+# ---- pick a static file server (passive; serves index.html + starchorus.json) -----------------
+# Every server is started in the FOREGROUND mode of its program and backgrounded here, so $! is the server
+# itself and httpd.pid holds exactly our own server's pid. busybox httpd daemonises unless it gets -f: without
+# it the call returns at once and $! is not the server (empty, or the collector started just before), so `stop`
+# would kill the wrong process or none and the server would keep running.
+# Each listens on ADDR (bind_addr) only: uhttpd and busybox httpd take -p ADDR:PORT, python3 --bind ADDR.
+serve() {
+    srv=
+    if command -v uhttpd >/dev/null 2>&1; then
+        uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
+    elif busybox --list 2>/dev/null | grep -qx httpd; then
+        busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
+    else
+        echo "no static file server (install: opkg install -d mmc uhttpd  or  python3-light)" >&2
+        return 1
+    fi
+    sleep 1   # a server that cannot bind the port exits at once: no pid file for a process that is gone
+    if kill -0 "$srv" 2>/dev/null; then echo "$srv" > "$STARCHORUS_DIR/httpd.pid" 2>/dev/null
+    else echo "static file server did not start ($ADDR:$STARCHORUS_PORT busy or not configured?)" >&2; return 1; fi
+}
+
+# our_servers -> the pids of OUR page servers in BusyBox `ps w`: an httpd/uhttpd with -p [ADDR:]PORT, or a python
+# http.server PORT, AND our directory (-h DIR or --directory DIR) as a word pair of its own. The port is matched only as the
+# listening argument, never anywhere on the line, and our directory is required, so the device's own uhttpd (:80, :1471,
+# another -h) never matches.
+our_servers() {
+    case $STARCHORUS_PORT in ''|*[!0-9]*) return 0 ;; esac   # the port goes into a pattern: digits only
+    # shellcheck disable=SC2009  # busybox-safe; pgrep/pkill -f unavailable/unreliable here
+    ps w 2>/dev/null | awk -v d="$STARCHORUS_DIR" -v port="$STARCHORUS_PORT" '
+        !/httpd|http\.server/ || /awk/ { next }
+        {
+            lp = 0; dir = 0
+            for (i = 2; i <= NF; i++) {
+                if (($i == "-h" || $i == "--directory") && $(i + 1) == d) dir = 1
+                if ($i ~ ("^([0-9.]*:)?" port "$") && ($(i - 1) == "-p" || $(i - 1) ~ /http\.server$/)) lp = 1
+            }
+            if (lp && dir) print $1
+        }'
+}
+
+# own_server PID -> 0 iff PID still runs one of the servers serve() starts, for this dir and port
+own_server() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    for o in $(our_servers); do [ "$o" = "$1" ] && return 0; done
+    return 1
+}
+
+case "$1" in
+    stop)
+        ./starchorus-collect.sh --stop
+        sp=$(sed -n 1p "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
+        own_server "$sp" && kill "$sp" 2>/dev/null
+        rm -f "$STARCHORUS_DIR/httpd.pid"
+        # A server without a usable pid file: stop it only when its command line is OURS
+        # (a server of this very directory on this very port, any address), never by a pattern over the whole device.
+        for p in $(our_servers); do kill "$p" 2>/dev/null; done
+        echo "starchorus stopped" >&2
+        ;;
+    *)
+        # start the passive collector loop in the background, then serve the page
+        ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &
+        ADDR=$(bind_addr)
+        serve
+        if [ "$ADDR" = 0.0.0.0 ]; then url="http://<device-ip>:$STARCHORUS_PORT/  (all interfaces)"; else url="http://$ADDR:$STARCHORUS_PORT/"; fi
+        echo "Starchorus (passive) on $url  (collector -> $STARCHORUS_DIR/starchorus.json)" >&2
+        ;;
+esac
