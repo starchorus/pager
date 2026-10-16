@@ -82,7 +82,8 @@
 #                        /sys/class/net/*/address) and center."own_ssids" (ONLY from the file in
 #                        STARCHORUS_OWN_SSID_FILE, one SSID per line -- never from the AP service's SSID pool). (default 0)
 #   STARCHORUS_HOMING_BSSID   one access point to home in on: adds a top-level "homing": {"bssid","dbm","peak","t"} taken from that AP's row
-#                        in the same document (a station / unknown / own BSSID is refused). Also read from the first line of
+#                        in the same document. Refused, with no field and no error: a station, a BSSID not in this document's aps[] and
+#                        one of our own transmitters. Nothing is transmitted or looked up. Also read from the first line of
 #                        $STARCHORUS_OUTDIR/homing.target (the device writes it). Coarse: one reading per cycle.  (default: none)
 #   STARCHORUS_APCLI_RO       1 = apcli_ro() may run its three literal read-only AP-service CLI lines (see there); nothing calls it
 #                        except the pineap source, which switches it on for itself (spec §14.6). The refusal rules are self-tested.  (default 0)
@@ -121,21 +122,19 @@ ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-0}
 CREATE_MON=${STARCHORUS_CREATE_MON:-1}
 MAX_AGE=${STARCHORUS_MAX_AGE:-0}
 CAPDIR=${STARCHORUS_CAPDIR:-$OUTDIR/cap}
-TMPDIR_RAM=${STARCHORUS_TMPDIR:-/tmp}              # recon.db work copy: tmpfs on the device (CAPDIR is eMMC)
-SKIP_UNCHANGED=${STARCHORUS_SKIP_UNCHANGED:-1}     # 1 = a cycle with an unchanged recon.db only refreshes "generated"
-PINEAP_CALLS=${STARCHORUS_PINEAP_CALLS:-recent}    # pineap source: recent = one bounded RECON DEVICES; full = RECON APS + RECON DEVICES (every device parsed)
+TMPDIR_RAM=${STARCHORUS_TMPDIR:-/tmp}
+SKIP_UNCHANGED=${STARCHORUS_SKIP_UNCHANGED:-1}
+PINEAP_CALLS=${STARCHORUS_PINEAP_CALLS:-recent}
 PIDDIR=${STARCHORUS_PIDDIR:-$OUTDIR}
 VENDOR=${STARCHORUS_VENDOR:-1}
 OUI_FILE=${STARCHORUS_OUI_FILE:-auto}
-# Device-dependent behaviour nobody has verified yet: flags, default OFF (docs/device-notes.md).
-HOPINFO=${STARCHORUS_HOPINFO:-0}                  # 1 = top-level channels[] {freq,last_heard} from recon.db `time` (semantics unverified)
-SURVEY=${STARCHORUS_SURVEY:-0}                    # 1 = add busy_pct/noise to channels[] from `iw dev IF survey dump` (read-only)
-OWN=${STARCHORUS_OWN:-0}                          # 1 = center.own_bssids[] (interface MACs from sysfs) and center.own_ssids[] (a file, see below)
-OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}       # one SSID per line; the ONLY source of own_ssids (never the AP service's SSID pool)
-APCLI_RO=${STARCHORUS_APCLI_RO:-0}              # 1 = apcli_ro() may run its three read-only AP-service CLI lines (spec §14.6); only the pineap source calls it
-# The homing target: ONE access point the operator chose (this variable, or the first line of $OUTDIR/homing.target that the
-# device writes). It only adds a top-level "homing" reading taken from the AP's row in the SAME document; a station, a BSSID
-# not in this document's aps[] and one of our own transmitters are refused (no field, no error). Nothing is transmitted or looked up.
+# Flags, default OFF: see the header (docs/device-notes.md).
+HOPINFO=${STARCHORUS_HOPINFO:-0}
+SURVEY=${STARCHORUS_SURVEY:-0}
+OWN=${STARCHORUS_OWN:-0}
+OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
+APCLI_RO=${STARCHORUS_APCLI_RO:-0}
+# The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
 HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}         # "aa:bb:cc:dd:ee:ff" or empty (then $OUTDIR/homing.target, if it exists)
 HOMING_PEAK=""; HOMING_POLLS=0               # peak hold across cycles (a new maximum resets, 12 quiet cycles decay it)
 
@@ -161,8 +160,9 @@ VENDOR_STATE=""     # last logged vendor-setup state: setup_vendor logs only whe
 STARTED_AIRODUMP=0  # 1 if THIS instance started airodump (only then does cleanup stop it)
 LOCK_BUDGET=100     # cache_lock: wait at most this long (0.1-s units) for a live holder
 LOCK_BUSY_UNTIL=0   # epoch until which cache writes are skipped after a lock give-up (backoff)
-LOCK_BUSY_LOGGED=0  # a lock give-up is logged once per episode, not every cycle
-VENDOR_DROP_LOGGED=0  # a dropped cache merge is logged once per episode too
+# Log-once flags: an episode (a run of cycles with the same failure) is logged once; the flag clears when it ends.
+LOCK_BUSY_LOGGED=0  # lock give-up
+VENDOR_DROP_LOGGED=0  # dropped cache merge
 QDB=""              # the recon.db file the queries read: the RAM copy, the CAPDIR copy or the live file
 QDB_RAM=0           # 1 while QDB is a RAM copy this process made (recon_workdone removes it)
 RDB_PATH=""         # find_recon_db result kept for the daemon's lifetime (RDB_KEY = the setting it was found for)
@@ -189,7 +189,7 @@ RS_SKIPS=0          # cycles skipped since the last full pass
 SKIP_MAX=20         # skip at most this many cycles in a row, then rebuild anyway (belt and braces)
 
 # --------------------------------------------------------------------------- small helpers
-log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf: dash/bash-as-sh echo would eat \t \b \n in paths
+log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf, not echo: see find_oui_file
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Remove control bytes that would produce invalid JSON, keeping TAB(011) and LF(012).
@@ -198,6 +198,14 @@ clean_ctrl() { tr -d '\000-\010\013-\037\177'; }
 RECON_TAB=$(printf '\t')   # recon.db column separator: the one control byte clean_ctrl keeps besides LF
 NL=$(printf '\nx'); NL=${NL%x}   # a newline (a command substitution drops a trailing one, hence the x)
 
+# Pid identity (holder_alive and pid_ours below). A lock directory or a pidfile survives kill -9 / power loss and, on a
+# persistent OUTDIR / PIDDIR (/root/loot/starchorus on the device), even a reboot: the pid it names may then belong to a
+# long-lived FOREIGN process (init, crond, the AP-service daemon) or, after a pid wrap, to anything. A pid alone proves
+# nothing, so the command line must name what was started: /proc/<pid>/cmdline on Linux (empty for a zombie or a kernel
+# thread: no match), else `ps -p PID -o args=` (BSD/macOS; busybox has no -p and falls through to `ps w`). The two
+# callers differ only when NO command line can be read at all: holder_alive assumes live (never break a live lock
+# blindly), pid_ours says not ours (a stop must never signal a stranger).
+#
 # Is a PID alive?  kill -0 is POSIX and works under busybox, but it also FAILS (EPERM) for a live
 # process of another user (a mixed-user dev box; the device runs everything as root), so a failed
 # kill is double-checked against /proc (Linux) and `ps -p` (BSD/macOS; busybox rejects -p -> 1).
@@ -213,14 +221,8 @@ pid_alive() {
 
 SELF_BASE=$(basename "$0" 2>/dev/null); [ -n "$SELF_BASE" ] || SELF_BASE=starchorus-collect.sh
 
-# Is $1 the pid of a LIVE process that runs THIS script (a daemon loop or a `--once`)? Used for the
-# cache lock: a lock directory survives kill -9 / power loss and -- on a persistent OUTDIR -- even
-# a reboot, after which its pid may belong to a long-lived FOREIGN process (init, crond, the AP-service daemon)
-# or, after a pid wrap, to anything. Judged by pid alone such a holder would be "live" forever and
-# every cycle would pay the whole lock budget. So the command line must name the script:
-# /proc/<pid>/cmdline on Linux (empty for a zombie / kernel thread -> not a holder), else
-# `ps -p PID -o args=` (BSD/macOS; busybox has no -p -> falls through to `ps w`). Only when NO
-# command line can be read at all is the holder assumed live (never break a live lock blindly).
+# Is $1 the pid of a LIVE process that runs THIS script (a daemon loop or a `--once`)? Used for the cache lock: judged by
+# pid alone, a foreign holder would be "live" forever and every cycle would pay the whole lock budget.
 holder_alive() {
     pid_alive "$1" || return 1
     if [ -d "/proc/$1" ]; then
@@ -256,12 +258,8 @@ is_own_child() {
     return 1
 }
 
-# Is $1 the pid of a LIVE process whose command line contains $2? The pidfiles live in PIDDIR, which on the device is
-# persistent (/root/loot/starchorus), so after a reboot -- or after a crash and a long uptime -- the pid they name may
-# belong to anything. --stop and --status therefore believe a pidfile only while its pid still runs what was started
-# there: the loop runs this script, the capture runs airodump. /proc/<pid>/cmdline on Linux (empty for a zombie or a
-# kernel thread: not ours), else `ps -p PID -o args=` / `ps w`. No command line readable at all: not ours, because a
-# stop must never signal a stranger (holder_alive above decides the other way round, for a lock).
+# Is $1 the pid of a LIVE process whose command line contains $2? --stop and --status believe a pidfile only while its
+# pid still runs what was started there: the loop runs this script, the capture runs airodump.
 pid_ours() {
     pid_alive "$1" || return 1
     if [ -d "/proc/$1" ]; then
@@ -289,10 +287,9 @@ kill_loops() {
     # shellcheck disable=SC2009  # busybox pgrep/pkill -f are unreliable here; ps+grep is the portable way
     ps w 2>/dev/null | grep "$SELF_BASE" | grep -v grep | grep -v -- '--' | awk '{print $1}' | \
     while read -r p; do
-        [ -n "$p" ] || continue
         [ "$p" = "$$" ] && continue
         is_own_child "$p" && continue   # this run's own subshells, e.g. the one running this loop
-        if [ "$p" != "$_kl_own" ]; then   # the one named by this OUTDIR's pidfile is already accounted for
+        if [ "$p" != "$_kl_own" ]; then
             _kl_dir=$(loop_cwd "$p")
             if [ "$_kl_ctx" = replace ]; then
                 log "replaced collector loop pid $p in $_kl_dir: one collector per device"
@@ -317,7 +314,7 @@ stop_pidfile() {   # $1 = pidfile, $2 = label, $3 = what its command line holds:
 }
 stop_instances() {
     stopped=0
-    own_loop=$(cat "$LOOP_PIDFILE" 2>/dev/null)   # read before stop_pidfile removes the file: not re-reported by kill_loops
+    own_loop=$(cat "$LOOP_PIDFILE" 2>/dev/null)   # read before stop_pidfile removes the file
     stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE"
     # backstop: any collector loop without a live pidfile (e.g. its pidfile was overwritten by a re-run)
     # shellcheck disable=SC2009  # see kill_loops(): ps+grep is the portable count here
@@ -547,10 +544,12 @@ cleanup() {
         rm -f "$AIRODUMP_PIDFILE"
     fi
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
-    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.gen$$" 2>/dev/null        # a cycle cut short by the signal
-    rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null                                  # ... or an index build
+    # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal, an OUI index
+    # build, the pineap side files, the RAM copy of recon.db.
+    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.gen$$" 2>/dev/null
+    rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" 2>/dev/null
-    rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" 2>/dev/null   # ... and its RAM copy of recon.db
+    rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" 2>/dev/null
     [ -n "$VENDOR_NEWF" ] && rm -f "$VENDOR_NEWF" 2>/dev/null
     [ "${CACHE_LOCKED:-0}" -gt 0 ] 2>/dev/null && CACHE_LOCKED=1  # release fully, whatever the depth
     cache_unlock
@@ -620,9 +619,7 @@ AWK_JSON_HELPERS='
 #     cache $CAPDIR/oui-cache.txt  (PREFIX<TAB>vendor; an empty vendor is a NEGATIVE entry = "not in
 #     the file", so it is never looked up again),
 #   * reads the OUI file for exactly the prefixes that are NOT yet cached, once (stops early when all
-#     are found): not the whole file but the index of it (oui_index: the file split by first octet,
-#     built once per OUI file, a few hundred lines to read instead of 38,959); without an index the
-#     whole file, as before,
+#     are found): the index of the file where there is one (oui_index), else the whole file,
 #   * appends the new hits + negatives to the cache, then rewrites the JSON lines, inserting
 #     `, "vendor": "..."` right after the MAC value (jesc-escaped) or `, "randomized": true`
 #     for locally-administered client MACs (U/L bit set: 2nd hex digit 2/6/A/E). Those are
@@ -630,15 +627,10 @@ AWK_JSON_HELPERS='
 #     would otherwise flood the negative cache and force a full file scan nearly every cycle.
 #     An AP with a locally-administered BSSID (virtual/guest BSS) gets neither field.
 # The cache header "# oui=<path> size=<bytes> mtime=<secs>" ties it to one file; a different,
-# resized or rewritten file (or a cache > 20000 lines) restarts it, and a long-running daemon
-# re-checks that every 120 cycles. Negative entries are written ONLY after a complete, error-free
-# scan of the file (an unreadable/unplugged file must never poison the cache); the loader trusts
-# only well-formed lines (6 upper hex, ONE tab, no further tab; control bytes stripped); each
-# instance collects its new lines in its own temp file and merges them under a pid-stamped mkdir
-# lock (a live holder is waited for, a dead one is broken), so a daemon loop and a crond `--once`
-# do not tear or duplicate lines -- and should a lock ever be lost anyway, the strict loader still
-# ignores a torn line and the merge drops duplicates. Any failure in this pass leaves the plain
-# emitter JSON untouched -- vendor is optional by contract.
+# resized or rewritten file (or a cache > 20000 lines) restarts it. Any failure in this pass leaves
+# the plain emitter JSON untouched -- vendor is optional by contract.
+# The details sit at their code: the index at oui_index, the strict cache loader (cload) and the negative
+# entries (only after a complete scan) in AWK_VENDOR, the merge at the cache-lock block and cache_append.
 # Accepted file formats (one tolerant parser): nmap `AABBCC Vendor`, macchanger `AA BB CC VENDOR`,
 # `AA:BB:CC - Vendor`, IEEE oui.txt `AA-BB-CC   (hex)<TAB>Vendor` / `AABBCC (base 16)<TAB>Vendor`,
 # Wireshark manuf `AA:BB:CC<TAB>Short<TAB>Long Name`. `#` comments, CRLF, and MA-M/MA-S blocks
@@ -681,7 +673,7 @@ find_oui_file() {
     return 1
 }
 
-# The OUI index. A new prefix used to cost a pass over the whole OUI file (38,959 lines on the device, about 14 s of its CPU in awk), and in a
+# The OUI index. Without an index a new prefix costs a pass over the whole OUI file (38,959 lines on the device, about 14 s of its CPU in awk), and in a
 # busy place a new prefix shows up in most cycles. The index is the OUI file split by first octet: $CAPDIR/oui-index/00 ... FF (upper case), each
 # holding that octet's lines as they stand in the file, in file order (a few hundred lines each), and hdr: the header line the cache carries for
 # the same OUI file (path, size, mtime), and a second line naming the octets that are split further. The IEEE list has a third of its lines
@@ -689,7 +681,7 @@ find_oui_file() {
 # those files only). A lookup reads the files of the prefixes it needs with the same parser as a pass over the file, so the vendor strings, the
 # first-line-wins rule and the negative entries are the same by construction. The index is built once per OUI file (setup_vendor: at start and
 # when the file changed) in a directory of its own, moved into place under the cache lock with hdr written last: a directory with a matching
-# hdr and all its files is complete. A missing or mismatching index is no error: the awk scans the OUI file instead, as before.
+# hdr and all its files is complete. A missing or mismatching index is no error: the awk scans the OUI file instead.
 # Only lines that start with two hex digits are kept. In a split octet a line must also yield its second octet (compact `AABBCC` or separated
 # `AA-BB-CC`), or the parser would reject it anyway.
 # shellcheck disable=SC2016  # awk program text
@@ -720,7 +712,7 @@ oui_index_ok() {   # 0 = $CAPDIR/oui-index was built from the OUI file OUI_HDR n
 }
 oui_index() {   # sets OUI_IDX; builds the index when it is not there for this OUI file
     OUI_IDX=""
-    [ -n "$OUI_CACHE" ] && [ -n "$OUI_PATH" ] || return 0
+    [ -n "$OUI_CACHE" ] || return 0
     ix="$CAPDIR/oui-index"
     if oui_index_ok; then OUI_IDX=$ix; return 0; fi
     nd=$(mktemp -d "$ix.new.$$.XXXXXX" 2>/dev/null) && [ -d "$nd" ] || return 0       # (named for this pid: the start-up sweep removes those of dead ones)
@@ -808,15 +800,12 @@ AWK_VENDOR='
         return o }
     function cload(l,   p,v){
         # Only the prefixes this document has are looked at at all (seen, from collect): a line for any other costs two operations, not eleven.
-        # STRICT: exactly 6 upper hex + ONE tab + a vendor without further tab. A torn, fused or
-        # foreign line is ignored, so its prefix is simply looked up again. Control bytes in the
-        # vendor part (bit rot, an editor that left a CR) are stripped -- served from the cache they
-        # would otherwise make EVERY cycle emit invalid JSON. (The regex gate keeps the per-line
-        # cost near zero for the usual plain-ASCII cache.)
+        # STRICT: exactly 6 upper hex (the seen gate guarantees them: seen holds only prefixes collect took from valid MACs) + ONE tab
+        # + a vendor without further tab. A torn, fused or foreign line is ignored, so its prefix is simply looked up again. Control
+        # bytes in the vendor part (bit rot, an editor that left a CR) are stripped -- served from the cache they would otherwise make
+        # EVERY cycle emit invalid JSON. (The regex gate keeps the per-line cost near zero for the usual plain-ASCII cache.)
         p=substr(l,1,6); if(!(p in seen)) return
-        if(substr(l,1,1)=="#") return
         if(index(l,"\t")!=7) return
-        if(p !~ /^[0-9A-F]+$/) return
         v=substr(l,8); if(index(v,"\t")>0) return
         if(v ~ /[^ -~]/) v=vstrip(v)
         if(!(p in V)) V[p]=v }
@@ -835,7 +824,7 @@ AWK_VENDOR='
     function laa(mac){ return (substr(mac,2,1) ~ /[26AEae]/) }
     function ismac17(m){ return (m ~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) }
     # collect() looks at every MAC of the document once and remembers what it found (PF: MAC -> prefix, LA: locally administered), so that enrich()
-    # does not have to work it out again; a MAC collect() did not see (the two walk the line a character apart) is judged afresh, as before.
+    # does not have to work it out again; a MAC collect() did not see (the two walk the line a character apart) is judged afresh.
     function collect(line,key,   pos,rest,mac,p,kl){ rest=line; kl=length(key)
         while((pos=index(rest,key))>0){ mac=substr(rest,pos+kl,17)
             if(ismac17(mac)){ if(laa(mac)) LA[mac]=1; else { p=pfx(mac); PF[mac]=p; seen[p]=1 } }
@@ -928,7 +917,7 @@ AWK_VENDOR='
 #                              foreign process, a zombie, are no holders): wait (0.2 s ticks; 1 s
 #                              where sleep has no fractions), up to LOCK_BUDGET (10 s; a merge
 #                              takes < 2 s even on the device), then give up THIS write (return 2;
-#                              the lines are gathered again next cycle) -- never break a live lock.
+#                              the lines are gathered again next cycle).
 #   * holder dead           -> break at once (killed inside the critical section).
 #   * no pid (yet)          -> the holder is between mkdir and the pid write, or died right there,
 #                              or the pid is our own from a previous incarnation of this pid
@@ -977,8 +966,7 @@ cache_lock() {
             lock_take && return 0
             [ -d "$lk" ] || return 1
         fi
-        # A lock is in place. If its directory cannot be written (ro mount: access() says so even
-        # for root) we can neither take nor break it -- not worth a single tick.
+        # A lock is in place. Unbreakable if its directory is not writable (see the list above; access() says so even for root).
         [ -w "${lk%/*}" ] || { lock_give_up "lock directory ${lk%/*} not writable"; return 2; }
         hp=$(cat "$lk/pid" 2>/dev/null)
         if [ -n "$hp" ] && [ "$hp" != "$$" ] && holder_alive "$hp"; then
@@ -1005,7 +993,7 @@ cache_break() {
     stdir=$(mktemp -d "$1.stale.XXXXXX" 2>/dev/null) || return 3
     if mv "$1" "$stdir/" 2>/dev/null; then
         lgot=$(cat "$stdir/${1##*/}/pid" 2>/dev/null)
-        if [ -n "$lgot" ] && [ "$lgot" != "$2" ] && [ "$lgot" != "$$" ] && holder_alive "$lgot" && [ ! -e "$1" ]; then
+        if [ "$lgot" != "$2" ] && [ "$lgot" != "$$" ] && holder_alive "$lgot" && [ ! -e "$1" ]; then
             # a live holder took a fresh lock between our check and the rename: give it back
             mv "$stdir/${1##*/}" "$1" 2>/dev/null
             rm -rf "$stdir" 2>/dev/null
@@ -1027,14 +1015,11 @@ cache_unlock() {
     CACHE_LOCKED=0
 }
 
-# The cache must end with a newline. An unterminated last line (crash / power loss while
-# appending) is DROPPED (the loader would otherwise trust a cut-off vendor name for good, and the
-# next append would fuse two lines). cache_fix_unterminated expects the caller to hold the lock.
-# An EMPTY (or missing) file counts as terminated: nothing can fuse with it, and cache_append
-# re-creates the header in it (a header cut short by ENOSPC is dropped by the repair like any
-# other line, leaving 0 bytes -- without this, every cycle until the 120-cycle re-check would scan
-# the whole OUI file, take the lock and rewrite the empty cache for nothing). One process: a command substitution drops
-# the trailing newline, so the last byte of a terminated file comes back as nothing.
+# The cache must end with a newline: a cut-off last line (crash, power loss, ENOSPC, killed awk) must never be trusted or appended
+# onto. An unterminated last line is DROPPED (the loader would otherwise trust a cut-off vendor name for good, and the next append
+# would fuse two lines). cache_fix_unterminated expects the caller to hold the lock.
+# An EMPTY (or missing) file counts as terminated: nothing can fuse with it (cache_append re-creates its header).
+# One process: a command substitution drops the trailing newline, so the last byte of a terminated file comes back as nothing.
 file_terminated() { [ ! -s "$1" ] || { [ -r "$1" ] && [ -z "$(tail -c 1 "$1" 2>/dev/null)" ]; }; }
 cache_terminated() { file_terminated "$OUI_CACHE"; }
 cache_fix_unterminated() {
@@ -1043,7 +1028,6 @@ cache_fix_unterminated() {
     rm -f "$OUI_CACHE.fix.$$" 2>/dev/null
 }
 cache_repair() {   # cheap lock-free check first; only a damaged cache takes the lock
-    [ -n "$OUI_CACHE" ] && [ -s "$OUI_CACHE" ] || return 0
     cache_terminated && return 0
     cache_lock || return 0
     cache_fix_unterminated
@@ -1061,7 +1045,8 @@ vendor_dropped() {   # $1 = why
     VENDOR_DROP_LOGGED=1
 }
 # The merge program, shared by the append and by the check after it. SC_CACHE = the cache, SC_TERM = 1 when the temp file ends with a newline
-# (its last line is committed only then), SC_CHECK = 1: print how many of the lines are NOT in the cache yet instead of printing them.
+# (lines are committed one behind: the last one only then, or a line cut short by ENOSPC on /tmp or a killed awk would be persisted as
+# a well-formed, wrong vendor for good), SC_CHECK = 1: print how many of the lines are NOT in the cache yet instead of printing them.
 # shellcheck disable=SC2016  # awk program text, deliberately not expanded
 AWK_CAPPEND='
         function wf(l){ return (index(l,"\t")==7 && substr(l,1,6) ~ /^[0-9A-F]+$/ && index(substr(l,8),"\t")==0) }
@@ -1083,13 +1068,19 @@ cache_append() {
     # Never append onto a cache whose last line is still unterminated (the fix above failed:
     # unwritable directory -- the lines would fuse), nor onto one that setup_vendor has meanwhile
     # restarted for another OUI file (our lines came from the old one).
-    if ! cache_terminated; then vendor_dropped "the last line of $OUI_CACHE is cut off and cannot be repaired"; cache_unlock; return 0; fi
-    if [ "$(head -n 1 "$OUI_CACHE" 2>/dev/null)" != "$OUI_HDR" ]; then vendor_dropped "the header of $OUI_CACHE names another OUI file"; cache_unlock; return 0; fi
+    if ! cache_terminated; then
+        vendor_dropped "the last line of $OUI_CACHE is cut off and cannot be repaired"
+        cache_unlock
+        return 0
+    fi
+    if [ "$(head -n 1 "$OUI_CACHE" 2>/dev/null)" != "$OUI_HDR" ]; then
+        vendor_dropped "the header of $OUI_CACHE names another OUI file"
+        cache_unlock
+        return 0
+    fi
     cn0=$(wc -l < "$OUI_CACHE" 2>/dev/null | tr -d ' ')
     nt=0; file_terminated "$1" && nt=1
-    # The temp file's LAST line is merged only if the file ends with a newline (SC_TERM): a line
-    # cut short by ENOSPC on /tmp or a killed awk would otherwise be persisted as a well-formed,
-    # wrong vendor -- for good. Lines are therefore committed one behind.
+    # SC_TERM: see AWK_CAPPEND.
     # shellcheck disable=SC2094  # awk finishes reading the cache in BEGIN before its first print
     clean_ctrl < "$1" | SC_CACHE="$OUI_CACHE" SC_TERM="$nt" awk "$AWK_CAPPEND" >> "$OUI_CACHE"
     cn1=$(wc -l < "$OUI_CACHE" 2>/dev/null | tr -d ' ')
@@ -1105,14 +1096,13 @@ cache_append() {
     cache_unlock
 }
 
-# Daemon start-up, right after kill_loops (no other loop is alive now): temp files a previous
-# daemon left behind when it died hard (kill -9, power loss) are worthless -- sweep them, but ONLY
-# those whose owner pid (embedded in the name: .new.<pid>.XXXXXX / .fix.<pid>) is not a live
-# collector: a crond `--once` may be running right now, and kill_loops leaves it alone on purpose.
-# The lock itself is swept when its pid is not a live collector either (holder_alive: dead, or a
-# foreign process that inherited the number after a reboot on a persistent OUTDIR / a pid wrap);
-# left in place, such a lock would cost every cycle the whole lock budget and the cache would
-# never be written again. A pid-less lock is left to cache_lock's 3-s grace. (Not for --once.)
+# Daemon start-up, right after kill_loops (no other loop is alive now). The three sweeps (sweep_stale_cache_files, sweep_stale_tmp,
+# sweep_stale_workcopies) remove what a previous collector left behind when it died hard (kill -9, power loss), ONLY where the owner
+# pid embedded in the name is not a live collector (holder_alive): a crond `--once` may be running right now, and kill_loops leaves
+# it alone on purpose. Not for --once.
+# This one sweeps the cache's temp files (.new.<pid>.XXXXXX / .fix.<pid>), an index build and the lock. The lock goes when its pid is
+# no live collector either (holder_alive decides, see above): left in place it would cost every cycle the whole lock budget and the
+# cache would never be written again. A pid-less lock is left to cache_lock's 3-s grace.
 sweep_stale_cache_files() {
     for f in "$CAPDIR"/oui-cache.txt.new.* "$CAPDIR"/oui-cache.txt.fix.*; do
         [ -e "$f" ] || continue
@@ -1135,9 +1125,8 @@ sweep_stale_cache_files() {
     fi
 }
 
-# A cycle cut short by a power cut or kill -9 leaves its starchorus.json.tmp.<pid>[.c|.v] behind (cleanup() never ran; a
-# zero-byte one was found on the device after a crash). At daemon start every such file whose pid is no live collector
-# run is removed; a --once may be mid-cycle right now, so the files of a live run of this script stay.
+# The output files of a cycle cut short by a power cut or kill -9: starchorus.json.tmp.<pid>[.c|.v] (cleanup() never ran; the
+# file can be zero bytes).
 sweep_stale_tmp() {
     for f in "$OUTFILE".tmp.*; do
         [ -e "$f" ] || continue
@@ -1168,7 +1157,7 @@ add_vendor() {
     arc=$?
     # Merge only after a clean pass: with rc != 0 (ENOSPC on /tmp, awk killed) the temp file may
     # hold a cut-off line -- and run_cycle discards that JSON anyway.
-    if [ "$arc" != "0" ] || [ -z "$newf" ] || [ ! -s "$newf" ]; then
+    if [ "$arc" != "0" ] || [ ! -s "$newf" ]; then
         [ -n "$newf" ] && rm -f "$newf" 2>/dev/null
         VENDOR_NEWF=""
     elif [ "$1" != "defer" ]; then
@@ -1381,9 +1370,8 @@ parse_tcpdump_text() {
 }
 
 # --------------------------------------------------------------------------- JSON: recon DB
-# SECONDARY passive source, and the PREFERRED one on the device: its recon radio wlan1mon belongs to
-# the channel-hopping recon engine, so reading that engine's store is contention-free (and
-# gives band via the freq column). The engine is RX-only; we open the DB READ-ONLY. One table `ssid`
+# SECONDARY passive source, the PREFERRED one on the device (resolve_source says why); it also gives band via the
+# freq column. The engine is RX-only; we open the DB READ-ONLY. One table `ssid`
 # holds every observation; `type` is the 802.11 mgmt subtype: 8=beacon and 5=probe-response (APs),
 # 4=probe-request (clients). Schema families, tried in this order:
 #   * RUNNING firmware (OpenWrt 24.10.1, confirmed live): hash, wifi_device, scan, type, bssid,
@@ -1394,8 +1382,7 @@ parse_tcpdump_text() {
 #   * legacy schema: table `aps` with a text privacy column, colon'd bssid and a channel.
 # `encryption` is libwifi's encryption_info uint64 bitmask; awk's doubles lose bits above 2^53, so it
 # is split IN SQL into small ints. The live DB is held by the AP-service daemon (journal_mode `delete`, measured on the
-# device: a -journal beside it while a write is in flight, no -wal/-shm): it is COPIED before querying, so that a long read never holds a lock the
-# engine's commits wait for (recon_workcopy).
+# device: a -journal beside it while a write is in flight, no -wal/-shm); it is copied before querying (see recon_workcopy).
 # libwifi encryption_info layout, PINNED to libwifi (github.com/libwifi/libwifi) commit c38dbc8d7d7836759300a9512d80a3d2d3e41a4b
 # (2026-01-23, "Bump version to 0.0.11"), file src/libwifi/core/misc/security.h. uint64 bit -> meaning:
 #   1 WEP · 2 WPA · 3 WPA2 · 4 WPA3 (class bits; libwifi ALSO sets bit 4 for OWE)
@@ -1419,7 +1406,7 @@ recondb_query() {
     sqlite3 -readonly -noheader $RQ_BAIL -separator "$RECON_TAB" "$1" 2>/dev/null
 }
 # Add one alternative to the batch RQ: a marker row naming it, then the statement. The marker is `#STARCHORUS_<GROUP><n>#`; recondb_pick
-# keeps, per GROUP, the first alternative that produced rows (what the old one-process-per-query code did with recondb_first).
+# keeps, per GROUP, the first alternative that produced rows.
 rq_add() {   # $1 = GROUP+n, $2 = the statement without its `;`
     RQ="$RQ
 SELECT '#STARCHORUS_$1#';
@@ -1518,7 +1505,7 @@ ram_room() {
 # Copy-before-query: never lock the live DB the recon engine writes to (its journal_mode is `delete`, so a long read would hold a
 # SHARED lock that stalls the engine's commits). The copy goes to RAM ($TMPDIR_RAM: /tmp is tmpfs on the device; CAPDIR is eMMC and a
 # 3.5 MB write every cycle is flash wear and IO wait), named for this process so a crond `--once` and the loop never share one. No room
-# there, or the copy failed: the old place, CAPDIR; and when that fails too, the live file, read-only. The -journal is NOT copied: a hot
+# there, or the copy failed: the flash fallback, CAPDIR; and when that fails too, the live file, read-only. The -journal is NOT copied: a hot
 # journal beside a read-only copy cannot be rolled back, and the sig test keeps a half-written moment out of the skip logic.
 # $1 = recon.db, $2 = its size in bytes. Sets QDB (what to query) and QDB_RAM (1 = recon_workdone removes it).
 recon_workcopy() {
@@ -1529,7 +1516,7 @@ recon_workcopy() {
         QDB=$cw_dst; QDB_RAM=1
         if [ -r "$1-wal" ]; then cp "$1-wal" "$cw_dst-wal" 2>/dev/null; fi
         if [ -r "$1-shm" ]; then cp "$1-shm" "$cw_dst-shm" 2>/dev/null; fi
-        # the copy that older versions left on flash is dead weight now (3.5 MB of eMMC)
+        # a flash copy under CAPDIR is stale once the RAM copy is in use: remove it (3.5 MB of eMMC)
         rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm" 2>/dev/null
         return 0
     fi
@@ -1545,7 +1532,7 @@ recon_workdone() {   # the RAM copy is not needed between cycles: free it
     if [ "$QDB_RAM" = 1 ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" 2>/dev/null; fi
     QDB_RAM=0
 }
-# Daemon start-up: RAM copies left by a collector that died hard (kill -9, power loss; the name carries its pid). A live collector's is kept.
+# The RAM copies of recon.db (rule: see sweep_stale_cache_files).
 sweep_stale_workcopies() {
     for f in "$TMPDIR_RAM"/starchorus-recon-*.db "$TMPDIR_RAM"/starchorus-recon-*.db-wal "$TMPDIR_RAM"/starchorus-recon-*.db-shm; do
         [ -e "$f" ] || continue
@@ -1558,7 +1545,7 @@ sweep_stale_workcopies() {
 # (the recon.db path and the pineap path's security lookup). Needs AWK_JSON_HELPERS; call sec_init() in BEGIN.
 # shellcheck disable=SC2016  # awk program text, deliberately not expanded
 AWK_SEC='
-        # encryption -> security label. Numeric = the ENC class mask (WEP 2 / WPA 4 / WPA2 8 / WPA3 16).
+        # encryption -> security label. Numeric = the class mask recon_enc_sql builds.
         # Text = libwifi string ("WPA2", "WPA3", "OWE", ...) or legacy enum.
         function sec_of(e,   p,u){
             if(e ~ /^[0-9]+$/){
@@ -1625,7 +1612,11 @@ AWK_SEC='
         function sec_extra(egrp,epw,eakm,eauth,   sx,t1,t2,t3,cg,cj){
             sx=""; t1=names(eakm,AKMN,22); t2=names(eauth,AUTHN,5); cg=first(egrp,CGN,13); t3=names(epw,CPN,14)
             if(t1!="") sx=sx ", \"akm\": [" t1 "]"
-            if(cg!="" || t3!=""){ cj=""; if(cg!="") cj="\"group\": \"" cg "\""; if(t3!="") cj=cj (cj!=""?", ":"") "\"pairwise\": [" t3 "]"; sx=sx ", \"cipher\": {" cj "}" }
+            if(cg!="" || t3!=""){
+                cj=""
+                if(cg!="") cj="\"group\": \"" cg "\""
+                if(t3!="") cj=cj (cj!=""?", ":"") "\"pairwise\": [" t3 "]"
+                sx=sx ", \"cipher\": {" cj "}" }
             if(t2!="") sx=sx ", \"auth\": [" t2 "]"
             return sx }
 '
@@ -1711,8 +1702,7 @@ build_from_recondb() {
     db=$RDB_PATH
     have sqlite3 || return 1
 
-    # What recon.db looks like now (RS_RAW / RS_NEW / RS_SZ) is sampled BEFORE the copy, so that any later write shows in the next sample; run_cycle has
-    # taken it already (once per cycle: the skip test uses it too), the pineap source's fallback takes it here.
+    # The sample (RS_RAW / RS_NEW / RS_SZ): see recon_sample (RS_TAKEN: run_cycle has already taken it, else it is taken here).
     if [ "$RS_TAKEN" = 1 ]; then RS_TAKEN=0; else recon_sample "$1"; fi
 
     recon_workcopy "$db" "$RS_SZ"
@@ -1833,7 +1823,7 @@ build_from_recondb() {
 # PINEAP. STARCHORUS_SOURCE=pineap asks the device's AP service for what its recon already holds, with READ-ONLY commands (apcli_ro:
 # `RECON DEVICES format=json sort=time sortdir=desc limit=400`, or with STARCHORUS_PINEAP_CALLS=full `RECON APS format=json` and `RECON DEVICES
 # format=json`), instead of copying recon.db and querying it. The transmit counters of every wireless interface stay unchanged (V-3, and a run
-# of the recent form). It is a different VIEW, not the same data, and not a cheaper one: the calls cost 0.3 s of CPU (V-3), but the awk below
+# of the recent form). It is a different VIEW, not the same data, and not a cheaper one: the calls cost 0.3 s of CPU, but the awk below
 # walks the answer at about 22 ms per device on the device (9 s for the 400 of `recent`, 46 s for the 2,100 of `full`), against 2 s of CPU for a
 # cycle of the database path (docs/device-notes.md §6a). The lists are the CURRENT recon session only (the database is cumulative),
 # there is no encryption field and no station -> AP link in them. So:
@@ -1921,8 +1911,8 @@ AWK_PINEAP='
             for(i=1;i<=np;i++) pr=pr (i>1 ? ", " : "") "\"" plist[i] "\""
             st_mac[nst]=m; st_sig[nst]=isnum(dsig) ? ri(dsig) : ""; st_last[nst]=(isnum(dtime) && dtime+0>0) ? ri(dtime) : ""; st_pr[nst]=pr
             nst++ } }
-    # idx[0..n-1] = the indexes of arr[0..n-1] in ascending order, ties by index. A heap sort: n log n (the lists have as many entries as the air
-    # has devices, thousands in a crowd), where the insertion sort this replaces took n squared steps, 90 microseconds each on the device.
+    # idx[0..n-1] = the indexes of arr[0..n-1] in ascending order, ties by index. A heap sort: n log n; an insertion sort would take n squared
+    # steps (90 microseconds each on the device), and the lists have as many entries as the air has devices, thousands in a crowd.
     function sift(r,e,idx,   c,v){ v=idx[r]
         while((c=2*r+1)<=e){ if(c<e && skey[idx[c]]<skey[idx[c+1]]) c++
             if(skey[v]<skey[idx[c]]){ idx[r]=idx[c]; r=c } else break }
@@ -2241,8 +2231,8 @@ add_homing() {
 }
 # One cycle's homing step on the file $1 (the finished document): keeps the peak, inserts the field, drops the result if the shape changed.
 apply_homing() {
-    if homing_off; then HOMING_PEAK=""; HOMING_POLLS=0; return 0; fi      # no target at all: not a single process for it
-    ht=$(homing_target); [ -n "$ht" ] || { HOMING_PEAK=""; HOMING_POLLS=0; return 0; }
+    # No usable target: drop the peak. homing_off comes first: with no target at all no process is started.
+    if homing_off || { ht=$(homing_target); [ -z "$ht" ]; }; then HOMING_PEAK=""; HOMING_POLLS=0; return 0; fi
     if own_bssids | grep -qx "$ht"; then return 0; fi
     hd=$(homing_dbm "$ht" < "$1"); [ -n "$hd" ] || return 0
     if [ -z "$HOMING_PEAK" ] || [ "$hd" -ge "$HOMING_PEAK" ] || [ "$HOMING_POLLS" -ge 12 ]; then HOMING_PEAK=$hd; HOMING_POLLS=0; else HOMING_POLLS=$((HOMING_POLLS + 1)); fi
@@ -2263,11 +2253,12 @@ write_empty() {
 # never fires; in a quiet room it saves the whole copy, the queries, the awk passes and the vendor pass (about 3 s of the device's CPU).
 # A skipped cycle still publishes: the document is the same bytes with a new "generated". The page counts a new `generated` as a capture and
 # calls a feed that stands still for 6 polls Stale, and the freshness tiers are measured from `generated`, so leaving it alone would make a
-# healthy, quiet collector look dead. The document it publishes is the one of this process's last full pass, kept in its memory (RS_DOCV): what
-# $OUTFILE holds at that moment (another collector's --once with other settings, an empty document after a failed cycle) is not trusted, and
-# is replaced. What may NOT be skipped: the file changed (size, mtime, journal, wal), a row could have left the STARCHORUS_MAX_AGE window
-# (the oldest row the last full pass counted is the clock for that), a homing target, the survey or the own-device fields are on (they are read
-# every cycle), a setting changed, the clock went backwards, or SKIP_MAX skips in a row have passed.
+# healthy, quiet collector look dead. The document it publishes is the one of this process's last full pass, kept in memory (RS_DOCV, see
+# rs_keepdoc): what $OUTFILE holds at that moment (another collector's --once with other settings, an empty document after a failed cycle)
+# is not trusted, and is replaced. What may NOT be skipped: the file changed (size, mtime, journal, wal), a row could have left the
+# STARCHORUS_MAX_AGE window (see recon_unchanged), a homing target, the survey or the own-device fields are on (they are read every cycle; a
+# document with a homing reading must be rebuilt without it once the target goes), a setting changed, the clock went backwards, or SKIP_MAX
+# skips in a row have passed.
 rs_cfg() {   # RS_CFGNOW = what the document depends on besides recon.db: a changed setting is a rebuild
     RS_CFGNOW="$MAX_AGE|$INTERVAL|$VENDOR|$HOPINFO|$OUTFILE|$RECON_DB|$OUI_PATH|$CENTER_LABEL"
 }
@@ -2348,11 +2339,11 @@ run_cycle() {
     # Guard: never publish an empty/failed temp over a good file; publish an explicit
     # empty document instead so the front-end always has valid JSON.
     rs_good=0; if [ "$ok" = 1 ] && [ -s "$tmp" ]; then rs_good=1; fi
-    if [ "$ok" != "1" ] || [ ! -s "$tmp" ]; then
+    if [ "$rs_good" != 1 ]; then
         write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"
     fi
     # remember this pass for the skip test of the next cycle: its document (a skipped cycle publishes that one) and the state it stands on.
-    # Not a document with a homing reading (it must be rebuilt without it once the target goes), nor with the survey or the own-device fields.
+    # Not with a homing reading, the survey or the own-device fields (the rule above recon_unchanged).
     rs_kept=0
     if [ "$rs_good" = 1 ] && [ "$RESOLVED" = recondb ] && [ -n "$RS_NEW" ] && [ "$SKIP_UNCHANGED" = 1 ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] \
        && homing_off && rs_keepdoc "$tmp"; then rs_kept=1; fi
@@ -2607,7 +2598,8 @@ SQL
         checkf "run_cycle: center carries max_age + interval" "$pub" '"center": {"label": "This device", "max_age": 90, "interval": 9},'
         # ---- 2f) homing: the reading of the ONE chosen AP, peak hold, refusals (station / unknown / own / garbage), file vs environment
         checkno "homing: no target -> no homing field" "$pub" '"homing"'
-        OUTDIR_SAVE=$OUTDIR; OUTDIR=$tdir; rm -f "$tdir/homing.target"; MAX_AGE=0   # the fixture rows carry time 0: a 90 s window above would give the empty document
+        OUTDIR_SAVE=$OUTDIR; OUTDIR=$tdir; rm -f "$tdir/homing.target"
+        MAX_AGE=0   # the fixture rows carry time 0: a 90 s window above would give the empty document
         hp=$(run_cycle >/dev/null 2>&1; cat "$OUTFILE" 2>/dev/null); pub=$hp; checkf "homing: the fixture cycle is a real document (a0:a0:a0:00:00:03 is there)" "$pub" '"bssid": "a0:a0:a0:00:00:03"'
         hcyc() { run_cycle >/dev/null 2>&1; cat "$OUTFILE" 2>/dev/null; }
         HOMING_BSSID="A0:A0:A0:00:00:03"; hp=$(hcyc)
@@ -2703,7 +2695,7 @@ c1	-50	77
 p1	#STARCHORUS_APS#
 #STARCHORUS_HASTIME#
 1" ]; then st_pass "recondb_pick: first non-empty alternative per group, marker-like data stays data"; else st_fail "recondb_pick: [$pk]"; fi
-        # a full tmpfs: the copy goes to CAPDIR as it did before, and the cycle still works
+        # a full tmpfs: the copy falls back to CAPDIR and the cycle still works
         printf '#!/bin/sh\nprintf "Filesystem 1024-blocks Used Available Capacity Mounted on\\ntmpfs 1000 999 1 99%% /tmp\\n"\n' > "$rpt/bin/df"; chmod +x "$rpt/bin/df"
         : > "$SHIM_LOG"; RECON_DB="$rdb"
         build_from_recondb 1710000000 > "$rpt/ot.json" 2>/dev/null
@@ -2972,7 +2964,7 @@ SQL
         PATH=$p_path2; APCLI_RO=$p_flag2; TMPDIR_RAM=$p_tmp2; RECON_DB=$p_db2; MAX_AGE=$p_age2; PSEC_T=0; RDB_PATH=""; PINEAP_CALLS=$p_calls2
         unset -f date calls cyc
         PATH=$r_path; RESOLVED=$r_res; RECON_DB=$r_db; OUTFILE=$r_of; VENDOR=$r_ven; MAX_AGE=$r_age; TMPDIR_RAM=$r_tmp; OUTDIR=$r_od; INTERVAL=$r_int
-        RS_SIG=""; RS_SKIPS=0; HAS_TIME=""; RDB_PATH=""; unset SHIM_REAL SHIM_LOG SHIM_SQL
+        RS_SIG=""; RS_SKIPS=0; HAS_TIME=""; unset SHIM_REAL SHIM_LOG SHIM_SQL
     else
         log "  SKIP: recon.db tests (sqlite3 not installed here)"
     fi
@@ -3570,13 +3562,12 @@ SQL
         if [ "$nh" = "1" ] && cache_terminated; then st_pass "cache($cs): exactly one header, whole file"; else st_fail "cache($cs): headers x$nh"; fi
     done
     # (15) publication is decoupled from the merge: with the cache lock held by another live
-    #      collector, run_cycle must publish the JSON (with vendor) BEFORE it waits for the lock
+    #      collector, run_cycle must publish the JSON (with vendor) BEFORE it waits for the lock. The holder lives for the whole test
+    #      (killed below) and the budget is 5 s, so the cycle's own run time (a second or two on the device's CPU) cannot decide whether
+    #      the holder is still there; the publication is judged against the end of the cycle (at least 3 s earlier), not against a clock.
     OUI_FILE="$tdir/oui-nmap.txt"; setup_vendor 2>/dev/null
     vreset          # cold: there will be lines to merge
     RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$tdir/starchorus.json"; rm -f "$OUTFILE"
-    #      The holder lives for the whole test (it is killed below) and the budget is 5 s: how long the cycle takes before it asks for the lock
-    #      (a second or two on the device's CPU) must not decide whether the holder is still there when the budget runs out. The publication is
-    #      judged against the end of the cycle, not against a clock: it came at least 3 s before the cycle ended, i.e. before the wait.
     sh -c 'sleep 60; exit 0' "$SELF_BASE" & lh=$!
     mkdir "$lk" && printf '%s\n' "$lh" > "$lk/pid"
     save_budget=$LOCK_BUDGET; LOCK_BUDGET=50; LOCK_BUSY_UNTIL=0; LOCK_BUSY_LOGGED=0
@@ -3735,8 +3726,7 @@ SQL
     #          comm differs, or plain "sh /path/..."), with the recorded pids. So the real grep is checked
     #          against device-format lines, the real `ps` is never consulted (on the device it would list
     #          the operator's own collector), and a stand-in `readlink` answers /proc/PID/cwd from a map.
-    #          Every wait is bounded (0.2 s polls, ~10 s); the stand-ins hold no inherited descriptor
-    #          (a survivor would keep a caller's pipe open) and are killed by recorded pid at the end.
+    #          Every wait is bounded; the stand-ins hold no inherited descriptor (a survivor would keep a caller's pipe open).
     klw="$tdir/klscope"; klbin="$klw/bin"; mkdir -p "$klbin" "$klw/d1" "$klw/d2" "$klw/own" "$klw/status"
     printf '#!/bin/sh\nwhile :; do sleep 1; done\n' > "$klw/d1/starchorus-collect.sh"
     for kd in d2 own status; do cp "$klw/d1/starchorus-collect.sh" "$klw/$kd/starchorus-collect.sh"; done
@@ -3894,11 +3884,13 @@ if [ "$RESOLVED" = "none" ]; then
     exit 1
 fi
 
-# If we resolved to our own airodump capture, start it once and let it keep the CSV fresh.
-if [ "$RESOLVED" = "capture" ] && have airodump-ng; then
-    start_airodump || log "airodump start failed; will fall back to tcpdump bursts"
+# Our own capture: start airodump once and let it keep the CSV fresh; without it the capture is tcpdump bursts.
+if [ "$RESOLVED" = "capture" ]; then
+    if have airodump-ng; then
+        start_airodump || log "airodump start failed; will fall back to tcpdump bursts"
+    fi
+    [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
 fi
-[ "$RESOLVED" = "capture" ] && [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
 
 # Signals clean up AND exit (a returning handler would otherwise resume the loop); EXIT only cleans.
 trap 'cleanup; exit 130' INT
@@ -3930,16 +3922,15 @@ while :; do
     # rewritten file (firmware update, swapped USB stick) restarts the cache. Cheap: a few stats.
     cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; fi
     # A plain foreground sleep: under busybox ash a caught INT/TERM is handled after the current
-    # sleep returns, so --stop takes effect within at most one INTERVAL (verified on the device).
-    # Backgrounding the sleep and `wait`-ing on it does NOT deliver the trap sooner under ash and
-    # left the process running.
+    # sleep returns, so --stop takes effect within at most one INTERVAL. Backgrounding the sleep and
+    # `wait`-ing on it does NOT deliver the trap sooner under ash.
     sleep "$INTERVAL"
 done
 
 # =============================================================================================
 # NOTES / DEVICE FACTS (read-only checks on the device, OpenWrt 24.10.1 with BusyBox 1.36.1, and on
-# the AP-service binary and UCI configs of its unpacked firmware image).
-#   1. INTERFACES (confirmed live via `iw dev`): radio0 = 2.4GHz (mgmt `wlan0mgmt`, client
+# the AP-service binary and UCI configs of its unpacked firmware image; dated figures: docs/device-notes.md).
+#   1. INTERFACES: radio0 = 2.4GHz (mgmt `wlan0mgmt`, client
 #      `wlan0cli`, and a 2.4 monitor `wlan0mon`); `wlan1mon` is the recon engine's
 #      channel-hopping monitor; a staged USB adapter is `wlan2mon`. Override STARCHORUS_IFACE=<name>.
 #      Auto-mode prefers wlan1mon, then any non-wlan0mon monitor, then the first; it never
@@ -3948,10 +3939,10 @@ done
 #      a 2nd airodump on that PHY. Auto-mode therefore prefers reading recon.db (zero
 #      contention). Force with STARCHORUS_SOURCE=recondb (read engine) or =capture (own tcpdump).
 #   3. RECON DB: `/root/recon/recon.db` (== /mmc/root/recon/recon.db); schema families, copy and
-#      read-only access: see build_from_recondb. `encryption` values CONFIRMED against real nets on
-#      the device: 0=Open (e.g. "OpenGuest"); bit3(=8)=WPA2 (majority); bit4(=16)=WPA3; bit3+bit4
-#      => WPA2/WPA3 transition; bit2(=4)=WPA; large 64-bit ints (AKM/cipher bits high up).
-#   4. TOOLS (present on the device): sqlite3, tcpdump, iw, iwinfo, jq, curl, wget,
+#      read-only access: see build_from_recondb. `encryption` values: 0=Open (e.g. "OpenGuest");
+#      bit3(=8)=WPA2 (majority); bit4(=16)=WPA3; bit3+bit4 => WPA2/WPA3 transition; bit2(=4)=WPA;
+#      large 64-bit ints (AKM/cipher bits high up).
+#   4. TOOLS: sqlite3, tcpdump, iw, iwinfo, jq, curl, wget,
 #      nc, crond and a `timeout` are pre-installed. airodump-ng and python3 are NOT.
 #      awk/grep are busybox (no `grep -P`, no gawk-only awk functions). So on the device the
 #      recon.db path works out of the box; the capture fallback is tcpdump (not airodump).
@@ -3966,14 +3957,12 @@ done
 #   8. MANAGEMENT: SSH as root@<device> (tools/install.sh has the default address); mgmt_iface()
 #      knows the management addresses.
 #   9. MAC VENDOR (OUI) FILES, all already on the device, read-only, nothing fetched:
-#      /lib/hak5/oui.txt (the firmware's own, used by the device UI; checked on the device on 14 October 2026:
-#      1.26 MB, 38,959 lines, `00:00:00<TAB>NAME`; the parser takes it and the index was built from it),
-#      /usr/share/nmap/nmap-mac-prefixes (`AABBCC Vendor`, upstream also has 7/9-hex MA-M/MA-S
-#      lines which are skipped), /usr/share/macchanger/OUI.list (`AA BB CC VENDOR`, dated).
+#      /lib/hak5/oui.txt (the firmware's own, used by the device UI; `00:00:00<TAB>NAME`; the parser takes it
+#      and the index is built from it), /usr/share/nmap/nmap-mac-prefixes (`AABBCC Vendor`, upstream also
+#      has 7/9-hex MA-M/MA-S lines which are skipped), /usr/share/macchanger/OUI.list (`AA BB CC VENDOR`, dated).
 #      Override with STARCHORUS_OUI_FILE=<path> (e.g. a newer file on a USB stick). Parser, cache,
-#      index and lock: see VENDOR LOOKUP. Measured on the device (docs/device-notes.md §6a): the index
-#      of /lib/hak5/oui.txt takes about 8 s of CPU to build, once, when the daemon starts; a new prefix
-#      then costs 0.01 to 0.3 s instead of 14 s (a pass over the file).
+#      index and lock: see VENDOR LOOKUP. The index is built once, when the daemon starts; the size and
+#      line count of the file and the CPU figures: docs/device-notes.md (V-8, §6a).
 #      NOT covered by --selftest (timing races, documented rather than faked): a live holder
 #      grabbing a fresh lock in the microseconds between a breaker's check and its rename
 #      (cache_break gives it back), and setup_vendor's restart racing an in-flight merge (the
