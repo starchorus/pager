@@ -29,7 +29,7 @@
 # wrapper that stays until the handler is gone (coreutils' does) keeps the nc's stdin open after the handler has closed it.
 # A watchdog needs no `read -t`, so these two hold in any shell. Each header line also gets SLOW s with `read -t` (BusyBox ash,
 # bash); a shell without it (dash) is held to LIFE there.
-# FILES: a file is copied to /tmp (RAM, mode 600) for the length of one answer, so the Content-Length is that of the bytes sent.
+# FILES: one RAM copy (mode 600) per answer; see the handler.
 # CORS: no Access-Control-Allow-Origin. The page and starchorus.json are one origin; the header would let any web page open
 # in the browser of someone who can reach the Pager read every MAC address and SSID in starchorus.json.
 
@@ -50,9 +50,9 @@ own_pid() {
 }
 
 stop_serve() {   # stop what THIS script started for this dir/port, and nothing else
-    # Only our own processes: the serve loop (SERVE_PIDFILE), the nc of its current connection (NC_PIDFILE, checked
-    # against our exact nc arguments) and the handler instances (they run OUR handler file, $HANDLER). No sweep by
-    # program name: a `ps | grep netcat` would kill every netcat on the device, whoever had started it.
+    # The serve loop (SERVE_PIDFILE), the nc of its current connection (NC_PIDFILE, checked against our exact nc arguments)
+    # and the handler instances (they run OUR handler file, $HANDLER). No sweep by program name: a `ps | grep netcat` would
+    # kill every netcat on the device, whoever had started it.
     sp=$(sed -n 1p "$SERVE_PIDFILE" 2>/dev/null); np=$(sed -n 1p "$NC_PIDFILE" 2>/dev/null)
     own_pid "$sp" starchorus-serve && kill "$sp" 2>/dev/null       # its TERM trap stops its own nc and handler too
     own_pid "$np" "-p $PORT -c" && kill "$np" 2>/dev/null   # in case the loop is gone already (-p PORT -c with any -s)
@@ -97,7 +97,7 @@ if [ -z "$ADDR" ]; then
         fi
     fi
 fi
-# The nc listening arguments. One address needs -s (the nc's own help names it); without it, no start.
+# The nc listening arguments (see BIND above).
 if [ "$ADDR" = 0.0.0.0 ]; then
     echo "[starchorus-serve] bind all: the page and starchorus.json are reachable from every network this device is on" >&2
     set -- -l -p "$PORT" -c
@@ -114,10 +114,10 @@ cat > "$HANDLER" <<'HANDLER_EOF'
 DIR="__DIR__"
 PORT=__PORT__
 CR=$(printf '\r')
-IDLE=15     # s to a request line; the handler starts with its nc, so this is also the wait for a client (see below)
+IDLE=15     # s to a request line
 SLOW=10     # s to each further request header line
-LIFE=60     # s from the request line to the nc's close; more means a client that stopped reading
-# read -t (SLOW, below) is in BusyBox ash and bash; a shell without it (dash) reads header lines without a limit of their own
+LIFE=60     # s from the request line to the nc's close
+# read -t (SLOW): see LIMITS in starchorus-serve.sh
 RT=0; read -t 1 -r _x </dev/null 2>/dev/null; [ $? -le 1 ] && RT=1
 rd() { _s=$1; shift; if [ "$RT" = 1 ]; then read -t "$_s" -r "$@" 2>/dev/null; else read -r "$@" 2>/dev/null; fi; }   # rd SECS NAME...
 # /proc/PID/cmdline names one process without a list of them all (Linux); elsewhere ps does
@@ -151,11 +151,8 @@ short() {   # short STATUS TEXT: a plain-text answer
 snap=""; wd=""
 trap 'rm -f "$snap"; [ -z "$wd" ] || kill "$wd" 2>/dev/null' EXIT
 trap 'exit 1' HUP INT TERM PIPE
-# request line: METHOD PATH PROTO. This read is also the wait for a client: the handler starts with its nc, long before
-# anybody connects, and a client that connects and says nothing looks just the same. After IDLE s of either the nc is
-# stopped, which ends the connection if there is one, and the loop listens anew (once per IDLE s of quiet). The read has no
-# limit of its own, so that a shell without `read -t` is held to IDLE as well: the watchdog is started first. The pidfile may
-# still name the last round's nc at this point, so the watchdog looks at it only when it strikes.
+# request line: METHOD PATH PROTO. The read has no limit of its own: the watchdog (IDLE, see LIMITS in starchorus-serve.sh) is
+# started first. The pidfile may still name the last round's nc at this point, so the watchdog looks at it only when it strikes.
 guard "$IDLE"
 read -r method path proto 2>/dev/null || { stop_nc; exit 0; }
 unguard
@@ -211,7 +208,7 @@ trap serve_exit INT TERM
 if [ "$ADDR" = 0.0.0.0 ]; then URL="http://<device-ip>:$PORT/  (all interfaces)"; else URL="http://$ADDR:$PORT/"; fi
 echo "[starchorus-serve] $URL  (nc, serving $DIR)" >&2
 while :; do
-    # request:  nc stdout -> FIFO -> handler ;  response:  handler stdout -> nc stdin -> client
+    # the FIFO flow: see NOTE in the header
     # shellcheck disable=SC2094  # reading+writing the FIFO in one pipeline IS the pattern here
     "$HANDLER" < "$FIFO" | "$NC" "$@" > "$FIFO" &   # "$@" = the listening arguments chosen above
     echo "$!" > "$NC_PIDFILE"
