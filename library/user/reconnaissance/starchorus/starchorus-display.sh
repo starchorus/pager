@@ -18,8 +18,7 @@
 # which exist only inside the payload runtime) AND on a dev machine
 # (every device command has a plain-text fallback, so `sh starchorus-display.sh --once summary` prints
 # the same screen to stdout for testing). Needs `jq` -- confirmed present on the device, but built
-# WITHOUT the Oniguruma regex library, so no filter here may use test/match/sub/gsub/capture/scan/
-# splits/split-2 (see the JQLIB block below and docs/device-notes.md), the --selftest included. A jq that
+# WITHOUT the Oniguruma regex library: no regex builtin anywhere, see the NO REGEX block below. A jq that
 # lacks or breaks one of the builtins the filters use would leave the counters blank without a word, so
 # the summary / top / bands screens print one red line when a cheap probe of that path fails, and
 # --selftest names the builtin that does.
@@ -39,28 +38,18 @@
 # so it holds none of the payload's pipes while it waits). Without them it behaves as it always did.
 #
 # KEYS. Nothing on the screen moves by itself: there is no timer and no live summary. The Overview ARMS one WAIT_FOR_INPUT in the
-# background BEFORE it draws, the shell draws while it waits, and then takes the answer. Measured on the device (16 October 2026,
-# docs/device-notes.md section 7): a press made while no wait is open is LOST, not queued (M1), and B pressed then is taken by the
-# Pager UI itself and leaves the payload view (M2); a wait started in the background does get its key while the foreground writes
-# LOG lines (M3). So a press during "Reading..." is kept: it ends the draw (a wait takes one key, and a draw that went on would run
-# with none open: nothing more is printed and the jq that is running is ended) and is acted on at once, with the next wait armed
-# straight after, so a second press has a wait to find. Not every moment is covered: a press that falls before the first arm, or
-# between a key being answered and the next wait being registered with the UI (while a jq runs, the 0.2 s its watcher takes to see the
-# key, then a few forks and the UI's own time: a fraction of a second), is lost and, for B, may still leave the payload view (M1, M2);
-# docs/display-paths.md lists them. A wait is never put under `timeout`
-# (killing a UI command can leave a waiter in the UI daemon that swallows the next press) and none is left behind: every way out
-# of the Overview ends a pending waiter (ov_cleanup).
+# background BEFORE it draws, the shell draws while it waits, and then takes the answer: a press during "Reading..." is kept, ends
+# the draw and is acted on at once, with the next wait armed straight after (see The key wait below and docs/display-paths.md).
 # Every press acts at once and means the same on every screen:
 #   A  the same screen again          B  one level up: screen -> the list "Overview" -> exit 0, back to the payload's menu
 #   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, air)
 #   UP / DOWN  ignored (the console's own scrolling), the wait is armed again at once and nothing is drawn (the screen is drawn
 #              again only when the draw they came in was cut, so no half screen stays)
 #   anything else, or no answer, that comes back within 1 s of its arm: a strike, three in a row end it (a slower one is only waited out)
-# The words other payloads of the library test for count as the two buttons, so they are no strikes: BACK and Escape as B, a
-# lower-case a or b as the capital (take). A draw that has to run jq prints "Reading..." first; jq runs under `timeout 20` when the
-# device has that applet; a capture that takes longer gets the two lines of nodata() instead of numbers, and the verdict is cached
-# per capture like a result (a run that a key has ended is no result and is not kept). STARCHORUS_PROC (a stand-in for /proc: the
-# uptime and the stat file of this shell) and STARCHORUS_JQ_CAP are for the tests only.
+# A draw that has to run jq prints "Reading..." first (see BUSY); jq runs under a `timeout` (see JQ_TMO); a capture that takes
+# longer gets the two lines of nodata() instead of numbers, and the verdict is cached per capture like a result (a run that a key
+# has ended is no result and is not kept). STARCHORUS_PROC (a stand-in for /proc: the uptime and the stat file of this shell) and
+# STARCHORUS_JQ_CAP are test hooks.
 #
 # The only output is LOG lines: append-only (a payload cannot register screens of its own), nothing
 # is sent, no LED or buzzer is driven. Red marks an alarm and nothing else: an open/WEP network, the
@@ -82,7 +71,7 @@ if [ "${STARCHORUS_DISPLAY_PLAIN:-0}" != 1 ] && command -v LIST_PICKER >/dev/nul
 # OV_GATE names the key file while a draw runs (draw sets it and clears it again), else it is empty; see draw.
 OV_GATE=
 log() {  # log [red|blue] "text..."  -- red = an alarm, blue = a heading (that is the whole palette)
-    [ -s "$OV_GATE" ] && return 0   # a key has come during the draw: the draw is over and nothing more of it is printed
+    [ -s "$OV_GATE" ] && return 0   # the draw is over (see draw)
     case "$1" in red|blue) color=$1; shift ;; *) color= ;; esac
     if [ "$ONDEV" = 1 ]; then LOG ${color:+"$color"} "$*"; else printf '%s\n' "$*"; fi
 }
@@ -94,7 +83,7 @@ err_dialog() { if [ "$ONDEV" = 1 ]; then ERROR_DIALOG "$1"; else printf 'ERROR: 
 pick() { if [ "$ONDEV" = 1 ]; then LIST_PICKER "$@"; else for last; do :; done; printf '%s\n' "$last"; fi; }
 
 # uptime_cs -> UT, the time since boot in hundredths of a second, read from /proc/uptime with the shell's own read (no
-# process); UT stays empty and the status is 1 where there is no such file. STARCHORUS_PROC (TESTS ONLY) names another directory.
+# process); UT stays empty and the status is 1 where there is no such file. STARCHORUS_PROC (test hook) names another /proc directory.
 UT=
 uptime_cs() {
     UT=; ut_p=${STARCHORUS_PROC:-/proc}/uptime
@@ -106,19 +95,18 @@ uptime_cs() {
     UT=$((ut_a * 100 + ${ut_f#0}))
 }
 
-# The key wait: arm, draw, take. The Overview keeps a WAIT_FOR_INPUT open while a screen or "Reading..." is on the console: arm()
-# starts it in the background BEFORE the draw, the shell draws while it waits, take() then collects the answer. Why this order, as
-# measured on the device on 16 October 2026 (docs/device-notes.md section 7): a press made while no wait is open is LOST, not
-# queued (M1), and B pressed then is taken by the Pager UI itself and leaves the payload view (M2); a wait started in the background
-# does receive its key while the foreground writes LOG lines (M3). Nothing is buffered, so a key that came back during a draw was
-# pressed on purpose, at "Reading...", and is acted on as soon as that draw has ended.
+# The key wait. The Overview keeps a WAIT_FOR_INPUT open while a screen or "Reading..." is on the console: arm() starts it, take()
+# collects the answer. Why a wait is armed before the draw, as measured on the device (docs/device-notes.md section 7): a press made
+# while no wait is open is LOST, not queued (M1), and B pressed then is taken by the Pager UI itself and leaves the payload view
+# (M2); a wait started in the background does receive its key while the foreground writes LOG lines (M3). Nothing is buffered, so a
+# key that came back during a draw was pressed on purpose, at "Reading...", and is acted on as soon as that draw has ended.
 # A wait takes ONE key. A draw that went on after it would run with no wait open for the rest of its time (up to the 20 s of jq,
 # then every LOG line), and a second press in that time, B again because nothing seems to happen, would be lost or leave the payload
 # view (M1, M2). So the draw does not go on: log() prints nothing once the key file holds an answer, a jq that is still running is
 # ended (ov_jq), and take and the next arm follow at once. What stays unarmed is short: the start up to the first arm, and the stretch
 # from a key being answered to the next wait being registered with the UI (the watcher's 0.2 s while a jq runs, two forks for the
 # waiter, the UI's own time to take the request); a press that falls there is lost. docs/display-paths.md lists them.
-# A wait is never put under `timeout`, and none is left behind: ov_cleanup ends a pending one.
+# A wait is never put under `timeout`: killing a UI command can leave a waiter in the UI daemon that swallows the next press.
 #
 # The waiter is a subshell that starts WAIT_FOR_INPUT as a background child of its own (answer to OV_RAW) and, when that has ended,
 # leaves one line in OV_KEYF: "UPTIME KEY". UPTIME is /proc/uptime in hundredths of a second at that moment ("-" without a clock),
@@ -127,9 +115,8 @@ uptime_cs() {
 # in a command substitution cannot pass the signal on; it would die and leave the real waiter behind, still registered with the
 # UI daemon, where it takes the next press. Waiting in `wait` it can, at once. The subshell's trap only notes the signal (`sig`)
 # and the code after the fork and after the wait acts on it, so a TERM that lands between the fork and the child's pid being known
-# is not lost either. The subshell has no stdin, stdout or stderr of its own, so it holds none of the payload's pipes (the payload
-# gives the display no stdout for the same reason), and it clears the EXIT trap it inherits (ov_cleanup would otherwise delete the
-# temp dir as soon as the first answer came in).
+# is not lost either. The subshell has no stdin, stdout or stderr of its own, so it holds none of the payload's pipes, and it clears
+# the EXIT trap it inherits (ov_cleanup would otherwise delete the temp dir as soon as the first answer came in).
 # KEY_CS, the time from the arm to the end of the wait, is what the strike rule judges: it comes from the waiter's own clock, so a
 # long draw between the arm and the take cannot make an answer that came at once look slow. STRIKE_CS is one second.
 KEY=; KEY_CS=; KEY_ERR=; STRIKE_CS=100
@@ -138,7 +125,7 @@ CR=$(printf '\r'); TAB=$(printf '\t')
 arm() {
     : > "$OV_KEYF"
     uptime_cs; OV_ARM=$UT
-    OV_ARMING=1   # ov_cleanup: a TERM that lands before OV_WPID is set finds the waiter in $!
+    OV_ARMING=1   # see ov_cleanup
     (
         trap - EXIT; ow=; sig=
         trap 'sig=1' TERM INT HUP
@@ -217,10 +204,12 @@ ov_cleanup() {
 }
 
 # parent_gone -> 0 when STARCHORUS_PARENT_PID names the payload that started us and it has ended (or we were handed over
-# to another parent): the Overview then ends too, instead of drawing over whatever the device shows next. No process is started
-# for it: it runs between a key being taken and the next wait being armed, which must not take long. The parent of this shell is
-# field 4 of /proc/self/stat (the file is read by the shell's own `read`, so "self" is this shell), taken after the last ") ".
-# STARCHORUS_PROC (TESTS ONLY) names another directory for /proc.
+# to another parent): the Overview then ends too, instead of drawing over whatever the device shows next. It is asked once per
+# pass, after every take (so before the next arm), and once more when the list returns, which can take as long as a person likes;
+# an Overview whose payload has gone therefore ends at its next key press. No process is started for it: it runs between a key
+# being taken and the next wait being armed, which must not take long. The parent of this shell is field 4 of /proc/self/stat (the
+# file is read by the shell's own `read`, so "self" is this shell), taken after the last ") ".
+# STARCHORUS_PROC (test hook) names another /proc directory.
 parent_gone() {
     case ${STARCHORUS_PARENT_PID:-} in ''|*[!0-9]*) return 1 ;; esac
     kill -0 "$STARCHORUS_PARENT_PID" 2>/dev/null || return 0
@@ -233,8 +222,7 @@ parent_gone() {
 }
 
 # ------------------------------------------------------------------ data access (jq, read-only)
-# The "jq not found" gate sits right before the dispatch at the bottom of this file, not here: --selftest
-# has to run (and report "FAIL: jq present") on a box without jq, and it needs every function below.
+# The "jq not found" gate is at the dispatch at the bottom of this file, not here: see there.
 #
 # ONE jq PROCESS PER SCREEN. The device is a single ~580 MHz MIPS core: every jq start re-parses the whole
 # capture (15-50 KB) and compiles JQLIB again, which is what made a redraw cost seconds of CPU. So each
@@ -244,17 +232,11 @@ parent_gone() {
 #     <key> <N>                 <- a header: the key and the number of text lines that follow
 #     <N lines>
 # A record is framed by its line COUNT, never by looking at the text, so no value (an SSID, a probe name) can
-# forge a record: a newline inside a value is split into lines by jq (_R) and arrives as lines, exactly as the
-# separate q calls of the earlier versions delivered it. load() turns the records into R_<key> (the lines, joined
-# by newlines) and N_<key> (their count). A value that failed to compute (see _R) keeps the lines it had produced
-# before the error, usually none: R_<key> is blank, as the output of a failed filter was before. A document that does not parse, is empty or is just null /
-# false is "no data" (that is json_ok, folded into the same call), and so, with STARCHORUS_SINCE (digits, the epoch of the
-# last Start), is a capture whose `generated` is older or missing: SINCE_JQ puts that gate in front of the program, it
-# costs no process of its own. No data prints WAITING.
-# fetch() also keeps the verdict of the last run per screen with a fingerprint of the file: the records, "no data" or
-# "too slow". When the collector has not written a new capture (it replaces starchorus.json atomically once a cycle, 5 to 30 s)
-# the verdict is reused whatever it was, so a screen drawn again (key A) runs no jq at all and a screen that waits for the
-# first scan does not read the old file again and again; only the time of the scan and its age, both shell arithmetic, move.
+# forge a record: a newline inside a value is split into lines by jq (_R) and arrives as lines. load() turns the records into
+# R_<key> (the lines, joined by newlines) and N_<key> (their count); a value that failed to compute: see _R.
+# A document that does not parse, is empty or is just null / false is "no data" (_D), as is a capture older than
+# STARCHORUS_SINCE (see SINCE_JQ). No data prints WAITING.
+# fetch() reuses the last verdict per capture fingerprint; see fetch.
 NL='
 '
 RKEYS=
@@ -303,11 +285,10 @@ fingerprint() {
 # ov_jq PROGRAM -> fx_out (what jq printed) and, as the status, the one of `timeout` or of jq. The Overview runs jq in the background
 # with its output in a file, and the shell waits for it in `wait` (a TERM is therefore handled at once). A watcher looks at the key
 # file every 0.2 s (a whole second where the sleep applet has no fractions); once the waiter armed for this draw has its answer, it
-# ends the jq and what `timeout` started for it (ov_kill): a draw that went on would run with no wait open for the rest of its time,
-# and jq is the long part of it (up to the 20 s of the cap). FX_CUT=1 says the run ended for that reason: fetch then keeps nothing, so
-# the next draw of the screen reads the capture again. A run that failed while a key had come counts as cut too, whatever its status
-# (143 or 137 for a jq that was ended; a `timeout` that fired at that moment is not worth a verdict). The watcher leaves by itself
-# when the jq is gone (its pid does not exist once `wait` has reaped it) and is ended here as well.
+# ends the jq and what `timeout` started for it (ov_kill; see draw). FX_CUT=1 says the run ended for that reason: fetch then keeps
+# nothing, so the next draw of the screen reads the capture again. A run that failed while a key had come counts as cut too, whatever
+# its status (143 or 137 for a jq that was ended; a `timeout` that fired at that moment is not worth a verdict). The watcher leaves by
+# itself when the jq is gone (its pid does not exist once `wait` has reaped it) and is ended here as well.
 ov_jq() {
     FX_CUT=0
     if [ -n "$JQ_TMO" ]; then timeout "$JQ_TMO" jq -r "$JQLIB$SINCE_JQ$1" "$JSON" > "$OV_JQO" 2>/dev/null &
@@ -328,18 +309,17 @@ ov_jq() {
     return "$oj_rc"
 }
 # fetch SCREEN 'PROGRAM': run (or reuse) the screen's one jq program and load() its records; 1 = nothing to show, and
-# FX_SLOW says whether that is because jq ran out of time (see nodata). A key that has ended the draw (see ov_jq) also gives 1, with
-# FX_SLOW 0 and nothing kept; what the screen then prints is not printed (see log).
+# FX_SLOW says whether that is because jq ran out of time (see nodata); 1 also when a key ended the draw (see draw), FX_SLOW 0.
 # The fingerprint is taken BEFORE jq reads the file: a capture that lands in between is simply read again at the
-# next draw. stderr goes to /dev/null on purpose (a screen must never print jq noise), which is exactly how
-# a missing builtin used to turn into silently blank counters: see jq_warn.
-# In the Overview (OV_LIVE=1) a run that is not served from the cache says "Reading..." first (busy) and runs (ov_jq) under
-# `timeout` where the device has one, so a capture too big for the device cannot hold the screen for ever: status 124, 137
+# next draw. stderr goes to /dev/null on purpose (see jq_warn).
+# In the Overview (OV_LIVE=1) a run that is not served from the cache says "Reading..." first (busy: see BUSY) and runs (ov_jq)
+# under `timeout` (see JQ_TMO), so a capture too big for the device cannot hold the screen for ever: status 124, 137
 # or 143 from that `timeout` is "too slow". Only from it: a jq that ran without the limit (no applet, --once, --selftest) and
-# was killed from outside (the out-of-memory killer, a TERM) never had 20 s to overrun, so that is no data, as it always was.
-# The no-data and the slow verdict are cached per fingerprint exactly like the records (CV_<screen>:
-# ok, nodata or slow), so a draw of the same file again, A on the waiting or on the slow screen, starts no jq.
-# --once and --selftest never set OV_LIVE: one plain jq call, as before.
+# was killed from outside (the out-of-memory killer, a TERM) never had the cap to overrun, so that is no data.
+# The no-data and the slow verdict are cached per fingerprint exactly like the records (CV_<screen>: ok, nodata or slow), so a
+# draw of the same file again, A on the waiting or on the slow screen, starts no jq. The collector replaces starchorus.json
+# atomically once a cycle (5 to 30 s); until it does, only the time of the scan and its age (shell arithmetic) move.
+# Only the Overview sets OV_LIVE; --once and --selftest make one plain jq call (no cap, no "Reading...").
 fetch() {
     FX_SLOW=0
     [ -s "$JSON" ] || return 1
@@ -347,13 +327,13 @@ fetch() {
     fx_key="$JSON|$(fingerprint)"
     eval "fx_ck=\${CK_$1-} fx_out=\${CO_$1-} fx_vd=\${CV_$1-}"
     if [ "$fx_key" = "$JSON|" ] || [ "$fx_ck" != "$fx_key" ]; then
-        [ ! -s "$OV_GATE" ] || return 1   # a key has come: the draw is over, nothing is read for it
+        [ ! -s "$OV_GATE" ] || return 1   # the draw is over (see draw)
         busy
         fx_lim=0
         if [ "$OV_LIVE" = 1 ]; then
             [ -z "$JQ_TMO" ] || fx_lim=1
             ov_jq "$2"; fx_rc=$?
-            [ "$FX_CUT" != 1 ] || return 1   # ended by a key: that is no verdict on the capture and nothing of it is kept
+            [ "$FX_CUT" != 1 ] || return 1   # a cut run is no verdict (see draw)
         else
             fx_out=$(jq -r "$JQLIB$SINCE_JQ$2" "$JSON" 2>/dev/null); fx_rc=$?
         fi
@@ -370,13 +350,14 @@ fetch() {
         *) return 1 ;;
     esac
 }
-# The SINCE gate (see above): an older capture reaches the screen's program as null, which _D turns into no data.
+# The SINCE gate. STARCHORUS_SINCE (digits, the epoch of the last Start): a capture whose `generated` is older or missing reaches
+# the screen's program as null, which _D turns into no data (WAITING is printed); the gate costs no process of its own.
 case ${STARCHORUS_SINCE:-} in
     ''|*[!0-9]*) SINCE_JQ= ;;
     *) SINCE_JQ="(if (.generated | type) == \"number\" and .generated >= $STARCHORUS_SINCE then . else null end) | " ;;
 esac
 WAITING="Waiting for the first scan."
-SLOW1="This scan took over 20 s to read."   # the cap is 20 s; STARCHORUS_JQ_CAP shortens it for the tests, the words stay
+SLOW1="This scan took over 20 s to read."   # the words stay when STARCHORUS_JQ_CAP shortens the cap
 SLOW2="Try Settings > Show Last: 1 h."
 # nodata: what a screen prints when fetch() has nothing to show: the two lines for a capture jq could not read in time, else
 # the waiting line (no capture yet, or only an earlier run's)
@@ -386,7 +367,7 @@ nodata() { if [ "$FX_SLOW" = 1 ]; then log "$SLOW1"; log "$SLOW2"; else log "$WA
 BUSY="Reading..."
 OV_LIVE=0; OV_BUSY=0; FX_SLOW=0; OV_INT=
 busy() { [ "$OV_LIVE" = 1 ] && [ "$OV_BUSY" = 0 ] || return 0; OV_BUSY=1; log "$BUSY"; }
-# jq under `timeout` where the applet exists (BusyBox has it); the cap in seconds, 20 unless the tests shorten it
+# jq runs under `timeout` where the applet exists (BusyBox has it): 20 s, STARCHORUS_JQ_CAP shortens the cap (tests only)
 JQ_TMO=
 if command -v timeout >/dev/null 2>&1; then
     JQ_TMO=${STARCHORUS_JQ_CAP:-20}; case $JQ_TMO in ''|0|*[!0-9]*) JQ_TMO=20 ;; esac
@@ -412,16 +393,16 @@ fi
 # (iwinfo writes "6g").
 # _rtrimws/_ltrimws are O(n^2) in the whitespace run (every slice copies); explode/implode would be
 # linear but are not verified on the device's jq, and band strings are a handful of characters.
-# rssit = the page's rssiT on an RSSI (a null would count as 1, as rssiT(null) does in JS; only apprep, i.e. the
-# freshness line, still carries a null: pgaps below turns a missing RSSI into -75 dBm first, as normalizeDoc does).
+# rssit = the page's rssiT on an RSSI (a null counts as 1, as rssiT(null) does in JS; only apprep, i.e. the freshness line,
+# still carries one: pgaps replaces it first, see below).
 # chloads / busiest (crowding and the busiest channel) follow the page's own pipeline, not apprep:
 # pgaps = normalizeDoc for the fields the channel model reads (BSSID key via normMac or "ap<i>", duplicate
 # BSSIDs merged with the strongest RSSI and the first non-empty channel/freq/width, a missing RSSI = -75 dBm,
 # band via bandOf with its freq/channel fallback, a width outside 20/40/80/160/320 = none), sorted like
 # S.apOrder (RSSI desc, then BSSID); chloads lists the channels per band in the order they first appear there
 # and sums each load in that order (float addition is not associative: a tie can hinge on it); busiest is the
-# FIRST channel with the highest load, as crowdingOf keeps it. chloads_of / _busiest take the pgaps result and the
-# chloads list, so a screen that needs both (crowding, busiest channel, the Air block) runs pgaps once.
+# FIRST channel with the highest load, as crowdingOf keeps it (not max_by: it keeps the LAST maximum). chloads_of / _busiest
+# take the pgaps result and the chloads list, so a screen that needs both (crowding, busiest channel, the Air block) runs pgaps once.
 # _trimjs trims the page's .trim() set (_WS without U+0085). Not modelled (the collector writes neither): numeric
 # STRINGS (the page's numOrNull reads "6" as 6, here only JSON numbers count), non-ASCII capitals in a BSSID
 # (toLowerCase vs ascii_downcase).
@@ -433,9 +414,8 @@ fi
 # that is null or false (no data), else the "ok 0" record and then body. _R(key; f) is one record: every output of f as
 # text (a string as it is, anything else as JSON; _r), split into lines, behind a "key N" header; if f fails (a builtin
 # that is missing on the device, a field of the wrong type) the record keeps what f had printed before the error and the
-# other records still arrive, which is what separate filters per value gave: one blank figure, not a blank screen. The
-# program uses try for that (and, with catch, to turn a failed intermediate result into null). _chomp drops trailing
-# newlines (what $(...) did to a one-line value before).
+# other records still arrive: one blank figure, not a blank screen. The program uses try for that (and, with catch, to turn
+# a failed intermediate result into null). _chomp drops trailing newlines, so a one-line value stays one line.
 # bandcnt counts the APs of one band in the list of normalised band strings the program computed once.
 # clouds = the page's random clouds (docs/architecture.md §8.8a) on one capture: rndfree lists the randomised free stations
 # the way normalizeDoc reads them (the first entry of a MAC wins, an associated MAC is not free, a randomized flag or the U/L
@@ -529,7 +509,6 @@ def _D(body): if . == null or . == false then empty else "ok 0", body end;
 def bandcnt($B; $b): $B | map(select(. == $b)) | length;
 def _abs: if . < 0 then -. else . end;
 def _win($c): select(.r >= $c - 3 and .r <= $c + 3);
-# the randomised free stations, normalised like normalizeDoc (first entry of a MAC wins, associated wins), with D1 dating
 def rndfree: (.generated | if type == "number" then . else null end) as $g
   | ([.aps[]? | select(type == "object") | (.clients // [])[]? | select(type == "object") | .mac
       | select(. != null) | select((tostring | _trimjs) != "") | pgmac]) as $A
@@ -680,17 +659,15 @@ def clouds: rndfree as $R
           mean: (($Ms | map(.r) | add) / ($Ms | length)), ids: [$Ms[].id]}]};
 '
 
-# Visible failure marker. fetch() sends jq's stderr to /dev/null on purpose (a screen must never print jq
-# noise), which is exactly how a missing builtin turned into silently blank counters. jq_healthy makes
-# ONE jq call through the same JQLIB path the screens use, on known values, and compares the whole answer
-# with the expected array: any jq error (a builtin that is absent or fails when it is called) leaves the
-# output empty, so the comparison fails. The probe covers the JQLIB helpers plus add / group_by / sort_by
-# (called outside JQLIB by the summary, top and bands filters); --selftest probes each builtin on its own.
+# Visible failure marker. fetch() sends jq's stderr to /dev/null on purpose (a screen must never print jq noise), so a broken jq
+# is told by a probe instead: jq_healthy makes ONE jq call through the same JQLIB path the screens use, on known values, and
+# compares the whole answer with the expected array: any jq error (a builtin that is absent or fails when it is called) leaves
+# the output empty, so the comparison fails. The probe covers the JQLIB helpers plus add / group_by / sort_by (called outside
+# JQLIB by the summary, top and bands filters); --selftest probes each builtin on its own.
 # The probe runs once per process (on first use: the first summary, top or bands screen) and the answer is kept
-# in JQ_OK, so a draw of the same screen again costs no extra process. In the Overview that first draw says "Reading..."
-# before the probe (busy), the probe being the first jq of the draw.
+# in JQ_OK, so a draw of the same screen again costs no extra process.
 # jq_warn is the one place that turns a failed probe into a red line, called first thing in those three
-# screens. When the probe passes it prints nothing, so the healthy output is unchanged.
+# screens; when the probe passes it prints nothing.
 JQ_PROBE='[(" 5 GHz" | bandnorm), ("6g" | bandnorm), ("WPA2/WPA3" | sectag), ("" | sectag), (null | isopenwep),
           ([[1, 2], [3]] | map(length) | add),
           (["b", "a", "b"] | group_by(.) | map({k: .[0], n: length}) | sort_by(-.n) | .[0].k)]'
@@ -698,7 +675,7 @@ JQ_PROBE_WANT='["5","6","WPA3","Open",true,3,"b"]'
 JQ_OK=
 jq_healthy() {
     if [ -z "$JQ_OK" ]; then
-        [ ! -s "$OV_GATE" ] || return 0   # the draw is over (a key came): no probe now, the next draw makes it
+        [ ! -s "$OV_GATE" ] || return 0   # the draw is over (see draw): no probe now
         busy
         if [ "$(jq -n -c "$JQLIB$JQ_PROBE" 2>/dev/null)" = "$JQ_PROBE_WANT" ]; then JQ_OK=1; else JQ_OK=0; fi
     fi
@@ -738,10 +715,8 @@ ready() { fetch "$1" "$2" || { nodata; return 1; }; gen_tick "$R_gen"; }
 # summary: D1 freshness (the page's four stages and words, ENCODING.fresh.words; undated = no capture time,
 # last_seen <= 0, or later than generated + 300 s, counted and named) and D11 crowding 1-5 (the busiest channel's
 # overlap, the sum of rssiT over the APs whose span overlaps its own 20 MHz, against [1.5, 3, 5, 8]; the same words
-# as the page's Air drawer) as records, next to the plain counts. "bz" is "2.4 GHz ch 6": the FIRST channel of
-# chloads with the highest load, i.e. the page's crowdingOf (strict ">" over bands 2.4, 5, 6 and, per band, the
-# channels in the order they first appear in S.apOrder). Not max_by: it keeps the LAST maximum, which would name a
-# different channel than the page on every tie. "interval" (center.interval) is for stale_line below.
+# as the page's Air drawer) as records, next to the plain counts. "bz" is "2.4 GHz ch 6", the busiest channel (see busiest in
+# JQLIB). "interval" (center.interval) is for stale_line below.
 JQ_SUMMARY='_D(
   (try chloads catch null) as $cl | (try [.aps[] | (.band | bandnorm)] catch null) as $B | (try clouds catch null) as $CL
   | _R("gen"; .generated // empty),
@@ -892,10 +867,7 @@ screen_clients() {
 # co-/adjacent-channel counts, the least occupied of the usual set, and the beacon airtime as an
 # ESTIMATED lower bound (one beacon per AP every 102.4 ms, 200 bytes at 1 Mbit/s on 2.4 GHz or
 # 6 Mbit/s on 5/6 GHz).
-# On the page's model, like the summary's crowding line: pgaps (duplicates merged, a missing RSSI = -75 dBm,
-# band from freq/channel when the band field says nothing), channels ranked on the ROUNDED load (ld2) then the channel
-# number, and the beacon estimate rounded per channel before the band sum (airQuality's beaconPctSum).
-# pgaps runs once for the crowding level and the three band blocks.
+# On the page's model, as in JQLIB (pgaps, ld2, beaconpct); pgaps runs once for the crowding level and the three band blocks.
 JQ_AIR='def _air($A; $b):
     [$A[] | select(.b == $b and .ch != null)] as $P | ($P | length) as $n
     | if $n == 0 then "  \($b) GHz: no APs"
@@ -936,7 +908,7 @@ tpl_line() {   # tpl_line aps b24 b5 b6 open crowding
 # intervals: center.interval of the capture, which only the summary's program reads, so the last value it gave is kept in
 # OV_INT for the other screens; else STARCHORUS_INTERVAL, else 30 s). Status 1: this screen has no usable capture time (no
 # capture, a waiting screen) or the box has no clock. It reads the "gen" and "interval" records the screen has just loaded
-# and takes one `date`: no jq of its own, so a draw of an unchanged capture runs none.
+# and takes one `date`: no jq of its own.
 scan_age() {
     sg=${R_gen-}; case $sg in ''|*[!0-9]*) return 1 ;; esac
     [ "${#sg}" -le 11 ] || return 1
@@ -981,10 +953,10 @@ frame() {
 }
 
 # ------------------------------------------------------------------ --selftest (read-only device check)
-# sh starchorus-display.sh --selftest       (over ssh or from a shell on the device; sends nothing, reads no capture)
+# sh starchorus-display.sh --selftest       (over ssh or from a shell on the device)
 # One "[display-selftest]   PASS: name" or "[display-selftest]   FAIL: name" line per check, then a last line
-# "[display-selftest] SELFTEST: ALL PASS (N checks)" or "[display-selftest] SELFTEST: FAILED (k of N)"; exit 0
-# only when every check passed. Written with printf straight to stdout, not through log(): it is meant to
+# "[display-selftest] SELFTEST: ALL PASS (N checks)" or "[display-selftest] SELFTEST: FAILED (k of N)".
+# Written with printf straight to stdout, not through log(): it is meant to
 # be read in a terminal. It runs the REAL JQLIB text above (never a copy) through the jq on PATH, in three
 # layers so a failing jq shows WHICH piece is wrong: (1) one probe per jq builtin / syntax form the
 # filters use, each on its own line; (2) a small table of bandnorm / secupper / isopenwep / sectag inputs
@@ -1030,7 +1002,7 @@ display_selftest() {
         st_verdict; return
     fi
     st_info "jq version: $(jq --version 2>&1 | sed -n 1p)"
-    # No regex builtin is called anywhere in this file, the selftest included (see the no-regex rule above).
+    # (no regex builtin: see the NO REGEX block)
 
     # (1) every builtin / syntax form the JQLIB helpers and the screen filters rely on, one line each
     st_probe "builtin endswith" '[("5ghz" | endswith("ghz")), ("5ghz" | endswith("g5")), ("" | endswith("g"))]' '[true,false,false]'
@@ -1152,11 +1124,11 @@ fi
 
 # draw VIEW: one screen as its block of LOG lines and, last, its frame. A draw that has to run jq says "Reading..." first (busy(),
 # once per draw). It runs with a key wait already open (arm). The wait takes one key, so the draw ends with it: while a draw runs,
-# OV_GATE names the key file, and log(), fetch() and jq_healthy() do nothing once that file holds an answer (a jq that is running
-# is ended by ov_jq); frame is not started. The status is 1 for a draw that was ended that way, 0 for a whole one: the loop draws
-# a screen again after a key that asked for nothing (Up, Down, a strike) only when its draw was cut, so no half screen is left as the
-# last thing on the console. R_gen and R_interval are cleared first: a screen that has nothing to show (waiting, slow) must not borrow
-# the time of the screen before.
+# OV_GATE names the key file, and once that file holds an answer log() prints nothing, fetch() and jq_healthy() start no jq, a jq
+# that is running is ended (ov_jq), frame is not started and a cut draw keeps no verdict. The status is 1 for a draw that was ended
+# that way, 0 for a whole one: the loop draws a screen again after a key that asked for nothing (Up, Down, a strike) only when its
+# draw was cut, so no half screen is left as the last thing on the console. R_gen and R_interval are cleared first: a screen that
+# has nothing to show (waiting, slow) must not borrow the time of the screen before.
 draw() {
     OV_BUSY=0; FX_SLOW=0; unset R_gen R_interval
     OV_GATE=$OV_KEYF
@@ -1192,18 +1164,14 @@ view_of() {
 
 # The Overview. On the device the first things that happen are the traps, the private temp dir and the first arm, and only then the
 # first line (before any jq call, so the screen still answers at once): the wait is registered while the heading goes out, not after
-# it, which is the one stretch the start can keep unarmed. Then every pass of the loop is arm, draw, take, with parent_gone asked once
-# per pass (after take, which is also before the next arm; a second time after the list, which can take as long as a person likes): a
-# key wait is opened in the background, the screen is drawn while it waits (a draw ends as soon as a key has come), and take collects
-# the answer. The first pass draws the summary; after that nothing is drawn unless a key asks for it. A draws the same screen
-# again, B goes up one level (a screen -> the list "Overview" with its cursor on that screen -> exit 0, back to the payload's menu),
-# LEFT and RIGHT step through the screens, UP and DOWN are ignored (the wait is armed again, nothing is drawn, unless the draw they
-# came in was cut: then the screen is drawn again), anything else is a strike when it came back within 1 s of its arm (STRIKE_CS)
-# or when there is no clock to tell, and the third in a row ends the Overview: an empty answer at once means the key path is broken,
+# it, which is the one stretch the start can keep unarmed. Every pass of the loop is arm, draw, take (see The key wait), with
+# parent_gone asked once per pass and again after the list. The first pass draws the summary; after that nothing is drawn unless a
+# key asks for it. The keys are as in the header; anything else is a strike when it came back within 1 s of its arm (STRIKE_CS) or
+# when there is no clock to tell, and the third in a row ends the Overview: an empty answer at once means the key path is broken,
 # and this must not become a busy loop. The same answer after a real wait (a second or more) is a UI that took its time: the wait is
 # simply opened again and the count starts over. The list "Overview" is a wait of its own, so no waiter is armed while it is up; when
-# it returns, the next pass arms, then draws. Every exit is after a take (nothing pending) or through ov_cleanup, which ends a
-# pending waiter and removes the temp dir. No menu of its own: starting and stopping belong to the payload.
+# it returns, the next pass arms, then draws. Every exit is after a take or through ov_cleanup. No menu of its own: starting and
+# stopping belong to the payload.
 command -v jq >/dev/null 2>&1 || { log blue "Overview"; err_dialog "Overview needs jq."; exit 1; }
 view=summary
 [ "$ONDEV" = 1 ] || { log blue "Overview"; draw summary; exit 0; }   # dev fallback: one screen, no keys, nothing armed
@@ -1215,9 +1183,18 @@ trap ov_cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'exit 129' HUP
-OV_TMP=$(umask 077 && mktemp -d "${TMPDIR:-/tmp}/starchorus-ov.XXXXXX" 2>/dev/null) || { OV_TMP=; log blue "Overview"; err_dialog "Overview could not start."; exit 1; }
+OV_TMP=$(umask 077 && mktemp -d "${TMPDIR:-/tmp}/starchorus-ov.XXXXXX" 2>/dev/null) || {
+    OV_TMP=
+    log blue "Overview"
+    err_dialog "Overview could not start."
+    exit 1
+}
 OV_KEYF=$OV_TMP/key; OV_RAW=$OV_TMP/raw; OV_JQO=$OV_TMP/jq
-{ printf x > "$OV_KEYF" && printf x > "$OV_RAW" && printf x > "$OV_JQO"; } 2>/dev/null || { log blue "Overview"; err_dialog "Overview could not start."; exit 1; }
+{ printf x > "$OV_KEYF" && printf x > "$OV_RAW" && printf x > "$OV_JQO"; } 2>/dev/null || {
+    log blue "Overview"
+    err_dialog "Overview could not start."
+    exit 1
+}
 OV_LIVE=1; bad=0; again=1; first=1
 parent_gone && exit 0
 while :; do
