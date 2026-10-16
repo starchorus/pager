@@ -837,18 +837,20 @@ const KEYS = [
   { key: "Esc", desc: "Close dialogue / help / detail, clear hover" },
   { key: "?", desc: "Keyboard shortcuts overlay", btn: "t-help" },
 ];
-// D15 edge-panel layout (theme-free, px): gap between panels, channel-bar width range, detail minimum, phone bound (§9.8).
+// D15 edge-panel layout (theme-free, px): gap between panels, channel-bar width range, detail minimum, smallPx = the phone bound (read by PHONE.query).
 const EDGE = { gapPx: 12, chanMinPx: 280, chanMaxPx: 640, detailMinPx: 160, smallPx: 720 };
 // D21 phone mode (§9.8): up to smallPx wide, or a phone on its side; ?phone=1|0 overrides. Drag, flick, room above the half sheet.
 const PHONE = { query: "(max-width: " + EDGE.smallPx + "px), (max-height: 460px) and (pointer: coarse)", gapPx: 8, halfFrac: 0.5, dragPx: 8, flickPxMs: 0.4, starClearPx: 24, centreClearPx: 30 };
 const POLL_MS = 5000, HISTORY_LEN = 60, HIST_KEEP_S = 300, STORAGE_KEY = "starchorus.ui.v1";
-const STALE_POLLS = 6;                                            // D3: stale after 6 ticks of POLL_MS (30 s) without a new `generated` …
-const STALE = { floorS: 30, mul: 2, slackS: 15 };                 // … or, with center.interval, after max(30 s, 2 × interval + 15 s)
-const OFFLINE_POLLS = 3;                                          // D3: a stale feed whose last three polls got no answer is 'Offline', not 'Stale'
-// D3 cadence (§38 pollNextMs): spacing = the median of the last `gaps` capture gaps (first guess guessMul × interval, else POLL_MS); the next
+// D3 liveness: a feed is stale after STALE_POLLS ticks of POLL_MS (30 s) without a new `generated`, or, with center.interval, after
+// max(floorS, mul × interval + slackS); a stale feed whose last OFFLINE_POLLS polls got no answer is 'Offline', not 'Stale'.
+// Cadence (§38 pollNextMs): spacing = the median of the last `gaps` capture gaps (first guess guessMul × interval, else POLL_MS); the next
 // poll comes leadMs before the next capture is due, then every stepMs until it arrives. maxIntervalS caps what a document may announce.
+const STALE_POLLS = 6;
+const STALE = { floorS: 30, mul: 2, slackS: 15 };
+const OFFLINE_POLLS = 3;
 const POLL = { gaps: 3, guessMul: 1.1, leadMs: 3000, stepMs: 2000, logMax: 60, maxIntervalS: 600 };
-const HIST_KEEP_INGESTS = Math.round(HIST_KEEP_S * 1000 / POLL_MS);  // history of a vanished node: HIST_KEEP_S of capture time, undated 60 ingests
+const HIST_KEEP_INGESTS = Math.round(HIST_KEEP_S * 1000 / POLL_MS);  // the undated limit of the sweep in ingest(), in ingests
 // D1 freshness (theme-free; APs and stations, each from its own last_seen): age = generated − last_seen → T0 < 60 s · T1 < 300 s · T2 < 900 s · T3 on record · undated.
 // The words and boundaries are provisional until the device's `time` cadence is verified (docs/architecture.md §14, D1).
 const FRESH = { tiersS: [60, 300, 900], futureS: 300 };
@@ -1134,7 +1136,7 @@ function flatten(obj, prefix = "", out = {}) {
 // leaf has one kind across themes (null = "none" fits any kind; arrays compare as "array"). auditThemes() is pure (no fill,
 // no counting); validateThemes() runs it once at boot, counts every finding in S.themeErrors, keeps that boot audit for
 // STARCHORUS.themeAudit() and only then (and only if something is wrong) fills absent paths from the first theme that has
-// them — a crash guard, never a design fallback (regress demands 0). validateTheme(t) keeps the per-theme value checks.
+// them — a crash guard, never a design fallback (S.themeErrors must stay 0).
 function leafKind(v) { return v === null ? "null" : Array.isArray(v) ? "array" : typeof v; }
 function auditThemes(themes = THEMES) {
   const ids = Object.keys(themes), flat = {}, all = new Set(), keyCount = {}, missing = {}, kinds = [];
@@ -1242,12 +1244,14 @@ function fillAnim() {
   a.cameraEasing = { easeInOutCubic, easeOutQuad, linear: (u) => u }[m.cameraEasing] || easeInOutCubic;
   a.bokeh = d.bokeh.enabled;
   a.edgeTravelDotSpeed = m.edgeTravelDotSpeed; a.edgeTravelDotPx = m.edgeTravelDotPx; a.cursorBlinkMs = m.cursorBlinkMs;
-  a.flickerAmp = THEME.crt.flickerAmp; a.persistence = THEME.crt.persistenceAlpha > 0; a.probeArc = !!THEME.render.probeArc; a.arrivalArcs = !!THEME.render.arrivalArcs;
+  a.flickerAmp = THEME.crt.flickerAmp; a.persistence = THEME.crt.persistenceAlpha > 0;
+  a.probeArc = !!THEME.render.probeArc; a.arrivalArcs = !!THEME.render.arrivalArcs;
   a.flareMax = d.lensFlare.maxStars | 0; a.flareEnabled = !!d.lensFlare.enabled; a.flareLenFactor = d.lensFlare.lengthFactor || 0;
   a.introStyle = m.introStyle;   // §22–30 read no tokens, so the intro style reaches step() through S.anim
 }
 function applyTheme(id, opts = {}) {
   if (!THEMES[id]) id = "foundation";
+  // changed = a real switch; re-applying the active theme keeps the theme-bound bitmaps, shows no caption and leaves a running intro alone
   const changed = TK === null || THEME !== THEMES[id];
   THEME = THEMES[id]; TK = flatten(THEME); TD = deriveStrings(THEME); fillAnim();
   S.ui.theme = id;
@@ -1259,7 +1263,6 @@ function applyTheme(id, opts = {}) {
   ds.plaque = THEME.chrome.plaqueTip.show ? "on" : "off";   // the tooltip arrangement is a token, never a theme id
   mirrorCss();
   if (changed) {
-    // a real switch invalidates every theme-bound bitmap; re-applying the active theme keeps them (no visual change)
     clearSprites(); particlesReset(); measureCache.clear();
     ctxSky.clearRect(0, 0, W, H);
   }
@@ -1268,15 +1271,17 @@ function applyTheme(id, opts = {}) {
   rebuildBackground();
   buildLegend(); updateControlsLook(); if (S.locked) openDetail(S.locked);   // each of these ends in layoutEdges(), which redraws the channel bar
   renderSourceTruth();   // D4: chip, masthead, meta, legend claims and banner in the new theme's copy
-  if (changed) renderCaption();   // the caption says itself once on a real theme switch
+  if (changed) renderCaption();
   updateStats();
   S.dirty = true;
-  // Re-applying the active theme with an empty sprite cache warms it (a real switch clears without rebaking until the next frame).
+  // re-applying with an empty sprite cache bakes it now (a real switch clears without rebaking until the next frame)
   if (!changed && spriteCache.size === 0 && W > 0) render();
-  // D13: the intro is a token (motion.introStyle), and the "already seen" flag is per theme id — switching
-  // themes in one session shows each theme's own intro exactly once.
-  if (changed && introRunning) { endCoalesce(); skipLogon(); }   // a real switch always ends the outgoing theme's intro, even when the incoming one has been seen
-  if (changed && !reduceMotion && opts.intro !== false && !query.intro0 && !introSeen()) runIntro();
+  // D13: the intro is a token (motion.introStyle), and the "already seen" flag is per theme id — switching themes in one session
+  // shows each theme's own intro exactly once. A real switch ends the outgoing intro even when the incoming theme has been seen.
+  if (changed) {
+    if (introRunning) { endCoalesce(); skipLogon(); }
+    if (!reduceMotion && opts.intro !== false && !query.intro0 && !introSeen()) runIntro();
+  }
   return id;
 }
 
@@ -1378,8 +1383,7 @@ const dbmOrNull = (x) => { const v = numOrNull(x); return v == null ? null : cla
 function ulBit(mac) { const c = mac.charAt(1); return c === "2" || c === "6" || c === "a" || c === "e"; }
 function secClass(s, akm, cipher) {   // the collector's label AND, when present, its AKM/cipher detail (OWE before WPA3: libwifi sets the WPA3 class bit for OWE)
   const u = String(s || "").toUpperCase().trim(), ak = Array.isArray(akm) ? akm : [];
-  if (ak.includes("owe") && !ak.some(x => /^(psk|sae|1x)/.test(x))) return "owe";
-  if (u.includes("OWE")) return "owe";
+  if ((ak.includes("owe") && !ak.some(x => /^(psk|sae|1x)/.test(x))) || u.includes("OWE")) return "owe";
   if (u.includes("ENTERPRISE") || u.includes("802.1X") || ak.some(x => /^1x|^fils/.test(x))) return "enterprise";
   const pw = cipher && Array.isArray(cipher.pairwise) ? cipher.pairwise : [];
   if ((u.includes("TKIP") && !u.includes("CCMP") && !u.includes("GCMP")) || (pw.includes("tkip") && !pw.some(x => /^(ccmp|gcmp)/.test(x)))) return "tkip-weak";
@@ -1415,7 +1419,13 @@ function normClient(c, fallbackId) {
   let probes = null;
   if (Array.isArray(c.probes)) {
     const seen = new Set();
-    for (const s of c.probes) { if (typeof s !== "string") continue; const v = stripCtl(s, 32).trim(); if (!v || seen.has(v)) continue; seen.add(v); if (seen.size >= 8) break; }
+    for (const s of c.probes) {
+      if (typeof s !== "string") continue;
+      const v = stripCtl(s, 32).trim();
+      if (!v || seen.has(v)) continue;
+      seen.add(v);
+      if (seen.size >= 8) break;
+    }
     if (seen.size) probes = Array.from(seen);
   }
   return { mac, rssi, vendor, last_seen: numOrNull(c.last_seen), packets: numOrNull(c.packets), probes,
@@ -1435,14 +1445,22 @@ function normalizeDoc(raw) {
       // this device's own transmitters (interface MACs / operator file): kept in memory for the exclusion logic only; never rendered, exported or stored
       own_bssids: Array.isArray(rc.own_bssids) ? rc.own_bssids.map(normMac).filter(isMac).slice(0, 16) : [],
       own_ssids: strs(rc.own_ssids, 32, 32) || [] },
-    // hop awareness: per frequency the last time anything was heard and (flagged) the driver's busy percentage / noise. Absent => absence is never "gone".
     // optional alerts[] {type, t, ap, n} (a collector may report "many deauth/disassoc frames heard for this AP"); counts of directed frames stay local-live (P6)
-    alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => { if (!isObj(x) || x.type !== "deauth") return null; const ap = normMac(x.ap); const n = numOrNull(x.n);
-      return isMac(ap) && n != null && n > 0 ? { type: "deauth", t: numOrNull(x.t), ap, n: Math.round(n) } : null; }).filter(Boolean) : [],
+    alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
+      if (!isObj(x) || x.type !== "deauth") return null;
+      const ap = normMac(x.ap);
+      const n = numOrNull(x.n);
+      return isMac(ap) && n != null && n > 0 ? { type: "deauth", t: numOrNull(x.t), ap, n: Math.round(n) } : null;
+    }).filter(Boolean) : [],
     // optional homing reading {bssid, dbm, peak, t} for ONE target the device (or STARCHORUS_HOMING_BSSID) chose; validated at ingest (an observed key present this capture — an AP or a station; own transmitters refused)
     homing: isObj(raw.homing) && numOrNull(raw.homing.dbm) != null ? { bssid: normMac(raw.homing.bssid), dbm: dbmOrNull(raw.homing.dbm), peak: numOrNull(raw.homing.peak), t: numOrNull(raw.homing.t) } : null,
-    channels: Array.isArray(raw.channels) ? raw.channels.slice(0, 200).map(c => { const f = isObj(c) ? numOrNull(c.freq) : null; if (!(f > 0)) return null;
-      const b = numOrNull(c.busy_pct); return { freq: f, last_heard: numOrNull(c.last_heard), busy_pct: b == null ? null : clamp(Math.round(b), 0, 100), noise: numOrNull(c.noise) }; }).filter(Boolean) : null,
+    // hop awareness: per frequency the last time anything was heard and (flagged) the driver's busy percentage / noise.
+    channels: Array.isArray(raw.channels) ? raw.channels.slice(0, 200).map(c => {
+      const f = isObj(c) ? numOrNull(c.freq) : null;
+      if (!(f > 0)) return null;
+      const b = numOrNull(c.busy_pct);
+      return { freq: f, last_heard: numOrNull(c.last_heard), busy_pct: b == null ? null : clamp(Math.round(b), 0, 100), noise: numOrNull(c.noise) };
+    }).filter(Boolean) : null,
     aps: [], unassociated: [],
   };
   if (!doc.center.label) doc.center.label = "YOU ARE HERE";
@@ -1468,9 +1486,8 @@ function normalizeDoc(raw) {
     if (!prev) { apMap.set(bssid, ap); return; }
     // merge duplicate bssid: strongest RSSI, first non-empty value per field
     if (ap.rssi != null && (prev.rssi == null || ap.rssi > prev.rssi)) prev.rssi = ap.rssi;
-    if (!prev.ssid && ap.ssid) prev.ssid = ap.ssid;
     const empty = (v) => v === null || v === "" || v === undefined;
-    for (const k of ["channel", "freq", "security", "vendor", "rate", "width", "last_seen", "phy", "caps", "beacons", "packets", "akm", "cipher", "auth", "responded_ssids"]) if (empty(prev[k]) && !empty(ap[k])) prev[k] = ap[k];
+    for (const k of ["ssid", "channel", "freq", "security", "vendor", "rate", "width", "last_seen", "phy", "caps", "beacons", "packets", "akm", "cipher", "auth", "responded_ssids"]) if (empty(prev[k]) && !empty(ap[k])) prev[k] = ap[k];
     if (prev.band === "unknown" && ap.band !== "unknown") prev.band = ap.band;
     const have = new Set(prev.clients.map(c => c.mac));
     for (const c of ap.clients) if (!have.has(c.mac)) { have.add(c.mac); prev.clients.push(c); }
@@ -1656,7 +1673,13 @@ function histPush(node, rssi, gen) {
 // existing one is never evicted for it), so a present station's history cannot thrash under rotating randomised MACs.
 function histPushCl(seenCl, gen) {
   const liveAp = (id) => { const a = S.aps.get(id); return !!a && a.target !== 0; };
-  const want = []; seenCl.forEach(id => { const c = S.clients.get(id); if (liveAp(id) || !c) return; if (c.cloud != null) { S.hist.delete(id); return; } want.push(id); });   // §8.8a: a cloud keeps the series
+  const want = [];
+  seenCl.forEach(id => {
+    const c = S.clients.get(id);
+    if (liveAp(id) || !c) return;
+    if (c.cloud != null) { S.hist.delete(id); return; }   // §8.8a: a cloud keeps the series
+    want.push(id);
+  });
   let ncl = 0; S.hist.forEach(h => { if (h.cl) ncl++; });
   let add = 0; for (const id of want) if (!S.hist.has(id)) add++;
   if (ncl + add > HIST_CL_MAX) {
@@ -1673,11 +1696,13 @@ function histPushCl(seenCl, gen) {
 // departure is counted in eventsSettle like an AP's, and both are exposed per station.
 const NEW_CAPTURES = 3, CUE_DB = 3, CUE_S = 0.9;   // "new" lasts 3 captures · RSSI jump that raises the change cue (dB) · cue pulse length (s of S.clock)
 function eventsReset() {
+  // every register below belongs to the one source (rule above)
   S.captureSeq = 0; S.ev = { lastGen: null, arrived: 0, departed: 0, changed: 0, cues: 0, newStations: 0, departedStations: 0, newInClouds: 0 };
   S.clouds.clear(); S.cloudOrder = [];   // §8.8a
-  S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;   // the long RSSI history and the channel peak hold belong to one source too
-  S.chg = new Map(); S.obsFirst = new Map(); S.obsProbe = { firstGen: null }; S.obsWatchSeen = new Set();   // the change log and the dwell clocks belong to one source too
-  S.sky = { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] };   // D2: the sky reference belongs to one source too
+  S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;
+  S.chg = new Map();
+  S.obsFirst = new Map(); S.obsProbe = { firstGen: null }; S.obsWatchSeen = new Set();
+  S.sky = { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] };
   S.aps.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.changedSeq = -1; n.cueSeq = -1; });
   S.clients.forEach(n => { n.capSeq = -1; n.newSeq = -1; });
 }
@@ -1716,15 +1741,20 @@ function eventsSettle(pend, gen, seq, seenAp, seenCl) {   // recount the capture
   for (const [id, kind, from, to] of pend) if (!eventSkip(S.aps.get(id))) chgPush(id, seq, gen, kind, from, to);
 }
 function ingest(doc, opts = {}) {
-  const now = S.clock, rp = !!opts.replay;   // a replay is a VIEW: it rebuilds the nodes for the picture and writes to no engine (events, change log, sky reference, history, long history, peak hold, homing)
+  // a replay is a VIEW: it rebuilds the nodes for the picture and writes to no engine
+  // (events, change log, sky reference, history, long history, peak hold, homing)
+  const now = S.clock, rp = !!opts.replay;
   const gen = doc.generated ?? null;   // capture time only; no wall-clock fallback (§2 determinism)
   if (!rp) S.ingestSeq++;
   const cap = rp ? false : eventsBegin(gen, !!opts.newSource), seq = S.captureSeq, cmp = cap && seq > 1, pend = [];   // cmp: a previous capture of this source exists; pend: change-log entries, settled once G1 clusters are known (P3)
   const seenAp = new Set(), seenCl = new Set();
   let changed = false;
   S.source = doc.source; S.note = doc.note; S.generated = doc.generated; S.centerLabel = doc.center.label;
-  S.hop = doc.channels || null; S.own = { bssids: new Set(doc.center.own_bssids || []), ssids: new Set(doc.center.own_ssids || []) };   // the built-in demo skips normalizeDoc, hence the fallbacks
-  S.maxAgeS = doc.center.max_age; S.pollIntervalS = doc.center.interval && Math.min(doc.center.interval, POLL.maxIntervalS);   // D1/D3: collector age window and cadence, capped (null = unknown)
+  // the built-in demo skips normalizeDoc, hence the fallbacks
+  S.hop = doc.channels || null;
+  S.own = { bssids: new Set(doc.center.own_bssids || []), ssids: new Set(doc.center.own_ssids || []) };
+  S.maxAgeS = doc.center.max_age;   // D1: the collector's age window (null = unknown)
+  S.pollIntervalS = doc.center.interval && Math.min(doc.center.interval, POLL.maxIntervalS);   // D3: the announced cadence, capped (null = unknown)
   for (const a of doc.aps) {
     let n = S.aps.get(a.bssid); const isNew = !n;
     if (!n) { n = newAp(a.bssid); S.aps.set(a.bssid, n); changed = true; n.born = now; if (opts.resume) resumeMarks(opts.resume.aps, n); }
@@ -1763,9 +1793,8 @@ function ingest(doc, opts = {}) {
       let cn = S.clients.get(c.mac); const cNew = !cn;
       if (!cn) { cn = newClient(c.mac); S.clients.set(c.mac, cn); changed = true; cn.born = now; if (opts.resume) resumeMarks(opts.resume.cl, cn); }
       if (cap) { if (cmp && cn.capSeq !== seq - 1) { cn.newSeq = seq; cn.newT0 = S.clock; S.ev.newStations++; } cn.capSeq = seq; }
-      if (cn.target !== 1 || cn.free || cn.affinity || cn.parent !== n.id) changed = true;
       if (cNew || cn.free || cn.affinity || cn.parent !== n.id) cn.orbitPhase = NaN;   // a new orbit: orbitOfClient() starts its phase
-      if (cn.rssi !== c.rssi) changed = true;
+      if (cn.target !== 1 || cn.free || cn.affinity || cn.parent !== n.id || cn.rssi !== c.rssi) changed = true;
       cn.target = 1; cn.dying = null; cn.parent = n.id; cn.free = false; cn.band = n.band; cn.rank = rank;
       cn.rssi = c.rssi; cn.vendor = c.vendor; cn.last_seen = c.last_seen; cn.packets = c.packets; cn.randomized = c.randomized;
       cn.probes = c.probes; cn.affinity = false; cn.probeVia = null;
@@ -1779,8 +1808,7 @@ function ingest(doc, opts = {}) {
     let cn = S.clients.get(c.mac); const cNew = !cn;
     if (!cn) { cn = newClient(c.mac); S.clients.set(c.mac, cn); changed = true; cn.born = now; if (opts.resume) resumeMarks(opts.resume.cl, cn); }
     if (cap) { if (cmp && cn.capSeq !== seq - 1) { cn.newSeq = seq; cn.newT0 = S.clock; S.ev.newStations++; } cn.capSeq = seq; }
-    if (cn.target !== 1 || !(cn.free || cn.affinity)) changed = true;
-    if (cn.rssi !== c.rssi) changed = true;
+    if (cn.target !== 1 || !(cn.free || cn.affinity) || cn.rssi !== c.rssi) changed = true;
     if (!cn.affinity) { cn.parent = null; cn.free = true; cn.band = null; }   // applyAffinity() below decides the orbit
     cn.target = 1; cn.dying = null;
     if (String(cn.probes) !== String(c.probes) || cn.vendor !== c.vendor || cn.randomized !== c.randomized) changed = true;   // vendor/randomized: the bubble's summary
@@ -1794,7 +1822,7 @@ function ingest(doc, opts = {}) {
   S.clients.forEach(n => { if (!seenCl.has(n.id) && n.target !== 0) { n.target = 0; n.dying = now; changed = true; } });
   if (rebuildClouds(gen, rp)) changed = true;   // §8.8a, before the station history
   // history sweep: a vanished node's history goes HIST_KEEP_S of capture time after its last sample, or HIST_KEEP_INGESTS ingests when undated (no wall clock)
-  if (!rp) histPushCl(seenCl, gen);   // station RSSI history (a replay writes to no engine)
+  if (!rp) histPushCl(seenCl, gen);   // station RSSI history
   const live = (m) => !!m && m.target !== 0;   // a series stays while a present node of EITHER kind carries its key (a MAC can be heard as both)
   if (!rp) S.hist.forEach((h, id) => { if (!live(S.aps.get(id)) && !live(S.clients.get(id)) && (gen != null && h.lastGen != null ? Math.abs(gen - h.lastGen) > HIST_KEEP_S : S.ingestSeq - h.lastSeq > HIST_KEEP_INGESTS)) S.hist.delete(id); });
   if (cap) longSweep(seq);
@@ -1802,7 +1830,11 @@ function ingest(doc, opts = {}) {
   rebuildGroups();
   rebuildDevices();
   S.aps.forEach(n => { n.mobile = isMobileLikely(n); });
-  if (cap) { eventsSettle(pend, gen, seq, seenAp, seenCl); if (cmp && (S.ev.arrived > 0 || S.ev.newStations > S.ev.newInClouds)) S.recvT0 = S.clock; }   // something new was heard → the receive ring contracts once (not a live cloud's new burst, §8.8a)
+  if (cap) {
+    eventsSettle(pend, gen, seq, seenAp, seenCl);
+    // something new was heard → the receive ring contracts once (not a live cloud's new burst, §8.8a)
+    if (cmp && (S.ev.arrived > 0 || S.ev.newStations > S.ev.newInClouds)) S.recvT0 = S.clock;
+  }
   rebuildEss();
   if (applyRandom()) changed = true;   // §8.8a, before the probe orbits
   if (applyAffinity()) changed = true;
@@ -1834,7 +1866,12 @@ function ingest(doc, opts = {}) {
 // scanned in received order; the least-loaded, then strongest matching AP wins (S.apOrder is RSSI-sorted).
 function applyAffinity() {
   const bySsid = new Map();   // groupKey → visible APs of that SSID (RSSI-desc, S.apOrder order)
-  for (const ap of S.apOrder) { if (!ap.groupKey || S.ui.filters[ap.band] === false) continue; let a = bySsid.get(ap.groupKey); if (!a) { a = []; bySsid.set(ap.groupKey, a); } a.push(ap); }
+  for (const ap of S.apOrder) {
+    if (!ap.groupKey || S.ui.filters[ap.band] === false) continue;
+    let a = bySsid.get(ap.groupKey);
+    if (!a) { a = []; bySsid.set(ap.groupKey, a); }
+    a.push(ap);
+  }
   S.aps.forEach(ap => { ap.orbitCount = ap.clientCount; ap.probeCount = 0; });
   // capacity: an AP without ≥ hexAbove real clients keeps single orbits (lanes) — probe orbiters never push it into
   // the large hex zone; a hex AP may fill its remaining hex slots (7 + 12 + 18).
@@ -1852,8 +1889,10 @@ function applyAffinity() {
       }
     }
     if (best) {
-      if (!c.affinity || c.parent !== best.id) c.orbitPhase = NaN;   // a new orbit: orbitOfClient() starts its phase
-      if (!c.affinity || c.parent !== best.id || c.rank !== best.orbitCount) changed = true;   // a new orbit or slot
+      // moved = a new orbit (orbitOfClient() starts its phase); a new slot alone only marks the layout dirty
+      const moved = !c.affinity || c.parent !== best.id;
+      if (moved) c.orbitPhase = NaN;
+      if (moved || c.rank !== best.orbitCount) changed = true;
       c.affinity = true; c.free = false; c.parent = best.id; c.band = best.band; c.probeVia = via;
       c.rank = best.orbitCount; best.orbitCount++; best.probeCount++;   // after the real clients' ranks → stable lanes
     } else if (c.affinity) {
@@ -2090,7 +2129,12 @@ function obstacleGrid(buf) {
   const cells = gw * gh;
   if (ogStart.length < cells + 1) ogStart = new Int32Array(cells + 1); else ogStart.fill(0, 0, cells + 1);
   for (let pass = 0; pass < 2 && cells; pass++) {   // count, then fill from the last zone down: ascending lists, ogStart[c] ends on the cell's start
-    if (pass) { let n = 0; for (let c = 0; c < cells; c++) { n += ogStart[c]; ogStart[c] = n; } ogStart[cells] = n; if (ogIdx.length < n) ogIdx = new Int32Array(n); }
+    if (pass) {
+      let n = 0;
+      for (let c = 0; c < cells; c++) { n += ogStart[c]; ogStart[c] = n; }
+      ogStart[cells] = n;
+      if (ogIdx.length < n) ogIdx = new Int32Array(n);
+    }
     for (let o = M - 1; o >= 0; o--) {
       const need = obNeed[o], a = Math.floor((obX[o] - need) / cell) - x0, b = Math.floor((obX[o] + need) / cell) - x0, c = Math.floor((obZ[o] - need) / cell) - z0, d = Math.floor((obZ[o] + need) / cell) - z0;
       for (let gx = a; gx <= b; gx++) for (let gz = c; gz <= d; gz++) { if (pass) ogIdx[--ogStart[gx * gh + gz]] = o; else ogStart[gx * gh + gz]++; }
@@ -2149,8 +2193,9 @@ function spreadStep(iters) {
     if (relaxIter() < LAYOUT.settleEpsPx) { settleConverged = true; S.settling = false; return done; }
   }
   settleConverged = false;
-  if (settleIterTotal >= LAYOUT.settleMaxIter) S.settleCapped = true;
-  S.settling = settleIterTotal < LAYOUT.settleMaxIter;
+  const capped = settleIterTotal >= LAYOUT.settleMaxIter;
+  if (capped) S.settleCapped = true;
+  S.settling = !capped;
   return done;
 }
 // A whole phase 1 in one call (the synchronous part of settleLayout) starts every free client at its home, so its outcome is
@@ -2219,7 +2264,7 @@ function settleDetrap() {
   const clearOf = (x, z, lo) => {   // clearance to obstacles (>= 0 = outside every zone) of a spot outside the core
     // The caller only reads the sign, and the value itself only when it is >= 0 and above lo: so the scan stops on a
     // negative or once the minimum is down to lo; a zone whose box distance already reaches the running minimum is
-    // skipped (hypot >= |dx|, |dz| exactly).
+    // skipped (box test, see above).
     let m = hyp(x, z) - core; if (m !== m) m = Infinity;   // a NaN core clearance (zero-size viewport) never lowers the minimum
     for (let o = 0; o < M; o++) {
       const r = oR[o], dx = x - oX[o], dz = z - oZ[o];
@@ -2244,7 +2289,7 @@ function settleDetrap() {
       for (let k = 0; k < SCAN; k++) {
         if (k === filled) { const ang = homeA + k * PHI_GOLD; cosK[k] = Math.cos(ang); sinK[k] = Math.sin(ang); filled++; }   // on demand: most singles take one of their first spots
         const x = cosK[k] * rad, z = sinK[k] * rad;
-        if (!(Math.max(Math.abs(x), Math.abs(z)) > core) && hyp(x, z) - core < 0) continue;   // in the core (beyond its box → outside it: hypot >= |x|, |z| exactly)
+        if (!(Math.max(Math.abs(x), Math.abs(z)) > core) && hyp(x, z) - core < 0) continue;   // in the core (box test, see above)
         if (inZone(x, z)) continue;
         const nn = nnDist(x, z);
         if (nn < D && nn <= bestScore) continue;   // too close to a neighbour to beat the fallback (score <= nn)
@@ -2302,14 +2347,32 @@ function settleLayout(maxIter) {
   if (!S.layoutDirty) return settleIterTotal;
   S.layoutDirty = false;
   placeAPs();
-  for (const ap of S.apOrder) { const hex = (ap.orbitCount ?? ap.clientCount) >= LAYOUT.hexAbove; ap.orbitKeep = ap.orbitHex === hex; ap.orbitHex = hex; if (!ap.orbitKeep) ap.hexA = 0; }   // lanes ↔ hex: every orbit of that AP starts anew
+  for (const ap of S.apOrder) {
+    const hex = (ap.orbitCount ?? ap.clientCount) >= LAYOUT.hexAbove;
+    ap.orbitKeep = ap.orbitHex === hex;   // lanes ↔ hex: every orbit of that AP starts anew
+    ap.orbitHex = hex;
+    if (!ap.orbitKeep) ap.hexA = 0;
+  }
   let shown = false;
   for (const c of S.clientOrder) {
     if (c.free) { if (c.placed) shown = true; homeOfClient(c); if (!c.placed) { c.wx = c.lx; c.wz = c.lz; c.placed = true; } }
-    else { const ap = S.aps.get(c.parent); if (ap) { orbitOfClient(c, ap); if (!c.placed) { c.wx = ap.wx + Math.cos(c.orbitPhase) * c.orbitR / maxRadius; c.wz = ap.wz + Math.sin(c.orbitPhase) * c.orbitR / maxRadius; c.placed = true; } } }
+    else {
+      const ap = S.aps.get(c.parent);
+      if (ap) {
+        orbitOfClient(c, ap);
+        if (!c.placed) {
+          c.wx = ap.wx + Math.cos(c.orbitPhase) * c.orbitR / maxRadius;
+          c.wz = ap.wz + Math.sin(c.orbitPhase) * c.orbitR / maxRadius;
+          c.placed = true;
+        }
+      }
+    }
   }
   for (const k of S.cloudOrder) { if (k.placed) shown = true; homeOfClient(k); if (!k.placed) { k.wx = k.lx; k.wz = k.lz; k.placed = true; } }   // §8.8a
-  S.relayHold = shown && S.settlePhase === 0; S.relayT0 = S.clock;   // stations on screen wait for the settled layout instead of following the relaxation from their homes; not when this interrupts a running relaxation (relayouts faster than the settle would freeze them)
+  // stations on screen wait for the settled layout instead of following the relaxation from their homes; not when this interrupts
+  // a running relaxation (relayouts faster than the settle would freeze them)
+  S.relayHold = shown && S.settlePhase === 0;
+  S.relayT0 = S.clock;
   settleIterTotal = 0; S.settleCapped = false; S.settlePhase = 1;
   buildActive(1); buildObstacles(false);
   runSettlePhases(maxIter);
@@ -2424,7 +2487,11 @@ function rebuildBubbles() {
     const threshold = (existing && existing.target === 1) ? AGG.keepFrac * minCluster : minCluster;
     if (members.length < threshold) continue;
     let cx = 0, cz = 0, rssiSum = 0, rssiN = 0, rnd = 0; const vmap = new Map();
-    for (const c of members) { cx += c.lx; cz += c.lz; if (c.rssi != null) { rssiSum += c.rssi; rssiN++; } if (c.randomized) rnd++; else if (c.vendor) vmap.set(c.vendor, (vmap.get(c.vendor) || 0) + 1); }
+    for (const c of members) {
+      cx += c.lx; cz += c.lz;
+      if (c.rssi != null) { rssiSum += c.rssi; rssiN++; }
+      if (c.randomized) rnd++; else if (c.vendor) vmap.set(c.vendor, (vmap.get(c.vendor) || 0) + 1);
+    }
     cx /= members.length; cz /= members.length;
     const r = clamp(8 + 4 * Math.sqrt(members.length), AGG.rMinPx, AGG.rMaxPx);
     let b = existing;
@@ -2606,7 +2673,11 @@ function project2D() {   // the device (world origin) is pinned to CX,CY — zoo
     if (isForced(n.id)) n.alphaDraw = n.alpha;
     if (n.target === 1 && !n.randOut && (n.bubble == null || n.bubbleBlend < 0.5)) count++;
   }
-  for (const k of S.clouds.values()) { flat(k, k.wx, k.wz, k.basePx); k.alphaDraw = isForced(k.id) ? k.alpha : k.alpha * 0.85; if (k.target === 1 && S.ui.random === "cloud") count++; }   // §8.8a
+  for (const k of S.clouds.values()) {   // §8.8a
+    flat(k, k.wx, k.wz, k.basePx);
+    k.alphaDraw = isForced(k.id) ? k.alpha : k.alpha * 0.85;
+    if (k.target === 1 && S.ui.random === "cloud") count++;
+  }
   for (const b of S.bubbles.values()) { flat(b, b.cx, b.cz, b.r); b.alphaDraw = b.alpha; if (b.target === 1 || b.alpha > 0.02) count++; }
   S.nodeCount = count;
 }
@@ -2726,8 +2797,7 @@ function channelSpan(ap) {
   if (f == null) return null;
   return [f - w / 2, f + w / 2, w, ap.width == null];
 }
-function overlapScore(a, b) {
-  if (a.band !== b.band || a.channel == null || b.channel == null) return null;
+function overlapScore(a, b) {   // §8.2: rebuildInterference passes two APs of one band that both carry a channel
   const sa = channelSpan(a), sb = channelSpan(b); if (!sa || !sb) return null;
   const ov = Math.max(0, Math.min(sa[1], sb[1]) - Math.max(sa[0], sb[0])) / Math.min(sa[2], sb[2]);
   const fa = (sa[0] + sa[1]) / 2, fb = (sb[0] + sb[1]) / 2;
@@ -2776,14 +2846,13 @@ function hoverChannelText(band, ch) {   // §8.2 chanbar tooltip text; also STAR
   const m = analyzer.channels[band]; if (!m) return null; const e = m.get(+ch); if (!e) return null;
   const parts = ["ch " + ch, band + " GHz", e.count + (e.count === 1 ? " AP" : " APs")];
   parts.push(e.assumed ? "width 20 MHz (assumed)" : "width " + e.widthMax + " MHz");
-  const row = channelModel().bands[band].find(r => r.ch === +ch);
-  if (row) {   // max signal and its peak hold, DFS, the estimated beacon airtime (with its assumptions), probe activity, the D11 deviation
-    if (row.maxDbm != null) parts.push("max " + row.maxDbm + " dBm" + (row.peakDbm != null && row.peakDbm > row.maxDbm ? " (peak " + row.peakDbm + ")" : ""));
-    if (row.dfs) parts.push("DFS channel");
-    parts.push("beacons ≥ " + row.beaconPct + " % of airtime (estimate: " + BEACON.ms + " ms, " + BEACON.bytes + " B at " + BEACON.mbps[band] + " Mbit/s)");
-    if (row.probeActivity) parts.push("probe activity heard on channel: " + row.probeActivity + (row.probeActivity === 1 ? " station" : " stations"));
-    if (row.deviation) parts.push("outside the usual range for this sky");
-  }
+  const row = channelModel().bands[band].find(r => r.ch === +ch);   // found: channelModel() builds one row per analyzer.channels entry
+  // max signal and its peak hold, DFS, the estimated beacon airtime (with its assumptions), probe activity, the D11 deviation
+  if (row.maxDbm != null) parts.push("max " + row.maxDbm + " dBm" + (row.peakDbm != null && row.peakDbm > row.maxDbm ? " (peak " + row.peakDbm + ")" : ""));
+  if (row.dfs) parts.push("DFS channel");
+  parts.push("beacons ≥ " + row.beaconPct + " % of airtime (estimate: " + BEACON.ms + " ms, " + BEACON.bytes + " B at " + BEACON.mbps[band] + " Mbit/s)");
+  if (row.probeActivity) parts.push("probe activity heard on channel: " + row.probeActivity + (row.probeActivity === 1 ? " station" : " stations"));
+  if (row.deviation) parts.push("outside the usual range for this sky");
   const names = e.aps.map(id => { const ap = S.aps.get(id); return ap ? (ap.ssidKnown || ap.ssid || ap.bssid) : id; }).slice(0, 6);
   if (names.length) parts.push(names.join(", "));
   return parts.join(" · ");
@@ -2822,7 +2891,7 @@ function skyUpdate() {   // once per capture, after rebuildChannelStats()
   if (sk.t0 && (sk.t0.size || cur.size)) {
     let inter = 0; cur.forEach(id => { if (sk.t0.has(id)) inter++; });
     const uni = sk.t0.size + cur.size - inter;
-    if (uni > 0 && 1 - inter / uni > SKY.jaccardReset) { sk.ref.clear(); sk.seq = 0; sk.resets++; }   // "observer moved"
+    if (1 - inter / uni > SKY.jaccardReset) { sk.ref.clear(); sk.seq = 0; sk.resets++; }   // "observer moved"
   }
   sk.t0 = cur;
   const N = S.apOrder.length, counts = new Map(), warm = sk.seq >= SKY.warm;
@@ -2876,7 +2945,6 @@ function loadBaseline() {
   } catch (e) { /* a damaged baseline is simply none */ }
 }
 function saveBaseline() {
-  if (!S.baseline) return;
   const o = { v: 1, t: S.baseline.t, aps: Object.fromEntries(S.baseline.aps) }; if (S.baseline.st.size) o.st = Object.fromEntries(S.baseline.st);
   safeStorage.set(BASELINE_KEY, JSON.stringify(o));
 }
@@ -2907,16 +2975,29 @@ function baselineRecompute() {
     S.baseline.aps.forEach((e, id) => {
       if (cur.has(id) || S.own.bssids.has(id) || !visited) return;
       const f = freqFromChannel(e[1], e[2]); if (f == null || !visited.has(f)) return;
-      b.gone++; if (S.ghosts.size < GHOST_MAX) { S.ghosts.set(id, { ang: hash(id + "g") * Math.PI * 2, rssi: e[4] == null ? -75 : e[4], ssid: e[0], band: e[2] }); b.ghosts++; }
+      b.gone++;
+      if (S.ghosts.size < GHOST_MAX) {
+        S.ghosts.set(id, { ang: hash(id + "g") * Math.PI * 2, rssi: e[4] == null ? -75 : e[4], ssid: e[0], band: e[2] });
+        b.ghosts++;
+      }
     });
-    // Stations have no channel of their own and probe on any, so "gone" needs hop data (never gone without it, as
-    // for an AP) but no channel match. No "changed" state: D2's change kinds (channel, security, SSID, band) are AP properties.
+    // Stations have no channel of their own and probe on any, so "gone" needs no channel match. No "changed" state: D2's change
+    // kinds (channel, security, SSID, band) are AP properties.
     // AP ghosts are placed first, so GHOST_MAX bounds them alone; a MAC now heard as an AP is not gone.
     const curCl = new Set();
-    S.clients.forEach(n => { if (n.target === 1 && n.cloud != null && !eventSkip(n)) { curCl.add(n.id); return; } if (!baselineEligible(n)) return; curCl.add(n.id); if (S.baseline.st.has(n.id)) n.baseState = "same"; else { b.newCl++; n.baseState = "new"; } });
+    S.clients.forEach(n => {
+      if (n.target === 1 && n.cloud != null && !eventSkip(n)) { curCl.add(n.id); return; }   // §8.8a: a cloud member counts as present but carries no baseState
+      if (!baselineEligible(n)) return;
+      curCl.add(n.id);
+      if (S.baseline.st.has(n.id)) n.baseState = "same"; else { b.newCl++; n.baseState = "new"; }
+    });
     S.baseline.st.forEach((e, id) => {
       if (curCl.has(id) || (S.aps.has(id) && S.aps.get(id).target === 1) || S.own.bssids.has(id) || !visited) return;
-      b.goneCl++; if (b.ghostsCl < GHOST_CL_MAX && !S.ghosts.has(id)) { S.ghosts.set(id, { ang: hash(id + "g") * Math.PI * 2, rssi: e[0] == null ? -75 : e[0], ssid: "", band: null, cl: true }); b.ghostsCl++; }
+      b.goneCl++;
+      if (b.ghostsCl < GHOST_CL_MAX && !S.ghosts.has(id)) {
+        S.ghosts.set(id, { ang: hash(id + "g") * Math.PI * 2, rssi: e[0] == null ? -75 : e[0], ssid: "", band: null, cl: true });
+        b.ghostsCl++;
+      }
     });
   }
   S.base = b; S.dirty = true;
@@ -2970,7 +3051,7 @@ function obsCompute() {
       if (k > 0) add("probes", "Probes", "stations probed for a confirmed SSID: " + (k < 5 ? "<5" : "5 or more"));
     }
   }
-  for (const w of S.watch) {   // Watchlist (SSIDs of access points only; "lost" only where hop data says which channels were visited)
+  for (const w of S.watch) {   // Watchlist (SSIDs of access points only); "lost" needs hop data, as for the baseline
     const hit = aps.some(n => (n.ssidKnown || n.ssid) === w);
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
@@ -3002,13 +3083,22 @@ function homingIngest(h, seenAp, seenCl, gen) {
   const hp = S.homePeak;
   if (!h || !isMac(h.bssid) || (!seenAp.has(h.bssid) && !seenCl.has(h.bssid)) || S.own.bssids.has(h.bssid)) { S.homing = null; hp.bssid = null; return; }
   if (hp.bssid !== h.bssid) { hp.bssid = h.bssid; hp.dbm = null; hp.polls = 0; }
-  if (gen !== hp.gen || gen == null) { hp.gen = gen; hp.polls++; if (hp.dbm == null || h.dbm >= hp.dbm || hp.polls > HOME_DECAY_POLLS) { hp.dbm = Math.max(h.dbm, h.peak != null ? h.peak : h.dbm); hp.polls = 0; } }
+  if (gen !== hp.gen || gen == null) {
+    hp.gen = gen; hp.polls++;
+    if (hp.dbm == null || h.dbm >= hp.dbm || hp.polls > HOME_DECAY_POLLS) { hp.dbm = Math.max(h.dbm, h.peak != null ? h.peak : h.dbm); hp.polls = 0; }
+  }
   S.homing = { bssid: h.bssid, dbm: h.dbm, peak: hp.dbm, t: h.t };
   if (S.homeTone) homeBeep(h.dbm);
 }
 let homeCtx = null;
 function homeBeep(dbm) {   // opt-in tone (user gesture required): pitch follows the level; never speaks or encodes any name
-  try { if (!homeCtx) return; const o = homeCtx.createOscillator(), g = homeCtx.createGain(); o.frequency.value = 300 + 900 * rssiT(dbm); g.gain.value = 0.05; o.connect(g); g.connect(homeCtx.destination); o.start(); o.stop(homeCtx.currentTime + 0.08); } catch (e) { /* no audio */ }
+  try {
+    if (!homeCtx) return;
+    const o = homeCtx.createOscillator(), g = homeCtx.createGain();
+    o.frequency.value = 300 + 900 * rssiT(dbm); g.gain.value = 0.05;
+    o.connect(g); g.connect(homeCtx.destination);
+    o.start(); o.stop(homeCtx.currentTime + 0.08);
+  } catch (e) { /* no audio */ }
 }
 // ---- channel/air/history/replay models (theme-free): channel view, air quality, long RSSI history, recorder and replay ----
 // Channel model. DFS is a static table (5 GHz UNII-2/2e); the beacon airtime is an ESTIMATED lower bound from what was heard, never a measurement:
@@ -3120,7 +3210,13 @@ function recAppend(doc, key) {
   return true;
 }
 function recObj() { const r = S.rec || recEmpty(); return { count: r.docs.length, bytes: r.bytes, max: REC_MAX, maxBytes: REC_BYTES, snapshots: r.docs.map(d => ({ n: d.n, generated: d.gen, aps: d.doc.aps.length, clients: d.doc.aps.reduce((a, x) => a + x.clients.length, 0) + d.doc.unassociated.length, bytes: d.bytes })) }; }
-function resumeMarks(map, node) { const m = map && map.get(node.id); if (m) { node.capSeq = m.capSeq; node.newSeq = m.newSeq; if ("changedSeq" in m) { node.changedSeq = m.changedSeq; node.cueSeq = m.cueSeq; } } }
+function resumeMarks(map, node) {
+  const m = map && map.get(node.id);
+  if (m) {
+    node.capSeq = m.capSeq; node.newSeq = m.newSeq;
+    if ("changedSeq" in m) { node.changedSeq = m.changedSeq; node.cueSeq = m.cueSeq; }
+  }
+}
 function stashMarks() {   // the event marks of the live nodes (a replay may delete and re-create nodes; the marks make "Back to live" continue the event record instead of announcing every AP as new)
   const aps = new Map(), cl = new Map();
   S.aps.forEach((n, id) => aps.set(id, { capSeq: n.capSeq, newSeq: n.newSeq, changedSeq: n.changedSeq, cueSeq: n.cueSeq }));
@@ -3135,17 +3231,32 @@ function replayTo(i, opts) {
   S.replay.i = i;
   const rec = r.docs[i];
   ingest(rec.doc, { replay: true });
-  setSourcePanel(); if (opts && opts.quiet) recLabel(); else applyDrawer(); S.dirty = true;   // quiet: the slider that is being dragged keeps its element (a re-render would end the drag)
+  setSourcePanel();
+  if (opts && opts.quiet) recLabel(); else applyDrawer();   // quiet: the slider that is being dragged keeps its element (a re-render would end the drag)
+  S.dirty = true;
   return replayObj();
 }
 function replayExit() {   // "Back to live": the newest capture (the last one buffered, else the newest recorded) is ingested as a regular capture that continues the event record
   const rp = S.replay; if (!rp) return false;
   const rec = S.rec && S.rec.docs.length ? S.rec.docs[S.rec.docs.length - 1].doc : null, doc = rp.pending || rec;
   S.replay = null;
-  if (doc) { const st = S.stalePolls, sm = S.staleMs; loadData(doc, S.sourceLabel, { mode: S.liveFeed ? "live" : "recorded", resume: rp.marks }); if (!rp.pending) { S.stalePolls = st; S.staleMs = sm; } }
+  if (doc) {
+    const st = S.stalePolls, sm = S.staleMs;
+    loadData(doc, S.sourceLabel, { mode: S.liveFeed ? "live" : "recorded", resume: rp.marks });
+    if (!rp.pending) { S.stalePolls = st; S.staleMs = sm; }
+  }
   setSourcePanel(); applyDrawer(); S.dirty = true; return true;
 }
-function replayTick(dt) { const rp = S.replay; if (!rp || !rp.play || dt <= 0) return; rp.acc += dt; if (rp.acc < 1) return; rp.acc = 0; if (rp.i >= S.rec.docs.length - 1) { rp.play = false; renderRec(); return; } replayTo(rp.i + 1); renderRec(); }
+function replayTick(dt) {
+  const rp = S.replay;
+  if (!rp || !rp.play || dt <= 0) return;
+  rp.acc += dt;
+  if (rp.acc < 1) return;
+  rp.acc = 0;
+  if (rp.i >= S.rec.docs.length - 1) { rp.play = false; renderRec(); return; }
+  replayTo(rp.i + 1);
+  renderRec();
+}
 function phyEstimate(ap) {
   if (ap.phy) return ap.phy;
   const r = ap.rate; if (r == null) return "—";
@@ -3511,11 +3622,21 @@ function rebuildClouds(gen, rp) {   // → true when a member list, the cloud se
       k = newCloud(id); k.anchor = a.id; S.clouds.set(id, k); changed = true;
     } else if (k.target !== 1) changed = true;   // a cloud that had just faded is back
     let s = 0, lo = Infinity, hi = -Infinity, t0 = Infinity, t1 = -Infinity; const pc = new Map();
-    for (const e of M) { s += e.r; if (e.r < lo) lo = e.r; if (e.r > hi) hi = e.r; if (e.t < t0) t0 = e.t; if (e.t > t1) t1 = e.t; if (e.c.probes) for (const p of e.c.probes) pc.set(p, (pc.get(p) || 0) + 1); }
+    for (const e of M) {
+      s += e.r;
+      if (e.r < lo) lo = e.r;
+      if (e.r > hi) hi = e.r;
+      if (e.t < t0) t0 = e.t;
+      if (e.t > t1) t1 = e.t;
+      if (e.c.probes) for (const p of e.c.probes) pc.set(p, (pc.get(p) || 0) + 1);
+    }
     const mean = s / M.length, rssi = mean < 0 ? -Math.round(-mean) : Math.round(mean), members = M.map(e => e.id).sort(cmpStr);
     if (k.rssi !== rssi || k.members.length !== members.length || k.members.some((m, i) => m !== members[i])) changed = true;
-    k.members = members; k.n = members.length; k.core = it.core; k.joined = it.joined; k.centre = it.c; k.rssi = rssi; k.rssiMin = lo; k.rssiMax = hi; k.first = t0; k.last = t1;
-    k.bursts = it.bursts; k.cadenceS = it.cad; k.rhythm = it.share; k.kept = it.kept; k.target = 1; k.dying = null; it.was = was;
+    k.members = members; k.n = members.length; k.core = it.core; k.joined = it.joined; k.centre = it.c;   // membership
+    k.rssi = rssi; k.rssiMin = lo; k.rssiMax = hi;   // signal
+    k.first = t0; k.last = t1;   // time
+    k.bursts = it.bursts; k.cadenceS = it.cad; k.rhythm = it.share; k.kept = it.kept;   // rhythm
+    k.target = 1; k.dying = null; it.was = was;   // lifecycle
     k.probes = Array.from(pc.entries()).sort((x, y) => y[1] - x[1] || cmpStr(x[0], y[0])).slice(0, 8).map(x => x[0]);
     const fr = freshOf(t1, gen); k.ageS = fr.ageS; k.freshTier = fr.tier; k.freshAT = ENCODING.fresh.alpha[fr.tier ?? 0]; if (!it.match) k.freshA = k.freshAT;
     for (const e of M) e.c.cloud = k.id;
@@ -3567,8 +3688,26 @@ function ruleRegex(pat) {   // "aa:bb:cc:??:1?:*" -> anchored regex; at least th
 }
 function ruleOf(b) { for (const r of S.rules) if (r.re.test(b)) return r.cls; return null; }
 function loadLibrary() {
-  try { const raw = safeStorage.get(LIB_KEY); if (raw) { const o = JSON.parse(raw); if (isObj(o) && Array.isArray(o.rules)) for (const r of o.rules.slice(0, RULES_MAX)) { const re = isObj(r) ? ruleRegex(r.pat) : null; if (re && (r.cls === "friend" || r.cls === "neutral" || r.cls === "hostile")) S.rules.push({ pat: String(r.pat).toLowerCase(), cls: r.cls, re }); } } } catch (e) { /* none */ }
-  try { const raw = safeStorage.get(NOTES_KEY); if (raw) { const o = JSON.parse(raw); if (isObj(o)) for (const k of Object.keys(o).slice(0, NOTES_MAX)) { const e = o[k]; if (Array.isArray(e) && isMac(k)) S.notes.set(k, { a: stripCtl(e[0], 24), n: stripCtl(e[1], 120), t: Array.isArray(e[2]) ? e[2].map(x => stripCtl(x, 12)).filter(Boolean).slice(0, 4) : [] }); } } } catch (e) { /* none */ }
+  try {
+    const raw = safeStorage.get(LIB_KEY);
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (isObj(o) && Array.isArray(o.rules)) for (const r of o.rules.slice(0, RULES_MAX)) {
+        const re = isObj(r) ? ruleRegex(r.pat) : null;
+        if (re && (r.cls === "friend" || r.cls === "neutral" || r.cls === "hostile")) S.rules.push({ pat: String(r.pat).toLowerCase(), cls: r.cls, re });
+      }
+    }
+  } catch (e) { /* none */ }
+  try {
+    const raw = safeStorage.get(NOTES_KEY);
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (isObj(o)) for (const k of Object.keys(o).slice(0, NOTES_MAX)) {
+        const e = o[k];
+        if (Array.isArray(e) && isMac(k)) S.notes.set(k, { a: stripCtl(e[0], 24), n: stripCtl(e[1], 120), t: Array.isArray(e[2]) ? e[2].map(x => stripCtl(x, 12)).filter(Boolean).slice(0, 4) : [] });
+      }
+    }
+  } catch (e) { /* none */ }
 }
 function saveLibrary() { if (S.rules.length) safeStorage.set(LIB_KEY, JSON.stringify({ v: 1, rules: S.rules.map(r => ({ pat: r.pat, cls: r.cls })) })); else safeStorage.remove(LIB_KEY); }
 function saveNotes() { if (S.notes.size) { const o = {}; S.notes.forEach((e, k) => { o[k] = [e.a, e.n, e.t]; }); safeStorage.set(NOTES_KEY, JSON.stringify(o)); } else safeStorage.remove(NOTES_KEY); }
@@ -3654,8 +3793,10 @@ function setIdentity(bssid, id) {
 function identityCounts() {
   const c = { friend: 0, neutral: 0, hostile: 0, unknown: 0 };
   S.identity.forEach((v, b) => { if (v in c && observed(b)) c[v]++; });
-  S.apOrder.forEach(n => { if (!eventSkip(n) && !S.identity.has(n.id)) { const r = ruleOf(n.id); if (r) c[r]++; else c.unknown++; } });   // "unknown" is a count, never a list
-  S.clientOrder.forEach(n => { if (n.target === 1 && !S.identity.has(n.id)) { const r = ruleOf(n.id); if (r) c[r]++; } });   // a rule-matched station is tallied too (matches drawClients); no "unknown" bucket for stations
+  // every node without a manual class is tallied by rule match: an AP that matches none is "unknown" (a count, never a list);
+  // a station counts only on a rule match, as drawClients does, and has no "unknown" bucket
+  S.apOrder.forEach(n => { if (!eventSkip(n) && !S.identity.has(n.id)) { const r = ruleOf(n.id); if (r) c[r]++; else c.unknown++; } });
+  S.clientOrder.forEach(n => { if (n.target === 1 && !S.identity.has(n.id)) { const r = ruleOf(n.id); if (r) c[r]++; } });
   return c;
 }
 
@@ -3670,7 +3811,7 @@ function regulatorStart() {   // §6.5: start levels from this sky (every captur
   };
   const [l1, s1] = start(1), [l2, s2] = start(1.1);
   const lod = Math.max(l1, Math.min(p.lodBase, l2)), step = Math.max(s1, Math.min(p.dprStart, s2));   // a start rises at its threshold, falls only once 1.1 × the counts are below it (~9 %): a count hovering there does not flip LOD/DPR every poll
-  if (lod !== p.lodBase || step !== p.dprStart) p.upWait = p.upAt = p.upT = 0;   // another sky size: old failed step-ups say nothing about its cost
+  if (lod !== p.lodBase || step !== p.dprStart) p.upWait = p.upAt = p.upT = 0;   // another sky size: back-off cleared (same rule as a new cap in budgetBegin)
   p.lodBase = lod; p.dprStart = step;
   if (!S.ui.autoLod) { applyDpr(step); return; }   // governor off: LOD frozen, sky DPR = the start value (boot dpr 1 is not a start value)
   p.down = Math.min(p.down, 3 - lod + last - step);   // ladder: LOD lodBase..3, then DPR dprStart..last, every rung a real change
@@ -3712,12 +3853,12 @@ function budgetBegin(t) {   // §6.5: the rAF interval is the only signal (the r
   const amb = bMin2 > R.lateK * Math.max(R.budgetMs, p.capMs);   // not one frame at the target period: a display/browser cap or our load? only a probe tells
   if (p.probe >= 0) {   // this block ran at the floor and answers the probe
     if (bMin2 >= R.capRatio * p.probeMs) { p.capMs = bMin2; p.down = p.probe; }   // quality does not move the interval: a cap, back where we were
-    else if (amb) p.capMs = bMin2;   // load-bound, and even the floor misses the target: its interval is the best on offer, climb from there
+    else if (amb) p.capMs = bMin2;   // load-bound: even the floor misses the target; climb from its interval
     p.probe = -1;
   } else {
     if (f >= R.lateFrac) { p.slowRun++; p.fastRun = 0; } else if (f <= R.okFrac) { p.fastRun++; p.slowRun = 0; } else p.slowRun = p.fastRun = 0;
     p.ambRun = amb ? p.ambRun + 1 : 0;
-    const stuck = p.slowRun >= R.slowBlocks && p.ambRun >= R.slowBlocks;   // slow, and not one frame at the target
+    const stuck = p.slowRun >= R.slowBlocks && p.ambRun >= R.slowBlocks;   // slow and amb
     if (fresh && p.slowRun && p.down < maxDown) { p.upWait = Math.min(R.upMaxMs, p.upWait ? 2 * p.upWait : R.upMs); p.upAt = t + p.upWait; p.upT = 0; p.down++; }   // a step up undone soon is retried later and later (no pumping)
     else if (stuck && p.down === maxDown) { p.capMs = bMin2; p.slowRun = p.ambRun = 0; }   // at the floor nothing is left to try: its interval is the best on offer
     else if (stuck && t - p.probeT > R.probeGapMs) { p.probe = p.down; p.probeMs = bMin2; p.probeT = t; p.down = maxDown; }   // cap or load? one jump to the floor tells
@@ -3727,7 +3868,7 @@ function budgetBegin(t) {   // §6.5: the rAF interval is the only signal (the r
   if (p.capMs && !c0) p.upWait = p.upAt = 0;   // a new cap is a new target: step-ups undone under the old one say nothing about it
   // late = 0.4 vsync past the m ≥ 1 periods that fit 60 fps, at least target + 10 %: 60 Hz 23.3 ms, 120 Hz 20 ms, 144 Hz 18.3 ms (the floor), a 50 Hz panel 28 ms. A period above panelK × budget
   // (≤ 48 Hz) is no plausible panel, and a cap's period may be a vsync multiple: both are judged against the target + 10 % alone (30-fps cap 36.7 ms);
-  // so is a block without one frame at the target (amb): a 50 Hz panel and a 100 Hz one at 2 vsyncs look alike, the probe tells them apart
+  // so is an amb block: a 50 Hz panel and a 100 Hz one at 2 vsyncs look alike, the probe tells them apart
   const tgt = Math.max(R.budgetMs, p.capMs), per = !p.capMs && !amb && lo <= R.panelK * tgt ? lo : 0, m = per ? Math.max(1, Math.floor(tgt / per + 0.05)) : 0;
   p.lateMs = Math.max((m + 0.4) * per, R.lateK * tgt);
   if (p.down !== d0) regulatorStart();
@@ -3754,7 +3895,7 @@ function stepNodes(dt, liveDt) {
     n.basePx = lerp(LAYOUT.coreRadiusPx[0], LAYOUT.coreRadiusPx[1], t) + Math.min(n.clientCount, LAYOUT.clientBonusCap) * LAYOUT.clientBonusPx;
     if (breathing && n.alpha > 0.02) moving = true;
     if (n.cueSeq === S.captureSeq && S.clock - n.cueT0 < CUE_S && liveDt > 0) moving = true;   // D18 cue pulse
-    n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;   // D1: tier change fades, never pops
+    n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;   // D1: a tier change fades freshA, never pops
   }
   if (S.essClusters.size && stepEss(dt)) moving = true;   // §8.8 G2 fold blend (after AP positions, before orbits)
   for (const n of S.clients.values()) {
@@ -3764,7 +3905,7 @@ function stepNodes(dt, liveDt) {
     const alphaT = (n.target === 1 && parentOk && shownRnd) ? 1 : 0;
     n.alpha = easeBy(n.alpha, alphaT, alphaT > n.alpha ? eIn : eOut);
     if (n.alpha !== alphaT) moving = true;
-    n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;   // D1: tier change fades, never pops
+    n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;
     if (n.target === 0 && n.alpha < 0.02) { S.clients.delete(n.id); S.orderDirty = true; continue; }
     if (ap && !n.free) {
       n.orbitPhase += n.orbitSpeed * liveDt;
@@ -3852,7 +3993,13 @@ function tick(t) {
   requestAnimationFrame(tick);
 }
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) { lastT = 0; lastBudgetT = 0; ctxSky.clearRect(0, 0, W, H); particlesRestartCurves(); S.dirty = true; }   // §6.1: only running gather/dissolve curves restart; resting dust stays
+  if (!document.hidden) {
+    lastT = 0;
+    lastBudgetT = 0;
+    ctxSky.clearRect(0, 0, W, H);
+    particlesRestartCurves();   // §6.1: only running gather/dissolve curves restart; resting dust stays
+    S.dirty = true;
+  }
 });
 let resizeTimer = 0;
 function resizeCanvases() {
@@ -4167,11 +4314,35 @@ function stepParticles(liveDt) {
     if (n.pState === "dissolve" && now - n.pT0 >= dS) { pfree(n.pStart, n.pCount); pUnset(n); return; }
     // dawn spirals IN, dusk drifts OUT along a spiral (a turn that unwinds as the dust settles / grows as it leaves)
     let fac = 1, aMul = 1, rot = 0;
-    if (n.pState === "gather") { const uu = clamp((now - n.pT0) / gS, 0, 1); if (rm) { aMul = clamp((now - n.pT0) / 0.15, 0, 1); } else { const u = easeOutCubic(uu); fac = 1 + 3.0 * gMul * (1 - u); aMul = u; rot = tp.spiral.dawnRad * (1 - u); } active = true; }
-    else if (n.pState === "dissolve") { const uu = clamp((now - n.pT0) / dS, 0, 1); if (rm) { aMul = 1 - clamp((now - n.pT0) / 0.15, 0, 1); } else { const e = easeInCubic(uu); fac = 1 + 2.5 * e; aMul = 1 - uu; rot = -tp.spiral.duskRad * e; } active = true; }
+    if (n.pState === "gather") {
+      const uu = clamp((now - n.pT0) / gS, 0, 1);
+      if (rm) {
+        aMul = clamp((now - n.pT0) / 0.15, 0, 1);
+      } else {
+        const u = easeOutCubic(uu);
+        fac = 1 + 3.0 * gMul * (1 - u); aMul = u; rot = tp.spiral.dawnRad * (1 - u);
+      }
+      active = true;
+    }
+    else if (n.pState === "dissolve") {
+      const uu = clamp((now - n.pT0) / dS, 0, 1);
+      if (rm) {
+        aMul = 1 - clamp((now - n.pT0) / 0.15, 0, 1);
+      } else {
+        const e = easeInCubic(uu);
+        fac = 1 + 2.5 * e; aMul = 1 - uu; rot = -tp.spiral.duskRad * e;
+      }
+      active = true;
+    }
     // cohesion follows freshness (dense and bright when just heard, a loose haze on record); it eases towards its tier, never jumps
     const co = tp.cohesion, ti = n.freshTier == null ? 0 : n.freshTier, ct = co.scale[ti], ca = co.alpha[ti];
-    if (n.cohNow == null || rm || S.fixedTime != null) { n.cohNow = ct; n.cohA = ca; } else if (liveDt > 0) { const kk = 1 - Math.exp(-liveDt / 0.8); n.cohNow += (ct - n.cohNow) * kk; n.cohA += (ca - n.cohA) * kk; active = active || Math.abs(ct - n.cohNow) > 0.01; }
+    if (n.cohNow == null || rm || S.fixedTime != null) {
+      n.cohNow = ct; n.cohA = ca;
+    } else if (liveDt > 0) {
+      const kk = 1 - Math.exp(-liveDt / 0.8);
+      n.cohNow += (ct - n.cohNow) * kk; n.cohA += (ca - n.cohA) * kk;
+      active = active || Math.abs(ct - n.cohNow) > 0.01;
+    }
     fac *= n.cohNow; aMul *= n.cohA;
     const cr = Math.cos(rot), sr = Math.sin(rot);
     n.pAlphaMul = aMul;
@@ -4186,7 +4357,7 @@ function stepParticles(liveDt) {
     total += n.pCount;
   });
   particles.count = total;
-  let fr = 0; for (const b of pFree) fr += b.count; particles.pooled = pBump - fr;   // allocated slots; === count unless a block leaked
+  let fr = 0; for (const b of pFree) fr += b.count; particles.pooled = pBump - fr;   // allocated slots
   if (total > 0 && !rm && liveDt > 0) active = true;
   if (active) S.moving = true;
 }
@@ -4315,7 +4486,9 @@ function render() {
   DC.drawImage = 0; DC.fillRect = 0; DC.stroke = 0; DC.fillText = 0; DC.cue = 0;
   beginFrame();
   drawBackground(); drawRings(); drawShadows(); drawNebula(); drawConstellations();
-  drawGlows(); drawEdges(); drawOrbits(); drawDeviceLinks(); drawClients(); drawClouds(); drawBubbles(); drawStars(); drawRecvRing(); drawGhosts(); drawThreshold(); drawChangeCues(); drawFlares(); drawParticles();
+  drawGlows(); drawEdges(); drawOrbits(); drawDeviceLinks();
+  drawClients(); drawClouds(); drawBubbles(); drawStars();
+  drawRecvRing(); drawGhosts(); drawThreshold(); drawChangeCues(); drawFlares(); drawParticles();
   drawHud();
   endFrame();
   if (S.anim.flickerAmp > 0 && !reduceMotion) {   // Layer 14: seeded ≤2 Hz flicker on #sky (canvas readback unaffected)
@@ -4409,7 +4582,9 @@ function drawShadows() {
 function drawNebula() {   // §8.2 Layer 3 — neutral interference wash between colliding stars (drawn only when toggled)
   if (!S.ui.nebula || !analyzer.pairs.length) return;
   const ctx = ctxSky, sprite = getSprite("nebula", "nebula", 0, "sharp");
-  const baseA = 0.11;   // D17: theme-free; the alpha carries the overlap score, so it never breathes
+  // D17: theme-free; the alpha carries the overlap score, so it never breathes, and the three dashed cross-strokes
+  // read as derived, not measured, in every theme.
+  const baseA = 0.11;
   ctx.globalCompositeOperation = "source-over";
   for (const p of analyzer.pairs) {
     const a = S.aps.get(p.a), b = S.aps.get(p.b);
@@ -4422,7 +4597,6 @@ function drawNebula() {   // §8.2 Layer 3 — neutral interference wash between
     ctx.translate(mx, my); ctx.rotate(ang);
     ctx.globalAlpha = clamp(baseA * Math.min(1, p.score) * (tS > 0 ? fog : 1), 0, 1);
     dI(ctx, sprite.c, -L / 2, -Wd / 2, L, Wd);
-    // D17: 3 dashed cross-strokes in every theme — the theme-free hatch that reads as derived, not measured
     ctx.globalAlpha = clamp(baseA * 1.5 * Math.min(1, p.score), 0, 1);
     ctx.strokeStyle = THEME.render.nebula; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
     for (let i = -1; i <= 1; i++) { const x = i * L * 0.22; ctx.beginPath(); ctx.moveTo(x, -Wd / 2); ctx.lineTo(x, Wd / 2); ctx.stroke(); }
@@ -4649,7 +4823,8 @@ function drawClients() {
       if (b) { const s = smoothstep(0, 1, c.bubbleBlend); sx = lerp(c.sx, b.sx, s); sy = lerp(c.sy, b.sy, s); alpha = c.alphaDraw * (1 - c.bubbleBlend); px = c.px * (1 - 0.4 * c.bubbleBlend); }
     }
     const asRect = !forced && (lod >= 3 || (lod >= 2 && !(px >= 4 && c.fog >= 0.5)));
-    if (asRect) { setAlpha(ctx, Math.max(alpha, 0.85) * c.freshA); fR(ctx, sx - 1.5, sy - 1.5, RENDER.lodRectPx, RENDER.lodRectPx); }   // D1: the floor keeps a far station legible, freshness still dims it
+    // D1: freshness (freshA) dims the dot only, as it dims the star; the lodRect floor keeps a far station legible.
+    if (asRect) { setAlpha(ctx, Math.max(alpha, 0.85) * c.freshA); fR(ctx, sx - 1.5, sy - 1.5, RENDER.lodRectPx, RENDER.lodRectPx); }
     else {
       const tier = tierFor(px);
       const kind = (c.free || c.affinity) ? TD.clientKind : (TD.clientKind === "clientCross" ? "clientCross" : "clientAssoc");
@@ -4657,7 +4832,7 @@ function drawClients() {
       const rm = c.randomized ? THEME.render.clientRandomizedMark : null;   // D8: hollow | crossX
       const variant = kind === "clientCross" ? "L" + (c.rssi == null ? 2 : signalLevel(c.rssi)) + (rm === "crossX" ? "x" : "") : rm === "hollow" ? "rnd" : "sharp";
       const s = getSprite(kind, colorKey, tier, variant);
-      setAlpha(ctx, alpha * c.freshA); blit(ctx, s, sx, sy, px);   // D1: freshness dims the dot only, as it dims the star
+      setAlpha(ctx, alpha * c.freshA); blit(ctx, s, sx, sy, px);
     }
     if (S.identity.size || S.rules.length) { const idn = identityOf(c.id); if (idn !== "unknown") { setAlpha(ctx, alpha); drawIdentityFrame(ctx, sx, sy, px + 4, ENCODING.identity[idn]); } }   // D7: a classified station wears the frame, like a star
   }
@@ -4794,7 +4969,7 @@ function drawStars() {
     drawApRings(ctx, ap, ap.alphaDraw * ap.freshA);
     const npm = THEME.render.newPlotMark; if (npm.enabled && isNewAp(ap) && !eventSkip(ap)) ringArc(THEME.ink.secondary, 1, npm.dash, ap.alphaDraw, ap.sx, ap.sy, ap.px + npm.offsetPx, 0, Math.PI * 2);   // a new plot's own dashed mark (D2: new for 3 captures) — not the identity channel
     if (S.identity.size || S.rules.length) { const idn = identityOf(ap.id); if (idn !== "unknown") { setAlpha(ctx, ap.alphaDraw); drawIdentityFrame(ctx, ap.sx, ap.sy, ap.px + 6, ENCODING.identity[idn]); } }
-    const fc = S.ui.essMerge ? essOfFolded(ap.id) : null;   // §8.8 folded-ESS lead carries a count badge (= member APs), baked sprite
+    const fc = essOfFolded(ap.id);   // §8.8 folded-ESS lead carries a count badge (= member APs), baked sprite
     if (fc && fc.leadId === ap.id && ap.alphaDraw > 0.05) {
       const cs = getSprite("counter", "ink", fc.apCount, "sharp");
       setAlpha(ctx, Math.max(ap.alphaDraw, AGG.minCounterAlpha)); blitFixed(ctx, cs, ap.sx, ap.sy - ap.px - 9);
@@ -4860,7 +5035,7 @@ function drawThreshold() {   // the operator's signal threshold as a dashed ring
   if (S.threshold == null) return;
   const ctx = ctxSky, r = rssiToRadius(S.threshold); ctx.strokeStyle = THEME.ink.secondary; ctx.lineWidth = 1; ctx.setLineDash([6, 4]); setAlpha(ctx, 0.9);
   if (tS === 0) { ctx.beginPath(); ctx.arc(CX, CY, r * (S.cam.zoom2d || 1), 0, Math.PI * 2); ctx.stroke(); }
-  else { cameraBasis(); const rr = r / maxRadius; let pen = false; ctx.beginPath(); for (let i = 0; i <= 64; i++) pen = groundXZ(ctx, RING_COS[i] * rr, RING_SIN[i] * rr, _pth, pen); ctx.stroke(); }   // (i / 64 · π) · 2 is the same double as i / 64 · (π · 2)
+  else { cameraBasis(); const rr = r / maxRadius; let pen = false; ctx.beginPath(); for (let i = 0; i <= 64; i++) pen = groundXZ(ctx, RING_COS[i] * rr, RING_SIN[i] * rr, _pth, pen); ctx.stroke(); }   // 65 points of the circle (i / 64 · 2π) from the RING_COS / RING_SIN tables
   ctx.setLineDash([]); setAlpha(ctx, 1);
 }
 function drawFlares() {
@@ -4892,12 +5067,12 @@ function textWidth(ctx, font, text) {
   if (w === undefined) { ctx.font = font; w = ctx.measureText(text).width; if (measureCache.size < 2000) measureCache.set(key, w); }
   return w;
 }
-// which APs may carry a name label, and in which order — theme-free (no fonts, raster, text budget or maxLabels cap).
-// drawHud walks this list (fonts/raster only decide placement); STARCHORUS.labelCandidates() returns it for cross-theme tests.
 function labelDevCarriers() {   // §8.8: device id → the one member that carries the device label (null while device links are off)
   if (!S.ui.deviceLinks) return null;
   const m = new Map(); S.devices.forEach(d => m.set(d.id, deviceHubId(d))); return m;
 }
+// which APs may carry a name label, and in which order: theme-free (no fonts, raster, text budget or maxLabels cap);
+// drawHud walks it, fonts and raster only place; STARCHORUS.labelCandidates() returns it for cross-theme tests.
 function labelCandidateList(devCarrier) {
   const trans = S.view.blend > 0.02 && S.view.blend < 0.98;
   const prio = (n) => (n.id === S.locked ? 4 : 0) + (n.id === S.hover ? 3 : 0) + (S.pinned.has(n.id) ? 2 : 0);
@@ -4921,6 +5096,8 @@ function drawHud() {
   let labelsDrawn = 0, collisions = 0;
   const is3d = S.view.blend > 0.5, view = is3d ? "3d" : "2d";
   const trans = S.view.blend > 0.02 && S.view.blend < 0.98;
+  // Baked sprites (core text, 3D ring posts, cloud tags, device ×n counters, security glyphs, cursor glyph) are blitted, not fillText:
+  // they spend no slot of RENDER.maxText; only the counted fT() draws take one from the budget.
   let budget = RENDER.maxText[view];
   const gw = Math.max(1, Math.ceil(W / RENDER.labelGridPx)), gh = Math.max(1, Math.ceil(H / RENDER.labelRowPx));
   if (!labelGrid || labelGrid.length !== gw * gh) labelGrid = new Uint8Array(gw * gh); else labelGrid.fill(0);
@@ -4949,7 +5126,7 @@ function drawHud() {
   }
   // ring-dBm (fixed post): 3D at projected ring point (§6.6); 2D labels stay baked on #bg
   if (is3d) {
-    // LAYOUT.rings is a fixed set of dBm values: the posts are baked once per theme and blitted, no slot of the 3D budget
+    // LAYOUT.rings: a fixed set of dBm values, baked once per theme
     for (const dbm of LAYOUT.rings) {
       const Rw = rssiToRadius(dbm) / maxRadius; projPt(0, 0, Rw, _pp);
       if (!_pp.vis) continue;
@@ -4960,7 +5137,7 @@ function drawHud() {
   }
   // §8.8 folded-ESS badges are sprites drawn in #sky — reserve their raster cells so labels step aside
   if (S.ui.essMerge) S.essClusters.forEach(c => { const f = essOfFolded(c.id); if (!f) return; const L = S.aps.get(f.leadId); if (L && L.alphaDraw > 0.05) occupy(L.sx - 16, L.sy - L.px - 17, 32, 16); });
-  // §8.8a cloud tags: baked like the bubble counters (no text slot, kept with L off), after the centre post
+  // §8.8a cloud tags (kept with L off), after the centre post
   if (S.ui.random === "cloud") for (const k of S.cloudOrder) {
     if (k.alphaDraw <= 0.3) continue;
     const tag = k.n + " · " + (TD.upper ? "RANDOM" : "random"), w = textWidth(ctx, TD.fontLabel, tag), r = k.px;
@@ -4970,8 +5147,8 @@ function drawHud() {
     ctx.globalAlpha = Math.min(1, k.alphaDraw); blitFixed(ctx, getSprite("text", "secondary", tag, "label"), at[0] + w / 2, at[1] + 6); ctx.globalAlpha = 1;
     S.labelsList.push({ id: k.id, kind: "cloud", text: tag, x: r3(at[0]), y: r3(at[1]), sprite: true });
   }
-  const devCarrier = labelDevCarriers();   // device id → member that carries the one device label this frame (null: links off)
-  // AP labels: eligibility + priority from labelCandidateList() (theme-free); fonts and the raster only place them
+  const devCarrier = labelDevCarriers();
+  // AP labels: candidates from labelCandidateList()
   const cand = S.ui.labels ? labelCandidateList(devCarrier) : [];   // L / #t-labels off = no AP labels, facets, ×n, vendor lines, badges or cursor; core text, 3D ring posts, group labels (G) and glyph sprites stay
   const lod = S.perf.lod;
   const maxL = phoneOn ? RENDER.mobile.maxLabels : RENDER.maxLabels[lod][is3d ? 1 : 0];
@@ -4985,7 +5162,7 @@ function drawHud() {
     const carrier = dev && devCarrier.get(dev.id) === ap.id;
     let raw = ap.ssidKnown ?? ap.ssid; if (!raw) continue;
     if (carrier) raw = ssidBase(raw) && dev.memberIds.every(id => { const a = S.aps.get(id); return !a || ssidBase(apSsid(a)) === ssidBase(raw); }) ? raw.replace(/[-_ ]?(2\.?4|5|6)\s?g(hz)?$/i, "") : raw;
-    let text = raw;   // D16
+    let text = raw;
     const enc = ENCODING.band[ap.band]; if (enc && !carrier) text += " · " + enc.suffix;   // device label: bands shown as facets instead
     const w = textWidth(ctx, font, text), px = ap.px;
     const nFacet = carrier ? dev.bands.filter(b => b !== "unknown").length : 0, ext = carrier ? 5 + nFacet * 7 + 20 : 0;   // facets + ×n ride in the label's own rectangle
@@ -4996,8 +5173,8 @@ function drawHud() {
     ctx.font = font; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = forced ? THEME.ink.primary : THEME.ink.secondary;
     fT(ctx, text, placed[0], placed[1] + 10, true); budget--; apLabels++; labelsDrawn++;
     S.labelsList.push({ id: ap.id, kind: "label", text, x: r3(placed[0]), y: r3(placed[1]) });
-    if (TD.cursorBlink && (ap.id === S.hover || ap.id === S.locked)) cursorAt = { x: placed[0] + w, y: placed[1] + 10 };   // one cursor (hover wins over locked); a baked glyph, so it takes no slot from RENDER.maxText
-    if (carrier) {   // §8.8 one device label + band facet dots (2.4/5/6) + "×n" member count (sprite, not fillText)
+    if (TD.cursorBlink && (ap.id === S.hover || ap.id === S.locked)) cursorAt = { x: placed[0] + w, y: placed[1] + 10 };   // one cursor (hover wins over locked)
+    if (carrier) {   // §8.8 one device label + band facet dots (2.4/5/6) + "×n" member count
       const fy = placed[1] + 5;
       let fx = placed[0] + w + 5;
       for (const b of dev.bands) { if (b === "unknown") continue; ctx.fillStyle = TD.bandCore[b] || TD.bandCore.unknown; ctx.beginPath(); ctx.arc(fx, fy, 2.3, 0, Math.PI * 2); ctx.fill(); S.labelsList.push({ id: ap.id, kind: "facet", text: b, x: r3(fx), y: r3(fy) }); fx += 7; }
@@ -5005,7 +5182,7 @@ function drawHud() {
       S.labelsList.push({ id: dev.id, kind: "counter", text: "×" + dev.memberIds.length, x: r3(fx + 7), y: r3(fy) });
     }
     if (S.ui.vendor && ap.vendor && budget > 0) {
-      const vt = ap.vendor, vw = textWidth(ctx, font, vt);   // D16
+      const vt = ap.vendor, vw = textWidth(ctx, font, vt);
       if (occupy(placed[0], placed[1] + 12, vw, 12)) {
         ctx.fillStyle = THEME.ink.secondary; fT(ctx, vt, placed[0], placed[1] + 22, true); budget--;
         S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(placed[0]), y: r3(placed[1] + 12) });
@@ -5029,7 +5206,7 @@ function drawHud() {
       if (c.bubble != null && c.bubbleBlend >= 0.5) return;
       if (!isForced(c.id)) return;
       const vt = c.randomized ? "randomised" : c.vendor; if (!vt) return;
-      const vw = textWidth(ctx, cfont, vt);   // D16
+      const vw = textWidth(ctx, cfont, vt);
       const vx = c.sx - vw / 2, vy = c.sy + c.px + 4;
       if (!occupy(vx, vy, vw, 12)) return;
       ctx.font = cfont; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.secondary;
@@ -5049,7 +5226,7 @@ function drawHud() {
       let cx = 0, cy = 0, nv = 0;
       for (const id of g.members) { const ap = S.aps.get(id); if (ap && ap.alphaDraw > 0.05) { cx += ap.sx; cy += ap.sy; nv++; } }
       if (nv === 0) continue; cx /= nv; cy /= nv;
-      let text = g.key;   // D16
+      let text = g.key;
       const ws = worstSec(g.members); if (ws && SEC_RANK[ws] <= 2 && ENCODING.security[ws].glyph) text += " " + ENCODING.security[ws].glyph;   // the weakest member of the constellation (open/WEP "!", TKIP "~")
       const w = textWidth(ctx, gfont, text);
       if (!occupy(cx - w / 2, cy - 6, w, 12)) continue;
@@ -5058,7 +5235,7 @@ function drawHud() {
       S.labelsList.push({ id: "__group__" + g.key, kind: "group", text, x: r3(cx - w / 2), y: r3(cy - 6) });
     }
   }
-  // security / alarm glyphs (baked sprites, not fillText); alarm "!" blinks 1 Hz but is always listed
+  // security / alarm glyphs; alarm "!" blinks 1 Hz but is always listed
   const blink = TD.cursorBlink && !reduceMotion ? ((S.clock % 1.06) < 0.53) : true;
   for (const ap of S.apOrder) {
     if (ap.alphaDraw <= 0.4 || ap.hidden) continue;
@@ -5073,7 +5250,7 @@ function drawHud() {
     S.labelsList.push({ id: ap.id, kind: "glyph", text: enc.glyph, x: r3(gx), y: r3(gy) });
   }
   // cursor block at the end of the hovered/locked label (Wargames)
-  if (TD.cursorBlink && cursorAt && (reduceMotion || (S.clock % 1.06) < 0.53)) {
+  if (cursorAt && (reduceMotion || (S.clock % 1.06) < 0.53)) {
     const cw = textWidth(ctx, TD.fontLabel, "▮");   // one glyph, one bake — the blink is the blit, not a re-raster
     blitFixed(ctx, getSprite("text", "ink", "▮", "label"), cursorAt.x + 1 + cw / 2, cursorAt.y - 4);
     S.labelsList.push({ id: "__cursor__", kind: "cursor", text: "▮", x: r3(cursorAt.x + 1), y: r3(cursorAt.y - 10), sprite: true });
@@ -5087,13 +5264,15 @@ function hitRadius(n, touch) {
   return Math.max(n.px + pad, touch ? HIT.touchMinPx : HIT.minPx);
 }
 function nodeAt(mx, my, touch) {
+  // §8.8a clouds take part in both hit tests
   if (tS < 0.5) {
     // 2D: nearest wins (clients/stars over bubbles)
     let best = null, bd = Infinity;
-    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; const d = hyp(n.sx - mx, n.sy - my); if (d <= hitRadius(n, touch) && d < bd) { bd = d; best = n; } });
-    if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; const d = hyp(k.sx - mx, k.sy - my); if (d <= hitRadius(k, touch) && d < bd) { bd = d; best = k; } });   // §8.8a
-    S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; const d = hyp(n.sx - mx, n.sy - my); if (d <= hitRadius(n, touch) && d < bd) { bd = d; best = n; } });
-    S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; const d = hyp(b.sx - mx, b.sy - my); if (d <= b.px + HIT.bubblePad && d < bd) { bd = d; best = b; } });
+    const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd) { bd = d; best = n; } };
+    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
+    if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
+    S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; near(n, hitRadius(n, touch)); });
+    S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
   }
   // 3D: projected hit-test from near to far, first covering wins
@@ -5101,7 +5280,7 @@ function nodeAt(mx, my, touch) {
   S.aps.forEach(n => { if (n.target === 1 && n.alphaDraw >= 0.25 && !isEssFolded(n.id)) cands.push(n); });
   S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend > 0.5) return; if (n.alphaDraw >= 0.25) cands.push(n); });
   S.bubbles.forEach(b => { if ((b.target === 1 || b.alpha > 0.02) && b.alphaDraw >= 0.25) cands.push(b); });
-  S.clouds.forEach(k => { if (k.target === 1 && k.alphaDraw >= 0.25) cands.push(k); });   // §8.8a
+  S.clouds.forEach(k => { if (k.target === 1 && k.alphaDraw >= 0.25) cands.push(k); });
   cands.sort((a, b) => a.zc - b.zc);
   for (const n of cands) { const r = hitRadius(n, touch); const dx = mx - n.sx, dy = my - n.sy; if (dx * dx + dy * dy <= r * r) return n.id; }
   return null;
@@ -5211,12 +5390,14 @@ const KEY_ACT = { t: () => toggleTheme(), v: () => { setView(S.ui.view === "3d" 
 window.addEventListener("keydown", (e) => {
   const k = (e.key || "").toLowerCase();
   if (k === "escape") {
+    // Esc closes one layer per press, topmost first: paste, export, help, selection, hover; on a phone then a drawer or the
+    // legend card, then the sheet (§9.8).
     if (getComputedStyle(pasteWrap).display !== "none") { closePaste(); e.preventDefault(); return; }
     if (el("export-wrap").style.display === "flex") { closeExport(); e.preventDefault(); return; }
     if (!help.hidden) { toggleHelp(false); e.preventDefault(); return; }
     if (S.locked) { deselect(); e.preventDefault(); return; }
     if (S.hover) { setHover(null); e.preventDefault(); return; }
-    if (phoneOn && closeCard()) { e.preventDefault(); return; }   // §9.8: a drawer or the legend card first, then the sheet
+    if (phoneOn && closeCard()) { e.preventDefault(); return; }
     if (phoneOn && S.ui.sheet !== "peek") { setSheet("peek"); e.preventDefault(); return; }
     return;
   }
@@ -5259,7 +5440,9 @@ function toggleBand(b) {
   S.ui.filters[b] = !S.ui.filters[b];
   refreshEssLeads(); applyAffinity(); S.nFreeTotal = countFreeLayout();   // a filtered AP hands its ESS lead and its probe orbiters over
   const btn = document.querySelector('[data-band="' + b + '"]'); if (btn) { btn.classList.toggle("on", S.ui.filters[b]); btn.setAttribute("aria-pressed", String(S.ui.filters[b])); }
-  S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter); computeGroupEdges(); securityCounts(); rebuildChannelStats(); rebuildInterference(); updateStats(); S.dirty = true;   // updateStats() ends in layoutEdges() → drawChannelBar()
+  S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter);
+  computeGroupEdges(); securityCounts(); rebuildChannelStats(); rebuildInterference();
+  updateStats(); S.dirty = true;   // updateStats() ends in layoutEdges() → drawChannelBar()
 }
 const THEME_CYCLE = ["foundation", "wargames", "whitehall"];
 function nextTheme(id) { const i = THEME_CYCLE.indexOf(id); return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]; }
@@ -5271,7 +5454,7 @@ function setToggle(key, on, opts = {}) {
   if (key === "paused") { const b = el("t-pause"); if (b) b.textContent = on ? "Resume" : "Pause"; }
   if (key === "agg") { S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter); }
   if (key === "crt") applyCrt();
-  if (key === "observations" || key === "inventory") {   // one drawer at a time (they share the legend's box)
+  if (key === "observations" || key === "inventory") {   // one drawer at a time (see applyDrawer)
     if (on) { dropToggle(key === "observations" ? "inventory" : "observations"); S.homeOpen = false; S.dx = null; }
     applyDrawer();
   }
@@ -5285,7 +5468,7 @@ function setToggle(key, on, opts = {}) {
 const BTN_OF = { labels: "t-labels", orbits: "t-orbits", links: "t-links", paused: "t-pause", agg: "t-agg", vendor: "t-vendor", nebula: "t-nebula", groups: "t-groups", rotate: "t-rotate", spin: "t-spin", crt: "t-crt", deviceLinks: "t-devices", essMerge: "t-merge", affinity: "t-probes", observations: "t-obs", baselineDiff: "t-baseline", inventory: "t-inv" };
 function syncPressed(id, on) { const b = el(id); if (b) { b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", String(!!on)); } }
 function syncButton(key, on) { syncPressed(BTN_OF[key], on); }
-function dropToggle(key) { if (S.ui[key]) { S.ui[key] = false; syncButton(key, false); } }   // a drawer yields to another: flag and button only
+function dropToggle(key) { if (S.ui[key]) { S.ui[key] = false; syncButton(key, false); } }   // flag and button only
 function setToggles(o) {
   if (!o || typeof o !== "object") return getToggles();
   for (const key of Object.keys(o)) {
@@ -5381,9 +5564,9 @@ function exportModel() {
   const aps = S.apOrder.filter(n => !eventSkip(n)).map(n => withNotes({ bssid: n.bssid, ssid: n.ssidKnown || n.ssid || "", band: n.band, channel: n.channel, security: n.security || ENCODING.security[n.sec].label, class: n.sec, rssi: n.rssi, heard: heardWord(n) }, n.id));
   let mob = 0; S.aps.forEach(n => { if (n.target === 1 && n.mobile) mob++; });
   const clouds = S.cloudOrder.length > 0;
-  // stations are first-class rows, incl. their AP association (a received-only directed-frame value). Own transmitters
-  // (eventSkip) are left out, and an association is filed only when the PARENT is a real, non-own, non-mobile AP: a station
-  // never drags an own/hotspot bssid into the file, and a derived probe orbit (affinity) is not an observed association.
+  // stations are first-class rows with their AP association (a received-only directed-frame value): an association is filed only
+  // when the PARENT is a real, non-own, non-mobile AP (eventSkip), so a station never drags an own or hotspot BSSID into the file;
+  // a derived probe orbit (affinity) is not an association.
   const stations = S.clientOrder.filter(n => n.target === 1 && !eventSkip(n)).map(n => {
     const par = (!n.free && !n.affinity && n.parent && !eventSkip(S.aps.get(n.parent))) ? n.parent : null;
     const o = { mac: n.mac, vendor: n.vendor || "", band: n.band || "", rssi: n.rssi, randomized: !!n.randomized, probes: (n.probes || []).slice(), association: par, heard: heardWord(n) };
@@ -5444,10 +5627,21 @@ el("export-fmt").addEventListener("change", refreshExport);
 el("export-copy").addEventListener("click", () => { const t = el("export-ta").value, ok = () => { el("export-msg").textContent = "Copied."; }, no = () => { el("export-ta").focus(); el("export-ta").select(); el("export-msg").textContent = "Select and copy (Ctrl/Cmd+C)."; }; try { navigator.clipboard.writeText(t).then(ok, no); } catch (e) { no(); } });
 el("export-print").addEventListener("click", () => { el("export-printable").textContent = exportText("sitrep"); window.print(); });
 el("export-snap").addEventListener("click", () => { const im = el("export-png"); im.src = exportPng(); im.hidden = false; el("export-msg").textContent = "Right-click or long-press the image to save it."; });
-// ---- drawers: air quality, signal over time, recording/replay. Bodies in the legend's box (D15: still one panel).
+// ---- drawers: air quality, signal over time, recording/replay
 function setDx(name) { S.dx = S.dx === name ? null : name; if (S.dx) { S.homeOpen = false; dropToggle("inventory"); dropToggle("observations"); } applyDrawer(); return S.dx; }
 const CHAN_MODES = ["bars", "spectrum", "waterfall"];
-function setChanMode(m) { if (CHAN_MODES.indexOf(m) < 0) return S.chanMode; S.chanMode = m; const b = el("t-chan"); if (b) { b.textContent = m === "bars" ? "▤" : m === "spectrum" ? "◠" : "▦"; b.setAttribute("aria-label", "Channel view: " + m); b.title = "Channel view: " + m + " (click or [Y] for the next)"; } drawChannelBar(); S.dirty = true; return m; }
+function setChanMode(m) {
+  if (CHAN_MODES.indexOf(m) < 0) return S.chanMode;
+  S.chanMode = m;
+  const b = el("t-chan");
+  if (b) {
+    b.textContent = m === "bars" ? "▤" : m === "spectrum" ? "◠" : "▦";
+    b.setAttribute("aria-label", "Channel view: " + m);
+    b.title = "Channel view: " + m + " (click or [Y] for the next)";
+  }
+  drawChannelBar(); S.dirty = true;
+  return m;
+}
 // §8.8a the Random switch (X): a view of the model; it changes what is drawn, hit and counted as visible, nothing else.
 const RANDOM_LOOK = { cloud: ["one node per cloud", "one by one"], show: ["one by one", "hidden"], hide: ["hidden", "one node per cloud"] };
 function syncRandomButton() {
@@ -5458,8 +5652,8 @@ function syncRandomButton() {
 function setRandomMode(m, opts = {}) {
   if (RANDOM_MODES.indexOf(m) < 0) return S.ui.random;
   S.ui.random = m; syncRandomButton(); applyRandom();
-  if (m !== "cloud" && S.locked && S.clouds.has(S.locked)) deselect();
-  if (m === "hide" && S.locked && (S.clients.get(S.locked) || {}).randOut) deselect();
+  // §8.8a: release a lock or hover on a node the new mode no longer draws
+  if (S.locked && ((m !== "cloud" && S.clouds.has(S.locked)) || (m === "hide" && (S.clients.get(S.locked) || {}).randOut))) deselect();
   if (S.hover && ((S.clients.get(S.hover) || {}).randOut || S.clouds.has(S.hover))) setHover(null);
   applyAffinity(); S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter);
   if (opts.persist !== false) { S.queryLocked.delete("random"); saveUi(); }
@@ -5538,7 +5732,10 @@ function drawTimeChart(cv, tm) {
   const L = 26, T = 6, B = 14, w = cssW - L - 4, hh = cssH - T - B, lo = -100, hi = -20, yOf = (v) => T + (1 - (clamp(v, lo, hi) - lo) / (hi - lo)) * hh;
   ctx.strokeStyle = THEME.line.hairline; ctx.lineWidth = 1; ctx.fillStyle = THEME.ink.muted; ctx.font = "400 8px " + THEME.font.ui; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   for (const v of [-20, -50, -80]) { ctx.beginPath(); ctx.moveTo(L, yOf(v) + 0.5); ctx.lineTo(L + w, yOf(v) + 0.5); ctx.stroke(); ctx.fillText(String(v), L - 3, yOf(v)); }
-  const n = tm.window; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText("−" + Math.round(tm.window * tm.intervalS / (tm.scale === "1m" ? 1 : 60)) + (tm.scale === "1m" ? " s" : " min"), L, cssH - 3); ctx.textAlign = "right"; ctx.fillText("now", L + w, cssH - 3);
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText("−" + Math.round(tm.window * tm.intervalS / (tm.scale === "1m" ? 1 : 60)) + (tm.scale === "1m" ? " s" : " min"), L, cssH - 3);
+  ctx.textAlign = "right"; ctx.fillText("now", L + w, cssH - 3);
+  const n = tm.window;
   tm.curves.forEach((c, ci) => {
     ctx.strokeStyle = bandColorOf(c.band); ctx.lineWidth = 1.5; ctx.setLineDash(ci % 2 ? [4, 2] : []); ctx.beginPath(); let pen = false;
     const off = n - c.samples.length;   // a shorter series is right-aligned: it ends "now"
@@ -5589,8 +5786,18 @@ function renderRec() {
   el("rec-clear").addEventListener("click", () => { recClear(); });
 }
 function recPosHtml(rp, i, r, gen) { return "<span>" + (rp ? "Replay " : "Newest ") + (i + 1) + " of " + r.count + "</span><span>" + (Number.isFinite(gen) ? new Date(gen * 1000).toISOString().slice(11, 19) + "Z" : "undated") + "</span>"; }
-function recLabel() { const e = el("rec-pos"); if (!e || !S.rec) return; const r = recObj(), rp = S.replay, i = rp ? rp.i : r.count - 1; e.innerHTML = recPosHtml(rp, i, r, r.snapshots[i] ? r.snapshots[i].generated : null); }
-function recClear() { if (S.replay) replayExit(); S.rec = recEmpty(); S.rec.key = S.sourceKey; if (S.chanMode === "waterfall") drawChannelBar(); renderRec(); return true; }
+function recLabel() {
+  const e = el("rec-pos"); if (!e || !S.rec) return;
+  const r = recObj(), rp = S.replay, i = rp ? rp.i : r.count - 1;
+  e.innerHTML = recPosHtml(rp, i, r, r.snapshots[i] ? r.snapshots[i].generated : null);
+}
+function recClear() {
+  if (S.replay) replayExit();
+  S.rec = recEmpty(); S.rec.key = S.sourceKey;
+  if (S.chanMode === "waterfall") drawChannelBar();
+  renderRec();
+  return true;
+}
 function waterfallModel(band) {   // channel × time from the recorded captures: each cell = the strongest AP on that channel in that capture (null = none heard)
   const r = S.rec; if (!r || !r.docs.length || !BAND_HZ[band]) return { band, channels: [], cols: [], cells: [] };
   const cols = r.docs.map(d => ({ n: d.n, generated: d.gen })), chans = new Set(), grid = r.docs.map(d => { const m = new Map(); for (const a of d.doc.aps) { if (a.band !== band || a.channel == null) continue; chans.add(a.channel); if (a.rssi != null && (!m.has(a.channel) || a.rssi > m.get(a.channel))) m.set(a.channel, a.rssi); else if (!m.has(a.channel)) m.set(a.channel, null); } return m; });
@@ -5631,17 +5838,24 @@ function clearLocalData() {   // P8: every starchorus.* key, in one call (SECURI
 function updateStats() {
   let apsTotal = 0, aps = 0, free = 0, assoc = 0, bandUnknown = 0;
   const bandsT = { "2.4": 0, "5": 0, "6": 0 }, bands = { "2.4": 0, "5": 0, "6": 0 };
-  const fresh = freshZero(), freshVis = freshZero();   // D1: all present APs | the drawn (filter/ESS-fold) ones
+  // D1: per tier, all present nodes | the drawn ones (APs: filter and ESS fold; stations: see freshVisCl)
+  const fresh = freshZero(), freshVis = freshZero();
   S.aps.forEach(n => {
     if (n.target !== 1) return; apsTotal++;
     const fk = n.freshTier == null ? "undated" : "t" + n.freshTier; fresh[fk]++;
-    const on = S.ui.filters[n.band] !== false; if (on && !isEssFolded(n.id)) { aps++; freshVis[fk]++; if (n.band === "unknown") bandUnknown++; }
-    if (n.band in bandsT) { bandsT[n.band]++; if (on && !isEssFolded(n.id)) bands[n.band]++; }
+    const on = S.ui.filters[n.band] !== false;
+    const drawn = on && !isEssFolded(n.id);
+    if (drawn) { aps++; freshVis[fk]++; if (n.band === "unknown") bandUnknown++; }
+    if (n.band in bandsT) { bandsT[n.band]++; if (drawn) bands[n.band]++; }
   });
   let probing = 0, randomized = 0, rndFree = 0;
-  const freshCl = freshZero(), freshVisCl = freshZero();   // D1: all present stations | the drawn ones
+  const freshCl = freshZero(), freshVisCl = freshZero();
   S.clients.forEach(n => {
-    if (n.target !== 1) return; if (n.free || n.affinity) free++; else assoc++; if (n.affinity) probing++; if (n.randomized) { randomized++; if (n.free || n.affinity) rndFree++; }
+    if (n.target !== 1) return;
+    const loose = n.free || n.affinity;
+    if (loose) free++; else assoc++;
+    if (n.affinity) probing++;
+    if (n.randomized) { randomized++; if (loose) rndFree++; }
     const fk = n.freshTier == null ? "undated" : "t" + n.freshTier; freshCl[fk]++;
     const ap = n.parent ? S.aps.get(n.parent) : null; if (n.free || (ap && ap.target === 1 && S.ui.filters[ap.band] !== false)) freshVisCl[fk]++;   // the draw rule of stepNodes
   });
@@ -5848,7 +6062,6 @@ function showTip(n) {
     html += '<div class="ssid">density bubble</div><div class="sub">' + esc(bubbleSummary(n)) + '</div>';
     const macs = n.members.slice(0, 8).map(m => esc(fmtMac(m))).join("<br>");
     if (macs) html += '<div class="grid">' + kv("MACs", macs, "v mono") + '</div>';
-    tipBody.innerHTML = html; tipSpark.hidden = true; tip.style.opacity = "1"; return;
   } else if (n.kind === "ap") {
     const al = aliasOf(n.id), name = al ? '<div class="ssid">' + esc(al) + '</div>' : n.hidden ? '<div class="ssid hidden">(hidden SSID)</div>' : '<div class="ssid">' + esc(n.ssidKnown || n.ssid) + '</div>';
     html += name + '<div class="sub">' + esc(n.bssid) + (al && !n.hidden ? " · " + esc(n.ssidKnown || n.ssid) : "") + '</div><div class="grid">';
@@ -6101,7 +6314,7 @@ function statsFitWidth(cells, room) {   // smallest content width that keeps the
 }
 function layoutEdges() {
   const rs = document.documentElement.style, vw = window.innerWidth, vh = window.innerHeight, G = EDGE.gapPx;
-  const set = (k, v) => { rs.removeProperty(k); rs.setProperty(k, v); };   // re-appended: :root keeps the declaration order of a pass that starts bare
+  const set = (k, v) => { rs.removeProperty(k); rs.setProperty(k, v); };   // re-appended, see the note below
   const boxOf = (e) => { if (!e || e.hidden || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r : null; };
   const over = (list, a, b) => list.filter(r => r && r.right > a && r.left < b);
   const chan = el("chanbar");
@@ -6311,7 +6524,15 @@ wire("cam-reset", () => resetCamera());
 // §8.2 channel-bar hover/click (redraw only on hover change; click pins that channel's APs for 6 s)
 (() => {
   const cv = el("chan"); if (!cv) return;
-  cv.addEventListener("pointermove", (e) => { const hit = chanAtPointer(e.clientX); const same = hit && chanHover && hit.band === chanHover.band && hit.ch === chanHover.ch; if (!hit && !chanHover) return; if (same) return; chanHover = hit; cv.style.cursor = hit ? "pointer" : "default"; drawChannelBar(); });
+  cv.addEventListener("pointermove", (e) => {
+    const hit = chanAtPointer(e.clientX);
+    const same = hit && chanHover && hit.band === chanHover.band && hit.ch === chanHover.ch;
+    if (!hit && !chanHover) return;
+    if (same) return;
+    chanHover = hit;
+    cv.style.cursor = hit ? "pointer" : "default";
+    drawChannelBar();
+  });
   cv.addEventListener("pointerleave", () => { if (chanHover) { chanHover = null; drawChannelBar(); } });
   cv.addEventListener("click", (e) => {
     const hit = chanAtPointer(e.clientX); if (!hit) return;
@@ -6465,10 +6686,16 @@ function setSource(doc, label, via, tickMs) {   // → true when the source chan
 // Chip, masthead dot, source badge, lamps and the panels pill all read captureStale(): they flip together.
 function staleAfterMs() { const iv = S.pollIntervalS; return iv > 0 ? 1000 * Math.max(STALE.floorS, STALE.mul * iv + STALE.slackS) : STALE_POLLS * POLL_MS; }
 function captureStale() { return !S.replay && S.liveFeed && S.sourceKind !== "none" && S.staleMs >= staleAfterMs(); }
-// Offline: stale, and the server has answered none of the last OFFLINE_POLLS polls (network error, deadline, non-200): the page has not heard from it, which is not the same as a capture that is old.
+// Offline (D3): stale, and the server has answered none of the last OFFLINE_POLLS polls (network error, deadline, non-200): the page has not heard from it, which is not the same as a capture that is old.
 function captureOffline() { return captureStale() && S.lostPolls >= OFFLINE_POLLS; }
 const liveness = () => captureOffline() ? "offline" : captureStale() ? "stale" : "live";   // what a poll-fed feed is called; a feed that is not stale is "live"
-function noteStalePoll(tickMs, heard) { if (!S.liveFeed) return; const ms = tickMs ?? POLL_MS; S.stalePolls++; S.staleMs += ms; if (!heard) S.lostPolls++; renderSourceTruth(); }   // a failed poll: only its time counts (heard: the server answered, so only the capture is missing, not the link)
+function noteStalePoll(tickMs, heard) {   // a failed poll: only its time counts (heard: see captureOffline)
+  if (!S.liveFeed) return;
+  const ms = tickMs ?? POLL_MS;
+  S.stalePolls++; S.staleMs += ms;
+  if (!heard) S.lostPolls++;
+  renderSourceTruth();
+}
 let pollPromise = null, firstPollDone = false;
 // D3: a poll that never answers ends after POLL_TIMEOUT_MS: the request is aborted and the tick counts like a failed poll,
 // so a hung server or a half-open connection cannot keep the chip on "Live". `?pollto=<ms>` shortens it for tests only.
@@ -6479,7 +6706,7 @@ function tryPoll(tickMs) {   // MUSS BLEIBEN 1: the page's only network call; re
   let late = false, heard = false; const tick = () => (tickMs ?? POLL_MS) + (late ? POLL_TIMEOUT_MS : 0);   // a deadline adds its time
   const timer = ac ? setTimeout(() => { late = true; ac.abort(); }, POLL_TIMEOUT_MS) : 0;
   pollPromise = fetch("starchorus.json?_=" + S.clock.toFixed(0), ac ? { cache: "no-store", signal: ac.signal } : { cache: "no-store" })
-    .then(r => { if (r.status !== 200) return Promise.reject(r.status); heard = true; S.lostPolls = 0; return r.json(); })   // any 200 is the server answering; any other status is silence
+    .then(r => { if (r.status !== 200) return Promise.reject(r.status); heard = true; S.lostPolls = 0; return r.json(); })   // any 200 is the server answering
     .then(raw => guard(() => loadData(raw, "starchorus.json", { mode: "live", tickMs: tick() })), () => null)
     .then(r => {
       const ok = !!(r && r.ok);
@@ -6850,7 +7077,7 @@ const CONTRAST_COLOR_RE = /^(#[0-9a-f]{6}|rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\
 function relLum(c) { const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); }
 function contrastColor(spec, t) {   // token path | CSS colour | "ground" → [r, g, b, a] | null
   let v = typeof spec === "string" ? spec.trim() : null;
-  if (v === "ground") {   // page ground: brightest opaque colour among surface.base and the gradient's stops
+  if (v === "ground") {
     const base = contrastColor("surface.base", t); if (!base) return null;
     const under = base.slice(0, 3).map(Math.round), grad = resolveToken("surface.gradient", t);
     let best = under, bestL = relLum(under);
@@ -6907,7 +7134,16 @@ window.STARCHORUS = Object.freeze({
   stats: () => guard(statsObj),
   layoutInfo: () => guard(layoutInfo),
   camera: () => guard(camObj),
-  setCamera: (o, snap = true) => guard(() => { if (o) { if (o.az != null) S.cam.azT = S.cam.az = o.az; if (o.el != null) S.cam.elT = S.cam.el = o.el; if (o.dist != null) S.cam.distT = S.cam.dist = o.dist; if (o.target) { S.cam.target = o.target.slice(); S.cam.targetT = o.target.slice(); } S.cam.tween = null; S.dirty = true; } return camObj(); }),
+  setCamera: (o, snap = true) => guard(() => {
+    if (o) {
+      if (o.az != null) S.cam.azT = S.cam.az = o.az;
+      if (o.el != null) S.cam.elT = S.cam.el = o.el;
+      if (o.dist != null) S.cam.distT = S.cam.dist = o.dist;
+      if (o.target) { S.cam.target = o.target.slice(); S.cam.targetT = o.target.slice(); }
+      S.cam.tween = null; S.dirty = true;
+    }
+    return camObj();
+  }),
   resetCamera: () => guard(() => { resetCamera(); return camObj(); }),
   setZoom2d: (z) => guard(() => { setZoom2d(z); return camObj(); }),
   setToggles: (o) => guard(() => setToggles(o)),
@@ -6915,9 +7151,22 @@ window.STARCHORUS = Object.freeze({
   select: (id) => guard(() => select(id)),
   deselect: () => guard(() => deselect()),
   hover: (x, y) => guard(() => { const id = nodeAt(x, y, false); setHover(id); return id; }),
-  hoverNode: (id) => guard(() => { if (id == null) { setHover(null); return null; } const n = S.aps.get(id) || S.clients.get(id) || S.clouds.get(id); if (!n) return null; S.hover = id; showTip(n); positionTip(n, n.sx, n.sy); S.dirty = true; return id; }),
+  hoverNode: (id) => guard(() => {
+    if (id == null) { setHover(null); return null; }
+    const n = S.aps.get(id) || S.clients.get(id) || S.clouds.get(id);
+    if (!n) return null;
+    S.hover = id; showTip(n); positionTip(n, n.sx, n.sy);
+    S.dirty = true;
+    return id;
+  }),
   hoverChannel: (band, ch) => guard(() => hoverChannelText(band, ch)),
-  pin: (id, on) => guard(() => { const has = S.pinned.has(id); const want = on === undefined ? !has : !!on; if (want) S.pinned.add(id); else S.pinned.delete(id); S.dirty = true; return S.pinned.has(id); }),
+  pin: (id, on) => guard(() => {
+    const has = S.pinned.has(id);
+    const want = on === undefined ? !has : !!on;
+    if (want) S.pinned.add(id); else S.pinned.delete(id);
+    S.dirty = true;
+    return S.pinned.has(id);
+  }),
   expandBubble: (id) => guard(() => expandBubble(id)),
   hitTest: (x, y) => guard(() => nodeAt(x, y, false)),
   node: (id) => guard(() => { const n = S.aps.get(id) || S.clients.get(id); return n ? pubNode(n) : pubCloud(S.clouds.get(id)); }),
@@ -6926,7 +7175,7 @@ window.STARCHORUS = Object.freeze({
     const push = (n, kind) => out.push({ id: n.id, kind, sx: r3(n.sx), sy: r3(n.sy), px: r3(n.px), zc: r3(n.zc), alphaDraw: r3(n.alphaDraw), visible: nodeVisible(n), bubble: n.bubble || null, vendor: n.vendor || null, width: n.kind === "ap" ? n.width : null, rssi: n.rssi });
     if (!filter || filter === "ap") S.aps.forEach(n => { if (n.target === 1) push(n, "ap"); });
     if (!filter || filter === "client" || filter === "free" || filter === "assoc") S.clients.forEach(n => { if (n.target !== 1) return; if (filter === "free" && !n.free) return; if (filter === "assoc" && n.free) return; push(n, "client"); });
-    if (filter === "cloud") S.clouds.forEach(k => { if (k.target === 1) push(k, "cloud"); });   // §8.8a
+    if (filter === "cloud") S.clouds.forEach(k => { if (k.target === 1) push(k, "cloud"); });
     if (filter === "bubble") S.bubbles.forEach(b => out.push({ id: b.id, kind: "bubble", sx: r3(b.sx), sy: r3(b.sy), px: r3(b.px), zc: r3(b.zc), alphaDraw: r3(b.alpha), visible: true, bubble: null, vendor: null, width: null, rssi: null }));
     return out;
   }),
@@ -6935,7 +7184,7 @@ window.STARCHORUS = Object.freeze({
   expandCloud: (id) => guard(() => expandCloud(id)),
   bubbles: () => guard(() => { const out = []; S.bubbles.forEach(b => out.push({ id: b.id, n: b.n, sx: r3(b.sx), sy: r3(b.sy), r: r3(b.r), expanded: b.expandedUntil != null && b.expandedUntil > S.clock, members: b.members.slice() })); return out; }),
   labels: () => guard(() => S.labelsList.map(l => ({ id: l.id, kind: l.kind, text: l.text, x: l.x, y: l.y, sprite: !!l.sprite }))),   // sprite = baked once and blitted, so it costs no slot of RENDER.maxText
-  labelCandidates: () => guard(() => labelCandidateList(labelDevCarriers()).map(n => n.id)),   // theme-free eligibility + priority (no fonts/raster/budget/cap)
+  labelCandidates: () => guard(() => labelCandidateList(labelDevCarriers()).map(n => n.id)),   // theme-free: see labelCandidateList
   legendRows: () => guard(legendRowsObj),
   channels: () => guard(() => { const o = { "2.4": {}, "5": {}, "6": {}, overlaps: analyzer.overlaps.map(p => ({ a: p.a, b: p.b, band: p.band, kind: p.kind, assumed: p.assumed })) }; for (const b of ["2.4", "5", "6"]) analyzer.channels[b].forEach((e, ch) => { o[b][ch] = e.count; }); return o; }),
   groups: () => guard(() => { const out = []; S.groups.forEach(g => { if (g.members.length >= 2) out.push({ key: g.key, members: g.members.slice(), bands: Array.from(g.bands) }); }); return out; }),
@@ -6952,7 +7201,8 @@ window.STARCHORUS = Object.freeze({
   skyStats: () => guard(skyStatsObj),
   changes: (bssid) => guard(() => (S.chg.get(String(bssid).toLowerCase()) || []).map(c => Object.assign({}, c))),   // the AP's change log (DS channel / security class / SSID / band)
   baseline: () => guard(() => Object.assign({}, S.base)),
-  setBaseline: () => guard(baselineSet), clearBaseline: () => guard(() => { baselineClear(); return true; }),
+  setBaseline: () => guard(baselineSet),
+  clearBaseline: () => guard(() => { baselineClear(); return true; }),
   observations: () => guard(() => S.obs.map(o => ({ group: o.group, text: o.text }))),
   watch: (ssid, on) => guard(() => ssid === undefined ? S.watch.slice() : watchSet(ssid, on)),
   dust: () => guard(dustObj),   // per freshness tier the mean dust radius and alpha
@@ -6992,14 +7242,56 @@ window.STARCHORUS = Object.freeze({
   inventory: (filter) => guard(() => { if (filter !== undefined) { S.inv.filter = Object.assign({}, filter || {}); S.dirty = true; } return invApRows().rows.map(n => n.id); }),
   clearLocalData: () => guard(clearLocalData),   // P8: deletes every starchorus.* key this page writes
   contrast: (pairs, themeId) => guard(() => contrastPairs(pairs, themeId)),   // WCAG 2.x ratios, default = CONTRAST_PAIRS
-  settle: (maxIter = 600) => guard(() => { S.layoutDirty = true; S.aggDirty = true; S.aps.forEach(n => { n.hexA = 0; }); S.clientOrder.forEach(n => { n.orbitPhase = NaN; }); settleLayout(maxIter); S.clients.forEach(n => { if (n.free) { n.wx = n.lx; n.wz = n.lz; n.placed = true; } }); S.clouds.forEach(k => { k.wx = k.lx; k.wz = k.lz; k.placed = true; }); S.aps.forEach(n => { n.angle = n.angleT; n.radius = n.radiusT; n.wx = Math.cos(n.angle) * n.radius; n.wz = Math.sin(n.angle) * n.radius; }); S.clients.forEach(n => { if (n.free) return; const ap = S.aps.get(n.parent); if (ap) { n.wx = ap.wx + Math.cos(n.orbitPhase) * n.orbitR / maxRadius; n.wz = ap.wz + Math.sin(n.orbitPhase) * n.orbitR / maxRadius; n.placed = true; } }); computeGroupEdges(); projectAll(); sortOrder(); render(); return layoutInfo(); }),
+  settle: (maxIter = 600) => guard(() => {
+    S.layoutDirty = true; S.aggDirty = true;
+    S.aps.forEach(n => { n.hexA = 0; });
+    S.clientOrder.forEach(n => { n.orbitPhase = NaN; });
+    settleLayout(maxIter);
+    S.clients.forEach(n => { if (n.free) { n.wx = n.lx; n.wz = n.lz; n.placed = true; } });
+    S.clouds.forEach(k => { k.wx = k.lx; k.wz = k.lz; k.placed = true; });
+    S.aps.forEach(n => { n.angle = n.angleT; n.radius = n.radiusT; n.wx = Math.cos(n.angle) * n.radius; n.wz = Math.sin(n.angle) * n.radius; });
+    S.clients.forEach(n => {
+      if (n.free) return;
+      const ap = S.aps.get(n.parent);
+      if (ap) { n.wx = ap.wx + Math.cos(n.orbitPhase) * n.orbitR / maxRadius; n.wz = ap.wz + Math.sin(n.orbitPhase) * n.orbitR / maxRadius; n.placed = true; }
+    });
+    computeGroupEdges(); projectAll(); sortOrder(); render();
+    return layoutInfo();
+  }),
   frame: () => guard(() => { projectAll(); sortOrder(); render(); S.perf.rendered++; }),
   wait: (ms) => new Promise(r => setTimeout(r, ms)),
-  measure: (seconds = 2) => new Promise(res => { const t0 = performance.now(); const startR = S.perf.rendered; let rafs = 0; let maxMs = 0; const samples = []; let last = t0; const loop = () => { const now = performance.now(); rafs++; const d = now - last; last = now; if (rafs > 1) { samples.push(d); if (d > maxMs) maxMs = d; } if (now - t0 < seconds * 1000) requestAnimationFrame(loop); else { samples.sort((a, b) => a - b); const p = (q) => samples.length ? samples[Math.min(samples.length - 1, Math.floor(q * samples.length))] : 0; res({ fps: Math.round(rafs * 1000 / (now - t0)), renderedFrames: S.perf.rendered - startR, rafFrames: rafs, p50Ms: r3(p(0.5)), p95Ms: r3(p(0.95)), maxMs: r3(maxMs), drawCalls: Object.assign({}, S.perf.drawCalls) }); } }; requestAnimationFrame(loop); }),
-  perf: () => guard(() => { const s = S.perf.samples.slice().sort((a, b) => a - b); const p = (q) => s.length ? s[Math.min(s.length - 1, Math.floor(q * s.length))] : 0; return { frameMs: { ema: r3(S.perf.frameMs), p50: r3(p(0.5)), p95: r3(p(0.95)), max: r3(s.length ? s[s.length - 1] : 0) }, fps: S.perf.fps, lod: S.perf.lod, dpr: r3(S.perf.dpr), drawCalls: Object.assign({}, S.perf.drawCalls) }; }),
+  measure: (seconds = 2) => new Promise(res => {
+    const t0 = performance.now();
+    const startR = S.perf.rendered;
+    let rafs = 0; let maxMs = 0;
+    const samples = []; let last = t0;
+    const loop = () => {
+      const now = performance.now(); rafs++;
+      const d = now - last; last = now;
+      if (rafs > 1) { samples.push(d); if (d > maxMs) maxMs = d; }
+      if (now - t0 < seconds * 1000) requestAnimationFrame(loop);
+      else {
+        samples.sort((a, b) => a - b);
+        const p = (q) => samples.length ? samples[Math.min(samples.length - 1, Math.floor(q * samples.length))] : 0;
+        res({ fps: Math.round(rafs * 1000 / (now - t0)), renderedFrames: S.perf.rendered - startR, rafFrames: rafs, p50Ms: r3(p(0.5)), p95Ms: r3(p(0.95)), maxMs: r3(maxMs), drawCalls: Object.assign({}, S.perf.drawCalls) });
+      }
+    };
+    requestAnimationFrame(loop);
+  }),
+  perf: () => guard(() => {
+    const s = S.perf.samples.slice().sort((a, b) => a - b);
+    const p = (q) => s.length ? s[Math.min(s.length - 1, Math.floor(q * s.length))] : 0;
+    return { frameMs: { ema: r3(S.perf.frameMs), p50: r3(p(0.5)), p95: r3(p(0.95)), max: r3(s.length ? s[s.length - 1] : 0) }, fps: S.perf.fps, lod: S.perf.lod, dpr: r3(S.perf.dpr), drawCalls: Object.assign({}, S.perf.drawCalls) };
+  }),
   setFixedTime: (ms) => guard(() => { S.fixedTime = ms == null ? null : +ms; dtgTick(); S.dirty = true; }),
   skipIntro: () => guard(() => skipIntro()),
-  pixel: (id, x, y) => guard(() => { const m = { bg: [ctxBg, S.perf.dpr], sky: [ctxSky, S.perf.dpr], hud: [ctxHud, hudDpr] }[id]; if (!m) return { r: 0, g: 0, b: 0, a: 0 }; const d = m[1]; const px = m[0].getImageData(Math.round(x * d), Math.round(y * d), 1, 1).data; return { r: px[0], g: px[1], b: px[2], a: px[3] }; }),
+  pixel: (id, x, y) => guard(() => {
+    const m = { bg: [ctxBg, S.perf.dpr], sky: [ctxSky, S.perf.dpr], hud: [ctxHud, hudDpr] }[id];
+    if (!m) return { r: 0, g: 0, b: 0, a: 0 };
+    const d = m[1];
+    const px = m[0].getImageData(Math.round(x * d), Math.round(y * d), 1, 1).data;
+    return { r: px[0], g: px[1], b: px[2], a: px[3] };
+  }),
   particleDigest: () => guard(() => particleDigest()),
   storageDump: () => guard(() => readStored()),
   resetStorage: () => guard(() => safeStorage.remove(STORAGE_KEY)),
