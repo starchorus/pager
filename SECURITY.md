@@ -16,7 +16,7 @@ network, sends no frames and changes no one else's radio state.
 
 | Path | Implementation |
 |---|---|
-| **Reading the recon database** | The preferred path on the device. The SQLite database that the device's recon service fills passively is **copied** before reading and opened only with `sqlite3 -readonly`, so that capture is never locked. The working copy lives in `STARCHORUS_CAPDIR`. |
+| **Reading the recon database** | The preferred path on the device. The SQLite database that the device's recon service fills passively is **copied** before reading and opened only with `sqlite3 -readonly`, so that capture is never locked. The working copy lives in RAM (`STARCHORUS_TMPDIR`, default `/tmp`, a tmpfs on the device) and is deleted after each cycle. With too little room there, or if the copy fails, it is made in `STARCHORUS_CAPDIR` instead (flash; it stays there until a later copy fits in RAM), and as a last resort the live file is read in place, still read-only. It holds other people's MAC addresses and SSIDs, and on the default path it is not written to flash. The collector also keeps the document of its last full pass in its memory (not in a file), which a skipped cycle republishes with a new `generated`. |
 | **Receiving in monitor mode** | Listening with `tcpdump` (or `airodump-ng`, if installed) on a monitor interface: receive only, no injection. |
 | **Tuning the receiver to a channel** | Only in order to listen; nothing is sent. |
 
@@ -32,13 +32,14 @@ defaults to **off**.
 
 | Path | What exactly | Default | Transmits? |
 |---|---|---|---|
-| Vendor name from an OUI file | reads a **local** file of MAC prefixes (`STARCHORUS_OUI_FILE`; `auto` tries known paths) and adds `vendor`; `randomized` follows from the MAC itself, without a lookup. A cache lives in `STARCHORUS_CAPDIR`. | on (`STARCHORUS_VENDOR=1`) | no |
+| Vendor name from an OUI file | reads a **local** file of MAC prefixes (`STARCHORUS_OUI_FILE`; `auto` tries known paths) and adds `vendor`; `randomized` follows from the MAC itself, without a lookup. A cache and an index of the OUI file live in `STARCHORUS_CAPDIR`. | on (`STARCHORUS_VENDOR=1`) | no |
 | `iw dev <IF> survey dump` | reads the channel statistics kept by the driver (frequency, noise, active and busy time) via a netlink dump; **no scan** | off (`STARCHORUS_SURVEY=1`) | no |
 | `/sys/class/net/*/address` | reads the MAC addresses of the device's own interfaces into `center.own_bssids`; `own_ssids` comes **only** from the file in `STARCHORUS_OWN_SSID_FILE`, never from the AP service's SSID pool | off (`STARCHORUS_OWN=1`) | no |
 | Recon database, column `time` | a further read-only query of the same copy: last time heard per frequency into `channels[]` | off (`STARCHORUS_HOPINFO=1`) | no |
 | Recon database, probe responses | number of distinct SSIDs with which a BSSID has answered probes (`responded_ssids`, only from 2 upwards); a number, not a list of SSIDs | always on the database path | no |
 | Homing AP | reads `STARCHORUS_HOMING_BSSID` or the first line of `$STARCHORUS_OUTDIR/homing.target` and adds a `homing` object built from that AP's row in the same document (section 4) | no AP | no |
-| `apcli_ro` | the only place where a command of the AP service's command line may appear: **exactly** three fixed, read-only calls (AP list and client list of the recon data as JSON, listening to a single BSSID at rate 200 with a 120 s timeout), literal in the code, no `eval`, no variable command name. The BSSID must be a lower-case unicast MAC, an AP of the current document, and neither a station nor one of the device's own transmitters. No part of the program calls the function. The self-test calls it with a stub and shows that deauth, stopping and restarting recon, SSID pool commands, uploads, GPS, broadcast, multicast, client MACs and injection attempts are refused **without** a call. | off (`STARCHORUS_APCLI_RO=1`) | no (read-only commands; their output has not been verified on the device) |
+| `apcli_ro` | the only place where a command of the AP service's command line may appear: **exactly** three fixed command lines, literal in the code, no `eval`, no command name taken from a variable and no argument taken from outside (the lines only carry the optional prefix `timeout 10`). They are two read-only commands: `RECON APS format=json` and `RECON DEVICES format=json` (the recon lists as JSON), the second one also in the CLI's own bounded form `sort=time sortdir=desc limit=400` (newest first; this is the form `STARCHORUS_SOURCE=pineap` runs by default, `STARCHORUS_PINEAP_CALLS=full` runs the two plain lists). The plain lists were checked on the device (docs/device-notes.md, V-3): the transmit counters of every wireless interface (`wlan0`, `wlan0mon`, `wlan1mon`) were the same before and after each call. The bounded form (`limit=400`) was checked the same way in a 130 s run of the source on 14 October 2026 (the forms `limit=50` and `pagesize=100 page=1` earlier): the counters were unchanged. The calls run under `timeout 10` where a `timeout` command exists. Listening to a single BSSID, never verified on the device and called by nothing, is no longer in the list. The self-test calls the function with a stub and shows that deauth, stopping and restarting recon, `RECON CLIENTS` (which does not exist), SSID pool commands, uploads, GPS, listening to a BSSID, extra arguments and injection attempts are refused **without** a call. | off (`STARCHORUS_APCLI_RO=1`); `STARCHORUS_SOURCE=pineap` switches `apcli_ro` on for itself | no (read-only commands) |
+| Source `pineap` (experimental) | `STARCHORUS_SOURCE=pineap` builds `starchorus.json` from these lists instead of from the database (opt-in only; `auto` never chooses it, and recon.db stays the default). When the AP service gives no usable answer, that cycle is built from the database. Its only extra read is the database path already described: the security of each access point, which the lists do not carry, from one query at most once a minute while an access point is new to the cache (every 10 minutes for those the database does not know). The labels are kept in a small cache in RAM, `$STARCHORUS_TMPDIR/starchorus-sec.txt`: the BSSIDs of nearby access points with their security. The collector does not delete it when it exits; it goes with a reboot, or delete it by hand. The lists of BSSIDs that a lookup is made from (`starchorus-pineap-<pid>.*`) are deleted at the end of each cycle. If `STARCHORUS_TMPDIR` is not a writable directory no lookup is made and every access point reads `Unknown`. Nothing else is run. | off (`STARCHORUS_SOURCE=pineap`) | no |
 | `center.max_age`, `center.interval`, `akm`/`cipher`/`auth` | pure **output** fields in `starchorus.json`, computed from existing values | always | no |
 
 One collector runs per Pager, so that two loops never share the monitor interface or radio: starting
@@ -47,7 +48,7 @@ runs are left alone), and each loop so stopped is logged on stderr with its pid 
 directory. `starchorus.json` is written atomically (temporary file, then `mv`) and lives in
 `STARCHORUS_OUTDIR`; pidfiles live in `STARCHORUS_PIDDIR`. The on-device payload writes its
 settings to `settings.conf` in the same directory. Run from a self-contained payload directory
-(`tools/hak5-package.sh`), it also copies its bundled collector, page, dashboard and fallback server
+(`tools/hak5-package.sh`), it also copies its bundled collector, page, Overview and netcat server
 there once, on the first run, and never over a collector that is already installed. These are
 local file writes; nothing is sent.
 
@@ -75,7 +76,8 @@ configuration (no rules, no services) and controls neither LED nor buzzer.
   `method:`, `POST`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, no other network
   APIs and no navigation used as a command path; external URLs only in the font's licence header.
 - The AP service's command words (command-line call, the service's environment variables, deauth,
-  SSID pool, upload, GPS) appear only in `apcli_ro`, `apcli_stub` and `apcli_selftest`.
+  SSID pool, upload, GPS) appear only in `apcli_ro`, `apcli_stub` and `apcli_selftest`; the `pineap`
+  source reaches the command line only through `apcli_ro`.
 - `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1`; no transmitting tool is called.
 - Every `sqlite3` call outside the self-test carries `-readonly`.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
@@ -101,7 +103,7 @@ STARCHORUS_ALLOW_ACTIVE=1   # default: 0 (off). Sends probe requests. Set only d
 | Default | `0` (off) |
 | Effect when `1` | `iw scan` becomes the last resort of the `auto` source selection; it can be forced with `STARCHORUS_SOURCE=iwscan`, but even then only with `STARCHORUS_ALLOW_ACTIVE=1` |
 | Marking in the JSON | `"source": "iw-scan-ACTIVE"` |
-| Display | the page and the dashboard switch to the ACTIVE line; the 'receive only' statement then appears nowhere |
+| Display | the page and the Overview switch to the ACTIVE line; the 'receive only' statement then appears nowhere |
 
 > **Warning.** While `STARCHORUS_ALLOW_ACTIVE=1` is set, Starchorus is **no longer passive**: the
 > device emits probe requests and so takes a detectable part in radio traffic. Leave this variable
@@ -135,7 +137,7 @@ range. Handle this data with care:
 - **Make it reachable only as far as necessary.** If the page is served, it is on port
   `STARCHORUS_PORT` (default 8199) of the management address only (§5); ports 80 and 1471 are left
   alone. Do not make it more widely reachable than necessary, and clear out `STARCHORUS_OUTDIR` when
-  you no longer need the data.
+  you no longer need the data (with the `pineap` source also `$STARCHORUS_TMPDIR/starchorus-sec.txt`).
 - **No profiling of people.** The tool visualises the radio environment; it is not meant for
   tracking individuals.
 
@@ -147,7 +149,7 @@ panel, or `STARCHORUS.clearLocalData()`, deletes them all in one call. There are
 
 | Key | Content | Limit |
 |---|---|---|
-| `starchorus.ui.v1` | view switches (theme, 2D/3D, layers, Observations and baseline on or off): booleans and names only | a few bytes |
+| `starchorus.ui.v1` | view switches (theme, 2D/3D, the Random switch, layers, Hide panels, Observations and baseline on or off): booleans and names only | a few bytes |
 | `starchorus.identity.v1` | the **manual** classification Friend/Neutral/Suspect per **observed key** (AP or station; MAC → class) | **≤ 5000 entries** (`IDENT_MAX`); when the list is full, a new key is refused, and an existing classification is never silently displaced |
 | `starchorus.baseline.v1` | the baseline: per AP `[SSID, channel, band, security class, RSSI]` under its BSSID, per station only `[RSSI]` under its MAC (field `st`, **no link** to an AP), plus the capture's timestamp | **≤ 500 APs, ≤ 2000 stations** (strongest first); never the device's own transmitters, never probable phone hotspots |
 | `starchorus.watch.v1` | the watchlist: SSID texts only (≤ 32 characters) | **≤ 20 entries**; it matches only `aps[].ssid`, never probes |
@@ -173,6 +175,9 @@ Likewise held only in memory, and discarded when the source changes:
 - the change log (≤ 12 entries per AP, ≤ 500 BSSIDs);
 - observations and ghosts.
 
+Random clouds are computed in the browser, and on the Pager's own screen by the Overview, from the
+capture already present, so nothing new leaves the device.
+
 The observations are derived notes in neutral language, without judgement. A note appears only once
 it has held for two captures in a row, and never for the device's own transmitters or for phone
 hotspots. The number of stations that have searched for a confirmed SSID is shown only in bands
@@ -191,6 +196,8 @@ data.
 
 - It contains access points and stations (MAC, vendor, band, signal, probes and the AP link, all
   received) as well as aliases and tags.
+- Addresses the page groups into a cloud carry the cloud's id in JSON and in a trailing CSV column; the cloud entry holds counts,
+  signal range, times and probed network names, all received, and is marked as an estimate.
 - It contains none of the device's own transmitters, no probable phone hotspots (not even as a
   station's link; only their number) and no note texts.
 - Every format carries the footer 'Starchorus · passive observation · not a government system · no
@@ -204,30 +211,40 @@ station, an unknown BSSID and one of the device's own. The page accepts the obje
 was observed in this capture (AP or station) and is not one of the device's own transmitters. The
 tone is off and needs a user gesture; it changes only the pitch and names nothing.
 
-### On-device dashboard
+### On-device Overview
 
 `starchorus-display.sh` reads only the local `starchorus.json` and writes nothing but **LOG lines**
 to the device's display (append only; a payload cannot register screens of its own). It sets
-neither LED nor buzzer, calls no network program and stores nothing. An optional line template
-(`STARCHORUS_DISPLAY_TEMPLATE`, otherwise the first line of `$STARCHORUS_DIR/display.tpl`) is only
+neither LED nor buzzer, calls no network program and stores nothing that outlasts it. An optional line
+template (`STARCHORUS_DISPLAY_TEMPLATE`, otherwise the first line of `$STARCHORUS_DIR/display.tpl`) is only
 read, and only numbers are inserted into it.
 
-The one exception to 'stores nothing' is the self-test `--selftest`, run by hand: it creates a
-small synthetic fixture with `mktemp` (dummy BSSIDs, no real data), which a `trap` deletes again
-even on INT and TERM, and writes its `PASS`/`FAIL` lines to stdout.
+While it runs, the key it waits for is handed over through a file in a private temporary directory
+(`mktemp -d`, mode 700). The file holds the name of the key pressed and a clock reading, nothing from the
+capture. A second file in the same directory holds the output of the screen's `jq` program, the lines that go to the display next,
+until the next program replaces it. A `trap` deletes the directory when the Overview ends, even on INT and TERM. The Overview signals only
+processes it started itself (the waiter for the key, its `jq` and the watcher of that `jq`).
+
+The one other file is that of the self-test `--selftest`, run by hand: it creates a small synthetic
+fixture with `mktemp` (dummy BSSIDs, no real data), which a `trap` deletes again even on INT and TERM, and
+writes its `PASS`/`FAIL` lines to stdout.
 
 ## 5. Network
 
-- The page makes exactly one kind of request: `GET starchorus.json` from its own origin, every 5 s.
+- The page makes exactly one kind of request: `GET starchorus.json` from its own origin, one at a time: shortly before
+  each capture is due, then every 2 s until it arrives, and every 5 s while it shows no live capture.
 - The page must come from the same origin as `starchorus.json`. How it is served (web server on the
-  device, connected computer, fallback server) is described in the
+  device, connected computer, netcat server) is described in the
   [README](README.md#serving-the-page); the details are in
   [docs/display-paths.md](docs/display-paths.md).
-- The fallback server `starchorus-serve.sh` is the only part of Starchorus that listens on the
+- The netcat server `starchorus-serve.sh` is the only part of Starchorus that listens on the
   device itself; the other page servers are the device's own programs (`uhttpd`, BusyBox `httpd`,
   `python3`), started by the payload. It answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`, everything
   else with 404, one connection at a time. `starchorus-serve.sh stop` stops only the processes the
-  script started itself.
+  script started itself. It sends no `Access-Control-Allow-Origin` header, so a web page of another
+  origin that is open in the same browser cannot read `starchorus.json` from it. A client that stays
+  silent is dropped after 15 s; while it answers, it holds a copy of the file in `/tmp` (RAM, mode
+  600), removed when the answer ends.
 
 ### Network exposure of the page
 
@@ -241,7 +258,7 @@ So every page server listens on one address, `STARCHORUS_BIND` (on-device payloa
 key). The default, `auto`, is the address of `br-lan`, reachable over USB-C and the management Wi-Fi
 only; without it, `172.16.52.1` if configured, otherwise `127.0.0.1`. An explicit IPv4 address
 binds that one. `all` listens on every interface and exposes the data to every network the device
-is on; it is never chosen automatically, and `0.0.0.0` is not accepted in its place. The fallback
+is on; it is never chosen automatically, and `0.0.0.0` is not accepted in its place. The netcat
 server binds one address through `nc -s`; with an `nc` that lacks it, it starts only with `all`.
 
 ## 6. Reporting security concerns

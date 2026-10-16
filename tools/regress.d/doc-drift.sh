@@ -5,7 +5,7 @@
 #
 # R6 ties the three places that carry the version together, so a bump can never land in only one of them.
 # R7 keeps the documentation from drifting: the README avoids theme words (transport-like, NORAD, PPI,
-# bearing-grid, phosphor-green), the spec chapter §14 stays complete (D1-D20, P1-P10, U1-U4 with U1 still open),
+# bearing-grid, phosphor-green), the spec chapter §14 stays complete (D1-D21, P1-P10, U1-U4 with U1 still open),
 # and neither the spec nor the README carries a film quotation. The README's two statements
 # about the source line are checked against the page itself (COPY_ACTIVE and the stale chip label are read
 # out of starchorus.html), so a re-voicing of the copy tokens turns the row red instead of silently
@@ -27,11 +27,11 @@ fi
 # ---- R7: README avoids these theme words, spec §14 complete
 DRF_A=$(grep -ciE 'transport-(like|style)' README.md)
 DRF_B=$(grep -ciw -e norad -e ppi -e 'phosphor-green' -e 'bearing-grid' README.md)
-DRF_D=$(awk '/^## 14\./,0' "$DRF_S" | grep -oE '\| D([1-9]|1[0-9]|20) \|' | sort -u | wc -l | tr -d ' ')
+DRF_D=$(awk '/^## 14\./,0' "$DRF_S" | grep -oE '\| D([1-9]|1[0-9]|2[01]) \|' | sort -u | wc -l | tr -d ' ')
 DRF_P10=$(awk '/^## 14\./,0' "$DRF_S" | grep -oE '\*\*P([1-9]|10)\*\*' | sort -u | wc -l | tr -d ' ')
 DRF_U=$(awk '/^## 14\./,0' "$DRF_S" | grep -oE '^\| U[1-4] \|' | sort -u | wc -l | tr -d ' ')
-if [ "$DRF_A$DRF_B" = 00 ] && [ "$DRF_D/$DRF_P10/$DRF_U" = 20/10/4 ]; then
-  row "doc drift: README theme words 0, spec §14 D20/P10/U4" PASS
+if [ "$DRF_A$DRF_B" = 00 ] && [ "$DRF_D/$DRF_P10/$DRF_U" = 21/10/4 ]; then
+  row "doc drift: README theme words 0, spec §14 D21/P10/U4" PASS
 else
   row "doc drift: README $DRF_A/$DRF_B, spec §14 $DRF_D/$DRF_P10/$DRF_U" FAIL
 fi

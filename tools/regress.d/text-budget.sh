@@ -62,11 +62,11 @@ else
   row "text budget: SPRITE_TEXT_MAX guard" FAIL; echo "    got:  $TXB_G"; echo "    want: $TXB_GW"
 fi
 
-# ---- static: the budget constants stay at 30/24, and the three baked call sites do not decrement it.
+# ---- static: the budget constants stay at 30/24, and the four baked call sites (centre post, 3D ring posts, cursor, the random-cloud tags of §8.8a) do not decrement it.
 TXB_S1=$(grep -c 'maxText: { "2d": 30, "3d": 24 }' "$H")
 TXB_S2=$(awk '/==== 35 RENDER HUD/,/==== 36 INTERACTION/' "$H" | grep -c 'getSprite("text"')
 TXB_S3=$(awk '/==== 35 RENDER HUD/,/==== 36 INTERACTION/' "$H" | grep -c 'budget--')
-rowif "text budget: budget unchanged at 30/24 ($TXB_S1), three baked posts in §35 ($TXB_S2), six counted draws left — AP name, vendor, badge, client vendor, group and the over-long centre fallback ($TXB_S3)" [ "$TXB_S1/$TXB_S2/$TXB_S3" = 1/3/6 ]
+rowif "text budget: budget unchanged at 30/24 ($TXB_S1), four baked posts in §35 ($TXB_S2: centre, ring posts, cursor, cloud tags), six counted draws left — AP name, vendor, badge, client vendor, group and the over-long centre fallback ($TXB_S3)" [ "$TXB_S1/$TXB_S2/$TXB_S3" = 1/4/6 ]
 TXB_S4=$(grep -c 'SPRITE_TEXT_MAX' "$H")
 rowif "text budget: the bake guard is declared once and used once ($TXB_S4)" [ "$TXB_S4" = 3 ]
 

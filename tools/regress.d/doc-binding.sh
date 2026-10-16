@@ -68,6 +68,6 @@ else row "spec binding: CONTRIBUTING makes the passivity check mandatory for eve
 # the display script's outputs are described where a reader looks for them: SECURITY.md (LOG lines only) and the payload's
 # README (its seven screens, down to the last one, air quality)
 DBN_PR=library/user/reconnaissance/starchorus/README.md
-DBN_SS=$(grep -c 'LOG lines' SECURITY.md); DBN_HK=$(grep -c 'Dashboard (.starchorus-display.sh.): seven screens' "$DBN_PR"); DBN_HA=$(grep -c 'stations, air quality)' "$DBN_PR")
+DBN_SS=$(grep -c 'LOG lines' SECURITY.md); DBN_HK=$(grep -c 'Overview (.starchorus-display.sh.): seven screens' "$DBN_PR"); DBN_HA=$(grep -c 'stations, air quality)' "$DBN_PR")
 if [ "$DBN_SS" -ge 1 ] && [ "$DBN_HK" -ge 1 ] && [ "$DBN_HA" -ge 1 ]; then row "spec binding: SECURITY.md and the payload README describe the display outputs ($DBN_SS/$DBN_HK/$DBN_HA)" PASS
 else row "spec binding: SECURITY.md and the payload README describe the display outputs ($DBN_SS/$DBN_HK/$DBN_HA)" FAIL; fi

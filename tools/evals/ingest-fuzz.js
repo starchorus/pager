@@ -154,6 +154,23 @@
       if (sub() !== keep2) add("drop:" + nm.slice(0, 20), "a bad drop changed the display");
       for (const p of panelBad()) add("drop:" + nm.slice(0, 20), p);
     }
+    // a random cloud (§8.8a) whose member probes for a hostile name: the cloud's tooltip and sheet list the probed names
+    {
+      clearErr(); const hs = "<img src=x onerror=window.__x=1>";
+      const un = Array.from({ length: 20 }, (_, i) => ({ mac: "02:00:5e:f0:00:" + (i < 10 ? "0" : "") + i, rssi: -40, last_seen: 620 + 20 * i, randomized: true, probes: i ? [] : [hs] }));   // 20 bursts, one every 20 s: the rhythm has to stand clear of chance
+      W.load({ generated: 1000, source: "recon-db", center: { label: "cloud" }, aps: [], unassociated: un }, "fuzz-cloud"); W.settle(); W.frame();
+      const k = (W.clouds() || [])[0];
+      if (!k) add("cloud", "anchor: the cloud document has no cloud");
+      else {
+        W.hoverNode(k.id); sinks.tip++;
+        const t = html("#tip-body"); if (t.indexOf("&lt;img") >= 0 && t.indexOf(hs) < 0) sinks.anchors++; else add("cloud", "anchor: cloud tooltip holds the probe masked and not raw");
+        W.hoverNode(null); W.select(k.id); sinks.detail++;
+        const d = html("#detail-body"); if (d.indexOf("&lt;img") >= 0 && d.indexOf(hs) < 0) sinks.anchors++; else add("cloud", "anchor: cloud sheet holds the probe masked and not raw");
+        W.deselect();
+      }
+      for (const p of panelBad()) add("cloud", p);
+      if (S.errors.length) add("cloud", "errors(): " + S.errors[0]);
+    }
     // legend (static rows, rebuilt on a theme switch): nothing dynamic reaches it, so the anchor is that it is there
     for (const t of ["wargames", "whitehall", "foundation"]) { W.setTheme(t); sinks.legend++; if (html("#legend").indexOf("legrow") < 0) add("legend", "the legend has no rows in " + t); for (const p of panelBad()) add("legend:" + t, p); }
     await wait(500);

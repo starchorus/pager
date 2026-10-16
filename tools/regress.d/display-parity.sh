@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # shellcheck shell=sh
-# tools/regress.d/display-parity.sh -- the on-device dashboard (starchorus-display.sh) says what the page says.
-#   the numbers of `sh starchorus-display.sh --once summary <fixture>` = the page's stats() for every fixture · red only for an alarm · GEN instead of SEQ ·
+# tools/regress.d/display-parity.sh -- the Overview (starchorus-display.sh) says what the page says.
+#   the numbers of `sh starchorus-display.sh --once summary <fixture>` = the page's stats() for every fixture (the randomised free
+#   stations and the random clouds of §8.8a included) · red only for an alarm · GEN instead of SEQ ·
 #   the Air quality LOG block = the page's airQuality() · the optional template · no new output path ·
 #   the busiest channel = the page's crowdingOf() on every fixture and on generated tie/edge documents ·
 #   the whole Air block (AP count, beacon estimate, top channels, least occupied) = airQuality() on the same documents ·
@@ -21,11 +22,12 @@ dsp_airp() { DSP_PG air "$1" | awk '
   /^    least occupied: ch / { q[cur]=$4 }
   END { for (b=1; b<=3; b++) { k=(b==1?"2.4":(b==2?"5":"6")); if (na[k] || !(k in n)) printf "%s:-;", k; else printf "%s:%s@%s%s|%s;", k, n[k], bp[k], top[k], q[k] } }'; }
 
-# ---- numbers: display summary = page stats() for every fixture (APs, bands, alarms, the four freshness stages + undated, crowding)
+# ---- numbers: display summary = page stats() for every fixture (APs, bands, alarms, the four freshness stages + undated, crowding, and
+# from the Clients line "(N random, K clouds)" the randomised free stations and the clouds; no parenthesis = 0 and 0)
 DSP_BAD=0; DSP_N=0; DSP_SHOW=""
 for DSP_J in "$F"/*.json; do
   DSP_B=$(basename "$DSP_J" .json); DSP_N=$((DSP_N + 1))
-  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" >/dev/null 2>&1
+  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding,s.randomisedFree,s.clouds]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" >/dev/null 2>&1
   DSP_PAGE=$(evalv "out/$P-dsp-$DSP_B.json" 1 | python3 -c 'import json,sys;print(" ".join(str(x) for x in json.load(sys.stdin)))' 2>/dev/null)
   DSP_OUT=$(DSP_PG summary "$DSP_J")
   DSP_DISP=$(printf '%s\n' "$DSP_OUT" | awk '
@@ -33,11 +35,12 @@ for DSP_J in "$F"/*.json; do
     /^Open\/WEP networks: / { open=$3 }
     /^heard < 1 min / { t0=$5; t1=$11; t2=$17; t3=$21; u=0; for (i=1;i<=NF;i++) if ($i=="undated") u=$(i+1) }
     /^Crowding / { split($2,c,"/"); cr=c[1] }
-    END { print aps+0, b24+0, b5+0, b6+0, open+0, t0+0, t1+0, t2+0, t3+0, u+0, cr+0 }')
+    /^Clients / { for (i=1;i<=NF;i++) { if ($i ~ /^\([0-9]+$/ && $(i+1) ~ /^random/) { rn=substr($i,2) } if ($i ~ /^[0-9]+$/ && $(i+1) ~ /^clouds?\)$/) { nc=$i } } }
+    END { print aps+0, b24+0, b5+0, b6+0, open+0, t0+0, t1+0, t2+0, t3+0, u+0, cr+0, rn+0, nc+0 }')
   if [ "$DSP_PAGE" != "$DSP_DISP" ]; then DSP_BAD=$((DSP_BAD + 1)); DSP_SHOW="$DSP_SHOW $DSP_B: page [$DSP_PAGE] display [$DSP_DISP];"; fi
 done
-if [ "$DSP_BAD" = 0 ] && [ "$DSP_N" -ge 12 ]; then row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding; $DSP_BAD differ)" PASS
-else row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding; $DSP_BAD differ)" FAIL; fi
+if [ "$DSP_BAD" = 0 ] && [ "$DSP_N" -ge 13 ]; then row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds; $DSP_BAD differ)" PASS
+else row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds; $DSP_BAD differ)" FAIL; fi
 [ "$DSP_BAD" = 0 ] || echo "   $DSP_SHOW"
 
 # ---- busiest channel: the display script's "busiest" = the page's crowdingOf() busiest, on every fixture AND on generated edge documents.
@@ -100,17 +103,22 @@ else row "display busiest channel = the page's crowdingOf() on $DSP_BZN document
 [ "$DSP_BZBAD" = 0 ] || echo "   $DSP_BZSHOW"
 
 # ---- colours: red only for an alarm, nothing is green; GEN moves with the capture, not with the render; the version
-# The alarms are the open/WEP lines and the ONE "jq incomplete" fault line of
-# jq_warn (the counts may be blank): exactly that one line, in exactly that function, is allowed besides open/WEP.
+# The alarms are the open/WEP lines, the ONE "jq incomplete" fault line of
+# jq_warn (the counts may be blank) and the ONE "No new scan" line (stale_line: the collector has not written for three of its
+# intervals; stamp(), which frame() calls, prints it at the end of every screen in place of the time of the scan): exactly those lines,
+# in exactly those functions, are allowed besides open/WEP.
 DSP_JQW='^jq_warn() { jq_healthy || log red "jq incomplete on this device -- counts may be blank. Run: sh starchorus-display.sh --selftest"; }$'
+# shellcheck disable=SC2016   # literal script text
+DSP_STL='    log red "No new scan for $st."'
 DSP_GREEN=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'green')
 DSP_RED=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'log red')
 DSP_REDJ=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c "$DSP_JQW")
+DSP_REDS=$(awk '/^stale_line\(\) *{/,/^}/' starchorus-display.sh | grep -cxF "$DSP_STL")
 # the top screen's alarm line is the one its jq filter marked with "!" from the security field, not a text search
 DSP_TOPR="'!'*) log red \"\${line#?}\" ;;"
-DSP_REDL=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep 'log red' | grep -v 'Open/WEP\|"Open:"' | grep -vF "$DSP_TOPR" | grep -cv "$DSP_JQW")
-if [ "$DSP_GREEN" = 0 ] && [ "$DSP_REDL" = 0 ] && [ "$DSP_REDJ" = 1 ] && [ "$DSP_RED" -ge 4 ]; then row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines and the one jq-incomplete line ($DSP_RED red calls, jq line $DSP_REDJ, $DSP_REDL not on an alarm)" PASS
-else row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines and the one jq-incomplete line ($DSP_RED red calls, jq line $DSP_REDJ, $DSP_REDL not on an alarm)" FAIL; fi
+DSP_REDL=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep 'log red' | grep -v 'Open/WEP\|"Open:"' | grep -vF "$DSP_TOPR" | grep -vxF "$DSP_STL" | grep -cv "$DSP_JQW")
+if [ "$DSP_GREEN" = 0 ] && [ "$DSP_REDL" = 0 ] && [ "$DSP_REDJ" = 1 ] && [ "$DSP_REDS" = 1 ] && [ "$DSP_RED" -ge 5 ]; then row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line and the one stale-scan line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, $DSP_REDL not on an alarm)" PASS
+else row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line and the one stale-scan line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, $DSP_REDL not on an alarm)" FAIL; fi
 # the same at run time, through the device path (stand-in LOG / LIST_PICKER that print the colour word): a WPA2/WPA3 network whose
 # SSID contains Open/OPEN/WEP is NOT red, an AP with security "" (open, as the summary counts it) and a WEP one ARE, and a newline
 # in an SSID cannot start a line of its own (it would otherwise forge a leading "!"); a text search in the shell would get all three wrong.
@@ -131,13 +139,15 @@ DSP_SEQ=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'SEQ')
 DSP_GT=$(grep -c '^gen_tick()' starchorus-display.sh)
 DSP_G1=$(DSP_PG summary "$F/field-probes.json" | grep -c '^GEN 1 ')
 DSP_V=$(sed -n 's/^# Version:      \([0-9.]*\)$/\1/p' starchorus-display.sh | head -n 1)
-if [ "$DSP_SEQ" = 0 ] && [ "$DSP_GT" = 1 ] && [ "$DSP_G1" = 1 ] && [ "$DSP_V" = 0.1.0 ]; then row "display: GEN, no SEQ (SEQ = $DSP_SEQ, gen_tick = $DSP_GT, 'GEN 1' on a first capture = $DSP_G1), version 0.1.0 [$DSP_V]" PASS; else row "display: GEN/SEQ/version off (SEQ $DSP_SEQ, gt $DSP_GT, g1 $DSP_G1, v $DSP_V)" FAIL; fi
-# GEN counts captures: two different `generated` in one process give 1 then 2 (the function, lifted out of the script, run on two documents)
+if [ "$DSP_SEQ" = 0 ] && [ "$DSP_GT" = 1 ] && [ "$DSP_G1" = 1 ] && [ "$DSP_V" = 0.1.1 ]; then row "display: GEN, no SEQ (SEQ = $DSP_SEQ, gen_tick = $DSP_GT, 'GEN 1' on a first capture = $DSP_G1), version 0.1.1 [$DSP_V]" PASS; else row "display: GEN/SEQ/version off (SEQ $DSP_SEQ, gt $DSP_GT, g1 $DSP_G1, v $DSP_V)" FAIL; fi
+# GEN counts captures: two different `generated` in one process give 1 then 2 (the function, lifted out of the script, fed the
+# "generated" of two documents as the screens feed it: the value of the gen record of their one jq program)
 DSP_T=$(mktemp -d 2>/dev/null || echo "out/dsp-tmp"); mkdir -p "$DSP_T"
-awk '/^JQLIB=/,/^'"'"'$/' starchorus-display.sh > "$DSP_T/lib.sh"; sed -n '/^q() /p;/^gen_tick()/p' starchorus-display.sh >> "$DSP_T/lib.sh"
+sed -n '/^gen_tick()/p' starchorus-display.sh > "$DSP_T/lib.sh"
 printf '{"generated":100,"aps":[]}' > "$DSP_T/a.json"; printf '{"generated":105,"aps":[]}' > "$DSP_T/b.json"
-DSP_GEN=$(sh -c '. "$1"; GEN=0; LASTG=; JSON=$2; gen_tick; a=$GEN; JSON=$2; gen_tick; b=$GEN; JSON=$3; gen_tick; c=$GEN; echo "$a $b $c"' sh "$DSP_T/lib.sh" "$DSP_T/a.json" "$DSP_T/b.json" 2>/dev/null)
-rowif "display GEN moves only when the capture time changes (same capture twice, then a new one: $DSP_GEN, want 1 1 2)" [ "$DSP_GEN" = "1 1 2" ]
+DSP_GA=$(jq -r '.generated // empty' "$DSP_T/a.json"); DSP_GB=$(jq -r '.generated // empty' "$DSP_T/b.json")
+DSP_GEN=$(sh -c '. "$1"; GEN=0; LASTG=; gen_tick "$2"; a=$GEN; gen_tick "$2"; b=$GEN; gen_tick "$3"; c=$GEN; gen_tick ""; d=$GEN; echo "$a $b $c $d"' sh "$DSP_T/lib.sh" "$DSP_GA" "$DSP_GB" 2>/dev/null)
+rowif "display GEN moves only when the capture time changes (same capture twice, then a new one, then none: $DSP_GEN, want 1 1 2 2)" [ "$DSP_GEN" = "1 1 2 2" ]
 rm -rf "$DSP_T" 2>/dev/null
 
 # ---- the optional template: only numbers are substituted; unset = no line

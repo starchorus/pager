@@ -5,7 +5,7 @@
 # "jq was compiled without ONIGURUMA regex library. match/test/sub and related functions are not
 # available." and exits 5, while ascii_up/downcase, l/rtrimstr, startswith, contains and split/1 work.
 # Band counts or an open/WEP figure computed with test()/sub() filters would come out EMPTY on the device
-# -- silently, because q() sends jq's stderr to /dev/null. starchorus-display.sh is therefore regex-free
+# -- silently, because fetch() sends jq's stderr to /dev/null. starchorus-display.sh is therefore regex-free
 # (JQLIB: bandnorm/secupper/isopenwep/sectag); the five rows below keep it that way and pin what the
 # replacements MEAN.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only JQR_* names are set.
@@ -45,7 +45,7 @@ else
   printf '%s\n' "$JQR_HIT"
 fi
 
-# ---- R2: runtime, the whole dashboard through a jq that behaves like the device's
+# ---- R2: runtime, the whole Overview through a jq that behaves like the device's
 rm -rf "$JQR_D"; mkdir -p "$JQR_BIN"
 JQR_JQ=$(command -v jq); JQR_DATE=$(command -v date); JQR_NOW=1789600000
 cat > "$JQR_BIN/jq" <<'K13JQ'
@@ -253,7 +253,7 @@ fi
 
 # ---- R4: screen_top survives a non-string ssid / security.
 # .band, .ssid and .security all go through tostring: a raw numeric ssid would make jq abort mid-filter
-# and q() would send the error to /dev/null -- the whole "Strongest networks" block would come out
+# and fetch() would send the error to /dev/null -- the whole "Strongest networks" block would come out
 # EMPTY, silently, which is the same failure mode the regex-free filters exist to remove. The fixture is
 # generated here and not added to tests/fixtures: that directory is the CONTRACT corpus and
 # gen-testdata.py --validate (a row in tools/regress.sh) rejects an off-contract band or ssid.

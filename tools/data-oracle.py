@@ -37,7 +37,7 @@ SEC_KEYS = ("open", "wep", "wpa", "wpa2", "wpa3", "owe", "enterprise", "wpa3-tra
 FIELDS = ("apsTotal", "aps", "clients", "free", "assoc", "groups", "bands", "bandsTotal", "security", "alarms", "hidden", "devices", "essMerged")
 # Floors, only ever raised. The selftest holds every field of FIELDS to a case of its own; the judge holds the run to the floors.
 MIN_FIELDS = 13     # len(FIELDS); measure: sed -n 's/.*const KEYS = \[\(.*\)\];/\1/p' tools/evals/data-oracle.js | tr ',' '\n' | grep -c '"'   (the counters the eval reads: 13)
-MIN_FIXTURES = 12   # fixtures compared in a real run; measure: ls tests/fixtures/*.json | wc -l   (a bundle that loses fixtures must not stay green)
+MIN_FIXTURES = 13   # fixtures compared in a real run; measure: ls tests/fixtures/*.json | wc -l   (measured: 13; a bundle that loses fixtures must not stay green)
 
 
 # ---------------------------------------------------------------- the model: normalisation (what the page keeps of a document)

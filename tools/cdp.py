@@ -11,12 +11,17 @@ Usage:
   python3 tools/cdp.py URL [--shot out.png] [--wait 4] [--fps 2]
                           [--eval "expr" ...] [--click X,Y] [--key Key]
                           [--step KIND:ARG ...] [--eval-timeout 30]
-                          [--width 1440 --height 900] [--json]
+                          [--width 1440 --height 900] [--mobile] [--virtual-time] [--json]
 
 Order: navigate -> --wait -> --click/--key (+ --after-wait) -> fps over --fps s -> --eval list
--> --step list (eval:EXPR | click:X,Y | clickat:EXPR returning [x,y] | key:KEY | wait:S | size:WxH)
+-> --step list (eval:EXPR | click:X,Y | clickat:EXPR returning [x,y] | key:KEY | wait:S | size:WxH
+   | drag:X1,Y1,X2,Y2,MS (mouse) | touch:X1,Y1,X2,Y2,MS (one finger; equal points = a tap) | vtime:MS)
 -> screenshot. A promise result is awaited; an expression with a top-level `await` is retried in
 REPL mode. Chrome picks a free DevTools port itself, so concurrent runs never share a browser.
+--mobile: a phone viewport (mobile metrics, touch emulation: `pointer: coarse` and `hover: none` match).
+--virtual-time: the page's clock is held from before the navigation and moves only in vtime:MS steps, by MS virtual
+milliseconds each (timers fire in order, a pending fetch holds the clock; no frames are drawn). Evals between the
+steps run while the clock stands, so they must not wait on a timer (STARCHORUS.wait would never return).
 
 Exit code 0 on success (even if the page logged errors -- check the report),
 1 on driver failure. The report (JSON) lists console entries, exceptions,
@@ -200,12 +205,15 @@ def main():
     ap.add_argument("--width", type=int, default=1440)
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--scale", type=float, default=1.0, help="device scale factor")
+    ap.add_argument("--mobile", action="store_true", help="mobile metrics + touch emulation (a phone)")
+    ap.add_argument("--virtual-time", action="store_true", help="hold the page clock from the start; vtime:MS steps move it")
     ap.add_argument("--json", action="store_true", help="print the full JSON report")
     ap.add_argument("--keep-profile", action="store_true")
     ap.add_argument("--eval-timeout", type=float, default=30.0, help="seconds per --eval/--step eval (default 30; values above 30 are honoured by the socket as well)")
     ap.add_argument("--step", action="append", default=[],
                     help="ordered action after the --eval list, before the shot (repeatable): "
-                         "eval:EXPR | click:X,Y | clickat:EXPR (EXPR -> [x,y]) | key:KEY | wait:SECONDS | size:WxH")
+                         "eval:EXPR | click:X,Y | clickat:EXPR (EXPR -> [x,y]) | key:KEY | wait:SECONDS | size:WxH | "
+                         "drag:X1,Y1,X2,Y2,MS | touch:X1,Y1,X2,Y2,MS | vtime:MS")
     args = ap.parse_args()
 
     chrome = find_chrome()
@@ -247,7 +255,11 @@ def main():
             sys.exit("chrome did not expose a page target")
         cdp = CDP(target["webSocketDebuggerUrl"])
         cdp.call("Emulation.setDeviceMetricsOverride", {"width": args.width, "height": args.height,
-                                                        "deviceScaleFactor": args.scale, "mobile": False})
+                                                        "deviceScaleFactor": args.scale, "mobile": args.mobile})
+        if args.mobile:
+            cdp.call("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+        if args.virtual_time:
+            cdp.call("Emulation.setVirtualTimePolicy", {"policy": "pause"})
         cdp.call("Runtime.enable")
         cdp.call("Log.enable")
         cdp.call("Network.enable")   # the requests the page really makes (see "requests" in the report)
@@ -298,8 +310,39 @@ def main():
             elif kind == "size":
                 w, h = [int(v) for v in arg.lower().split("x")]
                 cdp.call("Emulation.setDeviceMetricsOverride", {"width": w, "height": h,
-                                                                "deviceScaleFactor": args.scale, "mobile": False})
+                                                                "deviceScaleFactor": args.scale, "mobile": args.mobile})
                 cdp.pump(0.5)   # the page debounces resize (100 ms)
+            elif kind in ("drag", "touch"):
+                x1, y1, x2, y2, ms = [float(v) for v in arg.split(",")]
+                n = 0 if (x1, y1) == (x2, y2) else max(2, int(ms // 16))   # a move every ~16 ms, like a display frame
+                mouse = kind == "drag"
+                send = (lambda p: cdp.call("Input.dispatchMouseEvent", p)) if mouse else (lambda p: cdp.call("Input.dispatchTouchEvent", p))
+                send({"type": "mousePressed", "x": x1, "y": y1, "button": "left", "clickCount": 1} if mouse else {"type": "touchStart", "touchPoints": [{"x": x1, "y": y1}]})
+                for i in range(1, n + 1):
+                    time.sleep(ms / 1000.0 / n)
+                    x, y = x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n
+                    send({"type": "mouseMoved", "x": x, "y": y, "button": "left", "buttons": 1} if mouse else {"type": "touchMove", "touchPoints": [{"x": x, "y": y}]})
+                send({"type": "mouseReleased", "x": x2, "y": y2, "button": "left", "clickCount": 1} if mouse else {"type": "touchEnd", "touchPoints": []})
+                cdp.pump(0.4)
+            elif kind == "vtime":
+                cdp.call("Emulation.setVirtualTimePolicy", {"policy": "pauseIfNetworkFetchesPending", "budget": float(arg)})
+                done, end = False, time.time() + 120
+                cdp.ws.sock.settimeout(0.5)
+                try:
+                    while not done and time.time() < end:
+                        try:
+                            msg = json.loads(cdp.ws.recv())
+                        except socket.timeout:
+                            continue
+                        if msg.get("method") == "Emulation.virtualTimeBudgetExpired":
+                            done = True
+                        elif "method" in msg:
+                            cdp.events.append(msg)
+                finally:
+                    cdp.ws.sock.settimeout(30)
+                if not done:
+                    sys.exit("vtime: the virtual time budget did not expire")
+                cdp.call("Emulation.setVirtualTimePolicy", {"policy": "pause"})
             else:
                 sys.exit("unknown --step kind: " + st)
         if args.shot:

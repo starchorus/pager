@@ -76,6 +76,6 @@ CFL_PLA=$(grep -c 'STARCHORUS_MAX_AGE:-' library/user/reconnaissance/starchorus/
 # shellcheck disable=SC2016  # literal ${...}/$VAR of the scanned script text, nothing is meant to expand
 CFL_CM=$(grep -cxF 'MAX_AGE=${STARCHORUS_MAX_AGE:-0}' starchorus-collect.sh)
 CFL_PLV=$(sed -n 's/^# Version:  *\([0-9.]*\)$/\1/p' library/user/reconnaissance/starchorus/payload.sh | head -n 1)
-rowif "collector 0.1.0 · payload default STARCHORUS_MAX_AGE 3600, collector 0 (U3) · payload 0.1.0 [$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV]" [ "$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV" = 0.1.0/1/1/1/0.1.0 ]
+rowif "collector 0.1.1 · payload default STARCHORUS_MAX_AGE 3600, collector 0 (U3) · payload 0.1.1 [$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV]" [ "$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV" = 0.1.1/1/1/1/0.1.1 ]
 CFL_FL=$(grep -cE '^(HOPINFO|SURVEY|OWN|APCLI_RO)=\$\{STARCHORUS_[A-Z_]+:-0\}' starchorus-collect.sh)
 rowif "collector fields: device-dependent flags default OFF (HOPINFO/SURVEY/OWN/APCLI_RO = $CFL_FL/4)" [ "$CFL_FL" = 4 ]

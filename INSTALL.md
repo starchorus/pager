@@ -103,8 +103,8 @@ To confirm you are in the right place:
 ls
 ```
 
-**You should see** `starchorus.html`, `starchorus-collect.sh`, `payload.sh`, `tools` and
-`library` among the names listed.
+**You should see** `starchorus.html`, `starchorus-collect.sh`, `tools` and `library` among the
+names listed.
 
 **If something goes wrong**
 
@@ -189,9 +189,10 @@ Every command from here on is typed in this folder.
 **macOS and Linux only.** `tools/install.sh` is a shell script for a Unix-style computer. On
 Windows, use the manual route in [section 4](#4-manual-route-step-by-step).
 
-The installer copies the collector, the page, the dashboard, the fallback server and the payload to
-the Pager, checks that each file arrived intact, and runs Starchorus's own passive checks on the
-Pager. It asks for the root password once.
+The installer copies six files to the Pager: the collector, the page, the netcat page server, the
+Overview and the payload, and a second copy of the Overview that sits beside the payload. It checks
+that each one arrived intact and runs Starchorus's own passive checks on the Pager. It asks for the
+root password once.
 
 1. Show what it would do, without connecting to anything (a 'dry run'):
 
@@ -218,8 +219,12 @@ Pager. It asks for the root password once.
 3. Type the root password when asked ('connecting to root@… (enter the root password once)').
 
    **You should see** sections headed `==> uploading`, `==> integrity`, `==> selftests on the
-   device`, `==> one real passive capture` and `==> dashboard smoke test`, each followed by lines
+   device`, `==> one real passive capture` and `==> Overview smoke test`, each followed by lines
    marked `[PASS]`. Near the end comes a line beginning `==> result:` that ends in `0 failed`.
+
+The Pager has no `cksum`, so the `==> integrity` section is a single `[PASS]` line saying that the
+device has none and that all six files were read back and compared byte for byte. That is how
+the installer checks them; it is not a warning.
 
 A line marked `!! [WARN]` is a warning, not a failure; the installer repeats it in its closing
 summary with an explanation. Go on to [section 5](#5-start-starchorus).
@@ -252,7 +257,7 @@ The Pager has no SFTP service, so `scp` is given `-O` to use the older copying m
 
    **You should see** a password prompt, then your own prompt again with no message.
 
-2. Copy the collector, dashboard and fallback server:
+2. Copy the collector, the Overview and the netcat page server:
 
    ```sh
    scp -O starchorus-collect.sh starchorus-display.sh starchorus-serve.sh root@172.16.52.1:/root/loot/starchorus/
@@ -268,7 +273,7 @@ The Pager has no SFTP service, so `scp` is given `-O` to use the older copying m
 
    **You should see** one line reaching 100%.
 
-4. Copy the payload and its copy of the dashboard:
+4. Copy the payload and its copy of the Overview:
 
    ```sh
    scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh root@172.16.52.1:/root/payloads/user/reconnaissance/starchorus/
@@ -315,14 +320,29 @@ Choose **one** of the two ways.
    button; the red B button goes back).
 2. Open the category **Reconnaissance**.
 3. Choose **Starchorus**.
-4. Choose **Start**. Confirm when the Pager asks 'Start collector, web page?'.
+4. The menu is titled 'Starchorus: Stopped'. Choose **Start**; nothing asks for confirmation.
 
-**You should see** the dashboard on the Pager's display after a moment: a summary with counts of
-access points by band. Key B opens the dashboard's menu.
+**You should see** the spinner 'Starting' stay up until the first capture has been written. The payload
+waits at most 20 seconds for it, and the first capture can take up to half a minute. Then the Overview
+opens on the Pager's display: the line 'Overview', 'Reading...', and a summary with counts of access points
+by band, ending with the time of the scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
+If the first scan is late, it reads 'Waiting for the first scan.' instead; key A looks again. The screen
+never changes by itself: key A draws it again, Left and Right step through the other screens, and key B
+goes up one level, to the list of screens and from there to the menu, now titled 'Starchorus: Running'.
 
-The payload's menu also offers 'Services' (what 'Start' starts), 'Options' (time window, interval,
-port and more), 'Status', 'Stop' and 'Exit'. Leaving with 'Exit' keeps Starchorus running. The
+While Starchorus runs, the menu offers 'Overview', 'Open on Phone' (a QR code of the page's address
+for a phone on the Pager's Wi-Fi, with firmware 1.1.1 or later; on an older firmware the address is
+shown as text, and without a network address the payload says 'No network address.'; 'Start Web Page'
+takes its place while the page server is not up), 'Stop' and 'Settings' (web page, refresh interval,
+time window, vendor names, channel load, port, and a reset to the defaults). A change in Settings is
+applied when you leave it, except 'Web Page', which takes effect at once. Key B on the menu leaves the
+payload and keeps Starchorus running. The
 [payload's README](library/user/reconnaissance/starchorus/README.md#operation) describes every item.
+
+When you open the payload, it compares the version and the `# Contract:` number of the installed
+collector and Overview with its own. If they differ, a dialogue says so once ('Installed …,
+payload …' or 'Installed files differ from the payload.') and tells you what to do; see
+[section 7](#7-stop-update-uninstall).
 
 **B. From your computer, over ssh**
 
@@ -332,7 +352,8 @@ port and more), 'Status', 'Stop' and 'Exit'. Leaving with 'Exit' keeps Starchoru
    ssh root@172.16.52.1 '/root/payloads/user/reconnaissance/starchorus/payload.sh start'
    ```
 
-   **You should see** a line such as 'Starchorus (passive) -> http://172.16.52.1:8199/'.
+   **You should see** a line such as 'Starchorus (passive) -> http://172.16.52.1:8199/ (nc
+   mini-server)'. The words in brackets appear when the netcat server serves the page.
 
 2. Check that it is running:
 
@@ -343,17 +364,24 @@ port and more), 'Status', 'Stop' and 'Exit'. Leaving with 'Exit' keeps Starchoru
    **You should see** a line containing `loop RUNNING` (the collector) and the line
    `Page: 172.16.52.1:8199 running`. A line saying `airodump not running` is normal.
 
-Started this way, the dashboard does not open on the Pager's display; it opens only from the
+Started this way, the Overview does not open on the Pager's display; it opens only from the
 payload menu.
 
 **If something goes wrong**
 
-- *'Starchorus not installed in /root/loot/starchorus':* the files from step 2 of the manual route
-  are missing. Install again (section 3 or 4).
-- *'no service on':* both services were switched off under 'Services'. Switch at least one on, or
-  run `payload.sh reset` on the Pager to return every setting to its default.
-- *'no web server for the page':* the Pager has no web server for Starchorus. The collector still
-  runs; see 'No web server' in [section 6](#6-open-the-page-in-a-browser).
+- *'Starchorus is not installed.' on the Pager, or 'Starchorus not installed in
+  /root/loot/starchorus' over ssh:* the files from step 2 of the manual route are missing. Install
+  again (section 3 or 4).
+- *'Could not start.':* the collector did not come up. The red line under it is the last line of
+  `/root/loot/starchorus/collect.log`; run the installer again (section 3), which checks the
+  collector on the Pager.
+- *'no service on':* the page is switched off (`page=off`) and `STARCHORUS_COLLECTOR=0` is set in the
+  environment. Unset the variable; `payload.sh reset` returns the settings file to its defaults.
+- *'No web server found.' (on the Pager) or 'no web server for the page' (over ssh):* the payload
+  found no program to serve the page, not even `nc`. The collector still runs and the Overview
+  works; see 'The page server' in [section 6](#6-open-the-page-in-a-browser).
+- *'Web page did not start. Port … may be in use.':* another program holds the port. Choose another
+  under Settings → Port, or stop the other program.
 - *Starchorus does not appear under Reconnaissance:* the payload went to the wrong folder. Repeat
   steps 1, 4 and 5 of the manual route.
 
@@ -369,16 +397,22 @@ payload menu.
    ```
 
 **You should see** the night sky. The page starts with a sample marked 'Sample', and the chip
-switches to 'Live' once it has read the Pager's first capture. The page then refreshes every 5
-seconds.
+switches to 'Live' once it has read the Pager's first capture. The page then refreshes as each new
+capture arrives.
 
-Any phone or laptop on the Pager's management network can open the same address. By default the
-page is reachable over USB-C and the management Wi-Fi only, not from a network the Pager has joined.
+Any phone or laptop on the Pager's management network can open the same address. On a phone, choose
+'Open on Phone' in the payload menu for a QR code of it; the page then shows the sky under a narrow
+status bar, with the controls in a bottom sheet. By default the page is reachable over USB-C and the
+management Wi-Fi only, not from a network the Pager has joined.
 
-**No web server.** The payload serves the page with `uhttpd` if it is present on the Pager, and
-otherwise with a small fallback server that is reliable only for single requests, not for a
-browser. If Status shows `Page: 172.16.52.1:8199 not running`, or the page loads only in part, you have two
-choices, both described in [docs/display-paths.md](docs/display-paths.md):
+**The page server.** The payload serves the page with `uhttpd` or `python3` where the Pager has one
+of them, and otherwise with the small netcat server it carries (`starchorus-serve.sh`). A Pager
+that has had its system update has neither, so the netcat server is the normal case there. It
+answers one request at a time, which suits one browser; a second device is served after the first.
+If `payload.sh status` shows `Page: 172.16.52.1:8199 not running`, the page server did not start:
+'Start Web Page' in the menu tries again and says if the port is taken. For several viewers at once,
+or when no server can run on the Pager, you have two choices, both described in
+[docs/display-paths.md](docs/display-paths.md):
 
 - **Route A:** install `uhttpd` on the Pager once, from a package downloaded on a computer with
   internet access.
@@ -387,13 +421,16 @@ choices, both described in [docs/display-paths.md](docs/display-paths.md):
 
 **If something goes wrong**
 
-- *The page does not load at all:* check Status (section 5). Use `http://`, not `https://`, and
-  include `:8199`.
+- *The page does not load at all:* check `payload.sh status` (section 5). Use `http://`, not
+  `https://`, and include `:8199`.
 - *The chip stays on 'Sample':* the collector has not written a capture yet. Wait half a minute and
   reload.
-- *The chip shows 'Stale':* no new capture has arrived for about 30 seconds. Check that the collector
-  is running (section 5).
-- *You changed the port under 'Options':* use that port in the address instead of 8199.
+- *The chip shows 'Stale':* no new capture has arrived for twice the collector's interval plus 15
+  seconds (75 seconds with the payload's 30-second interval). Check that the collector is running
+  (section 5).
+- *The chip shows 'Offline':* the page has had no answer from the Pager for as long. Check that the
+  phone or computer is on the Pager's Wi-Fi and that the page server is running (section 5).
+- *You changed the port under 'Settings':* use that port in the address instead of 8199.
 
 ---
 
@@ -417,9 +454,23 @@ Stopping ends only Starchorus's own collector and page server, never the Pager's
 1. Stop Starchorus (above).
 2. Download the new version ([section 1](#1-download-starchorus)). With git, run `git pull` in the
    folder instead.
-3. Install again by the route you used before (section 3 or 4). Files are overwritten in place;
-   your settings in `/root/loot/starchorus/settings.conf` are kept.
-4. Start it again (section 5).
+3. Replace all six files, by the route you used before: the installer (section 3) and the manual
+   route (section 4) both copy all six. With the payload directory from Hak5's library, copy the new
+   directory over the old one and delete `/root/loot/starchorus/starchorus-collect.sh`; the payload
+   then copies its bundle into `/root/loot/starchorus` again. Files are overwritten in place, and
+   your settings in `/root/loot/starchorus/settings.conf` are kept either way.
+4. Start it again (section 5). The first start after an update takes a little longer: the collector
+   splits the vendor (OUI) list into an index once, so the first capture comes later than usual.
+
+Replace all six, not only the payload. The payload compares the installed collector and Overview
+with itself when it opens, by version and by their `# Contract:` number, the interface the payload,
+the collector and the Overview share. When they differ, it says so once, in a dialogue: 'Installed
+…, payload …' for another version, 'Installed files differ from the payload.' for the same version
+with another contract. The dialogue names the remedy: 'Run tools/install.sh.', or, with the Hak5
+library copy, which has no `tools` folder on the Pager, the collector file to delete. A payload
+replaced on its own is caught at the same version too. Files from the first release carry no
+Contract line and count as contract 1. The page and the netcat server are not compared; they
+belong to the same build, so replace them with the rest.
 
 **Uninstall**
 
@@ -442,7 +493,7 @@ This deletes the collected `starchorus.json` and your saved settings as well, an
 | Symptom | Likely cause | What to do |
 |---|---|---|
 | ssh warns 'REMOTE HOST IDENTIFICATION HAS CHANGED' after a system update | the update gave the Pager new SSH host keys | if you have just updated the Pager yourself, run `ssh-keygen -R 172.16.52.1` and connect again |
-| after a system update the page loads slowly or partly | the update removed `uhttpd`; the payload falls back to its small netcat server | it usually still works; for a sturdier server add `uhttpd` again ([docs/display-paths.md](docs/display-paths.md), route A) |
+| after a system update the page is served by the netcat server | the update removed `uhttpd`; the payload serves the page with its small netcat server, one request at a time | nothing to do for one viewer; for several at once add `uhttpd` again ([docs/display-paths.md](docs/display-paths.md), route A) |
 | `ping` gets no reply | cable or Wi-Fi not connected, or a different address | check the connection; check the address in Hak5's documentation ([section 2](#2-connect-to-the-pager)) |
 | `ssh` says 'Connection refused' or 'timed out' | wrong address, or the Pager is still starting | wait a minute, check the address, try again |
 | `Permission denied` after the password | wrong root password | see Hak5's documentation |
@@ -450,12 +501,15 @@ This deletes the collected `starchorus.json` and your saved settings as well, an
 | `scp` fails with an 'sftp' or 'subsystem' error | `-O` left out | add `-O` ([section 4](#4-manual-route-step-by-step)) |
 | `scp: unknown option -- O` | older `scp` | leave `-O` out |
 | Starchorus is not in the payload menu | payload copied to the wrong folder | repeat the manual route, steps 1, 4 and 5 |
-| `Page: 172.16.52.1:8199 not running` | no web server on the Pager | route A or B in [docs/display-paths.md](docs/display-paths.md) |
-| page loads in part or not at all | the fallback server serves one request at a time | install `uhttpd` (route A) or use route B |
-| chip stays on 'Sample' | no capture yet | wait half a minute, reload; check Status |
-| chip shows 'Stale' | collector stopped | start it again ([section 5](#5-start-starchorus)) |
-| dashboard shows 'jq incomplete' in red | a dashboard filter failed on the Pager | run the installer again and report its output in an issue |
-| the Pager's display stops updating | the time window under 'Options' is too large | choose a shorter window (the default is 1 h) |
+| `Page: 172.16.52.1:8199 not running` | the page server did not start or has ended: the port is taken, or no server program was found | 'Start Web Page' in the menu; another port under Settings; or route B in [docs/display-paths.md](docs/display-paths.md) |
+| the page does not load while another device is loading it | the netcat server answers one request at a time | wait a moment and reload; for several viewers at once install `uhttpd` (route A) or use route B |
+| chip stays on 'Sample' | no capture yet | wait half a minute, reload; check `payload.sh status` |
+| chip shows 'Stale' | no new capture for twice the collector's interval plus 15 seconds: the collector has stopped | start it again ([section 5](#5-start-starchorus)) |
+| chip shows 'Offline' | the Pager has answered nothing for as long: the device is off the Pager's Wi-Fi, or the page server has stopped | join the Pager's Wi-Fi again; check `payload.sh status` |
+| the Overview shows 'jq incomplete' in red | an Overview filter failed on the Pager | run the installer again and report its output in an issue |
+| the Overview shows 'No new scan for …' in red | the collector stopped writing | go back with B (twice from a screen: to the list of screens, then to the menu); the menu then says whether it still runs |
+| the Overview shows 'This scan took over 20 s to read.' | 'Show Last' under 'Settings' is too long for the Pager's CPU | choose a shorter time (the default is 1 h) |
+| a dialogue says 'Installed …, payload …' or 'Installed files differ …' | the payload and the files in `/root/loot/starchorus` come from different builds (another version, or another `# Contract:` number) | replace all six files: run the installer again (section 3); with the Hak5 library copy, delete `/root/loot/starchorus/starchorus-collect.sh` and open the payload again |
 
 When you report a problem, never post real network names, MAC addresses or capture files. The
 installer's output is safe to paste; the contents of `starchorus.json` are not.

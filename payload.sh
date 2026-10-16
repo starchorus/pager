@@ -5,7 +5,7 @@
 #               (recon.db read / monitor-mode RX only -- never transmits) and serves the
 #               visualisation on a high local port of the management address. Contains NO active/offensive feature.
 # Author:       Starchorus
-# Version:      0.1.0
+# Version:      0.1.1
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -23,6 +23,10 @@ export STARCHORUS_OUTDIR="$STARCHORUS_DIR"
 export STARCHORUS_INTERVAL="${STARCHORUS_INTERVAL:-5}"
 
 cd "$STARCHORUS_DIR" 2>/dev/null || { echo "no $STARCHORUS_DIR" >&2; exit 1; }
+
+# The collector and the page server run at the lowest CPU priority (nice 19; the collector's sqlite3 and awk children inherit
+# it): on the single core the AP service must always win. Without `nice` they start as before.
+NICE=""; command -v nice >/dev/null 2>&1 && NICE="nice -n 19"
 
 # ipv4 TEXT -> 0 iff TEXT is a dotted-quad IPv4 address (four parts 0-255, no leading zero)
 ipv4() {
@@ -54,15 +58,17 @@ bind_addr() {
 # itself and httpd.pid holds exactly our own server's pid. busybox httpd daemonises unless it gets -f: without
 # it the call returns at once and $! is not the server (empty, or the collector started just before), so `stop`
 # would kill the wrong process or none and the server would keep running.
-# Each listens on ADDR (bind_addr) only: uhttpd and busybox httpd take -p ADDR:PORT, python3 --bind ADDR.
+# Each listens on ADDR (bind_addr) only: uhttpd and busybox httpd take -p ADDR:PORT, python3 --bind ADDR. Each runs at
+# nice 19 (NICE above; nice execs the server, so $! is still the server).
 serve() {
     srv=
+    # shellcheck disable=SC2086   # NICE is "nice -n 19" or empty: split on purpose
     if command -v uhttpd >/dev/null 2>&1; then
-        uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
+        $NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
     elif busybox --list 2>/dev/null | grep -qx httpd; then
-        busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
+        $NICE busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
     elif command -v python3 >/dev/null 2>&1; then
-        python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
+        $NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
     else
         echo "no static file server (install: opkg install -d mmc uhttpd  or  python3-light)" >&2
         return 1
@@ -111,7 +117,8 @@ case "$1" in
         ;;
     *)
         # start the passive collector loop in the background, then serve the page
-        ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &
+        # shellcheck disable=SC2086   # NICE is "nice -n 19" or empty: split on purpose
+        $NICE ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &
         ADDR=$(bind_addr)
         serve
         if [ "$ADDR" = 0.0.0.0 ]; then url="http://<device-ip>:$STARCHORUS_PORT/  (all interfaces)"; else url="http://$ADDR:$STARCHORUS_PORT/"; fi

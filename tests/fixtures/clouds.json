@@ -1,0 +1,1059 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device",
+  "max_age": 3600,
+  "interval": 30
+ },
+ "source": "recon-db",
+ "aps": [
+  {
+   "bssid": "02:00:5e:c1:01:01",
+   "ssid": "HomeWiFi",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "aa:c1:00:00:a0:01",
+     "rssi": -29,
+     "last_seen": 1789299980,
+     "randomized": true
+    }
+   ],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "02:00:5e:c1:02:01",
+   "ssid": "HomeWiFi",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -55,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299992
+  },
+  {
+   "bssid": "02:00:5e:c1:03:01",
+   "ssid": "Office-5G",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -62,
+   "security": "WPA3",
+   "clients": [
+    {
+     "mac": "3c:22:fb:c1:00:a1",
+     "rssi": -61,
+     "vendor": "Apple",
+     "last_seen": 1789299985
+    }
+   ],
+   "last_seen": 1789299988
+  },
+  {
+   "bssid": "02:00:5e:c1:04:01",
+   "ssid": "Lab-Net",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299980
+  },
+  {
+   "bssid": "02:00:5e:c1:05:01",
+   "ssid": "Guest-Net",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -74,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299970
+  },
+  {
+   "bssid": "02:00:5e:c1:06:01",
+   "ssid": "",
+   "channel": 149,
+   "band": "5GHz",
+   "freq": 5745,
+   "rssi": -80,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299960
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "da:c1:00:a1:00:00",
+   "rssi": -29,
+   "last_seen": 1789299975,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:00:01",
+   "rssi": -28,
+   "last_seen": 1789299975,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:00:02",
+   "rssi": -30,
+   "last_seen": 1789299976,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:00:03",
+   "rssi": -29,
+   "last_seen": 1789299976,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:01:00",
+   "rssi": -29,
+   "last_seen": 1789299928,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:01:01",
+   "rssi": -28,
+   "last_seen": 1789299928,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:01:02",
+   "rssi": -30,
+   "last_seen": 1789299929,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:01:03",
+   "rssi": -29,
+   "last_seen": 1789299929,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:02:00",
+   "rssi": -29,
+   "last_seen": 1789299881,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:02:01",
+   "rssi": -28,
+   "last_seen": 1789299881,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:02:02",
+   "rssi": -30,
+   "last_seen": 1789299882,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:02:03",
+   "rssi": -29,
+   "last_seen": 1789299882,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:03:00",
+   "rssi": -29,
+   "last_seen": 1789299834,
+   "randomized": true,
+   "probes": [
+    "HomeWiFi"
+   ]
+  },
+  {
+   "mac": "da:c1:00:a1:03:01",
+   "rssi": -28,
+   "last_seen": 1789299834,
+   "randomized": true,
+   "probes": [
+    "HomeWiFi"
+   ]
+  },
+  {
+   "mac": "da:c1:00:a1:03:02",
+   "rssi": -30,
+   "last_seen": 1789299835,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:03:03",
+   "rssi": -29,
+   "last_seen": 1789299835,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:04:00",
+   "rssi": -29,
+   "last_seen": 1789299787,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:04:01",
+   "rssi": -28,
+   "last_seen": 1789299787,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:04:02",
+   "rssi": -30,
+   "last_seen": 1789299788,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:04:03",
+   "rssi": -29,
+   "last_seen": 1789299788,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:05:00",
+   "rssi": -29,
+   "last_seen": 1789299740,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:05:01",
+   "rssi": -28,
+   "last_seen": 1789299740,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:05:02",
+   "rssi": -30,
+   "last_seen": 1789299741,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:05:03",
+   "rssi": -29,
+   "last_seen": 1789299741,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:06:00",
+   "rssi": -29,
+   "last_seen": 1789299693,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:06:01",
+   "rssi": -28,
+   "last_seen": 1789299693,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:06:02",
+   "rssi": -30,
+   "last_seen": 1789299694,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:06:03",
+   "rssi": -29,
+   "last_seen": 1789299694,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:07:00",
+   "rssi": -29,
+   "last_seen": 1789299646,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:07:01",
+   "rssi": -28,
+   "last_seen": 1789299646,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:07:02",
+   "rssi": -30,
+   "last_seen": 1789299647,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:07:03",
+   "rssi": -29,
+   "last_seen": 1789299647,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:08:00",
+   "rssi": -29,
+   "last_seen": 1789299599,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:08:01",
+   "rssi": -28,
+   "last_seen": 1789299599,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:08:02",
+   "rssi": -30,
+   "last_seen": 1789299600,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:08:03",
+   "rssi": -29,
+   "last_seen": 1789299600,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0a:00",
+   "rssi": -29,
+   "last_seen": 1789299505,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0a:01",
+   "rssi": -28,
+   "last_seen": 1789299505,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0a:02",
+   "rssi": -30,
+   "last_seen": 1789299506,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0a:03",
+   "rssi": -29,
+   "last_seen": 1789299506,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0b:00",
+   "rssi": -29,
+   "last_seen": 1789299458,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0b:01",
+   "rssi": -28,
+   "last_seen": 1789299458,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0b:02",
+   "rssi": -30,
+   "last_seen": 1789299459,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0b:03",
+   "rssi": -29,
+   "last_seen": 1789299459,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0c:00",
+   "rssi": -29,
+   "last_seen": 1789299411,
+   "randomized": true,
+   "probes": [
+    "Lab-Net",
+    "Cafe-Free"
+   ]
+  },
+  {
+   "mac": "da:c1:00:a1:0c:01",
+   "rssi": -28,
+   "last_seen": 1789299411,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0c:02",
+   "rssi": -30,
+   "last_seen": 1789299412,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0c:03",
+   "rssi": -29,
+   "last_seen": 1789299412,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0d:00",
+   "rssi": -29,
+   "last_seen": 1789299364,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0d:01",
+   "rssi": -28,
+   "last_seen": 1789299364,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0d:02",
+   "rssi": -30,
+   "last_seen": 1789299365,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0d:03",
+   "rssi": -29,
+   "last_seen": 1789299365,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0e:00",
+   "rssi": -29,
+   "last_seen": 1789299317,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0e:01",
+   "rssi": -28,
+   "last_seen": 1789299317,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0e:02",
+   "rssi": -30,
+   "last_seen": 1789299318,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0e:03",
+   "rssi": -29,
+   "last_seen": 1789299318,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0f:00",
+   "rssi": -29,
+   "last_seen": 1789299270,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0f:01",
+   "rssi": -28,
+   "last_seen": 1789299270,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:0f:02",
+   "rssi": -30,
+   "last_seen": 1789299271,
+   "randomized": true
+  },
+  {
+   "mac": "3c:22:fb:c1:00:f3",
+   "rssi": -29,
+   "last_seen": 1789299271,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:10:00",
+   "rssi": -29,
+   "last_seen": 1789299223,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:10:01",
+   "rssi": -28,
+   "last_seen": 1789299223,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:10:02",
+   "rssi": -30,
+   "last_seen": 1789299224,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:10:03",
+   "rssi": -29,
+   "last_seen": 1789299224,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:11:00",
+   "rssi": -29,
+   "last_seen": 1789299176,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:11:01",
+   "rssi": -28,
+   "last_seen": 1789299176,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:11:02",
+   "rssi": -30,
+   "last_seen": 1789299177,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:11:03",
+   "rssi": -29,
+   "last_seen": 1789299177,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:12:00",
+   "rssi": -29,
+   "last_seen": 1789299129,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:12:01",
+   "rssi": -28,
+   "last_seen": 1789299129,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:12:02",
+   "rssi": -30,
+   "last_seen": 1789299130,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:12:03",
+   "rssi": -29,
+   "last_seen": 1789299130,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:13:00",
+   "rssi": -29,
+   "last_seen": 1789299082,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:13:01",
+   "rssi": -28,
+   "last_seen": 1789299082,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:13:02",
+   "rssi": -30,
+   "last_seen": 1789299083,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:13:03",
+   "rssi": -29,
+   "last_seen": 1789299083,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:15:00",
+   "rssi": -29,
+   "last_seen": 1789298988,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:15:01",
+   "rssi": -28,
+   "last_seen": 1789298988,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:15:02",
+   "rssi": -30,
+   "last_seen": 1789298989,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:15:03",
+   "rssi": -29,
+   "last_seen": 1789298989,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:16:00",
+   "rssi": -29,
+   "last_seen": 1789298941,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:16:01",
+   "rssi": -28,
+   "last_seen": 1789298941,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:16:02",
+   "rssi": -30,
+   "last_seen": 1789298942,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:16:03",
+   "rssi": -29,
+   "last_seen": 1789298942,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:17:00",
+   "rssi": -29,
+   "last_seen": 1789298894,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:17:01",
+   "rssi": -28,
+   "last_seen": 1789298894,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:17:02",
+   "rssi": -30,
+   "last_seen": 1789298895,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:17:03",
+   "rssi": -29,
+   "last_seen": 1789298895,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:18:00",
+   "rssi": -29,
+   "last_seen": 1789298847,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:18:01",
+   "rssi": -28,
+   "last_seen": 1789298847,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:18:02",
+   "rssi": -30,
+   "last_seen": 1789298848,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:18:03",
+   "rssi": -29,
+   "last_seen": 1789298848,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:19:00",
+   "rssi": -29,
+   "last_seen": 1789298800,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:19:01",
+   "rssi": -28,
+   "last_seen": 1789298800,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:19:02",
+   "rssi": -30,
+   "last_seen": 1789298801,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:19:03",
+   "rssi": -29,
+   "last_seen": 1789298801,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1a:00",
+   "rssi": -29,
+   "last_seen": 1789298753,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1a:01",
+   "rssi": -28,
+   "last_seen": 1789298753,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1a:02",
+   "rssi": -30,
+   "last_seen": 1789298754,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1a:03",
+   "rssi": -29,
+   "last_seen": 1789298754,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1b:00",
+   "rssi": -29,
+   "last_seen": 1789298706,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1b:01",
+   "rssi": -28,
+   "last_seen": 1789298706,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1b:02",
+   "rssi": -30,
+   "last_seen": 1789298707,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1b:03",
+   "rssi": -29,
+   "last_seen": 1789298707,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1c:00",
+   "rssi": -29,
+   "last_seen": 1789298659,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1c:01",
+   "rssi": -28,
+   "last_seen": 1789298659,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1c:02",
+   "rssi": -30,
+   "last_seen": 1789298660,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1c:03",
+   "rssi": -29,
+   "last_seen": 1789298660,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1d:00",
+   "rssi": -29,
+   "last_seen": 1789298612,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1d:01",
+   "rssi": -28,
+   "last_seen": 1789298612,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1d:02",
+   "rssi": -30,
+   "last_seen": 1789298613,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1d:03",
+   "rssi": -29,
+   "last_seen": 1789298613,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1e:00",
+   "rssi": -29,
+   "last_seen": 1789298565,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1e:01",
+   "rssi": -28,
+   "last_seen": 1789298565,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1e:02",
+   "rssi": -30,
+   "last_seen": 1789298566,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1e:03",
+   "rssi": -29,
+   "last_seen": 1789298566,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1f:00",
+   "rssi": -29,
+   "last_seen": 1789298518,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1f:01",
+   "rssi": -28,
+   "last_seen": 1789298518,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1f:02",
+   "rssi": -30,
+   "last_seen": 1789298519,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a1:1f:03",
+   "rssi": -29,
+   "last_seen": 1789298519,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a2:00:01",
+   "rssi": -34,
+   "last_seen": 1789299740,
+   "randomized": true
+  },
+  {
+   "mac": "da:c1:00:a2:00:02",
+   "rssi": -37,
+   "last_seen": 1789299646,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:00",
+   "rssi": -45,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:01",
+   "rssi": -46,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:02",
+   "rssi": -47,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:03",
+   "rssi": -48,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:04",
+   "rssi": -49,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b0:00:05",
+   "rssi": -50,
+   "last_seen": 1789299100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b1:00:00",
+   "rssi": -70,
+   "last_seen": 1789299700,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b1:00:01",
+   "rssi": -71,
+   "last_seen": 1789298900,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b1:00:02",
+   "rssi": -69,
+   "last_seen": 1789298750,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b1:00:03",
+   "rssi": -70,
+   "last_seen": 1789298000,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b1:00:04",
+   "rssi": -70,
+   "last_seen": 1789297100,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b2:00:00",
+   "rssi": -31,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b2:00:01",
+   "rssi": -31,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b2:00:02",
+   "rssi": -31,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b2:00:03",
+   "rssi": -31,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b2:00:10",
+   "rssi": -31,
+   "last_seen": 0,
+   "randomized": true
+  },
+  {
+   "mac": "6e:c1:00:b3:00:01",
+   "rssi": null,
+   "last_seen": 1789299940,
+   "randomized": true
+  },
+  {
+   "mac": "3c:22:fb:c1:01:00",
+   "rssi": -30,
+   "vendor": "Apple",
+   "last_seen": 1789299928
+  },
+  {
+   "mac": "8c:f5:a3:c1:01:01",
+   "rssi": -30,
+   "vendor": "Samsung Electronics",
+   "last_seen": 1789299881
+  },
+  {
+   "mac": "24:6f:28:c1:01:02",
+   "rssi": -30,
+   "vendor": "Espressif",
+   "last_seen": 1789299834
+  },
+  {
+   "mac": "50:c7:bf:c1:01:03",
+   "rssi": -46,
+   "vendor": "TP-Link",
+   "last_seen": 1789299910
+  },
+  {
+   "mac": "dc:a6:32:c1:01:04",
+   "rssi": -48,
+   "vendor": "Raspberry Pi Foundation",
+   "last_seen": 1789299880
+  },
+  {
+   "mac": "3c:22:fb:c1:01:05",
+   "rssi": -50,
+   "vendor": "Apple",
+   "last_seen": 1789299850
+  },
+  {
+   "mac": "8c:f5:a3:c1:01:06",
+   "rssi": -52,
+   "vendor": "Samsung Electronics",
+   "last_seen": 1789299820
+  },
+  {
+   "mac": "24:6f:28:c1:01:07",
+   "rssi": -54,
+   "vendor": "Espressif",
+   "last_seen": 1789299790
+  },
+  {
+   "mac": "50:c7:bf:c1:01:08",
+   "rssi": -56,
+   "vendor": "TP-Link",
+   "last_seen": 1789299760
+  },
+  {
+   "mac": "dc:a6:32:c1:01:09",
+   "rssi": -58,
+   "vendor": "Raspberry Pi Foundation",
+   "last_seen": 1789299730
+  },
+  {
+   "mac": "3c:22:fb:c1:01:0a",
+   "rssi": -60,
+   "vendor": "Apple",
+   "last_seen": 1789299700
+  },
+  {
+   "mac": "8c:f5:a3:c1:01:0b",
+   "rssi": -62,
+   "vendor": "Samsung Electronics",
+   "last_seen": 1789299670
+  },
+  {
+   "mac": "24:6f:28:c1:01:0c",
+   "rssi": -64,
+   "vendor": "Espressif",
+   "last_seen": 1789299640
+  },
+  {
+   "mac": "50:c7:bf:c1:01:0d",
+   "rssi": -66,
+   "vendor": "TP-Link",
+   "last_seen": 1789299610
+  },
+  {
+   "mac": "dc:a6:32:c1:01:0e",
+   "rssi": -68,
+   "vendor": "Raspberry Pi Foundation",
+   "last_seen": 1789299580
+  },
+  {
+   "mac": "3c:22:fb:c1:01:0f",
+   "rssi": -70,
+   "vendor": "Apple",
+   "last_seen": 1789299550
+  },
+  {
+   "mac": "8c:f5:a3:c1:01:10",
+   "rssi": -72,
+   "vendor": "Samsung Electronics",
+   "last_seen": 1789299520
+  },
+  {
+   "mac": "24:6f:28:c1:01:11",
+   "rssi": -74,
+   "vendor": "Espressif",
+   "last_seen": 1789299490
+  },
+  {
+   "mac": "50:c7:bf:c1:01:12",
+   "rssi": -76,
+   "vendor": "TP-Link",
+   "last_seen": 1789299460
+  },
+  {
+   "mac": "dc:a6:32:c1:01:13",
+   "rssi": -78,
+   "vendor": "Raspberry Pi Foundation",
+   "last_seen": 1789299430
+  },
+  {
+   "mac": "7a:c1:00:c0:00:01",
+   "rssi": -29,
+   "vendor": "Espressif",
+   "last_seen": 1789299975
+  }
+ ]
+}

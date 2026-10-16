@@ -11,11 +11,11 @@
 #                 Generator ignores the seed => row 1 red (payload compared without the seed field); page copies with
 #                 `x.innerHTML +=`, insertAdjacentHTML, outerHTML =, document.write, ["innerHTML"] => row "innerHTML sinks" red.
 #                 Canary path with spaces and no fallback path => row 1 red (the generator refuses); the same situation with
-#                 the refusal switched off => dashboard row red (the positive control creates nothing); control sabotaged (no eval)
-#                 => dashboard row red; canary file created before the verdict => dashboard row "CREATED". Relative TMPDIR (out/x)
-#                 without the absolute-path check => dashboard row red "control 0 of N" (after the cd the control puts the file
+#                 the refusal switched off => display row red (the positive control creates nothing); control sabotaged (no eval)
+#                 => display row red; canary file created before the verdict => display row "CREATED". Relative TMPDIR (out/x)
+#                 without the absolute-path check => display row red "control 0 of N" (after the cd the control puts the file
 #                 elsewhere), with it a fallback to /tmp and green; a generator copy without the backtick family under a short TMPDIR =>
-#                 dashboard row red "2/3 families" (the count alone would stay green, 10 of 15 texts).
+#                 display row red "2/3 families" (the count alone would stay green, 10 of 15 texts).
 # NOT PROVEN:     sinks outside the list below (a new assignment => row red, add a driver); behaviour in real browsers
 #                 and on the device (there only the output under jq, never a collector); only ~30 s of observation per run. Limit of the
 #                 static ratchet: it does not see sinks whose name is computed at run time (x[a + b] = ...); moreover
@@ -24,13 +24,13 @@
 #                 or setInterval with a string (the page has 0 such places, measured with
 #                 `grep -cE 'eval *\(|new +Function|Function *\(' starchorus.html`; they are in no zero list, so a new place would stay
 #                 green here). The canary proof holds for three payloads ($( ), backticks, breaking out of quotes), not for
-#                 every shell syntax, and only for the dashboard under this machine's shell.
+#                 every shell syntax, and only for the Overview under this machine's shell.
 # Sourced by tools/regress.sh with cwd = repo root; two Chrome runs (the drop-in's wall time is in out/PREFIX-timing.txt;
 # row names carry no seconds). Only FUZ_* names are set.
 # Own directory: one mktemp -d under $TMPDIR (or /tmp; absolute path only), removed at the end of this file; nothing else outside the repo is touched.
 # Mutants are only DATA served to the page in headless Chrome against 127.0.0.1; nothing in here sends or executes a mutant.
 FUZ_MIN_MUTANTS=600   # python3 -B tools/fuzz-doc.py --summary   (measured: 771 mutants + 3 big = 774); floor about 88 %
-FUZ_MIN_ANCHORS=24    # positive anchors the eval found: masked text in tooltip/detail/#source-desc/hint (measured: 24; the count is deterministic for a given bundle)
+FUZ_MIN_ANCHORS=26    # positive anchors the eval found: masked text in tooltip/detail/#source-desc/hint, and the random cloud's tooltip and sheet (measured: 26; the count is deterministic for a given bundle)
 FUZ_MIN_DISPLAY=150     # documents the collector could have written that go to the display script (measured: 229)
 FUZ_MIN_PAYLOADS=3    # injection texts derived from the bundle (section 4 lists them in out/PREFIX-fuzz-payloads.txt: wc -l; measured: 3 with a long $TMPDIR path, 15 under /tmp (the #n variants of the three families exist only for short paths))
 FUZ_INNER_MAX=20      # .innerHTML assignments in the page; raise only together with a driver for the new sink (measured: 20; nine of

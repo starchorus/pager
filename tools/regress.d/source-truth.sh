@@ -28,8 +28,10 @@ SRC_EVD='(async()=>{const doc={source:"recon-db",generated:1789300000,aps:[{bssi
 # §2 determinism: no capture time -> "Last seen —" and an undated history sample (ts null).
 # Its own BSSID (…0a), so the run's earlier loads leave no history behind for it.
 SRC_EVT='(()=>{const ID="02:00:00:00:00:0a";const mk=(g)=>{const d={source:"recon-db",aps:[{bssid:ID,ssid:"x",band:"2.4",channel:1,rssi:-50,last_seen:1789299990}],unassociated:[]};if(g!=null)d.generated=g;return d;};STARCHORUS.load(mk(null),"A");STARCHORUS.select(ID);const a=(document.getElementById("detail-body").innerText.match(/Last seen\s*([^\n]*)/)||[])[1];const ta=STARCHORUS.hist(ID).ts;STARCHORUS.load(mk(1789300000),"B");STARCHORUS.select(ID);const b=(document.getElementById("detail-body").innerText.match(/Last seen\s*([^\n]*)/)||[])[1];return JSON.stringify({a,ta,b,tb:STARCHORUS.hist(ID).ts});})()'
-# §2 determinism: the history sweep counts ingests (HIST_KEEP_INGESTS = 60), not wall time
-SRC_EVI='(()=>{const ap=(b)=>({bssid:b,ssid:"s"+b.slice(-2),band:"2.4",channel:1,rssi:-50});STARCHORUS.load({generated:1,aps:[ap("02:00:00:00:00:01"),ap("02:00:00:00:00:02")]},"A");const res=[];for(let i=0;i<61;i++){STARCHORUS.load({generated:2+i,aps:[ap("02:00:00:00:00:02")]},"A");res.push(STARCHORUS.hist("02:00:00:00:00:01")!==null);}return JSON.stringify([res[58],res[59],res[60]]);})()'
+# §2 determinism: the history sweep counts capture time (HIST_KEEP_S = 300 s of `generated`), not polls and not wall time; an undated
+# document counts ingests (HIST_KEEP_INGESTS = 60). Dated 10 s apart: kept at 290 and 300 s, gone at 310 s; dated 1 s apart: still kept
+# after 61 ingests; undated: kept at 59 and 60 ingests, gone at 61.
+SRC_EVI='(()=>{const ap=(b)=>({bssid:b,ssid:"s"+b.slice(-2),band:"2.4",channel:1,rssi:-50}),mk=(g,l)=>Object.assign({source:"recon-db"},g==null?{}:{generated:g},{aps:l});const run=(n,a,b,g0,st)=>{STARCHORUS.load(mk(g0,[ap(a),ap(b)]),"A");const res=[];for(let i=1;i<=n;i++){STARCHORUS.load(mk(g0==null?null:g0+st*i,[ap(b)]),"A");res.push(STARCHORUS.hist(a)!==null);}return res;};const x=run(31,"02:00:00:00:00:01","02:00:00:00:00:02",1,10),y=run(61,"02:00:00:00:00:03","02:00:00:00:00:04",1000,1),z=run(61,"02:00:00:00:00:05","02:00:00:00:00:06",null,0);return JSON.stringify([x[28],x[29],x[30],y[60],z[58],z[59],z[60]]);})()'
 # D4: the client detail hint drops "rx only" on an ACTIVE capture; loadDemo is demo; labels stay escaped
 SRC_EVH='(()=>{STARCHORUS.load({source:"iw-scan-ACTIVE",generated:1789300000,aps:[{bssid:"02:00:00:00:00:01",ssid:"x",band:"2.4",channel:1,rssi:-50}],unassociated:[{mac:"02:00:00:00:00:99",rssi:-60,probes:["x"]}]},"API");STARCHORUS.select("02:00:00:00:00:99");const t=document.getElementById("detail").innerText;const o={kind:STARCHORUS.stats().sourceKind,hint:/heard probe requests/i.test(t),claim:/rx only/i.test(t)};STARCHORUS.loadDemo();o.demo=[STARCHORUS.stats().sourceKind,STARCHORUS.stats().mode,document.getElementById("mode-chip").textContent].join("/");STARCHORUS.load({aps:[{bssid:"aa:bb:cc:dd:ee:09",ssid:"<img src=x onerror=window.__x=1>"}]},"<b>evil</b>");o.esc=document.getElementById("source-desc").innerHTML.includes("&lt;b&gt;evil")&&window.__x===undefined;STARCHORUS.load({aps:[]},12345);o.lbl=STARCHORUS.stats().sourceLabel;return JSON.stringify(o);})()'
 # D4: THEME.copy has the same leaf paths in all three themes, and copy.rx/copy.active the same sites
@@ -115,18 +117,18 @@ if [ "$SRC_T" = '{"a":"—","ta":[null],"b":"10 s ago","tb":[null,1789300000]}' 
 else
   row "§2 lastSeenAge/hist without generated [$SRC_T]" FAIL
 fi
-if [ "$SRC_I" = "[true,true,false]" ]; then
-  row "§2 history sweep counts ingests (60) $SRC_I" PASS
+if [ "$SRC_I" = "[true,true,false,true,true,true,false]" ]; then
+  row "§2 history sweep counts capture time (300 s), undated ingests (60) $SRC_I" PASS
 else
-  row "§2 history sweep counts ingests [$SRC_I]" FAIL
+  row "§2 history sweep counts capture time, undated ingests [$SRC_I]" FAIL
 fi
 if [ "$SRC_H" = '{"kind":"active","hint":true,"claim":false,"demo":"demo/demo/Sample","esc":true,"lbl":"12345"}' ]; then
   row "D4 detail hint, loadDemo = Sample, label escaped" PASS
 else
   row "D4 detail hint/loadDemo/label [$SRC_H]" FAIL
 fi
-if [ "$SRC_K" = '{"sym":true,"n":60,"rxEqActive":true}' ]; then
-  row "D4 copy group symmetric (60 paths, rx = active, including signal, skyVoice, legendHeads, badge, crowdSign, lamps, logonListen, tote, clock, compendium, vault, lampStrip, caption)" PASS
+if [ "$SRC_K" = '{"sym":true,"n":62,"rxEqActive":true}' ]; then
+  row "D4 copy group symmetric (62 paths, rx = active, including signal, skyVoice, legendHeads, badge, crowdSign, lamps, logonListen, tote, clock, compendium, vault, lampStrip, caption)" PASS
 else
   row "D4 copy group symmetric [$SRC_K]" FAIL
 fi
@@ -142,7 +144,7 @@ else
   row "claim phrases {$SRC_CS} / RX-MODE const $SRC_S5" FAIL
 fi
 
-# ---- starchorus-display.sh: the same swap on the device dashboard (cmp + shellcheck are core rows)
+# ---- starchorus-display.sh: the same swap on the Overview (cmp + shellcheck are core rows)
 SRC_N1=$(for SRC_S in summary top bands devices probes clients air; do
   STARCHORUS_DISPLAY_PLAIN=1 sh "$R/starchorus-display.sh" --once "$SRC_S" "$F/active.json"
 done | grep -ciE "$SRC_CLAIM")

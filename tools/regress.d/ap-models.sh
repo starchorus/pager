@@ -5,7 +5,7 @@
 #   crowding, deviations D11 · signal levels D9 (U2) · marks D5-D8/D17 · colour roles §4.1, D16 · fixtures
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only APM_* globals are set.
 #
-# Seven Chrome runs. The data/sequence evals run WITHOUT ?fixed (a frozen clock never fades a node in, so nothing new
+# Eight Chrome runs. The data/sequence evals run WITHOUT ?fixed (a frozen clock never fades a node in, so nothing new
 # would draw); everything they read is deterministic anyway (timing only decides that a cue is still "playing").
 
 APM_Q="?poll=0&spin=0&intro=0&debug=1"
@@ -146,14 +146,27 @@ else
   echo "    got:  $(printf '%s' "$APM_K" | cut -c1-420)"; echo "    want: $APM_KW"
 fi
 
-# ---- poll deadline: a hung server must not keep the chip on "Live"
-APM_EVH='(async()=>{const doc={source:"recon-db",generated:1789300000,aps:[{bssid:"02:00:00:00:00:01",ssid:"x",band:"2.4",channel:1,rssi:-50}]};STARCHORUS.load(doc,"starchorus.json",{mode:"live"});const t0=performance.now(),r=[];for(let i=0;i<6;i++){const x=await STARCHORUS.pollNow();r.push(x.ok?1:0);}const s=STARCHORUS.stats(),ms=performance.now()-t0;const a=STARCHORUS.pollNow(),b=STARCHORUS.pollNow();const same=a===b;await a;return JSON.stringify({r:r.join(""),stale:s.captureStale,polls:s.stalePolls,fast:ms<5000,same});})()'
+# ---- poll deadline: a hung server must not keep the chip on "Live", and is silence: after six deadlines (32.4 s of poll time) it reads Offline
+APM_EVH='(async()=>{const doc={source:"recon-db",generated:1789300000,aps:[{bssid:"02:00:00:00:00:01",ssid:"x",band:"2.4",channel:1,rssi:-50}]};STARCHORUS.load(doc,"starchorus.json",{mode:"live"});const t0=performance.now(),r=[];for(let i=0;i<6;i++){const x=await STARCHORUS.pollNow();r.push(x.ok?1:0);}const s=STARCHORUS.stats(),ms=performance.now()-t0;const a=STARCHORUS.pollNow(),b=STARCHORUS.pollNow();const same=a===b;await a;return JSON.stringify({r:r.join(""),stale:s.captureStale,off:s.captureOffline,polls:s.stalePolls,fast:ms<5000,same});})()'
 runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&pollto=400" "out/$P-apm-hang" --delay 3 --wait 2 --fps 0 --eval-timeout 60 --eval "$APM_EVH" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 APM_H=$(evalv "out/$P-apm-hang.json" 1); APM_HE=$(evalv "out/$P-apm-hang.json" 2)
-if [ "$APM_H" = '{"r":"000000","stale":true,"polls":6,"fast":true,"same":true}' ] && [ "$APM_HE" = 0 ]; then
-  row "poll deadline: 6 hung polls -> stale in < 5 s, one request at a time" PASS
+if [ "$APM_H" = '{"r":"000000","stale":true,"off":true,"polls":6,"fast":true,"same":true}' ] && [ "$APM_HE" = 0 ]; then
+  row "poll deadline: 6 hung polls -> stale and offline in < 5 s, one request at a time" PASS
 else
   row "poll deadline [$APM_H] err ${APM_HE:-?}" FAIL
+fi
+# the row can bite: a page copy that counts an aborted fetch as an answer is stale after the same six polls, but never offline
+APM_HM="out/$P-apm-hang.html"
+sed 's/late = true; ac.abort();/late = true; heard = true; ac.abort();/' "$H" > "$APM_HM"
+APM_HN=$(grep -c 'late = true; heard = true; ac.abort();' "$APM_HM")
+APM_HKEEP=$H; H=$APM_HM   # runq serves $H: point it at the copy for this one call, then put it back
+runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&pollto=400" "out/$P-apm-hangm" --delay 3 --wait 2 --fps 0 --eval-timeout 60 --eval "$APM_EVH" >/dev/null 2>&1
+H=$APM_HKEEP
+APM_HV=$(evalv "out/$P-apm-hangm.json" 1)
+if [ "$APM_HN" = 1 ] && [ "$APM_HV" = '{"r":"000000","stale":true,"off":false,"polls":6,"fast":true,"same":true}' ]; then
+  row "poll deadline probe bites: a deadline taken for an answer is stale but never offline (mutation $APM_HN)" PASS
+else
+  row "poll deadline probe bites (mutation $APM_HN) [$APM_HV]" FAIL
 fi
 APM_TO=$(grep -c 'AbortController' "$H"); APM_FE=$(grep -c 'fetch("starchorus.json' "$H")
 if [ "$APM_TO" -ge 1 ] && [ "$APM_FE" = 1 ]; then row "poll deadline: AbortController in tryPoll ($APM_TO), fetch still once ($APM_FE)" PASS

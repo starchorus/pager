@@ -62,14 +62,16 @@ EDG_V=$(evalv "out/$P-d15-tok.json" 1)
 rowif "chrome tokens: bezel/banner/edge/CRT per theme" [ "$EDG_V" = ok ]
 [ "$EDG_V" = ok ] || echo "    failing themes: ${EDG_V:-no-value}"
 
-# MUSS BLEIBEN 20 (< 720 px) unchanged; .motto hidden < 900 px; no --lay-* variables below 720 px;
-# the bottom sheet sits on --chrome-bot (24 px in Whitehall, 0 elsewhere)
-EDG_SMALL="(()=>{const d=['stats','legend','chanbar'].map(i=>getComputedStyle(document.getElementById(i)).display).join(',');STARCHORUS.select(STARCHORUS.nodes('ap')[0].id);return [d,document.documentElement.scrollWidth,document.getElementById('detail').classList.contains('sheet'),getComputedStyle(document.querySelector('#masthead .motto')).display,document.documentElement.style.cssText.indexOf('--lay-')<0,(STARCHORUS.setTheme('whitehall'),Math.round(innerHeight-document.getElementById('detail').getBoundingClientRect().bottom))].join('|')})()"
+# MUSS BLEIBEN 20 (≤ 720 px): since D21 the phone mode of §9.8 replaces the old small mode (which hid #stats, #legend and
+# #chanbar), so the row asks for that mode: data-phone on, no sideways scroll, the detail opens in the sheet, no --lay-*
+# variable, and in Whitehall the sheet sits 8 px above the (wrapped) bottom banner. .motto stays hidden below 900 px on the
+# desktop side of the bound (760x600). tools/regress.d/phone.sh holds the phone rows themselves.
+EDG_SMALL="(()=>{const e=i=>document.getElementById(i);STARCHORUS.select(STARCHORUS.nodes('ap')[0].id);return [document.documentElement.dataset.phone,document.documentElement.scrollWidth,e('detail').parentNode.id==='sheet-body',document.documentElement.style.cssText.indexOf('--lay-')<0,(STARCHORUS.setTheme('whitehall'),Math.round(innerHeight-e('sheet').getBoundingClientRect().bottom)===e('classbar-bot').offsetHeight+8?'ok':'gap')].join('|')})()"
 runq "$F/field-probes.json" "$EDG_Q" "out/$P-d15-640" --width 640 --height 900 --wait 4 --fps 0 \
-  --eval "$EDG_SMALL" >/dev/null 2>&1
-EDG_V=$(evalv "out/$P-d15-640.json" 1)
-rowif "responsive 640x900 + motto < 900 px" [ "$EDG_V" = "none,none,none|640|true|none|true|24" ]
-[ "$EDG_V" = "none,none,none|640|true|none|true|24" ] || echo "    got: ${EDG_V:-no-value} (want none,none,none|640|true|none|true|24)"
+  --eval "$EDG_SMALL" --step size:760x600 --step "eval:getComputedStyle(document.querySelector('#masthead .motto')).display" >/dev/null 2>&1
+EDG_V="$(evalv "out/$P-d15-640.json" 1)|$(evalv "out/$P-d15-640.json" 2)"
+rowif "responsive 640x900 = phone mode (D21) + motto < 900 px" [ "$EDG_V" = "on|640|true|true|ok|none" ]
+[ "$EDG_V" = "on|640|true|true|ok|none" ] || echo "    got: ${EDG_V:-no-value} (want on|640|true|true|ok|none)"
 
 # D15 priority detail > chanbar: in a short viewport the docked bar collapses while a detail is open
 EDG_COLL="[STARCHORUS.edgeLayout().chan,(STARCHORUS.select(STARCHORUS.nodes('ap')[0].id),STARCHORUS.edgeLayout().chan),(STARCHORUS.deselect(),STARCHORUS.edgeLayout().chan),document.getElementById('chanbar').hidden].join()"

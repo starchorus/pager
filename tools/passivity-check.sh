@@ -23,7 +23,7 @@ rowif() { _n=$1; shift; if "$@"; then row "$_n" PASS; else row "$_n" FAIL; fi; }
 show() { sed 's/^/    /' | cut -c1-200; }   # stdin as indented evidence under a FAIL row
 lines() { wc -l < "$1" | tr -d ' '; }
 
-# Shell files of the §14.6 check: collector, both dashboards, root payload.sh, the nc listener starchorus-serve.sh (it is in the
+# Shell files of the §14.6 check: collector, both Overview copies, root payload.sh, the nc listener starchorus-serve.sh (it is in the
 # denylist file set, so it belongs to the shell scope too), every file under library/ except its Markdown docs (the payload
 # directory ships to the device as a whole, so a helper without the .sh suffix is in scope too). `--files` prints this list and
 # exits (tools/regress.d/doc-truth.sh compares it with the shell files the repository really has, both ways).

@@ -46,7 +46,7 @@ sys.dont_write_bytecode = True   # no __pycache__ in the work tree
 
 MIN_SHELL_FILES = 27   # shell files the listing must find (about 80 %); measure: git ls-files '*.sh' | wc -l   (measured: 56)
 MIN_MD_FILES = 5       # prose documents the prose check reads
-MIN_FIXTURE_ROWS = 12  # rows of the fixture table; measure: ls tests/fixtures/*.json | wc -l   (measured: 12)
+MIN_FIXTURE_ROWS = 13  # rows of the fixture table; measure: ls tests/fixtures/*.json | wc -l   (measured: 13)
 MIN_CLAIMS = 20        # stated sizes the fixtures check compares; measure: the count in its label line (measured: 39); each row also has to state what the file has (see chk_fixtures)
 
 

@@ -55,10 +55,10 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # (anchor + comment strip: neither a trailing `// dtgString(` nor `/* dtgString( */` can launder a Date.now line)
 # ---- floors of the check sets: a row must not turn green because the set it checks got empty or shrank.
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
-MIN_SELFTEST=259          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (259 checks))
+MIN_SELFTEST=375          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (375 checks))
 MIN_SECTIONS=42           # grep -c '==== [0-9]' starchorus.html                              (measured: 00..41)
-MIN_FIXTURES=12           # ls tests/fixtures/*.json | wc -l   (measured: 12)
-MIN_QUICK_DROPINS=5       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package mutation-probe)
+MIN_FIXTURES=13           # ls tests/fixtures/*.json | wc -l   (measured: 13)
+MIN_QUICK_DROPINS=6       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server mutation-probe)
 MIN_QUICK_ROWS=50         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 66; quick.sh's own rows are also asked for by name)
 MIN_DATA_ORACLE_CASES=115 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 133)
 MIN_PYFILES=5             # ls tools/*.py | wc -l                                               (cdp.py, gen-testdata.py, fuzz-doc.py, data-oracle.py, doc-truth.py)
@@ -71,7 +71,7 @@ MIN_SLICE_INTRO=25            # §39..§40, measured 39
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.
-QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package"
+QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package page-server"
 QUICK_DROPINS_MUTATE="mutation-probe"   # added by quick.sh only when QUICK_MUTATE=1 (the hook sets it when the checker itself is staged)
 
 # ---- static page rules (token reads "≤ baseline")

@@ -21,7 +21,7 @@ Everything is deterministic for a given --seed. Python 3 stdlib only.
 Examples:
   tools/gen-testdata.py --aps 25 --clients 180 --assoc-frac 0.4 --vendor-frac 0.6 --extras \
       --hidden-frac 0.1 --source airodump-csv --seed 7 --out tests/fixtures/many-clients.json
-  tools/gen-testdata.py --stamp tests/fixtures/many-clients.json     # strips last_seen (not a recon-db source)
+  tools/gen-testdata.py --stamp tests/fixtures/many-clients.json     # strips last_seen (not a recon-db or pineap source)
   tools/gen-testdata.py --source none --out tests/fixtures/empty-none.json
   tools/gen-testdata.py --source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158 \
       --out tests/fixtures/active.json
@@ -122,7 +122,8 @@ SECURITIES = ("WPA2", "WPA3/WPA2", "WPA3", "Open", "WPA", "WEP", "OWE")
 SECURITY_W = (52, 16, 10, 9, 4, 3, 3)
 
 IWSCAN = "iw-scan-ACTIVE"   # the collector's only non-passive source (opt-in STARCHORUS_ALLOW_ACTIVE=1)
-SOURCES = ("recon-db", "airodump-csv", "tcpdump", IWSCAN, "none")   # every "source" starchorus-collect.sh emits
+SOURCES = ("recon-db", "airodump-csv", "tcpdump", "pineap", IWSCAN, "none")   # every "source" starchorus-collect.sh emits
+LAST_SEEN_SOURCES = ("recon-db", "pineap")      # the sources whose collector writes `last_seen` (both take it from a `time`)
 # build_from_iwscan() in starchorus-collect.sh derives security from the RSN/WPA/Privacy IEs in these words;
 # anything else becomes "WPA" or "WPA/WPA2".
 IWSCAN_SEC = {"WPA2": "WPA2/WPA3", "WPA3/WPA2": "WPA2/WPA3", "WPA3": "WPA2/WPA3", "OWE": "WPA2/WPA3",
@@ -437,15 +438,15 @@ def build_aged_doc(generated, center):
 
 
 # --------------------------------------------------------------------------- last_seen stamping
-# The recon.db collector writes `last_seen` on every AP; a recon-db fixture without it is not what the collector
-# emits. `--stamp FILE` adds a deterministic, idempotent `last_seen` to every AP of a recon-db fixture that has none:
+# The recon.db collector and the pineap source write `last_seen` on every AP; a recon-db or pineap fixture without it is not what the
+# collector emits. `--stamp FILE` adds a deterministic, idempotent `last_seen` to every AP of such a fixture that has none:
 # age = -mean * ln(1 - u) seconds against `generated`, u = the first 8 hex digits of sha1(bssid) / 2^32 (no random
 # state, no ordering dependence), capped at 3600 s. Every OTHER source (airodump-csv, tcpdump, iw scan) is the
-# opposite case: those collectors write no `last_seen` (recon.db only, starchorus-collect.sh), so `--stamp` REMOVES it
+# opposite case: those collectors write no `last_seen` (recon.db and pineap only, starchorus-collect.sh), so `--stamp` REMOVES it
 # from the APs and stations of such a fixture. --stamp-mean sets the mean age (default 90 s = the payload's 120 s
 # window; the screenshot fixture field-probes-aged.json uses 600 s so that the older freshness tiers show).
 def stamp_doc(doc, mean):
-    if doc.get("source") != "recon-db":
+    if doc.get("source") not in LAST_SEEN_SOURCES:
         objs = [o for a in doc["aps"] for o in [a] + a["clients"]] + doc["unassociated"]
         return sum(o.pop("last_seen", None) is not None for o in objs)
     n = 0
@@ -494,6 +495,176 @@ def build_secsuite_doc(generated, center):
     return {"generated": generated, "center": {"label": center, "max_age": 0, "interval": 5,
             "own_bssids": ["00:c0:ca:98:76:54"], "own_ssids": ["my-own-net"]},
             "source": "recon-db", "channels": channels, "aps": aps, "unassociated": unassoc}
+
+
+# --------------------------------------------------------------------------- random-clouds fixture (spec §8.8a)
+# One nearby device that scans with a fresh randomised address for every burst: 30 bursts of 4 addresses at -28..-30 dBm, one
+# burst every 47 s (two bursts left out), next to everything the rule must NOT fold in. Synthetic: locally administered or
+# invented addresses, invented SSIDs (P9). DOCUMENTED GROUND TRUTH (tools/regress.d/clouds.sh pins it, page and Overview alike):
+#
+#   free stations ............................ 160      associated ............. 2 (one randomised, never a member)
+#   randomised (all) ......................... 140      randomised free ........ 139      eligible (dated, with a signal) .. 133
+#   clouds ................................... 1        addresses in it ........ 121 (core 120, joined 1)
+#   bursts 30 · cadence 47 s · rhythm share 1.0 · centre -29 · cloud signal -29 (range -34 to -28)
+#   first heard generated - 1482 · last heard generated - 24 · distinct probed SSIDs 3
+#   loose randomised free .................... 18 (off-band 1, one single burst 6, slow rhythm 5, undated 5, no signal 1)
+#
+#   core     30 x 4 da:c1:00:a1:ii:jj, age 25 + 47*i for i in 0..31 except 9 and 20, offsets 0/0/+1/+1 s, -29/-28/-30/-29 dBm;
+#            burst 15 slot 3 is 3c:22:fb:c1:00:f3 (randomised by its field, no U/L bit); probes HomeWiFi (burst 3, slots 0-1),
+#            Lab-Net and Cafe-Free (burst 12, slot 0)
+#   joiner   da:c1:00:a2:00:01 at -34 inside burst 5 -> joins         off-band  da:c1:00:a2:00:02 at -37 inside burst 7 -> loose
+#   loose    6 x 6e:c1:00:b0:00:0j at -45..-50 in one burst (age 900); 5 x 6e:c1:00:b1:00:0j at -69..-71, ages 300/1100/1250/
+#            2000/2900 (cadence over 300 s); 5 x 6e:c1:00:b2:00:jj at -31 undated (4 without last_seen, 1 with 0); 6e:c1:00:b3:00:01
+#            without a signal
+#   genuine  20 stations with an OUI and a vendor (3 at -30 inside cloud bursts: never members); 7a:c1:00:c0:00:01 has the U/L bit
+#            AND a vendor, so it is not randomised
+#   APs      02:00:5e:c1:0n:01, each with a fifth byte of its own: no device rule (§8.8) can link two of them, not even with the
+#            U/L exclusion removed (the planted fault of tools/regress.d/data-oracle.sh), so the HomeWiFi ESS stays what it is
+def build_clouds_doc(generated, center):
+    def ap(n, ssid, band, ch, rssi, sec, age):
+        return fixed_ap("02:00:5e:c1:%02x:01" % n, ssid, band, ch, rssi, sec, last_seen=generated - age)
+
+    aps = [ap(1, "HomeWiFi", "2.4GHz", 6, -48, "WPA2", 5), ap(2, "HomeWiFi", "5GHz", 36, -55, "WPA2", 8),
+           ap(3, "Office-5G", "5GHz", 44, -62, "WPA3", 12), ap(4, "Lab-Net", "2.4GHz", 1, -70, "WPA2", 20),
+           ap(5, "Guest-Net", "2.4GHz", 11, -74, "Open", 30), ap(6, "", "5GHz", 149, -80, "WPA2", 40)]
+    aps[0]["clients"] = [{"mac": "aa:c1:00:00:a0:01", "rssi": -29, "last_seen": generated - 20, "randomized": True}]
+    aps[2]["clients"] = [{"mac": "3c:22:fb:c1:00:a1", "rssi": -61, "vendor": "Apple", "last_seen": generated - 15}]
+    un, pat = [], (-29, -28, -30, -29)
+    for i in range(32):
+        if i in (9, 20):
+            continue
+        for j in range(4):
+            m = {"mac": "da:c1:00:a1:%02x:%02x" % (i, j), "rssi": pat[j], "last_seen": generated - (25 + 47 * i) + (1 if j >= 2 else 0),
+                 "randomized": True}
+            if i == 15 and j == 3:
+                m["mac"] = "3c:22:fb:c1:00:f3"
+            if i == 3 and j in (0, 1):
+                m["probes"] = ["HomeWiFi"]
+            if i == 12 and j == 0:
+                m["probes"] = ["Lab-Net", "Cafe-Free"]
+            un.append(m)
+    un.append({"mac": "da:c1:00:a2:00:01", "rssi": -34, "last_seen": generated - (25 + 47 * 5), "randomized": True})
+    un.append({"mac": "da:c1:00:a2:00:02", "rssi": -37, "last_seen": generated - (25 + 47 * 7), "randomized": True})
+    for j, r in enumerate((-45, -46, -47, -48, -49, -50)):
+        un.append({"mac": "6e:c1:00:b0:00:%02x" % j, "rssi": r, "last_seen": generated - 900, "randomized": True})
+    for j, (r, a) in enumerate(((-70, 300), (-71, 1100), (-69, 1250), (-70, 2000), (-70, 2900))):
+        un.append({"mac": "6e:c1:00:b1:00:%02x" % j, "rssi": r, "last_seen": generated - a, "randomized": True})
+    for j in range(4):
+        un.append({"mac": "6e:c1:00:b2:00:%02x" % j, "rssi": -31, "randomized": True})
+    un.append({"mac": "6e:c1:00:b2:00:10", "rssi": -31, "last_seen": 0, "randomized": True})
+    un.append({"mac": "6e:c1:00:b3:00:01", "rssi": None, "last_seen": generated - 60, "randomized": True})
+    vend = (("3c:22:fb", "Apple"), ("8c:f5:a3", "Samsung Electronics"), ("24:6f:28", "Espressif"), ("50:c7:bf", "TP-Link"),
+            ("dc:a6:32", "Raspberry Pi Foundation"))
+    for j in range(20):
+        o, v = vend[j % 5]
+        un.append({"mac": "%s:c1:01:%02x" % (o, j), "rssi": -30 if j < 3 else -40 - 2 * j, "vendor": v,
+                   "last_seen": generated - (25 + 47 * (j + 1)) if j < 3 else generated - 30 * j})
+    un.append({"mac": "7a:c1:00:c0:00:01", "rssi": -29, "vendor": "Espressif", "last_seen": generated - 25})
+    return {"generated": generated, "center": {"label": center, "max_age": 3600, "interval": 30}, "source": "recon-db",
+            "aps": aps, "unassociated": un}
+
+
+# --------------------------------------------------------------------------- random-clouds scenes beyond one device (spec §8.8a)
+# Four scenes for the rule's weak points, all synthetic (locally administered addresses, nothing real): they are generated when a row of
+# tools/regress.d/clouds.sh needs them, not stored. A tiny integer generator (no random module) keeps them identical on every machine.
+#   two     a phone (4 addresses every 47 s) and a laptop (4 every 61 s), both at -31..-29 dBm, one hour: two scanning devices at the
+#           same signal. TRUTH: the phone's 308 addresses (da:c2:a1:*, 77 bursts) and the laptop's 236 (da:c2:b1:*, 59 bursts), every one
+#           of them in a cloud and a cloud for each (the rule may let a few of one device's bursts into the other's cloud)
+#   crowd   600 unrelated randomised addresses at random times in a 5-minute window, signal around -68 dBm (sd about 8): a busy place.
+#           TRUTH: 0 clouds (a crowd has no rhythm). The seed is one for which the first rule, a flat share of gaps on one period, folded
+#           the crowd into a cloud of 206 addresses
+#   wide    the phone alone (3 addresses per burst, every 47 s, one hour) with a wide spread: -28, -34 and -40 dBm in every burst, three
+#           signal bands of one device. TRUTH: 1 cloud of all 231 addresses (da:c2:a1:*), the bands' streams merged into it
+#   strays  the phone alone (one hour) with 40 single addresses in its signal band at random times, none within 6 s of a burst.
+#           TRUTH: 1 cloud, the phone's 308 addresses; the strays are not in it (a stray can only join by being heard inside a burst)
+#   dense   1500 unrelated randomised addresses at random times in 15 minutes, signal around -60 dBm (sd about 7): a very busy place. TRUTH: 0
+#           clouds. The seed is one for which the previous rule (pairs against a Poisson chance level) made a cloud of several hundred
+#   drift   the phone alone (4 addresses every 47 s) in an hour in which its signal moves 10 dB (-30 to -40 dBm): its bursts cross from one
+#           signal band to the next. TRUTH: 1 cloud of all 308 addresses (the previous
+#           rule made two, one per band)
+#   same    two devices of one period: 4 addresses every 47 s from each, one 17 s behind the other, at one signal. TRUTH: 1 cloud of all
+#           616 addresses, labelled about every 47 s, whose rhythm is mixed (no one device is claimed)
+#   three   three devices at one signal, every 47, 61 and 83 s, 4 addresses a burst, one hour. TRUTH: a cloud for each of the three
+#   long    the phone alone for six hours (4 addresses every 47 s, 1840 addresses). TRUTH: 1 cloud (the previous rule saw too many bursts
+#           in one band and gave none)
+#   wander  the phone alone whose schedule wanders: a gap of 47 s (+-1) in 70 % of the bursts, 6 to 11 s late in 14 %, a burst missed in 8 %, 47 s
+#           again in the rest, 4 addresses a burst, one hour, the way a real device's bursts were heard. TRUTH: 1 cloud of all its addresses (a
+#           chain of bursts breaks at every late one; the pairs that a period shows do not)
+#   pair    a phone (every 47 s) and a laptop (every 73 s), 4 addresses a burst, at one signal. TRUTH: a cloud each, 336 and 160 addresses
+#           of the 496 (the bursts a chance partner of the phone's period would take from the laptop are left to it; without that purge
+#           the clouds are 348 and 132)
+def _lcg(seed):
+    x = seed & 0x7FFFFFFF
+    while True:
+        x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+        yield x >> 8
+
+
+def build_clouds_mix_doc(kind, generated, center):
+    ap = fixed_ap("02:00:5e:c3:01:01", "Cloud-Lab", "2.4GHz", 6, -52, "WPA2", last_seen=generated - 10)
+    rnd, un = _lcg({"crowd": 2, "dense": 7}.get(kind, 1789)), []
+
+    def device(tag, period, phase, hours=3600, pat=(-30, -29, -31, -30), fall=0):
+        k, t = 0, phase
+        while t < hours:
+            at = t + ((k * 7) % 3) - 1                       # a jitter of -1, 0 or +1 s on every burst start
+            for j in range(len(pat)):                        # fall = dB the signal loses over the hour (drift)
+                un.append({"mac": "da:c2:%s:%02x:%02x:%02x" % (tag, k >> 8, k & 255, j), "rssi": pat[j] - (fall * t + 1800) // 3600,
+                           "last_seen": generated - at + (1 if j >= 2 else 0), "randomized": True})
+            k, t = k + 1, t + period
+        return k
+
+    if kind == "two":
+        device("a1", 47, 25)
+        device("b1", 61, 40)
+    elif kind == "wide":
+        device("a1", 47, 25, pat=(-28, -34, -40))
+    elif kind == "strays":
+        n = device("a1", 47, 25)
+        for i in range(40):                                  # random times, none within 6 s of a burst of the phone
+            while True:
+                at = next(rnd) % 3600
+                if all(abs(at - (25 + 47 * b)) > 6 for b in range(n)):
+                    break
+            un.append({"mac": "6e:c2:%02x:%02x:00:%02x" % (i >> 8, i & 255, 1), "rssi": -30 + (next(rnd) % 3) - 1,
+                       "last_seen": generated - at, "randomized": True})
+    elif kind == "dense":
+        for i in range(1500):
+            r = -60 + ((next(rnd) % 17) - 8) + ((next(rnd) % 17) - 8)
+            un.append({"mac": "a2:c2:%02x:%02x:00:%02x" % (i >> 8, i & 255, 1), "rssi": r,
+                       "last_seen": generated - (next(rnd) % 900), "randomized": True})
+    elif kind == "drift":
+        device("a1", 47, 25, fall=10)
+    elif kind == "same":
+        device("a1", 47, 25, pat=(-30, -29, -31, -30))
+        device("b1", 47, 42, pat=(-31, -30, -30, -31))
+    elif kind == "three":
+        device("a1", 47, 25, pat=(-32, -31, -33, -32))
+        device("b1", 61, 40, pat=(-32, -31, -33, -32))
+        device("c1", 83, 55, pat=(-32, -31, -33, -32))
+    elif kind == "long":
+        device("a1", 47, 25, hours=21600)
+    elif kind == "pair":
+        device("a1", 47, 25)
+        device("b1", 73, 40, pat=(-31, -30, -30, -31))
+    elif kind == "wander":
+        k, at, pat = 0, 30, (-30, -29, -31, -30)
+        while at < 3600:
+            for j in range(len(pat)):
+                un.append({"mac": "da:c2:a1:%02x:%02x:%02x" % (k >> 8, k & 255, j), "rssi": pat[j], "last_seen": generated - at + (1 if j >= 2 else 0),
+                           "randomized": True})
+            u = next(rnd) % 100
+            gap = 47 + (next(rnd) % 3) - 1 if u < 70 else 47 + 6 + next(rnd) % 6 if u < 84 else 94 + (next(rnd) % 3) - 1 if u < 92 else 47
+            k, at = k + 1, at + gap
+    elif kind == "crowd":
+        for i in range(600):
+            r = -68 + ((next(rnd) % 17) - 8) + ((next(rnd) % 9) - 4) // 2
+            un.append({"mac": "a2:c2:%02x:%02x:00:%02x" % (i >> 8, i & 255, 1), "rssi": r,
+                       "last_seen": generated - (next(rnd) % 300), "randomized": True})
+    else:
+        raise ValueError(kind)
+    return {"generated": generated, "center": {"label": center, "max_age": {"crowd": 300, "dense": 900, "long": 21600}.get(kind, 3600), "interval": 30},
+            "source": "recon-db", "aps": [ap], "unassociated": un}
 
 
 # --------------------------------------------------------------------------- contract check
@@ -633,7 +804,7 @@ def main(argv=None):
     ap.add_argument("--legacy", action="store_true", help="exact base contract: no optional fields at all")
     ap.add_argument("--probe-frac", type=float, default=0.0,
                     help="fraction of unassociated clients carrying 'probes' (probed SSIDs; ~60%% name a visible network)")
-    ap.add_argument("--stamp", metavar="FILE", help="add a deterministic last_seen to every AP of the recon-db fixture FILE (in place, idempotent)")
+    ap.add_argument("--stamp", metavar="FILE", help="add a deterministic last_seen to every AP of the recon-db or pineap fixture FILE (in place, idempotent)")
     ap.add_argument("--stamp-mean", type=float, default=90.0, help="mean age in seconds for --stamp (default 90)")
     ap.add_argument("--secsuite", action="store_true",
                     help="the security-suite fixture (one AP per security class with akm/cipher/auth, responder, channels[], center extras)")
@@ -641,6 +812,9 @@ def main(argv=None):
                     help="the D1 freshness fixture (14 APs and 5 stations at hand-picked last_seen ages, see build_aged_doc)")
     ap.add_argument("--devices", action="store_true",
                     help="emit the hand-built logical AP grouping fixture (devices.json, spec §8.8); see build_devices_doc()")
+    ap.add_argument("--clouds", nargs="?", const="one", choices=("one", "two", "crowd", "strays", "wide", "dense", "drift", "same", "three", "long", "pair", "wander"),
+                    help="the random-clouds fixture (clouds.json, spec §8.8a: one device's bursts of randomised addresses and what must stay apart; see build_clouds_doc()); "
+                         "two, crowd, strays, wide, dense, drift, same, three and long are the scenes of build_clouds_mix_doc(): two devices at one signal, a crowd, a device among strays, a device with a wide spread, a very dense crowd, a drifting device, two of one period, three devices, six hours of one, a phone and a laptop of 47 s and 73 s, a device whose schedule wanders")
     ap.add_argument("--source", default="recon-db", choices=SOURCES,
                     help="%s = the ACTIVE opt-in iw scan (APs only, no clients, no extras)" % IWSCAN)
     ap.add_argument("--note", default="no capture source available (synthetic fixture)", help="note for --source none")
@@ -659,7 +833,7 @@ def main(argv=None):
             return internal(probs)
         if n:
             write_text(args.stamp, json.dumps(doc, ensure_ascii=False, indent=1) + "\n")
-        recon = doc.get("source") == "recon-db"
+        recon = doc.get("source") in LAST_SEEN_SOURCES
         print("%s: %s %d %s" % (args.stamp, "stamped" if recon else "stripped", n,
                                 "of %d APs" % len(doc["aps"]) if recon else "last_seen fields (this source has none)"), file=sys.stderr)
         return 0
@@ -687,6 +861,10 @@ def main(argv=None):
         doc = build_aged_doc(args.generated, args.center)
     elif args.devices:
         doc = build_devices_doc(args.generated, args.center)
+    elif args.clouds == "one":
+        doc = build_clouds_doc(args.generated, args.center)
+    elif args.clouds:
+        doc = build_clouds_mix_doc(args.clouds, args.generated, args.center)
     else:
         doc = Gen(args).build()
     probs = validate(doc, legacy=args.legacy)

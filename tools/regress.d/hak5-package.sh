@@ -6,7 +6,7 @@
 #                 without Title/Description/Author/Version/Category, a version that is not the page's, a category other than
 #                 the directory's; personal data (an e-mail address, a home directory, a key) in any packaged file; a
 #                 missing or altered LICENSE; a generator that leaves a stale file behind or writes despite differing
-#                 dashboard copies; a packaged payload that cannot install itself from its own directory.
+#                 Overview copies; a packaged payload that cannot install itself from its own directory.
 # NEGATIVE PROBE: a file added to the generator's map, or the page packaged under its repo name => "file list" red; README.md
 #                 source edited after the build => "byte-identical" red; the Category line changed => "header" red; the
 #                 cmp guard removed from the generator => "refuses" red; pl_install removed from the payload => "installs" red.
@@ -84,7 +84,7 @@ grep -qE '\]\((\.\./|[a-z-]+\.md|tools/|docs/)' "$HKP_RM" 2>/dev/null && HKP_BAD
 { [ "$(sed -n 1p "$HKP_P/LICENSE" 2>/dev/null | tr -s ' ' | sed 's/^ //')" = "GNU GENERAL PUBLIC LICENSE" ] && grep -q 'Version 3, 29 June 2007' "$HKP_P/LICENSE"; } || HKP_BAD="$HKP_BAD license"
 rowif "hak5 package: no personal data or remote URL, README complete, LICENSE = GPL v3 (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
-# ---- 5 · the generator: a rebuild drops a stale file; differing dashboard copies are refused and nothing is written
+# ---- 5 · the generator: a rebuild drops a stale file; differing Overview copies are refused and nothing is written
 HKP_BAD=""
 : > "$HKP_P/stale.txt"
 (cd / && sh "$R/tools/hak5-package.sh" "$HKP_O" >/dev/null 2>&1) || HKP_BAD="$HKP_BAD rebuild"
@@ -99,7 +99,7 @@ printf '# drift\n' >> "$HKP_C/$HKP_REL/starchorus-display.sh"
 rm -f "$HKP_C/$HKP_REL/payload.sh"
 (cd / && sh "$HKP_C/tools/hak5-package.sh" "$HKP_T/neg2" >/dev/null 2>&1); HKP_NR=$?
 [ "$HKP_NR" = 2 ] || HKP_BAD="$HKP_BAD missing:rc$HKP_NR"
-rowif "hak5 package: rebuild drops a stale file, differing dashboards and a missing source refused (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+rowif "hak5 package: rebuild drops a stale file, differing Overview copies and a missing source refused (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
 # ---- 6 · the packaged payload installs itself from its own directory: `get` and `set` (they start nothing) against an
 #           empty data directory leave the four run-time files there, byte-identical and executable, and settings.conf beside them

@@ -10,7 +10,7 @@ by Hak5; see [Trademarks](#trademarks).
 
 [![quick (T1)](https://github.com/starchorus/pager/actions/workflows/quick.yml/badge.svg)](https://github.com/starchorus/pager/actions/workflows/quick.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/Licence-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release: v0.1.0](https://img.shields.io/badge/Release-v0.1.0-orange.svg)](https://github.com/starchorus/pager/releases)
+[![Release: v0.1.1](https://img.shields.io/badge/Release-v0.1.1-orange.svg)](https://github.com/starchorus/pager/releases)
 
 [Quick start](#quick-start) · [Installation](INSTALL.md) · [Payload](#payload) · [Passivity](#passivity-as-a-design-guarantee) ·
 [Configuration](#configuration) · [Licence](#licence) · [Contributing](CONTRIBUTING.md) ·
@@ -28,6 +28,10 @@ by Hak5; see [Trademarks](#trademarks).
 
 <sub>All images show the built-in demo mode: simulated sample data with placeholder names, not a real environment. `T` switches between the themes.</sub>
 
+<p align="center"><img src="docs/img/starchorus-phone.jpg" width="220" alt="The phone layout: the sky fills the screen under a narrow status bar, and the controls live in a sheet at the bottom"></p>
+
+<sub>On a phone the sky has the whole screen and the controls live in a sheet you pull up when you want them.</sub>
+
 ## Overview
 
 The device sits in the centre, each access point is a star, and its clients orbit it as satellites.
@@ -37,13 +41,13 @@ band (2.4/5/6 GHz), and a fine ring for the encryption.
 - **Collector.** `starchorus-collect.sh`, a POSIX shell script on the device, reads the device's
   recon database (from a read-only copy) or listens in monitor mode, and writes `starchorus.json`.
 - **Page.** `starchorus.html` is one self-contained page without external resources. It reads
-  `starchorus.json` every 5 seconds. The Pager's display is too small for a sky, so the page is
+  `starchorus.json` in step with the collector's cycle. The Pager's display is too small for a sky, so the page is
   meant for a second screen: a laptop, tablet or phone on the Pager's USB-C or management Wi-Fi
-  opens `http://172.16.52.1:8199/`, with nothing to install.
-- **On-device dashboard.** `starchorus-display.sh` shows the same data, as counts and lists, on the
+  opens `http://172.16.52.1:8199/`, with nothing to install. On a phone it has a layout of its own.
+- **On-device Overview.** `starchorus-display.sh` shows the same data, as counts and lists, on the
   device's own display, for a glance when no second screen is to hand.
 - **Payload.** On the device, the payload in `library/user/reconnaissance/starchorus/` starts the
-  collector, the page server (port 8199) and the dashboard.
+  collector, the page server (port 8199) and the Overview, and shows the page's address as a QR code.
 - **In your browser.** The demonstration runs at <https://starchorus.com/pager/>, nothing to install.
 - **Without hardware.** Run `python3 -m http.server --bind 127.0.0.1 8000` in this folder and open
   `http://127.0.0.1:8000/`; with no data file, the page runs a built-in demo.
@@ -68,14 +72,14 @@ the licence does not require one.
 
 ## Version
 
-Starchorus 0.1.0. Every part carries the same number:
+Starchorus 0.1.1. Every part carries the same number:
 
 | Part | File | Version |
 |---|---|---|
-| Page | `starchorus.html` | 0.1.0 |
-| Collector | `starchorus-collect.sh` | 0.1.0 |
-| On-device dashboard | `starchorus-display.sh` | 0.1.0 |
-| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.1.0 |
+| Page | `starchorus.html` | 0.1.1 |
+| Collector | `starchorus-collect.sh` | 0.1.1 |
+| On-device Overview | `starchorus-display.sh` | 0.1.1 |
+| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.1.1 |
 
 ## What the page shows
 
@@ -92,6 +96,17 @@ Starchorus 0.1.0. Every part carries the same number:
   - Merge SSID (`M`) folds a roaming network into one node.
   - Probe orbits (`P`) let a client circle, dashed, around the visible network it is looking for.
     The orbit is inferred, not an association.
+  - Random clouds: a phone or laptop that scans with a fresh randomised address each time leaves a
+    trail of short-lived addresses. Free randomised addresses heard in one signal band, in bursts
+    that recur at a steady period standing clear of what unrelated bursts in that band would give
+    by chance, are drawn as one cloud with its count ('121 · random'); its detail gives the period
+    ('about every 47 s') and lists the addresses. Two devices of different periods at one signal
+    are two clouds, and a cloud whose bursts keep no one rhythm is mixed and reads 'possibly one or
+    more nearby devices'. A cloud is an estimate from signal and timing, never a device count.
+    Random (`X`, or `?random=cloud|show|hide`) cycles between clouds, the addresses one by one, and
+    hidden; the legend still counts them all ('n randomised MAC · k in m clouds'). The Overview
+    counts clouds by the same rule ('Clients 247 free (245 random, 1 cloud)'), and the CSV export
+    ends in a `cloud` column.
 - **Tools:** Observations (`W`), baseline diff (`B`), inventory (`I`), air quality (`Q`),
   signal over time (`J`), recording and replay (`H`), channel view (`Y`), homing meter (`F`).
   Export as JSON, CSV, SITREP text or PNG.
@@ -99,10 +114,23 @@ Starchorus 0.1.0. Every part carries the same number:
   the middle, and zoom centres on the device.
 
 The page is a single HTML file without external resources. Its only network call fetches
-`starchorus.json` from the same directory, every 5 seconds. It starts with a simulation marked
-'Sample' and switches the chip to 'Live' as soon as the file is there. If no new capture arrives for
-six polls (≈ 30 s), the chip shows 'Stale'. A fetch that has not answered after 4 s is aborted and
-counts as failed. A `starchorus.json` can also be added with 'Load…' or dropped onto the page.
+`starchorus.json` from the same directory: shortly before the next capture is due, then every 2
+seconds until it arrives. It learns the spacing from the captures' own `generated` times (at first
+from the interval the file announces); while no live capture is shown it asks every 5 seconds. It
+starts with a simulation marked 'Sample' and switches the chip to 'Live' as soon as the file is
+there. If no new capture arrives within twice the announced interval plus 15 seconds (at least
+30 s; 30 s when the file announces none), the chip shows 'Stale'; if the Pager has not answered
+the last three polls by then, because the phone has left its Wi-Fi, say, it shows 'Offline' instead. A fetch
+that has not answered after 4 s is aborted and counts as failed. A `starchorus.json` can also be added with 'Load…' or
+dropped onto the page.
+
+On a phone – up to 720 px wide, or any phone on its side – the sky keeps the screen. Everything
+else folds into a status bar (STARCHORUS, the counts, the chip) and a bottom sheet with three
+heights: tap the chevron, drag or flick the sheet; a tap on the sky closes it. The sheet shows one
+card at a time: the controls (with the channel bar, the counts, the source and Help), the legend,
+a drawer, a network's detail or the keys. On its side the bar and the sheet form a column on the
+left. `?phone=1` or `?phone=0` forces the choice. At any size, `U` or 'Hide panels' leaves the sky
+alone with a small status pill that brings the panels back; the choice is remembered.
 
 With a passive source, the masthead reads 'Observation only — it listens, it never transmits.'.
 If the capture comes from the collector's active opt-in (`source: "iw-scan-ACTIVE"`), the page
@@ -120,8 +148,10 @@ Starchorus contains no function that transmits or interferes:
 
 Only the following is permitted:
 
-- reading the device's recon database: it is copied before reading and opened with
+- reading the device's recon database: it is copied (to RAM) before reading and opened with
   `sqlite3 -readonly`, so that capture is never locked;
+- asking the device's AP service for the recon lists it already holds, with two read-only commands
+  (`STARCHORUS_SOURCE=pineap`, opt-in; see [SECURITY.md](SECURITY.md));
 - receiving in monitor mode (`tcpdump`, or `airodump-ng` without injection);
 - tuning the receiver to a channel.
 
@@ -131,7 +161,7 @@ It never touches the recon radio or the management radio.
 **The one exception is named plainly.** `iw scan` sends probe requests and is therefore active. The
 collector uses it only with the explicit opt-in `STARCHORUS_ALLOW_ACTIVE=1`, and then as a last
 resort (or when forced with `STARCHORUS_SOURCE=iwscan`). The capture then carries
-`source: "iw-scan-ACTIVE"`, and the page and the dashboard say so. Default: off.
+`source: "iw-scan-ACTIVE"`, and the page and the Overview say so. Default: off.
 
 The details are in [SECURITY.md](SECURITY.md): the passivity contract, every read and output path,
 and every browser storage key with its limit. `sh tools/passivity-check.sh` checks the rules
@@ -145,25 +175,43 @@ On the development machine, without any hardware:
 
 ```sh
 sh starchorus-collect.sh --selftest              # offline, with embedded sample data
-sh starchorus-display.sh --selftest              # dashboard: jq paths and a summary
+sh starchorus-display.sh --selftest              # Overview: jq paths and a summary
 sh tools/verify.sh starchorus.html demo out/demo # check the page headless with the demo (Chrome)
 python3 -m http.server --bind 127.0.0.1 8000  # demo in the browser: http://127.0.0.1:8000/ (Ctrl-C stops it)
 ```
 
-On the device (`<device>` is its address):
+On the device (`<device>` is its address), through the payload in
+`library/user/reconnaissance/starchorus/`. The installer copies six files: the collector, page,
+Overview and netcat server to `/root/loot/starchorus`, and the payload with its own copy of the
+Overview to `/root/payloads/user/reconnaissance/starchorus`:
 
 ```sh
-ssh root@<device> 'mkdir -p /root/loot/starchorus'
-scp -O starchorus-collect.sh starchorus-serve.sh payload.sh root@<device>:/root/loot/starchorus/
-scp -O starchorus.html root@<device>:/root/loot/starchorus/index.html
-ssh root@<device> 'cd /root/loot/starchorus && chmod +x *.sh && ./payload.sh'   # collector + server on :8199
+sh tools/install.sh --host <device>
 ```
 
-Then open `http://<device>:8199/` in the browser. `./payload.sh stop` stops the collector and the
-server. `sh tools/install.sh` makes this simpler: the script copies the collector, page, dashboard,
-fallback server and payload from this repository over ssh/scp and compares the checksums. It then
-runs the self-tests, one passive `--once` run and a dashboard test. With `--dry-run` it only shows
-the commands; `--host` or `STARCHORUS_HOST` sets the device's address.
+Or copy the same six files by hand:
+
+```sh
+ssh root@<device> 'mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus'
+scp -O starchorus-collect.sh starchorus-display.sh starchorus-serve.sh root@<device>:/root/loot/starchorus/
+scp -O starchorus.html root@<device>:/root/loot/starchorus/index.html
+scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/
+ssh root@<device> 'chmod +x /root/loot/starchorus/*.sh /root/payloads/user/reconnaissance/starchorus/*.sh'
+```
+
+Starchorus then appears in the Pager's payload menu under 'Reconnaissance': 'Start' starts the
+collector and the page server and opens the Overview. From a computer, the same payload runs
+without the menu:
+
+```sh
+ssh root@<device> '/root/payloads/user/reconnaissance/starchorus/payload.sh start'   # collector + page server on :8199
+ssh root@<device> '/root/payloads/user/reconnaissance/starchorus/payload.sh stop'
+```
+
+Then open `http://<device>:8199/` in the browser. The installer reads every file back and compares
+the bytes, because the Pager has no `cksum`, and then runs the self-tests, one passive `--once` run
+and an Overview test. With `--dry-run` it only shows the commands; `--host` or `STARCHORUS_HOST`
+sets the device's address.
 
 ### Collector
 
@@ -186,16 +234,18 @@ JSON, with `"source": "none"` and a `"note"` giving the reason.
 The page must come from the same origin as `starchorus.json`, not via `file://`. Ports 80 and 1471
 are left alone.
 
-- **A) On the device:** the root `payload.sh` starts the first server available on port
-  `STARCHORUS_PORT` (default 8199): `uhttpd`, BusyBox `httpd` or `python3`. The payload tries
-  `uhttpd`, `python3` and finally the fallback server. Every server listens on the management
-  address only (`STARCHORUS_BIND`, below), so the page is reachable over USB-C and the management
-  Wi-Fi, not from a network the device has joined.
+- **A) A web server on the device:** where the Pager has `uhttpd` or `python3`, the payload
+  starts it on port `STARCHORUS_PORT` (default 8199); the root `payload.sh`, a launcher to copy
+  by hand, also tries BusyBox `httpd`. A Pager that has had the system update of 13 October 2026
+  has neither `uhttpd` nor `python3`, so on an updated Pager route C is the normal one. Every server listens on the
+  management address only (`STARCHORUS_BIND`, below), so the page is reachable over USB-C and the
+  management Wi-Fi, not from a network the device has joined.
 - **B) From a connected computer:** put `index.html` and the `starchorus.json` produced by the device
   in a local directory, fetch the file again at regular intervals and serve it locally.
-- **C) Fallback server `starchorus-serve.sh`:** it needs only GNU netcat and serves nothing but
-  `index.html` and `starchorus.json`, one connection at a time. That is enough for `curl`; for a
-  browser page it is unreliable.
+- **C) Netcat server `starchorus-serve.sh`:** the normal page server on an updated Pager. It needs
+  only GNU netcat, which the Pager has, and serves nothing but `index.html` and `starchorus.json`,
+  one connection at a time. That suits one browser, and a second device is served after the first.
+  The payload starts it when it finds no other server.
 
 All paths in detail: [docs/display-paths.md](docs/display-paths.md).
 
@@ -203,8 +253,8 @@ All paths in detail: [docs/display-paths.md](docs/display-paths.md).
 
 ```
 library/user/reconnaissance/starchorus/
-├── payload.sh              # on-device menu; starts the collector, page server and dashboard; "payload.sh stop" stops everything
-├── starchorus-display.sh   # byte-identical copy of the dashboard
+├── payload.sh              # on-device menu; starts the collector, page server and Overview; "payload.sh stop" stops everything
+├── starchorus-display.sh   # byte-identical copy of the Overview
 └── README.md               # description, requirements, installation, configuration
 ```
 
@@ -214,18 +264,36 @@ payload directory built by `sh tools/hak5-package.sh` for Hak5's payload library
 one-hour window of the recon record (`STARCHORUS_MAX_AGE=3600`) and writes every 30 seconds
 (`STARCHORUS_INTERVAL=30`): the record only grows, and the device's CPU cannot process all of it on
 every pass. Within the window, the page dims entries by their freshness. `STARCHORUS_MAX_AGE=0`
-reads the whole record. On the device it offers a menu: 'Start', 'Dashboard', 'Services' (collector
-and page, each on or off), 'Options' (window, interval, port, vendor names, own radios, channel
-occupancy, dashboard after start), 'Status', 'Stop', 'Exit'. The settings live in
+reads the whole record. On the device it shows a menu titled 'Starchorus: Stopped' or 'Starchorus:
+Running', worked out afresh each time it is drawn: 'Start' and 'Settings' while it is stopped;
+'Overview', 'Open on Phone' (a QR code of the page's address; 'Start Web Page' takes its place while
+the page server is not up), 'Stop' and 'Settings' while it runs. Nothing starts on launch. 'Start'
+and 'Stop' ask nothing and show a spinner while they work; 'Start' keeps its spinner up until the first
+scan has been written (up to 20 seconds) and then opens the Overview, from which key B goes up one
+level, to the list of screens, and B there returns to the menu. Only 'Reset to Defaults' asks; key B goes back, and leaving the
+menu stops nothing. Settings holds 'Web Page', 'Refresh' (interval), 'Show Last' (window), 'Vendor
+Names', 'Channel Load' (channel occupancy), 'Port' and 'Reset to Defaults'; a change made while
+Starchorus runs is applied on leaving Settings. Three settings are environment variables only, with
+no row in the menu: `STARCHORUS_OWN` (the device's own radios), `STARCHORUS_DASHBOARD` (`0` keeps the
+Overview from opening after 'Start') and `STARCHORUS_COLLECTOR` (`0` starts no collector). A pid
+read from a pidfile counts only while it still runs what was started, so a reboot never leaves a
+false 'Running' or a signal to another program. The settings live in
 `/root/loot/starchorus/settings.conf`; the payload reads the file but never executes it, and an
 environment variable takes precedence. `payload.sh set KEY VALUE` sets the same settings;
 `payload.sh get`, `status`, `start` and `reset` work without the on-device menu. Details: the
 payload's README.
 
-The dashboard `starchorus-display.sh` reads the same `starchorus.json` and shows seven screens on the
-device's display: summary, strongest networks, bands and security, devices and merges, probe
-requests, stations, air quality. Its only output is LOG lines. Red stands only for an alarm (an
-open or WEP network, or the line 'jq incomplete'). On the development machine,
+The Overview `starchorus-display.sh` reads the same `starchorus.json` and shows seven screens on the
+device's display: the summary, strongest networks, bands and security, devices and merges, probe
+requests, stations and air quality. It starts its wait for a key, with no time limit, before it draws a
+screen and keeps one open while it draws, so a press made while it reads is kept, and it never redraws by itself: key A draws the screen
+again, key B goes up one level (a screen, then the list of the seven screens, then the menu), and Left
+and Right step through the screens. Each screen
+ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
+A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again).
+Its only output is LOG lines. Red stands only
+for an alarm (an open or WEP network, the line 'jq incomplete', or 'No new scan' when the collector
+has stopped writing). On the development machine,
 `sh starchorus-display.sh --once <screen> <file>` prints the same content as text; `<screen>` is
 `summary`, `top`, `bands`, `devices`, `probes`, `clients` or `air`.
 
@@ -240,12 +308,14 @@ All variables are optional.
 | `STARCHORUS_INTERVAL` | `5` | Seconds between two writes (with tcpdump, also the burst length). |
 | `STARCHORUS_OUTDIR` | `/tmp/starchorus` | Directory for `starchorus.json` (volatile; for persistence e.g. `/root/loot/starchorus`). |
 | `STARCHORUS_IFACE` | `auto` | Monitor interface, or `auto` to detect one. |
-| `STARCHORUS_SOURCE` | `auto` | `auto`, `capture`, `recondb` or `iwscan` (only with `STARCHORUS_ALLOW_ACTIVE=1`). |
+| `STARCHORUS_SOURCE` | `auto` | `auto`, `capture`, `recondb`, `pineap` (opt-in: the AP service's own recon lists, read-only commands) or `iwscan` (only with `STARCHORUS_ALLOW_ACTIVE=1`). `auto` never picks `pineap`. |
 | `STARCHORUS_RECON_DB` | `auto` | Path to the recon database, or `auto` to search for it. |
 | `STARCHORUS_ALLOW_ACTIVE` | `0` | `1` permits the **active** `iw scan`. Leave it off. |
 | `STARCHORUS_CREATE_MON` | `1` | `1` permits creating a monitor interface if none exists. |
-| `STARCHORUS_MAX_AGE` | `0` | Recon database only: only devices from the last N seconds (live window, e.g. `120`); `0` = the whole record. |
-| `STARCHORUS_CAPDIR` | `$OUTDIR/cap` | Capture files and the working copy of the database. |
+| `STARCHORUS_MAX_AGE` | `0` | Recon database and `pineap` sources: only devices from the last N seconds (live window, e.g. `120`); `0` = the whole record. |
+| `STARCHORUS_CAPDIR` | `$OUTDIR/cap` | Capture files, the vendor cache and the index of the OUI file (flash: the cache only grows and the index is built once per OUI file, neither is rewritten every cycle; the capture files of `airodump-ng` are, every 2 s, and so is the database copy when `STARCHORUS_TMPDIR` has no room for it). |
+| `STARCHORUS_TMPDIR` | `/tmp` | Recon database and `pineap` sources: where the working copy of the database lives (RAM on the device) and the `pineap` security cache (`starchorus-sec.txt`). With too little room for the database copy, `STARCHORUS_CAPDIR` is used as before; if it is not a writable directory at all, the `pineap` source can look up no security and marks every access point `Unknown`. |
+| `STARCHORUS_SKIP_UNCHANGED` | `1` | Recon database only: a cycle in which the database is unchanged since the last full pass, and no row can have left the window, only refreshes `generated` of that pass's document. `0` = always rebuild. |
 | `STARCHORUS_PIDDIR` | `$OUTDIR` | Pidfiles. |
 | `STARCHORUS_VENDOR` | `1` | `1` = fields `vendor`/`randomized` from a local OUI file; `0` = never. |
 | `STARCHORUS_OUI_FILE` | `auto` | Path of the OUI file; `auto` tries the usual paths (listed in the collector's header). |
@@ -253,7 +323,8 @@ All variables are optional.
 | `STARCHORUS_SURVEY` | `0` | `1` = `busy_pct`/`noise` in `channels[]` from `iw dev IF survey dump` (read-only); `STARCHORUS_SURVEY_IFACE` chooses `IF`. |
 | `STARCHORUS_OWN` | `0` | `1` = own BSSIDs (interface MACs) and own SSIDs (only from `STARCHORUS_OWN_SSID_FILE`) in `center`. |
 | `STARCHORUS_HOMING_BSSID` | empty | one AP for the homing meter; alternatively the first line of `$STARCHORUS_OUTDIR/homing.target`. |
-| `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` three read-only commands of the AP service; nothing calls the function. |
+| `STARCHORUS_PINEAP_CALLS` | `recent` | `pineap` source only: `recent` = one `RECON DEVICES` call, newest first and cut at 400 entries (`sort=time sortdir=desc limit=400`; its passivity is checked on the device, the ordering and the cut are still to be looked at, device-notes §5a and §6a), the access points taken from its beacon records; `full` = `RECON APS` + `RECON DEVICES`, every device of the AP service's session is read and parsed, which costs about 22 ms of the device's CPU each. |
+| `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` its read-only commands of the AP service (three fixed command lines, see [SECURITY.md](SECURITY.md)). Nothing calls it except the `pineap` source, and `STARCHORUS_SOURCE=pineap` switches it on for itself. |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 
@@ -263,17 +334,33 @@ With `STARCHORUS_SOURCE=auto`, this order applies:
 4. otherwise, only with `STARCHORUS_ALLOW_ACTIVE=1`, `iwscan`;
 5. otherwise `none`.
 
-**Payload, fallback server, dashboard, installer:**
+`STARCHORUS_SOURCE=pineap` is an **experimental, opt-in** source; `auto` never chooses it, even where the AP
+service answers, and recon.db stays the default. It reads the AP service's own recon lists (by default one
+bounded `RECON DEVICES`, or `RECON APS` and `RECON DEVICES` with `STARCHORUS_PINEAP_CALLS=full`; read-only,
+checked on the device to leave the transmit counters unchanged) instead of copying and querying the database.
+That is a different view, not a cheaper one: the calls themselves cost 0.3 s of CPU, but parsing their JSON in
+BusyBox `awk` costs about 9 s for the 400 devices of the default call, and about 46 s for the whole session list
+(about 2,100 devices that day) with `full`, against about 2 to 2.7 s for a cycle of the database path. Use it for
+what it shows, not to save CPU. The lists cover the
+current recon session only (the database is cumulative), carry no encryption and no station-to-AP link; the
+security of each access point is therefore taken from the database, rarely, from a small cache in RAM, and an
+access point not yet known there is marked `Unknown` (never empty or absent: both the page and the Overview read
+a missing security as Open). If the AP service gives no usable answer (no entries, a failure, nothing within 10 s),
+that cycle is built from recon.db and the collector says so once.
+
+**Payload, netcat server, Overview, installer:**
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (fallback server, dashboard, root `payload.sh`). |
+| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview). |
 | `STARCHORUS_PORT` | `8199` | Port of the page server. |
 | `STARCHORUS_BIND` | `auto` | Address the page server listens on. `auto`: the IPv4 address of `br-lan` (USB-C and management Wi-Fi), otherwise `172.16.52.1` if an interface has it, otherwise `127.0.0.1` with a note. An IPv4 address: that address only. `all`: every interface, which makes the page and `starchorus.json` (every captured MAC address and SSID) reachable from every network the device is on. On-device payload: also the `bind` key. |
 | `STARCHORUS_MAX_AGE` | `3600` | On-device payload: window of the recon record in seconds (one hour); `0` = the whole record. The collector on its own uses `0`. |
 | `STARCHORUS_INTERVAL` | `30` | On-device payload: seconds between two passes. The collector on its own uses `5`. |
-| `STARCHORUS_JSON` | `$STARCHORUS_DIR/starchorus.json` | File the dashboard reads. |
-| `STARCHORUS_DISPLAY_TEMPLATE` | empty | a custom line on the dashboard, e.g. `'{aps} APs · crowding {crowding}'` (otherwise the first line of `display.tpl`). |
+| `STARCHORUS_DASHBOARD` | `1` | On-device payload: `0` keeps the Overview from opening after 'Start'. Environment only. |
+| `STARCHORUS_COLLECTOR` | `1` | On-device payload: `0` starts no collector (the menu then refuses to run; `payload.sh start` serves the page alone). Environment only. |
+| `STARCHORUS_JSON` | `$STARCHORUS_DIR/starchorus.json` | File the Overview reads. |
+| `STARCHORUS_DISPLAY_TEMPLATE` | empty | a custom line on the Overview, e.g. `'{aps} APs · crowding {crowding}'` (otherwise the first line of `display.tpl`). |
 | `STARCHORUS_DISPLAY_PLAIN` | `0` | `1` = text output instead of the device's display commands. |
 | `STARCHORUS_HOST` | – | Address of the device for `tools/install.sh` (like `--host`). |
 
@@ -303,6 +390,7 @@ friend, neutral or suspect. The page itself never classifies anything.
 | `L` | Labels | `[` `]` | Step through pinned nodes |
 | `D` `M` `P` | Device links, Merge SSID, probe orbits | `Esc` | Close dialogue or detail |
 | `W` `B` `I` | Observations, baseline, inventory | `?` | All keys |
+| `U` | Hide or show the panels | `X` | Random: clouds, one by one, hidden |
 
 `?` on the page shows the full list; it is also in the specification (§9.6).
 
@@ -328,7 +416,7 @@ The collector produces exactly the format the page reads:
 ```
 
 - `"ssid": ""` means a hidden network. `channel`, `freq` and `rssi` may be `null`.
-- `source` is `recon-db`, `airodump-csv`, `tcpdump`, `iw-scan-ACTIVE` or `none`.
+- `source` is `recon-db`, `airodump-csv`, `tcpdump`, `pineap` (opt-in), `iw-scan-ACTIVE` or `none`.
 - `clients` is filled only with `airodump-csv`. The other sources list overheard probe senders under
   `unassociated`.
 - Additional fields, such as `vendor`, `last_seen`, `akm`, `cipher`, `auth`, `channels[]` or
@@ -344,14 +432,14 @@ specification.
 | `INSTALL.md` | step-by-step installation on the Pager, and the demo without one |
 | `starchorus-collect.sh` | passive collector (POSIX sh / BusyBox), writes `starchorus.json` atomically |
 | `starchorus.html` | the visualisation, one HTML/canvas file; `index.html` redirects to it |
-| `starchorus-display.sh` | dashboard on the device's display |
-| `starchorus-serve.sh` | netcat fallback server for devices without a web server |
-| `payload.sh` | lean launcher: collector and page server |
+| `starchorus-display.sh` | the Overview on the device's display |
+| `starchorus-serve.sh` | netcat page server, the normal one on a Pager without `uhttpd` or `python3` |
+| `payload.sh` | lean launcher: collector and page server (`uhttpd`, BusyBox `httpd` or `python3`); the Pager's payload is the one under `library/` |
 | `library/user/reconnaissance/starchorus/` | payload (see above) |
 | `packaging/hak5/` | README for the self-contained payload directory that `tools/hak5-package.sh` builds for Hak5's payload library |
 | `docs/architecture.md` | specification of the page (themes, layout, keys, query parameters, `window.STARCHORUS`) |
 | `docs/device-notes.md` | facts verified on the device: recon database, tools, display |
-| `docs/display-paths.md` | every way to show the page or the dashboard |
+| `docs/display-paths.md` | every way to show the page or the Overview |
 | `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` | passivity contract and privacy, contribution rules, Code of Conduct |
 | `docs/img/` | screenshots of the three themes in demo mode and the preview image for the project page |
 | `tools/`, `tests/fixtures/` | test net and fixtures, for the development machine only ([tools/README.md](tools/README.md)) |

@@ -5,12 +5,12 @@
 #                 sink) passes it. Here the CDP Network events (cdp.py "requests") and the http.server log are judged.
 # NEGATIVE PROBE: an appended POST fetch, `new Image().src` on 127.0.0.1:9, a removed poll fetch => red;
 #                 the first two run as a standing row below (copy of the page under out/), net_verdict dummies in static.sh.
-# NOT PROVEN:     behaviour on the device or in another browser; requests after the observation time (~14 s, three polls).
+# NOT PROVEN:     behaviour on the device or in another browser; requests after the observation time (~14 s, about eight polls).
 # Sourced by tools/regress.sh with cwd = repo root; two Chrome runs (about 15 s + 9 s). Only NRT_* names are set.
 # verify.sh (not runq: it cannot take a page path and discards the server log) runs with its fixed URL, i.e. WITHOUT
-# ?poll=0. A later --wait overrides verify.sh's own --wait 6 (argparse), measured: 15.4 s wall for --wait 11 and polls at
-# ?_=0, 5, 10 (POLL_MS = 5000). Its exit 1 (fps < 30 or a page error) is judged by the verify rows above, not here; 2 = driver.
-NRT_MINPOLL=3   # the boot poll and the 5 s and the 10 s tick inside --wait 11 (measured: 3)
+# ?poll=0. A later --wait overrides verify.sh's own --wait 6 (argparse), measured: 15.4 s wall for --wait 11, with
+# a poll about every 2 s (the cadence of spec §9.5 without center.interval). Its exit 1 (fps < 30 or a page error) is judged by the verify rows above, not here; 2 = driver.
+NRT_MINPOLL=3   # floor: the boot poll and the cadence's 2 s steps inside --wait 11 bring more (measured as of 0.1.1 with the cadence: 8)
 sh tools/verify.sh "$H" "$F/many-clients.json" "out/$P-net" --wait 11 > "out/$P-net.txt" 2>&1; NRT_RC=$?
 NRT_V=$(net_verdict "out/$P-net.json" "out/$P-net.server.log" "$NRT_MINPOLL"); NRT_C=$?
 NRT_OK=0; [ "$NRT_RC" -le 1 ] && [ "$NRT_C" = 0 ] && NRT_OK=1

@@ -7,30 +7,34 @@
 #        sh tools/install.sh --help
 #   host: --host, else the environment variable STARCHORUS_HOST, else the built-in default (DEFAULT_HOST below).
 #
-# It only copies files over ssh/scp and runs the collector's and dashboard's own passive checks on the device.
+# It only copies files over ssh/scp and runs the collector's and the Overview's own passive checks on the device.
 # It transmits NOTHING over the air and adds no active function (SECURITY.md); the only network use is that
 # human-started ssh/scp session.
 #   1. finds the repo from its own path; exit 2 if a source file is missing or the two starchorus-display.sh copies
-#      (repo root / library/.../starchorus) differ -- the payload directory must ship the same dashboard;
+#      (repo root / library/.../starchorus) differ -- the payload directory must ship the same Overview;
 #   2. prints "file -> version" (page: version: "x.y.z"; collector/display/payload: "# Version:" header) BEFORE
 #      it touches the device, and the same real versions at the end;
 #   3. opens ONE ssh master connection (one password prompt), uploads with scp -O (legacy protocol: the device
-#      has no sftp-server), chmod +x, then compares cksum (CRC + size) of every file, local vs device (cksum
-#      is not yet measured on the device: see "NOT YET MEASURED" below);
-#   4. runs the collector's and the dashboard's own --selftest, one passive collector --once, and a dashboard
+#      has no sftp-server), chmod +x, then checks every file, local vs device: by cksum (CRC + size) where the
+#      device has one, otherwise by reading the file back with scp and comparing the bytes (the Pager's BusyBox
+#      has no cksum: see "MEASURED ON THE DEVICE" below);
+#   4. runs the collector's and the Overview's own --selftest, one passive collector --once, and an Overview
 #      smoke test: "--once summary" must show a digit after "2.4:", "5:" and "6:" (blank counters are the
 #      symptom of jq filters aborting on the device, e.g. regex builtins: docs/device-notes.md 2a) and must not
 #      say "jq incomplete".
 # Remote commands (nothing else is ever sent): mkdir -p, chmod, cksum, "sh <installed script> --selftest",
 # "cd <dir> && ... ./starchorus-collect.sh --once", head of starchorus.json, "sh <installed display script> --once summary".
 # No package manager, no config, no service control, no AP-service calls.
-# NOT YET MEASURED ON THE DEVICE (open device verifications, docs/device-notes.md): the BusyBox applet "cksum"
-# and the option "head -c". So a cksum that gives no usable output (or values that disagree) is never read as
-# "the upload is damaged": the bytes decide. Each affected file is copied back with scp (still only a file
-# transfer) into the private temp directory and compared with cmp; only a byte difference is reported as a
-# damaged upload. If a file can be neither checked by cksum nor read back, the run FAILS with "integrity NOT
-# verified" (a different message) and still runs the other checks. The closing lines say which way the
-# integrity was established and what cksum / head -c did on the device, so the result can be recorded.
+# MEASURED ON THE DEVICE (docs/device-notes.md, runs of 14 and 15 October 2026, firmware as shipped): the BusyBox applet
+# "cksum" is absent ("ash: cksum: not found", exit 127) and "head -c" works. The installer therefore verifies by reading
+# all six files back with scp and comparing them with cmp, and says so in one calm [PASS] line: the missing applet is a
+# fact about the device, not a warning. The rest is kept for a device that does have cksum, or one whose cksum prints
+# something else: a cksum that gives no usable output (or values that disagree) is never read as "the upload is
+# damaged": the bytes decide. Each affected file is copied back with scp (still only a file transfer) into the private
+# temp directory and compared with cmp; only a byte difference is reported as a damaged upload. If a file can be
+# neither checked by cksum nor read back, the run FAILS with "integrity NOT verified" (a different message) and still
+# runs the other checks. The closing lines say which way the integrity was established and what cksum / head -c did on
+# the device.
 # Privacy (P9): only versions, counts and checksums are printed. The content of starchorus.json (MAC/SSID values of
 # third parties) is never echoed, so the output is safe to paste into an issue or a PR.
 # Exit: 0 = installed and every check passed (warnings possible), 1 = a check failed or the device could not
@@ -58,9 +62,9 @@ usage() {
 usage: sh tools/install.sh [--host HOST] [--dry-run]
        sh tools/install.sh --help
 
-Installs Starchorus onto the device from the files of this repo, verifies the upload by
-checksum (cksum; not yet measured on the device -- if it gives no usable output the files are read back with
-scp and compared byte for byte) and runs the collector's and dashboard's own passive checks on the device.
+Installs Starchorus onto the device from the files of this repo, verifies the upload (by cksum where the
+device has it; the Pager's BusyBox has none, so every file is read back with scp and compared byte for byte)
+and runs the collector's and the Overview's own passive checks on the device.
 It only copies files over ssh/scp; it transmits nothing over the air.
 
   --host HOST    Device address (default: environment variable STARCHORUS_HOST, else the built-in default address)
@@ -182,8 +186,8 @@ $FILES
 EOF
   plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_CHMOD")"
   plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_CKSUM")    # then CRC + size compared with the local files"
-  say "     cksum is not yet measured on the device. Only for a file whose cksum is missing or differs, a real run"
-  say "     also reads it back (file copy, then cmp with the repo file; <n> = 1..$NFILES):"
+  say "     The Pager's BusyBox has no cksum (docs/device-notes.md), so a real run reads every file back; where cksum does"
+  say "     answer, only a file whose cksum is missing or differs is read back (file copy, then cmp with the repo file; <n> = 1..$NFILES):"
   while IFS='|' read -r _rel dest _x; do
     say "       scp -O $SSH_OPTS root@$HOST:$dest <tmpdir>/back/<n>"
   done <<EOF
@@ -267,10 +271,10 @@ say "==> setting exec bits"
 rsh "$CMD_CHMOD" || die 1 "chmod +x failed on the device"
 
 say "==> integrity: cksum (CRC + size) local vs device"
-# The cksum applet of the device's BusyBox is NOT yet measured (see the header). "No usable output" (applet
-# missing, other output format) is a different fact from "the upload is damaged", so the two are told apart:
-# cksum settles a file only when its CRC + size line is present and equal; every other file is decided by
-# reading it back and comparing the bytes.
+# The device's BusyBox has no cksum applet (see the header). "No usable output" (applet missing, other output
+# format) is a different fact from "the upload is damaged", so the two are told apart: cksum settles a file only
+# when its CRC + size line is present and equal; every other file is decided by reading it back and comparing the
+# bytes. A missing applet (exit 127, "not found") is the known state of the Pager and is not counted as a warning.
 rsh_cap "$WORK/cksum.out" "$CMD_CKSUM"; ck_rc=$?
 nusable=$(LC_ALL=C grep -Ec '^[0-9]+ [0-9]+ /' "$WORK/cksum.out")
 ck_line=$(firstline "$WORK/cksum.out")
@@ -283,13 +287,20 @@ done <<EOF
 $FILES
 EOF
 ncand=$(wc -l < "$WORK/cand" | tr -d ' ')
+ck_absent=0
+if [ "$nusable" = 0 ]; then
+  if [ "$ck_rc" = 127 ] || LC_ALL=C grep -qi 'not found' "$WORK/cksum.out"; then ck_absent=1; fi
+fi
 INTEG=""; SEEN_CKSUM="no usable output (exit $ck_rc: $ck_line)"
 if [ "$nusable" != 0 ]; then SEEN_CKSUM="prints CRC + size lines (exit $ck_rc)"; fi
+if [ "$ck_absent" = 1 ]; then SEEN_CKSUM="not present on the device (exit $ck_rc: $ck_line); the files were read back instead"; fi
 if [ "$ncand" = 0 ]; then
   res PASS "cksum identical for all $NFILES files (CRC + size)"
   INTEG="cksum (CRC + size) identical for all $NFILES files"
 else
-  say "  $ncand of $NFILES file(s) not settled by cksum -- reading them back with scp and comparing the bytes"
+  if [ "$ck_absent" != 1 ]; then
+    say "  $ncand of $NFILES file(s) not settled by cksum -- reading them back with scp and comparing the bytes"
+  fi
   mkdir "$WORK/back"; : > "$WORK/rb_bad"; : > "$WORK/rb_unread"; rb_bad=0; rb_unread=0; rb_ok=0; _n=0
   while IFS='|' read -r rel dest lsum rsum; do
     _n=$((_n + 1))
@@ -297,11 +308,13 @@ else
       if cmp -s "$ROOT/$rel" "$WORK/back/$_n"; then rb_ok=$((rb_ok + 1))
       else
         rb_bad=$((rb_bad + 1))
-        printf '  %s: bytes differ (cksum local %s, device %s)\n' "$dest" "$lsum" "$rsum" >> "$WORK/rb_bad"
+        if [ "$ck_absent" = 1 ]; then printf '  %s: bytes differ after the read-back\n' "$dest" >> "$WORK/rb_bad"
+        else printf '  %s: bytes differ (cksum local %s, device %s)\n' "$dest" "$lsum" "$rsum" >> "$WORK/rb_bad"; fi
       fi
     else
       rb_unread=$((rb_unread + 1))
-      printf '  %s: could not be read back (cksum local %s, device %s; scp: %s)\n' "$dest" "$lsum" "$rsum" "$(firstline "$WORK/back/$_n.err")" >> "$WORK/rb_unread"
+      if [ "$ck_absent" = 1 ]; then printf '  %s: could not be read back (scp: %s)\n' "$dest" "$(firstline "$WORK/back/$_n.err")" >> "$WORK/rb_unread"
+      else printf '  %s: could not be read back (cksum local %s, device %s; scp: %s)\n' "$dest" "$lsum" "$rsum" "$(firstline "$WORK/back/$_n.err")" >> "$WORK/rb_unread"; fi
     fi
   done < "$WORK/cand"
   if [ "$rb_bad" != 0 ]; then   # a real byte difference: the copy on the device is not the repo file
@@ -312,8 +325,11 @@ else
     res FAIL "integrity NOT verified for $rb_unread of $NFILES file(s): cksum did not settle them and they could not be read back:"
     cat "$WORK/rb_unread"
     INTEG="NOT verified for $rb_unread of $NFILES file(s)"
+  elif [ "$ck_absent" = 1 ]; then
+    res PASS "the device has no cksum; integrity verified by reading all $rb_ok files back with scp and comparing the bytes (identical)"
+    INTEG="all $rb_ok files read back with scp and compared byte for byte (the device has no cksum)"
   elif [ "$nusable" = 0 ]; then
-    res WARN "cksum gave no usable output on the device ($ck_line) -- not yet measured there; integrity verified instead by reading all $rb_ok files back with scp and comparing the bytes"
+    res WARN "cksum gave no usable output on the device ($ck_line); integrity verified instead by reading all $rb_ok files back with scp and comparing the bytes"
     INTEG="all $rb_ok files read back with scp and compared byte for byte (the device's cksum gave no usable output)"
   else
     res WARN "cksum did not confirm $rb_ok file(s) (line missing, or other numbers), but the bytes read back are identical (another checksum algorithm on the device?)"
@@ -342,12 +358,12 @@ selftest() {   # selftest LABEL CMD OUTFILE MISSING-IS-OK(1|0)
   esac
 }
 selftest "collector" "$CMD_CSELF" "$WORK/csel.out" 0
-# An older dashboard would not know the flag; the repo copy is checked first so an unknown argument is never
-# handed to a dashboard that could fall into its interactive menu loop.
+# An older Overview would not know the flag; the repo copy is checked first so an unknown argument is never
+# handed to an Overview that could fall into its interactive loop.
 if LC_ALL=C grep -qF -- '--selftest' "$ROOT/starchorus-display.sh"; then
-  selftest "dashboard (starchorus-display.sh)" "$CMD_PSELF" "$WORK/psel.out" 1
+  selftest "Overview (starchorus-display.sh)" "$CMD_PSELF" "$WORK/psel.out" 1
 else
-  res WARN "starchorus-display.sh in this repo has no --selftest yet -- the dashboard selftest was skipped"
+  res WARN "starchorus-display.sh in this repo has no --selftest yet -- the Overview selftest was skipped"
 fi
 
 say "==> one real passive capture (collector --once, STARCHORUS_MAX_AGE=$MAX_AGE as in the payload; 0 = the whole record)"
@@ -355,7 +371,7 @@ rsh_cap "$WORK/once.out" "$CMD_ONCE"; rc=$?
 tail -n 3 "$WORK/once.out" | indent
 if [ "$rc" = 0 ]; then res PASS "collector --once finished"
 else res WARN "collector --once exited $rc (source 'none'? see the log above) -- a passive source may be missing"; fi
-# "head -c" is not yet measured on the device either: a failing head is reported with its own first error line
+# "head -c" works on the device (measured); should a head ever fail, it is reported with its own first error line
 # (only if it is plain text, see firstline), not as a vague "no readable starchorus.json".
 rsh_cap "$WORK/head.out" "$CMD_HEAD"; head_rc=$?
 gen=$(LC_ALL=C sed -n 's/.*"generated":[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$WORK/head.out" | head -n 1)
@@ -363,14 +379,14 @@ src=$(LC_ALL=C sed -n 's/.*"source":[[:space:]]*"\([A-Za-z0-9_-]*\)".*/\1/p' "$W
 say "  starchorus.json: generated=${gen:-?} source=${src:-?}   (content not echoed: MAC/SSID values of third parties)"
 SEEN_HEAD="exit $head_rc"
 [ "$head_rc" = 0 ] || SEEN_HEAD="exit $head_rc: $(firstline "$WORK/head.out")"
-[ -n "$gen" ] || res WARN "no readable starchorus.json at $LOOT after --once (head -c 400: $SEEN_HEAD; head -c is not yet measured on the device)"
+[ -n "$gen" ] || res WARN "no readable starchorus.json at $LOOT after --once (head -c 400: $SEEN_HEAD)"
 
-say "==> dashboard smoke test (starchorus-display.sh --once summary reads that json)"
+say "==> Overview smoke test (starchorus-display.sh --once summary reads that json)"
 rsh_cap "$WORK/sum.out" "$CMD_SMOKE"; rc=$?
 head -n 12 "$WORK/sum.out" | indent
 problem=""
 addp() { problem="${problem:+$problem; }$1"; }
-[ "$rc" = 0 ] || addp "dashboard exited $rc"
+[ "$rc" = 0 ] || addp "Overview exited $rc"
 if LC_ALL=C grep -qi 'jq incomplete' "$WORK/sum.out"; then addp "output says 'jq incomplete'"; fi
 band=$(LC_ALL=C grep -F '2.4:' "$WORK/sum.out" | head -n 1)
 if [ -z "$band" ]; then
@@ -384,7 +400,7 @@ fi
 if [ -z "$problem" ]; then
   res PASS "band counters filled: $(printf '%s' "$band" | tr -s ' ')"
 else
-  res FAIL "dashboard summary broken: $problem (blank counters = jq filters aborting on the device, docs/device-notes.md 2a)"
+  res FAIL "Overview summary broken: $problem (blank counters = jq filters aborting on the device, docs/device-notes.md 2a)"
 fi
 
 # ---------------------------------------------------------------- closing summary (always printed)
@@ -398,8 +414,7 @@ printf '  %-10s %-8s %s\n' page "$VER_PAGE" "$LOOT/index.html" collector "$VER_C
 say "Integrity: $INTEG"
 cat <<EOF
 
-Seen on the device by THIS run (cksum and head -c are not yet recorded in docs/device-notes.md; add these
-two lines there after a run you trust, together with the date):
+Seen on the device by this run (docs/device-notes.md records the same two facts):
   cksum:   $SEEN_CKSUM
   head -c: $SEEN_HEAD
 
@@ -408,9 +423,11 @@ over the air.
 
 If Starchorus was running on the device, stop it before installing and start it again afterwards (files are
 overwritten in place). On the device: payload menu -> Reconnaissance -> "Starchorus", pick
-"Start" (Services and Options set what starts; settings stay in $LOOT/settings.conf, which this installer never
-touches). With a web server on the device (README.md, "Serving the page", A) browse to
-http://$HOST:8199/ (or the port set under Options) from this machine; otherwise pull starchorus.json and serve it locally (same section, B).
+"Start" (Settings sets what starts; settings stay in $LOOT/settings.conf, which this installer never
+touches). The payload serves the page with uhttpd or python3 where the Pager has them and otherwise with its
+bundled netcat server: browse to http://$HOST:8199/ (or the port set under Settings) from this machine, or pick
+"Open on Phone" for a QR code. If no server could start, pull starchorus.json and serve it locally
+(README.md, "Serving the page", B).
 
 Manual control over ssh (each is one command; the master session has closed, so it asks again):
   ssh root@$HOST $(shq "$CMD_STATUS")

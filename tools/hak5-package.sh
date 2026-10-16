@@ -9,15 +9,15 @@
 #        sh tools/hak5-package.sh --list       (print "packaged-name<TAB>repo-source" per file and exit)
 #
 # Result: OUTDIR/library/user/reconnaissance/starchorus/ with exactly the files of the map below, each a byte copy of its
-# repo source (the page under the name the payload serves, index.html). The payload copies the collector, page, dashboard
-# and fallback server into /root/loot/starchorus on its first run (BUNDLE in its header), so the directory runs on its own.
+# repo source (the page under the name the payload serves, index.html). The payload copies the collector, page, Overview
+# and netcat server into /root/loot/starchorus on its first run (BUNDLE in its header), so the directory runs on its own.
 # Not packaged: tests, tools, fixtures, the repo's own docs and anything else for development. The target directory is
 # replaced as a whole, so a file that has left the map does not linger; nothing outside it is touched.
-# Exit: 0 = built, 2 = usage or setup problem (missing source, differing dashboard copies, unwritable OUTDIR).
+# Exit: 0 = built, 2 = usage or setup problem (missing source, differing Overview copies, unwritable OUTDIR).
 set -u
 
 PKGREL=library/user/reconnaissance/starchorus
-# packaged name | repo source | x = executable. The dashboard comes from the payload directory; static.sh keeps it
+# packaged name | repo source | x = executable. The Overview comes from the payload directory; static.sh keeps it
 # byte-identical to the root copy.
 MAP="payload.sh|$PKGREL/payload.sh|x
 starchorus-collect.sh|starchorus-collect.sh|x
@@ -40,7 +40,7 @@ esac
 OUT=${1:-$R/out/hak5}
 case $OUT in /*) ;; *) OUT=$(pwd)/$OUT ;; esac
 
-# every source present, and the two dashboard copies identical, before anything is written
+# every source present, and the two Overview copies identical, before anything is written
 printf '%s\n' "$MAP" | while IFS='|' read -r _n _s _x; do
     [ -f "$R/$_s" ] || die 2 "source file missing: $_s"
 done || exit 2

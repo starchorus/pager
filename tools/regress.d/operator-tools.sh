@@ -56,7 +56,7 @@ OPS_EVI='(async()=>{
 await STARCHORUS.wait(1500);const o={};
 const ids=STARCHORUS.inventory();o.all=ids.length;o.aps=STARCHORUS.stats().aps;
 STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(300);const ib=document.getElementById("inv-body");
-o.rows=ib.querySelectorAll("tbody tr").length;o.chips=[...ib.querySelectorAll(".chip")].slice(0,5).map(c=>c.textContent).join("|");
+o.rows=ib.querySelectorAll("tbody tr").length;o.chips=[...ib.querySelectorAll(".chip")].slice(0,6).map(c=>c.textContent).join("|");
 o.legendHidden=getComputedStyle(document.getElementById("legend-body")||document.body).display;o.drawer=document.documentElement.dataset.drawer;
 o.noStationMac=!/[0-9a-f]{2}(:[0-9a-f]{2}){5}/i.test([...ib.querySelectorAll("tbody tr")].filter(r=>!ids.includes(r.getAttribute("data-id"))).map(r=>r.innerText).join(" "));
 // sort by dBm ascending then descending; the strongest AP is first when descending
@@ -88,7 +88,7 @@ o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
 runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-inv" --wait 3 --fps 0 --eval-timeout 90 --eval "$OPS_EVI" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_I=$(evalv "out/$P-ops-inv.json" 1 | ops_nj); OPS_IE=$(evalv "out/$P-ops-inv.json" 2)
-OPS_IW=$(printf '%s' '{"all":25,"apiBand5":12,"aps":25,"band5":12,"bulkFriend":12,"bulkOther":"unknown","bulkShown":12,"cap":300,"capNote":true,"chips":"14 SSIDs|25 APs|216 stations (count only)|17 channels|25 of 25 shown","drawer":"inv","drawerOff":"legend","errors":0,"keepLib":"02:00:00:00:00:00 friend,true","keepNote":"typing,true","legendHidden":"none","noStationMac":true,"rowSelect":true,"rows":25,"sortFlip":true}' | ops_nj)
+OPS_IW=$(printf '%s' '{"all":25,"apiBand5":12,"aps":25,"band5":12,"bulkFriend":12,"bulkOther":"unknown","bulkShown":12,"cap":300,"capNote":true,"chips":"14 SSIDs|25 APs|216 stations (count only)|75 randomised|17 channels|25 of 25 shown","drawer":"inv","drawerOff":"legend","errors":0,"keepLib":"02:00:00:00:00:00 friend,true","keepNote":"typing,true","legendHidden":"none","noStationMac":true,"rowSelect":true,"rows":25,"sortFlip":true}' | ops_nj)
 if [ "$OPS_I" = "$OPS_IW" ] && [ "$OPS_IE" = 0 ]; then
   row "inventory: typed text survives a poll re-render, count chips, bulk friend on the shown rows only, table = the APs on screen (25), no station MAC, sort flips, band chip = API filter (12), a row selects, drawer shares the legend, 600 APs -> 300 rows + note" PASS
 else
@@ -129,7 +129,7 @@ o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
 runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-exp" --wait 3 --fps 0 --eval-timeout 90 --eval "$OPS_EVX" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_X=$(evalv "out/$P-ops-exp.json" 1 | ops_nj); OPS_XE=$(evalv "out/$P-ops-exp.json" 2)
-OPS_XW='{"apKeys":"bssid,ssid,band,channel,security,class,rssi,heard","apsAll":true,"assocColo":true,"csvHead":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes","csvRows":243,"det":"true,true","dialog":"{\"open\":true,\"ta\":true,\"csv\":true,\"sitrep\":true,\"png\":true,\"printed\":1,\"printable\":true,\"esc\":true,\"closed\":true}","errors":0,"footers":"true,true,2","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding","mobile":1,"nAps":25,"own":"02:00:00:00:07:01","sitrepHead":"SITREP · Starchorus / Starchorus · passive observation · not a government system · no official marking","stationCounts":"{\"free\":180,\"associated\":36}","stationLeak":true,"txtOwn":false,"txtSta":true}'
+OPS_XW='{"apKeys":"bssid,ssid,band,channel,security,class,rssi,heard","apsAll":true,"assocColo":true,"csvHead":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","csvRows":243,"det":"true,true","dialog":"{\"open\":true,\"ta\":true,\"csv\":true,\"sitrep\":true,\"png\":true,\"printed\":1,\"printable\":true,\"esc\":true,\"closed\":true}","errors":0,"footers":"true,true,2","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding","mobile":1,"nAps":25,"own":"02:00:00:00:07:01","sitrepHead":"SITREP · Starchorus / Starchorus · passive observation · not a government system · no official marking","stationCounts":"{\"free\":180,\"associated\":36}","stationLeak":true,"txtOwn":false,"txtSta":true}'
 if [ "$OPS_X" = "$OPS_XW" ] && [ "$OPS_XE" = 0 ]; then
   row "export: json/csv/sitrep with stations as first-class rows (P6), a station MAC AND its association present (co-located), own BSSIDs and phone hotspots still left out, footer + dialog intact" PASS
 else
@@ -229,7 +229,7 @@ OPS_HOME=$(printf '%s\n' "$OPS_HOMG" | grep -c 'seenAp.has'); OPS_HOMC=$(printf 
 if [ "$OPS_HOME" -ge 1 ] && [ "$OPS_HOMC" -ge 1 ] && [ "$OPS_HOMO" -ge 1 ]; then row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" PASS
 else row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" FAIL; fi
 OPS_V=$(sed -n 's/^# Version:      \([0-9.]*\)$/\1/p' starchorus-collect.sh | head -n 1)
-rowif "collector version 0.1.0 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.1.0 ]
+rowif "collector version 0.1.1 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.1.1 ]
 # --help prints the header's USAGE/CONFIG block whole: first line "USAGE:", last line the end of the STARCHORUS_OUI_FILE entry.
 OPS_HLP=$(sh starchorus-collect.sh --help 2>/dev/null)
 OPS_HL1=$(printf '%s\n' "$OPS_HLP" | head -n 1); OPS_HLN=$(printf '%s\n' "$OPS_HLP" | wc -l | tr -d ' ')

@@ -16,6 +16,7 @@
 # The shellcheck list has no exception at all: every shell file of the repository is checked (an entry would be GLOB=REASON passed to `lists`).
 DTR_SCOPE_EXC='tools/*=developer tools: they run only on the development machine, never on the device, and carry the search words of the §14.6 rules on purpose as test data'
 DTR_NOFIX='tcpdump=collector path with security "Secured", entered by no viewer run; tests/fixtures is the contract corpus, a further fixture needs a decision of its own'
+DTR_NOFIX2='pineap=opt-in source of the recon lists of the AP service; its document comes from a stub run in the collector self-test, and a fixture would add a source the viewer runs have no reason to enter'
 DTR_dt="tools/doc-truth.py"
 
 sh tools/passivity-check.sh --files > "out/$P-dtr-pcfiles.txt" 2>/dev/null
@@ -38,7 +39,7 @@ dtr_row() {   # dtr_row NAME CHECK [ARGS...]: a real check on the real tree is o
   dtr_row "§14.6 scope list" lists $DTR_PCL --exception "$DTR_SCOPE_EXC"
 }
 dtr_row "SOURCES = collector" sources
-dtr_row "source census" census --no-fixture "$DTR_NOFIX"
+dtr_row "source census" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"
 dtr_row "tools/README.md fixture table" fixtures
 dtr_row "prose" prose
 dtr_row "spec §11.0 run list = regress.sh loop" runlist
@@ -47,7 +48,15 @@ dtr_row "script headers = page version" headers
 # ---- the probes: the same checks on a COPY of the tree (no .git, no out/) with exactly one broken input each. Nothing in the copy runs.
 DTR_w=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-doctruth.XXXXXX")
 DTR_pn=0; DTR_pbad=0
-tar -C "$R" --exclude ./out --exclude ./.git -cf - . | tar -xf - -C "$DTR_w"
+# The copy holds what the checks read in the real tree: in a git work tree the files git sees (tracked or untracked, not ignored;
+# an ignored directory, such as a tool's worktree, would bring shell files of its own), elsewhere all but .git and out/.
+if [ "$(git -C "$R" rev-parse --show-toplevel 2>/dev/null)" = "$R" ]; then
+  (cd "$R" && git ls-files -z -co --exclude-standard \
+     | python3 -B -c 'import os, sys; sys.stdout.write("".join(f + "\0" for f in sys.stdin.read().split("\0") if f and os.path.lexists(f)))' \
+     | tar --null -T - -cf -) | tar -xf - -C "$DTR_w"
+else
+  tar -C "$R" --exclude ./out --exclude ./.git -cf - . | tar -xf - -C "$DTR_w"
+fi
 dtr_mut() {   # dtr_mut FILE MODE A [B]   modes: none | create (file with the line A) | append (line A) | replace (A -> B, A exactly once) | delline (the one line holding A)
   python3 -B -c '
 import os, sys
@@ -92,7 +101,7 @@ DTR_cbad=""
   dtr_run "$DTR_w" lists $DTR_SCL; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(sc)"
   dtr_run "$DTR_w" lists $DTR_PCL --exception "$DTR_SCOPE_EXC"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(scope)"
 }
-dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
+dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
 for DTR_c in sources fixtures prose runlist headers; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
 [ -z "$DTR_cbad" ] || echo "    the unbroken copy is not green for:$DTR_cbad"
 grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
@@ -112,8 +121,8 @@ grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
   dtr_probe 1 "emits no such source" sources starchorus-collect.sh replace '-v src="tcpdump"' '-v src="tcpdumpx"'
   dtr_probe 1 "missing in gen-testdata.py SOURCES" sources starchorus-collect.sh replace '"source": "none",' '"source": "nonex",'
   dtr_probe 1 "the collector emits no such source" sources tools/gen-testdata.py replace 'IWSCAN, "none")' 'IWSCAN, "none", "bogus")'
-  dtr_probe 1 'please remove' census tests/fixtures/single-ap.json replace '"source": "recon-db"' '"source": "tcpdump"' --no-fixture "$DTR_NOFIX"
-  dtr_probe 1 'not in SOURCES' census tests/fixtures/single-ap.json replace '"source": "recon-db"' '"source": "bogus"' --no-fixture "$DTR_NOFIX"
+  dtr_probe 1 'please remove' census tests/fixtures/single-ap.json replace '"source": "recon-db"' '"source": "tcpdump"' --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"
+  dtr_probe 1 'not in SOURCES' census tests/fixtures/single-ap.json replace '"source": "recon-db"' '"source": "bogus"' --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"
   dtr_probe 1 'occurs in no fixture' census README.md none '' ''
   # fixtures: a wrong AP / free-client / clients[] / band count, a moved generator seed, a row gone
   dtr_probe 1 'many-clients.json: the table says APs = 26' fixtures tools/README.md replace '| `many-clients.json` | 25 APs' '| `many-clients.json` | 26 APs'
@@ -147,7 +156,7 @@ checks.' ''
   dtr_probe 1 'version claim 0.0.9' prose README.md append '- The collector
 0.0.9 delivers `vendor`.' ''
   dtr_probe 0 '' prose README.md append '- Pause 1.2 s after the collector start; collector self-test (as of 2.6.0: 42 green).' ''
-  dtr_probe 1 'version claim 0.1.0 about the collector, the header says 0.1.1' prose starchorus-collect.sh replace '# Version:      0.1.0' '# Version:      0.1.1'   # the claim that is true today (the version table of README.md) goes red at the next bump
+  dtr_probe 1 'version claim 0.1.1 about the collector, the header says 0.1.2' prose starchorus-collect.sh replace '# Version:      0.1.1' '# Version:      0.1.2'   # the claim that is true today (the version table of README.md) goes red at the next bump
   dtr_probe 0 '' prose README.md append '- `--selftest` green (42 checks, as of 2.6.0) under BusyBox' ''
   dtr_probe 0 '' prose README.md append '- The collector `starchorus-collect.sh` (since 0.0.2) delivers `vendor`; until `starchorus-display.sh` 0.0.1 X was missing; collector ≥ 0.0.3; the collector answers at (192.0.2.1, §5.6).' ''   # "since/until/≥" say when, not what is current; an IP address is no version
   # a number NEWER than the header is just as stale (one project, one version): higher numbers left over in the docs
@@ -159,10 +168,10 @@ checks.' ''
   dtr_probe 1 'spec says 9 runs' runlist docs/architecture.md replace 'for all 10 runs' 'for all 9 runs'
   dtr_probe 1 'spec run list' runlist tools/regress.sh replace 'for f in demo legacy few-clients' 'for f in demo few-clients'
   # headers: one script header bumped alone (collector, display script, the library payload), and the page bumped alone
-  dtr_probe 1 'starchorus-collect.sh: header 0.1.1, but the page version is 0.1.0' headers starchorus-collect.sh replace '# Version:      0.1.0' '# Version:      0.1.1'
-  dtr_probe 1 'starchorus-display.sh: header 0.1.1, but the page version is 0.1.0' headers starchorus-display.sh replace '# Version:      0.1.0' '# Version:      0.1.1'
-  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.1.1' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.1.0' '# Version: 0.1.1'
-  dtr_probe 1 'but the page version is 0.1.1' headers starchorus.html replace '  version: "0.1.0",' '  version: "0.1.1",'
+  dtr_probe 1 'starchorus-collect.sh: header 0.1.2, but the page version is 0.1.1' headers starchorus-collect.sh replace '# Version:      0.1.1' '# Version:      0.1.2'
+  dtr_probe 1 'starchorus-display.sh: header 0.1.2, but the page version is 0.1.1' headers starchorus-display.sh replace '# Version:      0.1.1' '# Version:      0.1.2'
+  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.1.2' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.1.1' '# Version: 0.1.2'
+  dtr_probe 1 'but the page version is 0.1.2' headers starchorus.html replace '  version: "0.1.1",' '  version: "0.1.2",'
 }
 rm -rf "$DTR_w"
 DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 40 ] && DTR_pok=1

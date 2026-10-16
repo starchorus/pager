@@ -27,7 +27,7 @@ commands of the AP service appear only in the allowlisted functions `apcli_ro`, 
 carries `-readonly`. That is the one condition for every contribution.
 
 Before the merge, `sh tools/regress.sh <prefix>` must also be green: build rules, passivity at run
-time, legal and neutral language, privacy, layout, dashboard = page, specification = code. The full
+time, legal and neutral language, privacy, layout, Overview = page, specification = code. The full
 run needs Google Chrome and takes over 20 minutes; if nobody else has, the maintainer runs it.
 
 A new read or output path is described in [SECURITY.md](SECURITY.md) and in the [README](README.md)
@@ -35,7 +35,7 @@ before it is merged.
 
 ## Quality requirements
 
-The collector and the dashboard run on the device (OpenWrt, BusyBox). Contributions to the shell
+The collector and the Overview run on the device (OpenWrt, BusyBox). Contributions to the shell
 code must:
 
 - **work with POSIX and BusyBox `ash`**: no bashisms, no GNU-only flags. Check against
@@ -43,7 +43,7 @@ code must:
 - **be clean under `shellcheck -s sh`** (`disable` directives with a stated reason are fine).
 - **keep `sh starchorus-collect.sh --selftest` and `sh starchorus-display.sh --selftest` green.**
   New functions get a self-test case with embedded sample data (no real device needed).
-- in the dashboard, **not call any of `jq`'s regex builtins** (`test`, `match`, `sub`, `gsub`,
+- in the Overview, **not call any of `jq`'s regex builtins** (`test`, `match`, `sub`, `gsub`,
   `capture`, `scan`, `splits`, `split` with flags): the device's `jq` is built without a regex
   library.
 - keep both copies of `starchorus-display.sh` (root and `library/…/starchorus/`) **byte-identical**.

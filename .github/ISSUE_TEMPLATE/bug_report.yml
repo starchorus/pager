@@ -29,9 +29,9 @@ body:
       options:
         - Collector (starchorus-collect.sh)
         - Page (starchorus.html)
-        - Dashboard script (starchorus-display.sh)
+        - Overview (starchorus-display.sh)
         - Payload (payload.sh)
-        - Fallback server (starchorus-serve.sh)
+        - Netcat server (starchorus-serve.sh)
         - Tools (tools/)
         - Documentation
     validations:
@@ -58,7 +58,7 @@ body:
     attributes:
       label: Device (OS, BusyBox)
       description: >
-        For the collector, dashboard, payload or fallback server: the device's operating system or
+        For the collector, Overview, payload or netcat server: the device's operating system or
         firmware version, and the output of `uname -srm`, `busybox | head -n 1` and `jq --version`.
       render: text
   - type: input
