@@ -54,12 +54,11 @@ bind_addr() {
 }
 
 # ---- pick a static file server (passive; serves index.html + starchorus.json) -----------------
-# Every server is started in the FOREGROUND mode of its program and backgrounded here, so $! is the server
-# itself and httpd.pid holds exactly our own server's pid. busybox httpd daemonises unless it gets -f: without
-# it the call returns at once and $! is not the server (empty, or the collector started just before), so `stop`
-# would kill the wrong process or none and the server would keep running.
-# Each listens on ADDR (bind_addr) only: uhttpd and busybox httpd take -p ADDR:PORT, python3 --bind ADDR. Each runs at
-# nice 19 (NICE above; nice execs the server, so $! is still the server).
+# Every server is started in the FOREGROUND mode of its program and backgrounded here, so $! is the server itself and
+# httpd.pid holds exactly our own server's pid (busybox httpd daemonises unless it gets -f: the call would return at once,
+# $! would be empty or the collector started just before, and `stop` would kill the wrong process or none).
+# Each listens on ADDR (bind_addr) only: uhttpd and busybox httpd take -p ADDR:PORT, python3 --bind ADDR. NICE (above) goes
+# in front; nice execs the server, so $! still is the server.
 serve() {
     srv=
     # shellcheck disable=SC2086   # NICE is "nice -n 19" or empty: split on purpose
@@ -110,8 +109,7 @@ case "$1" in
         sp=$(sed -n 1p "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
         own_server "$sp" && kill "$sp" 2>/dev/null
         rm -f "$STARCHORUS_DIR/httpd.pid"
-        # A server without a usable pid file: stop it only when its command line is OURS
-        # (a server of this very directory on this very port, any address), never by a pattern over the whole device.
+        # Stop our servers by their command line (our_servers: this directory, this port, any address).
         for p in $(our_servers); do kill "$p" 2>/dev/null; done
         echo "starchorus stopped" >&2
         ;;

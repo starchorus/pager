@@ -97,8 +97,7 @@ case $STARCHORUS_DIR in
 esac
 SETTINGS=$STARCHORUS_DIR/settings.conf
 # Which settings the environment sets: read BEFORE any default is applied (the environment beats the settings file).
-# ${VAR:+x}, not ${VAR+x}: an empty variable counts as unset, so it matches the ${VAR:-default} expansions below (an
-# empty STARCHORUS_PORT= must not hide the file value and then report the default as (env)).
+# ${VAR:+x}, not ${VAR+x}: an empty variable counts as unset, so it matches the ${VAR:-default} expansions below.
 PL_ENV=""
 [ -z "${STARCHORUS_MAX_AGE:+x}" ] || PL_ENV="$PL_ENV window"
 [ -z "${STARCHORUS_INTERVAL:+x}" ] || PL_ENV="$PL_ENV interval"
@@ -210,8 +209,8 @@ pl_load() {
 # pl_set KEY VALUE -> validate, then write the settings file atomically (temp file + rename). The ONE writer of CLI
 # and menu. 2 = unknown key or invalid value (nothing written), 1 = the file could not be written. A grep that cannot
 # read the old file (exit >= 2) fails the write, so the old keys are never silently dropped: the file keeps its old
-# content (rename never runs). A stale .tmp (a symlink, or an interrupted earlier write) is removed before the write,
-# so it is never followed. A leftover .tmp is otherwise harmless: load ignores it, the next set overwrites it, reset removes it.
+# content (rename never runs). A leftover .tmp (an interrupted write, or a symlink put there) is removed before every
+# write, so it is never followed; load ignores it and reset removes it.
 pl_set() {
     pl_valid "$1" "$2" || return 2
     rm -f "$SETTINGS.tmp"
@@ -289,8 +288,7 @@ ui_log() {    # ui_log [blue|red|green] TEXT
 # A spinner left up when the payload ends hangs the payload runner (a START_SPINNER child keeps the payload's stdout pipe
 # open) and leaves the dialogue on the screen. pl_id holds the id of the spinner that is up, so that a TERM, an INT or an exit
 # while it is up stops it first. The traps exist only for as long as a spinner does: a trapped signal waits for the foreground
-# command to end, and the Overview, which runs as a foreground child for minutes, must stay killable at once (it ends at its
-# next key press after that, by its own parent_gone check, and holds none of the payload's pipes meanwhile: see pl_overview).
+# command to end, and the Overview, which runs as a foreground child for minutes, must stay killable at once (see pl_overview).
 # The callers call ui_spin_start without a command substitution: pl_id is set here.
 ui_spin_start() {   # ui_spin_start LABEL -> pl_id = the spinner's id (empty off the device); one-word labels (firmware 1.0.4 and older)
     pl_id=
@@ -348,11 +346,9 @@ ui_qr() {
     return 0
 }
 
-# pl_install -> first run from a self-contained payload directory (see BUNDLE above): when this payload's own directory
-# holds the collector and index.html, and STARCHORUS_DIR has no collector yet, copy the bundled files into STARCHORUS_DIR
-# (a temporary file each, made executable before the rename; the collector last, so a half-finished copy is completed on
-# the next run). An installed collector is never overwritten; nothing is copied when the two directories are the same.
-# 1 = a copy failed.
+# pl_install -> first run from a self-contained payload directory (see BUNDLE above): a temporary file each, made
+# executable before the rename; the collector last, so a half-finished copy is completed on the next run; nothing is
+# copied when the two directories are the same. 1 = a copy failed.
 pl_install() {
     [ -n "$PL_HOME" ] && [ "$PL_HOME" != "$STARCHORUS_DIR" ] || return 0
     [ -f "$PL_HOME/starchorus-collect.sh" ] && [ -f "$PL_HOME/index.html" ] || return 0
@@ -415,8 +411,8 @@ pl_loop_pid() { pl_pidof "$PL_PIDDIR/starchorus-loop.pid" starchorus-collect; }
 pl_ad_pid() { pl_pidof "$PL_PIDDIR/starchorus-airodump.pid" airodump; }
 pl_col_up() { [ -n "$(pl_loop_pid)" ]; }   # R6 COLLECTOR_UP: the loop pidfile names a live collector
 
-# pl_clean_pids -> 2.1 step 3: a pidfile whose pid is not ours (gone, or reused by another process after a reboot) is
-# deleted before anything reads it, so neither a false RUNNING nor a wrong kill can follow from it.
+# pl_clean_pids -> 2.1 step 3: a pidfile whose pid is not ours (pl_own) is deleted before anything reads it, so neither a
+# false RUNNING nor a wrong kill can follow from it.
 pl_clean_pids() {
     [ -n "$(pl_loop_pid)" ] || rm -f "$PL_PIDDIR/starchorus-loop.pid"
     [ -n "$(pl_ad_pid)" ] || rm -f "$PL_PIDDIR/starchorus-airodump.pid"
@@ -444,9 +440,9 @@ pl_kill_sleeps() { for pl_sk in $(pl_kids "$1"); do kill "$pl_sk" 2>/dev/null; d
 
 pl_nap() { if sleep 0.5 2>/dev/null; then PL_NAP=5; else sleep 1; PL_NAP=10; fi; }   # PL_NAP = tenths of a second slept
 
-# pl_fast_stop all|collector -> 2.8 steps 2 to 5: --stop (and, with all, our page servers), then the loop's sleep child,
-# then up to 10 s for the loop pid read beforehand to go; kill -9 to it and to the airodump (both identity-checked) and
-# 2 s more. 0 = gone (or nothing of ours ran), 1 = still alive. Leftover temporary files are swept by the next start.
+# pl_fast_stop all|collector -> 2.8 steps 2 to 5 (the Stop sequence above); all = also our page servers, collector = the
+# collector alone. Both pids are read before --stop deletes the pidfiles. 0 = gone (or nothing of ours ran), 1 = still
+# alive. Leftover temporary files are swept by the next start.
 pl_fast_stop() {
     pl_lp=$(pl_loop_pid); pl_ap=$(pl_ad_pid)          # read BEFORE --stop deletes the pidfiles
     if [ "$ONDEV" = 1 ]; then ./starchorus-collect.sh --stop >/dev/null 2>&1; else ./starchorus-collect.sh --stop; fi
@@ -499,15 +495,17 @@ pl_port_gone() {
     return 0
 }
 
-# Stop ONLY our own Starchorus web server(s): the current port, and the port that was actually served when the page last
-# started (recorded in page.port, so a port change while the page ran does not orphan the old server). It never touches
-# the device's own uhttpd on :80/:1471 (pl_pids requires our own -h directory). pkill -f is unreliable on busybox.
-# It returns once the ports it sent a stop to are free again (pl_port_gone), so a restart can bind the same port at once.
+# Stop ONLY our own page server(s): the current port and the port actually served when the page last started (page.port,
+# so a port change while the page ran does not orphan the old server), found with pl_pids. Returns once their ports are
+# free (pl_port_gone).
 stop_servers() {
     pl_pp=$(cat "$STARCHORUS_DIR/page.port" 2>/dev/null)
     pl_held=""                                                  # the ports a server was sent a stop for
     pl_hp=$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
-    if pl_own "$pl_hp" "http.server"; then kill "$pl_hp" 2>/dev/null; pl_held="$pl_held ${pl_pp:-$STARCHORUS_PORT}"; fi   # only while it still is our python server
+    if pl_own "$pl_hp" "http.server"; then   # only while it still is our python server
+        kill "$pl_hp" 2>/dev/null
+        pl_held="$pl_held ${pl_pp:-$STARCHORUS_PORT}"
+    fi
     rm -f "$STARCHORUS_DIR/httpd.pid"
     if [ -x "$STARCHORUS_DIR/starchorus-serve.sh" ]; then
         pl_hs=$(cat "$STARCHORUS_DIR/starchorus-serve.pid" 2>/dev/null)
@@ -515,7 +513,7 @@ stop_servers() {
         "$STARCHORUS_DIR/starchorus-serve.sh" stop >/dev/null 2>&1
     fi
     for pl_pt in "$STARCHORUS_PORT" "$pl_pp"; do
-        if [ -z "$pl_pt" ] || ! pl_valid port "$pl_pt"; then continue; fi
+        if ! pl_valid port "$pl_pt"; then continue; fi
         for pl_sp in $(pl_pids "$pl_pt"); do kill "$pl_sp" 2>/dev/null; pl_held="$pl_held $pl_pt"; done
     done
     rm -f "$STARCHORUS_DIR/page.port" "$STARCHORUS_DIR/page.addr"
@@ -572,9 +570,8 @@ pl_port_busy() {
         END { exit !f }'
 }
 
-# Best-effort static server for the visualiser. Prefer a real server (uhttpd/python3); else use the bundled nc
-# mini-server. start-stop-daemon detaches it cleanly so the payload runner returns. Every server listens on PL_ADDR
-# (pl_addr) only, at nice 19; the address and port served are recorded in page.addr and page.port.
+# Best-effort static server for the visualiser: uhttpd, else python3, else the bundled nc mini-server. Every server
+# listens on PL_ADDR (pl_addr) only, niced by PL_NICE; the address and port served are recorded in page.addr and page.port.
 # 0 = a server was started (whether it holds the port shows in pl_page_up), 1 = no server program, 2 = the port is taken
 # or the server refused to start.
 pl_serve() {
@@ -590,13 +587,18 @@ pl_serve() {
     # shellcheck disable=SC2086   # PL_NICE is "nice -n 19" or empty: split on purpose
     if command -v uhttpd >/dev/null 2>&1; then
         # uhttpd daemonises itself (no -f), so it detaches cleanly and stop_servers sweeps it by port and our directory.
-        $PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" || { echo "Starchorus: uhttpd could not listen on $PL_ADDR:$STARCHORUS_PORT" >&2; return 2; }
+        $PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" || {
+            echo "Starchorus: uhttpd could not listen on $PL_ADDR:$STARCHORUS_PORT" >&2
+            return 2
+        }
         pl_srvn=""
     elif command -v python3 >/dev/null 2>&1; then
-        $PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & echo $! > "$STARCHORUS_DIR/httpd.pid"
+        $PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 &
+        echo $! > "$STARCHORUS_DIR/httpd.pid"
         pl_srvn=""
     else
-        # the mini-server gets the resolved address (or all), so it binds the same one; STARCHORUS_DIR/PORT are exported
+        # the mini-server gets the resolved address (or all), so it binds the same one; STARCHORUS_DIR/PORT are exported.
+        # start-stop-daemon detaches it cleanly so the payload runner returns.
         pl_sb=$PL_ADDR; [ "$PL_ADDR" = 0.0.0.0 ] && pl_sb=all
         if command -v start-stop-daemon >/dev/null 2>&1; then
             STARCHORUS_BIND=$pl_sb $PL_NICE start-stop-daemon -S -b -x "$STARCHORUS_DIR/starchorus-serve.sh"
@@ -650,13 +652,13 @@ pl_wlab() {   # seconds -> short window label: All, N h, N min or N s
 # present), so Status reports the right ones.
 pl_page_up() {
     pl_pp=$(cat "$STARCHORUS_DIR/page.port" 2>/dev/null)
-    if [ -n "$pl_pp" ] && pl_valid port "$pl_pp"; then PL_UPPORT=$pl_pp; else PL_UPPORT=$STARCHORUS_PORT; fi
+    if pl_valid port "$pl_pp"; then PL_UPPORT=$pl_pp; else PL_UPPORT=$STARCHORUS_PORT; fi
     PL_UPADDR=$(cat "$STARCHORUS_DIR/page.addr" 2>/dev/null)
     pl_ipv4 "$PL_UPADDR" || PL_UPADDR=$(pl_addr quiet)
     [ -f "$STARCHORUS_DIR/httpd.pid" ] && pl_own "$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)" "http.server" && return 0
     [ -f "$STARCHORUS_DIR/starchorus-serve.pid" ] && pl_own "$(cat "$STARCHORUS_DIR/starchorus-serve.pid" 2>/dev/null)" "starchorus-serve" && return 0
     for pl_pt in "$STARCHORUS_PORT" "$pl_pp"; do
-        if [ -z "$pl_pt" ] || ! pl_valid port "$pl_pt"; then continue; fi
+        if ! pl_valid port "$pl_pt"; then continue; fi
         if [ -n "$(pl_pids "$pl_pt")" ]; then PL_UPPORT=$pl_pt; return 0; fi
     done
     return 1
@@ -676,7 +678,7 @@ pl_status() {
 # a difference is reported once per launch (dialogue and LOG on the device, stderr elsewhere) and nothing else changes. The
 # contract number is the interface the three scripts share (the collector's --status/--stop/pidfile protocol, the
 # Overview's environment): it changes with that interface, so a payload updated on its own is caught at the same version
-# too. An installed file with a version but no contract line is contract 1, every build before the line existed; a file
+# too. An installed file with a version but no contract line is contract 1; a file
 # with no version header at all is not judged. The remedy named is tools/install.sh, or, where this payload's own directory
 # carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them.
 pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
@@ -822,7 +824,7 @@ pl_start_flow() {
         pl_ll=$(pl_lastlog); [ -z "$pl_ll" ] || ui_log red "$pl_ll"                # L7
         return 0
     fi
-    # only when the Overview is to open: it needs numbers; without them it would show "Waiting for the first scan." and stay so
+    # only when the Overview is to open (see pl_wait_capture)
     [ "$STARCHORUS_DASHBOARD" = 1 ] && pl_ov_ok && pl_wait_capture
     ui_spin_stop "$pl_id"
     case $PL_SERVED in
@@ -1010,8 +1012,8 @@ pl_apply() {
     ui_log blue "Settings applied."                                                    # L5
 }
 
-# R6 at every draw: a dead loop with the marker present stopped by itself (L6); a page server without a collector is a
-# leftover and is stopped (L9)
+# R6 at every draw: a dead loop with the marker present had stopped by itself; a page server without a collector is a
+# leftover and is stopped
 pl_reconcile() {
     pl_col_up && return 0
     if [ -f "$PL_MARK" ]; then
@@ -1074,11 +1076,8 @@ pl_usage() { echo "usage: payload.sh [start | stop | status | get [KEY] | set KE
 
 # ------------------------------------------------------------------ dispatch
 case "$1" in
-    "")
+    ""|start)
         [ "$ONDEV" = 1 ] && pl_menu
-        pl_clean_pids; pl_skew
-        pl_start; exit $? ;;
-    start)
         pl_clean_pids; pl_skew
         pl_start; exit $? ;;
     stop)
