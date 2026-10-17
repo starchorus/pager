@@ -123,7 +123,7 @@ aggregation need from the theme is placed beforehand in **`S.anim`** (§2.6): a 
 | `// ==== 34 RENDER LAYERS ====` | `drawBackground`, `drawRings`, `drawShadows`, `drawNebula`, `drawConstellations`, `drawDeviceLinks`, `drawGlows`, `drawEdges`, `drawOrbits`, `drawClients`, `drawClouds` (§8.8a), `drawBubbles`, `drawStars` (with `drawApRings`, `drawIdentityFrame`, `drawSelectionMarks`), `drawChangeCues`, `drawGhosts`, `drawRecvRing`, `drawThreshold`, `drawFlares`. |
 | `// ==== 35 RENDER HUD ====` | `drawHud()`: ring labelling, labels with collision grid and text budget (§6.6), group labels, badges, glyphs, bubble counters, cloud tags (§8.8a), core text, cursor. No `clearRect` here (layer 0). |
 | `// ==== 36 INTERACTION ====` | `nodeAt(mx, my)`, pointer (hover/click/drag/pinch), wheel, keyboard, `setHover`, `clickPin` (§5.6), `select`, `deselect`, `nodeById`, `expandCloud(id)` (§8.8a). |
-| `// ==== 37 UI ====` | Controls binding, `setToggle(key, on, {persist})`, the Random switch (`setRandomMode(m, {persist})`, `cycleRandom()`, `syncRandomButton()`, `cadText(s)`, §8.8a), `updateStats`, `buildLegend`, `legendVisibility`, `buildHelp`, `showTip`, `openDetail`, `drawSparkline`, `drawChannelBar`, the drawers, `layoutEdges()`; phone mode (§9.8): `applyPhone`, `phoneCardOf`, `phoneLayout`, `phDetailDetent`, `skyBox`, `setSheet`, `toggleSheet`, `closeCard`, `setPanels`, the sheet gestures. |
+| `// ==== 37 UI ====` | Controls binding, `setToggle(key, on)`, the Random switch (`setRandomMode(m)`, `cycleRandom()`, `syncRandomButton()`, `cadText(s)`, §8.8a), `updateStats`, `buildLegend`, `legendVisibility`, `buildHelp`, `showTip`, `openDetail`, `drawSparkline`, `drawChannelBar`, the drawers, `layoutEdges()`; phone mode (§9.8): `applyPhone`, `phoneCardOf`, `phoneLayout`, `phDetailDetent`, `skyBox`, `setSheet`, `toggleSheet`, `closeCard`, `setPanels`, the sheet gestures. |
 | `// ==== 38 DATA SOURCE ====` | `sourceKindOf`, `setSource`, `staleAfterMs`, `captureStale`, `captureOffline`, `liveness`, `noteStalePoll`, `tryPoll()` (§9.9 item 1), `captureSpacing`, `pollNextMs`, `pollArm` (the cadence, §9.5), `copyFor(site)`, `setSourcePanel`, `renderSourceTruth`, `loadData(obj, label, opts)`, `sourceHint`, paste dialog, drag and drop. |
 | `// ==== 39 INTRO ====` | `logonLines()`, `bannerLines()`, `runLogon()`, `releaseLogon()`, `endLogon()`, `skipLogon()` – via `THEME.copy` and `THEME.motion.introStyle`. |
 | `// ==== 40 DEBUG API ====` | `window.STARCHORUS = Object.freeze({…})` (§10; `clouds()`, `expandCloud()`), error collector (`window.onerror`, `unhandledrejection`). |
@@ -266,8 +266,8 @@ Persistence (`localStorage[STORAGE_KEY]`, JSON, debounced 250 ms, all accesses i
 observations, baselineDiff, inventory, panels}` (`PERSIST_KEYS`; names at index 0–2, booleans from index 3 onwards). **Not** persisted: `paused`,
 `filters`, `help`, camera, pins, `autoLod` and everything concerning the analysis drawers (§2.6a). Invalid values →
 defaults. `saveUi()` does not write keys in `S.queryLocked` (the stored value remains) until the key is changed via the UI
-or `STARCHORUS.set*`; `setToggle/applyTheme/setView` with `persist: true` (the default) remove it from
-`queryLocked`; the boot (41) calls them with `persist: false`.
+or `STARCHORUS.set*`; `setToggle` and `setRandomMode` always, and `applyTheme`/`setView` with `persist: true` (the default), remove it
+from `queryLocked`; the boot (41) calls `applyTheme`/`setView` with `persist: false`.
 
 ### 2.6a Analysis state (memory; persistent only where stated)
 
@@ -508,8 +508,8 @@ const ENCODING = {
     unknown:           { ring: "none",   widthPx: 0,   dash: null,   glyph: "?", tone: "muted",   label: "?" },
   },
   fresh: { alpha: [1, 0.85, 0.7, 0.55], words: ["heard < 1 min", "heard < 5 min", "heard < 15 min", "on record"], undated: "undated" },   // D1
-  ringOffsetPx: 4, doubleRingGapPx: 3, glyphAnchor: "NE", selectionRingOffsetPx: 13, gapDeg: 60, pin: { gapDeg: 70, notchPx: 3 },   // D5
-  hidden: { ring: "dashed", dash: [4, 4], widthPx: 1, offsetPx: 10, label: false, tooltip: "(hidden SSID)" },
+  ringOffsetPx: 4, doubleRingGapPx: 3, selectionRingOffsetPx: 13, gapDeg: 60, pin: { gapDeg: 70, notchPx: 3 },   // D5
+  hidden: { ring: "dashed", dash: [4, 4], widthPx: 1, offsetPx: 10 },
   merge: { dash: [6, 2, 1, 2], extraPx: 3 },   // D17: its own pattern, never the [4,4] of the hidden ring
   ghost: { dash: [2, 2], r: 5 },               // D19
   identity: { unknown: { frame: "none" }, friend: { frame: "rect" }, neutral: { frame: "square" }, hostile: { frame: "diamond", dash: [3, 2], btn: "Suspect" } },   // §8.10
@@ -914,7 +914,7 @@ CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1, distM
           nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
           fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // theme-independent: drive px/alphaDraw → label eligibility and hits
           minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
-          plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
+          plumbAlpha: 0.35, parallaxPx: 14,
           zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 ```
 
@@ -1055,9 +1055,9 @@ RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetMs: 16.
            maxLabels: [[24, 16], [18, 12], [12, 8], [8, 6]],     // [lod] → [2d, 3d] (§6.4)
            maxText: { "2d": 30, "3d": 24 },                       // hard fillText budget per frame on #hud (§6.6)
            maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24, labelMarginPx: 6,
-           mobile: { maxLabels: 12, particlesMax: 800, dprCap: 1.5, lodBias: 1 },   // phone mode (§9.8)
+           mobile: { maxLabels: 12, dprCap: 1.5, lodBias: 1 },   // phone mode (§9.8)
            spriteTiers: [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32], spriteCap: 128, alphaSteps: 32,
-           maxLiveBlur: 3, flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
+           flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
 LOD    = { l1: 250, l2: 600, l3: 1000 };            // nodeCount thresholds (APs + individually drawn clients + bubbles)
 HIT    = { apPad: 6, clientPad: 5, bubblePad: 4, minPx: 12, touchMinPx: 16, pinDebounceMs: 250 };
 ```
@@ -1408,7 +1408,7 @@ centre point; clients as '+'; all hairlines on half pixels; situation-wall groun
 dot grid in `line.hairline`, **no** starfield, no gradient.
 
 **Phosphor bloom:** `shadowBlur = lerp(bloomPx[0], bloomPx[1], t)` (cap `glow.maxBlurPx`) **baked** into the sprites.
-Live `shadowBlur` for at most `RENDER.maxLiveBlur` elements per frame; never on paths with many segments (rings, arcs).
+No live `shadowBlur` in the frame path: it is set only while a sprite is baked (§6.3), never on paths with many segments (rings, arcs).
 
 **Persistence:** §6.7. **Scanlines + vignette:** CSS `#crt` (§1.1); the toggle `#t-crt` (visible only with `crt.userToggle`)
 switches scanlines, vignette **and** persistence; `?crt=0|1`. Flicker ±`crt.flickerAmp` as `#sky.style.opacity`
@@ -2301,7 +2301,7 @@ Documentation binding: STARCHORUS.version = spec §10 · spec §14 complete (D1�
 |---|---|---|---|
 | R1 | Persistence overlay smears text/HUD | unreadable labels, counters | three canvases: text only on `#hud` (`clearRect`), background on `#bg`, persistence only on `#sky` via `destination-out` (§6.2, §6.7) |
 | R2 | Persistence brightens static marks | neon instead of phosphor, contrasts tip over | alpha compensation `a' = a·P/(1 − a·(1−P))` in `setAlpha`; no `lighter` under persistence (§6.7) |
-| R3 | `shadowBlur` cost | frame rate | bloom baked into sprites; live at most `maxLiveBlur` elements, travelling dots in one path (§6.3, §7.3) |
+| R3 | `shadowBlur` cost | frame rate | bloom baked into sprites, no live `shadowBlur` in the frame path; travelling dots are baked bloom sprites (§6.3, §7.3) |
 | R4 | Full orbit circles = ring moiré | 'mush ring' | 60° arcs only for associated clients, no arcs for free clients, LOD ≤ 1 (§4.3) |
 | R5 | DPR 2 quadruples the raster | < 60 fps on high-resolution displays | controller with hysteresis in both directions, start cap by node count, `#hud` sharp (§6.5) |
 | R6 | Hit test in 3D hits hidden/distant nodes | wrong tooltip/detail | 3D candidates sorted near→far (`zc`), first hit, `alphaDraw ≥ 0.25`, bubble members not hittable (§5.5) |

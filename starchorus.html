@@ -792,7 +792,7 @@ const CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1,
   nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
   fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // depth fog + far size, theme-free (they gate 3D px, alphaDraw, labels, hit-test)
   minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
-  plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
+  plumbAlpha: 0.35, parallaxPx: 14,
   zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 const RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetMs: 16.6, lateK: 1.1, panelK: 1.25,
   blockMs: 1000, settleMs: 250, lateFrac: 0.25, okFrac: 0.05, slowBlocks: 2, upBlocks: 3, upMs: 15000, upMaxMs: 120000,
@@ -800,9 +800,9 @@ const RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetM
   maxLabels: [[24, 16], [18, 12], [12, 8], [8, 6]],
   maxText: { "2d": 30, "3d": 24 },
   maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24, labelMarginPx: 6,
-  mobile: { maxLabels: 12, particlesMax: 800, dprCap: 1.5, lodBias: 1 },
+  mobile: { maxLabels: 12, dprCap: 1.5, lodBias: 1 },
   spriteTiers: [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32], spriteCap: 128, alphaSteps: 32,
-  maxLiveBlur: 3, flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
+  flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
 const LOD = { l1: 250, l2: 600, l3: 1000 };
 const HIT = { apPad: 6, clientPad: 5, bubblePad: 4, minPx: 12, touchMinPx: 16, pinDebounceMs: 250 };
 const KEYS = [
@@ -1070,8 +1070,8 @@ const ENCODING = {
   },
   // D1 minimal, theme-free freshness mark: star + ring alpha per tier. Undated APs look like T0.
   fresh: { alpha: [1, 0.85, 0.7, 0.55], words: ["heard < 1 min", "heard < 5 min", "heard < 15 min", "on record"], undated: "undated" },
-  ringOffsetPx: 4, doubleRingGapPx: 3, glyphAnchor: "NE", selectionRingOffsetPx: 13, gapDeg: 60, pin: { gapDeg: 70, notchPx: 3 },   // D5: a pin is a notched arc (ink.secondary), never the selection ring
-  hidden: { ring: "dashed", dash: [4, 4], widthPx: 1, offsetPx: 10, label: false, tooltip: "(hidden SSID)" },
+  ringOffsetPx: 4, doubleRingGapPx: 3, selectionRingOffsetPx: 13, gapDeg: 60, pin: { gapDeg: 70, notchPx: 3 },   // D5: a pin is a notched arc (ink.secondary), never the selection ring
+  hidden: { ring: "dashed", dash: [4, 4], widthPx: 1, offsetPx: 10 },
   merge: { dash: [6, 2, 1, 2], extraPx: 3 },   // D17: the merged-ESS ring has its own pattern (dash-dot), never the hidden-SSID ring's [4,4]
   ghost: { dash: [2, 2], r: 5 },   // D19: a baseline AP that is not heard now (derived): a small dashed ring at its frozen place
   // Manual identity (NATO APP-6 language): the operator sets it, the tool never asserts it; unknown (the default) draws nothing.
@@ -5182,7 +5182,7 @@ function drawHud() {
       }
     }
     if (ap.clientCount > 0 && lod < 3 && budget > 0) {
-      const bt = String(ap.clientCount), bf = TD.fontMonoSmall, bw = textWidth(ctx, bf, bt), bx = ap.sx + px + 2, by = ap.sy + px + 2;
+      const bt = String(ap.clientCount), bf = TD.fontMonoSmall, bx = ap.sx + px + 2, by = ap.sy + px + 2;
       const bq = place([[bx, by]], 14, 12);
       if (bq) {
         ctx.font = bf; ctx.fillStyle = THEME.ink.secondary; ctx.strokeStyle = THEME.surface.base;
@@ -5446,7 +5446,7 @@ function nextTheme(id) { const i = THEME_CYCLE.indexOf(id); return THEME_CYCLE[(
 function toggleTheme() { applyTheme(nextTheme(S.ui.theme), { intro: true }); }
 function toggleCrt() { if (THEME.crt.userToggle) setToggle("crt", !S.ui.crt); }
 function applyCrt() { const crt = el("crt"); if (crt) crt.classList.toggle("on", THEME.crt.userToggle && S.ui.crt); }
-function setToggle(key, on, opts = {}) {
+function setToggle(key, on) {
   S.ui[key] = on;
   if (key === "paused") { const b = el("t-pause"); if (b) b.textContent = on ? "Resume" : "Pause"; }
   if (key === "agg") { S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter); }
@@ -5458,7 +5458,7 @@ function setToggle(key, on, opts = {}) {
   if (key === "baselineDiff") { baselineRecompute(); obsCompute(); renderObs(); renderInv(); }
   if (key === "affinity") { if (applyAffinity()) { S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter); } }
   syncButton(key, on);
-  if (opts.persist !== false && PERSIST_KEYS.indexOf(key) >= 0) { S.queryLocked.delete(key); saveUi(); }
+  if (PERSIST_KEYS.indexOf(key) >= 0) { S.queryLocked.delete(key); saveUi(); }
   updateControlsLook(); updateStats(); S.dirty = true;
   return on;
 }
@@ -5646,14 +5646,14 @@ function syncRandomButton() {
   const m = S.ui.random, L = RANDOM_LOOK[m] || RANDOM_LOOK.cloud, a = "Randomised addresses: " + L[0];
   b.classList.toggle("on", m !== "show"); b.dataset.state = m; b.setAttribute("aria-label", a); b.title = a + " [X] · next: " + L[1];
 }
-function setRandomMode(m, opts = {}) {
+function setRandomMode(m) {
   if (RANDOM_MODES.indexOf(m) < 0) return S.ui.random;
   S.ui.random = m; syncRandomButton(); applyRandom();
   // §8.8a: release a lock or hover on a node the new mode no longer draws
   if (S.locked && ((m !== "cloud" && S.clouds.has(S.locked)) || (m === "hide" && (S.clients.get(S.locked) || {}).randOut))) deselect();
   if (S.hover && ((S.clients.get(S.hover) || {}).randOut || S.clouds.has(S.hover))) setHover(null);
   applyAffinity(); S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter);
-  if (opts.persist !== false) { S.queryLocked.delete("random"); saveUi(); }
+  S.queryLocked.delete("random"); saveUi();
   updateControlsLook(); updateStats(); S.dirty = true; return m;
 }
 function cycleRandom() { return setRandomMode(RANDOM_MODES[(RANDOM_MODES.indexOf(S.ui.random) + 1) % RANDOM_MODES.length]); }
