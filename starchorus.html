@@ -304,7 +304,6 @@ b { font-weight: 600; }
 
 #legend { left: 20px; padding: 12px 16px 12px; max-width: 280px; display: flex; flex-direction: column; max-height: var(--lay-legend-maxh, none); }
 #legend-body, #obs-body, #inv-body, #home-body, #air-body, #time-body, #rec-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; }   /* scrolls inside the panel: bezel brackets stay unclipped */
-:root[data-drawer="obs"] #legend-body, :root[data-drawer="inv"] #legend-body, :root[data-drawer="home"] #legend-body, :root[data-drawer="air"] #legend-body, :root[data-drawer="time"] #legend-body, :root[data-drawer="rec"] #legend-body { display: none; }
 #air-body, #time-body, #rec-body { text-transform: none; }
 :is(#obs-body, #inv-body, #home-body, #air-body, #time-body, #rec-body) h4 { margin: 10px 0 5px; font-weight: 600; font-size: 10px; letter-spacing: 0.2em; text-transform: var(--text-transform); font-variant: var(--heading-variant); color: var(--ink-secondary); }
 :is(#obs-body, #air-body, #time-body, #rec-body) h4:first-child { margin-top: 0; }
@@ -5799,7 +5798,7 @@ function waterfallModel(band) {   // channel × time from the recorded captures:
 function applyDrawer() {   // the legend's box hosts one body at a time: legend | observations | inventory | homing | air | time | rec (D15: still one panel, no new overlap)
   const d = S.homeOpen ? "home" : S.dx ? S.dx : S.ui.inventory ? "inv" : S.ui.observations ? "obs" : "legend";
   const was = document.documentElement.dataset.drawer; document.documentElement.dataset.drawer = d; document.documentElement.dataset.obs = d === "obs" ? "on" : "off";
-  for (const [id, k] of [["obs-body", "obs"], ["inv-body", "inv"], ["home-body", "home"], ["air-body", "air"], ["time-body", "time"], ["rec-body", "rec"]]) { const e = el(id); if (e) e.hidden = d !== k; }
+  for (const [id, k] of [["legend-body", "legend"], ["obs-body", "obs"], ["inv-body", "inv"], ["home-body", "home"], ["air-body", "air"], ["time-body", "time"], ["rec-body", "rec"]]) { const e = el(id); if (e) e.hidden = d !== k; }
   for (const [id, k] of [["t-air", "air"], ["t-time", "time"], ["t-rec", "rec"]]) syncPressed(id, S.dx === k);
   syncPressed("t-home", S.homeOpen);
   renderObs(); renderInv(); renderHome(); renderAir(); renderTime(); renderRec();
