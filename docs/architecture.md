@@ -245,10 +245,10 @@ S.queryLocked = Set<key>;           // UI keys from query parameters (§2.7): sa
 S.view = { blend: 0, blendT: 0 };   // 0 = 2D … 1 = 3D; stepBlend snaps to exactly 0/1 (§5.7)
 S.cam  = { az, el, dist, target: [0,0,0], azT, elT, distT, targetT, tween, ramp, idleAt, zoom2d: 1 };   // 2D zoom around the observer, no pan
 S.anim = {                          // theme-free injection, filled by fillAnim() in applyTheme(); the sole theme source for 22–30 and 36
-  fadeInMs, fadeOutMs, fadeInK, fadeOutK,    // K = 4.6·1000/ms (the alpha easing reaches 99 % after ms)
+  fadeInK, fadeOutK,                         // K = 4.6·1000/ms of motion.fadeInMs / fadeOutMs (the alpha easing reaches 99 % after ms)
   breathePeriodS, breatheAmp,                // 0 = no breathing
-  blendMs, blendK,                           // bubble blend = motion.fadeInMs
-  autoRotateRadPerS, cameraEaseMs, cameraEasing, bokeh, edgeTravelDotSpeed, cursorBlinkMs, introStyle, flare* };
+  blendK,                                    // bubble blend, K from motion.fadeInMs
+  autoRotateRadPerS, cameraEaseMs, cameraEasing, edgeTravelDotSpeed, flare* };
 S.apOrder, S.clientOrder, S.order;  // persistent sort lists (§4.0, §5.5)
 S.mode = "demo"|"live";             // "demo" only for the built-in demo
 S.sourceKind = "demo"|"live"|"recorded"|"active"|"none";   // D4 source truth (section 38), basis of copyFor()
@@ -450,9 +450,9 @@ applyTheme(id, opts = {intro: true, persist: true}):
   if (changed && !reduceMotion && opts.intro !== false && !query.intro0 && !introSeen()) runIntro()   // D13: flag per theme ID
 ```
 Camera, layout, bubbles and blend stay unchanged → `layoutInfo()` is identical before and after the switch.
-`fillAnim()`: `fadeInK = 4.6·1000/motion.fadeInMs`, `fadeOutK = 4.6·1000/motion.fadeOutMs`, `blendMs = motion.fadeInMs`,
-`blendK = 4.6·1000/blendMs`, `breathePeriodS = motion.breathePeriodMs/1000`, `cameraEasing` from `motion.cameraEasing`,
-`bokeh = depth.bokeh.enabled`, the rest 1:1 from `motion.*`/`depth.*`. Boot calls `applyTheme` with `persist: false`
+`fillAnim()`: `fadeInK = 4.6·1000/motion.fadeInMs`, `fadeOutK = 4.6·1000/motion.fadeOutMs`, `blendK = 4.6·1000/motion.fadeInMs`,
+`breathePeriodS = motion.breathePeriodMs/1000`, `cameraEasing` from `motion.cameraEasing`, the rest 1:1 from
+`motion.*`/`depth.*`. Boot calls `applyTheme` with `persist: false`
 when the theme comes from `?theme=`; `STARCHORUS.setTheme()` and `#t-theme` use the default `persist: true`.
 
 ### 3.4 Theme independence (check rule)
@@ -986,7 +986,7 @@ fog     = fogNear · lerp(1, lerp(CFG3D.fogNearAlpha, CFG3D.fogFarAlpha, sFar), 
 alphaDraw = alpha · fog · kindFactor (AP 1, assoc. 0.95, free 0.85, bubble 1)
 px      = clamp(basePx · lerp(1, (dist/zc)·lerp(1, CFG3D.sizeFarFactor, sFar), tS), minPx, maxPx)   // minPx client 3.5 / AP 5 / bubble 9
 Bubbles: alphaHud = alpha · max(fog, bubbleFogFloor); counter only when r·scale ≥ minPxBubble && alphaHud ≥ 0.5 (§4.6)
-Bokeh (S.anim.bokeh): sFar > 0.5 or (2D: t < 0.25) → sprite variant "soft"; never ctx.filter. Without bokeh: variant "sharp"
+Bokeh (TD.bokehSoft = depth.bokeh.enabled): sFar > 0.5 or (2D: t < 0.25) → sprite variant "soft"; never ctx.filter. Without bokeh: variant "sharp"
 ```
 
 ### 5.5 Painter's sort and hit test
@@ -1328,8 +1328,8 @@ checked as in §3.8 (`tools/spec-sync.py --check`); what is deliberately left ou
 | Breathing/twinkle (30 via `S.anim`) | `motion.breathePeriodMs > 0`, `rssi.bloomPx` | glow ×(1 ± 0.06) | no breathing; twinkle = bloom pulse | no breathing |
 | Camera tween (28 via `S.anim`) | `motion.cameraEaseMs/cameraEasing` | 1200 ms easeInOutCubic | 600 ms easeOutQuad | 800 ms easeOutQuad |
 | Auto-rotation (28 via `S.anim`) | `motion.autoRotateRadPerS` | 0.05 | 0.12 | 0.06 |
-| Bokeh (28/31 via `S.anim`) | `depth.bokeh.enabled` | soft | sharp | sharp |
-| Travelling dots/cursor (30 via `S.anim`) | `motion.edgeTravelDotSpeed/cursorBlinkMs` | 0 / 0 | 0.35 / 530 | 0 / 0 |
+| Bokeh (34 via `TD.bokehSoft`) | `depth.bokeh.enabled` | soft | sharp | sharp |
+| Travelling dots (30 via `S.anim`), cursor (`TD.cursorBlink`) | `motion.edgeTravelDotSpeed/cursorBlinkMs` | 0 / 0 | 0.35 / 530 | 0 / 0 |
 | CSS chrome (02–09) | `chrome.*`, `crt.userToggle`, variables | glass panels, blur | black panels, corner brackets, `#crt` | flat panels, banner |
 | Intro (39) | `motion.introStyle` | `coalesce` | `typed` | `typed` |
 | Legend (37) | `ENCODING` + `band/status/render` | filled shapes | wireframe swatches | wireframe swatches |

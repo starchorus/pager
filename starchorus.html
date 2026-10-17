@@ -1223,18 +1223,15 @@ function mirrorCss() {
 }
 function fillAnim() {
   const m = THEME.motion, d = THEME.depth, a = S.anim, rate = (ms) => 4.6 * 1000 / Math.max(1, ms);   // ease() rate that reaches ~1 % of the gap after ms
-  a.fadeInMs = m.fadeInMs; a.fadeOutMs = m.fadeOutMs;
   a.fadeInK = rate(m.fadeInMs); a.fadeOutK = rate(m.fadeOutMs);
   a.breathePeriodS = m.breathePeriodMs / 1000; a.breatheAmp = m.breatheAmp;
-  a.blendMs = m.fadeInMs; a.blendK = rate(a.blendMs);
+  a.blendK = rate(m.fadeInMs);
   a.autoRotateRadPerS = m.autoRotateRadPerS; a.cameraEaseMs = m.cameraEaseMs;
   a.cameraEasing = { easeInOutCubic, easeOutQuad, linear: (u) => u }[m.cameraEasing] || easeInOutCubic;
-  a.bokeh = d.bokeh.enabled;
-  a.edgeTravelDotSpeed = m.edgeTravelDotSpeed; a.edgeTravelDotPx = m.edgeTravelDotPx; a.cursorBlinkMs = m.cursorBlinkMs;
-  a.flickerAmp = THEME.crt.flickerAmp; a.persistence = THEME.crt.persistenceAlpha > 0;
+  a.edgeTravelDotSpeed = m.edgeTravelDotSpeed;
+  a.flickerAmp = THEME.crt.flickerAmp;
   a.probeArc = !!THEME.render.probeArc; a.arrivalArcs = !!THEME.render.arrivalArcs;
   a.flareMax = d.lensFlare.maxStars | 0; a.flareEnabled = !!d.lensFlare.enabled; a.flareLenFactor = d.lensFlare.lengthFactor || 0;
-  a.introStyle = m.introStyle;   // §22–30 read no tokens, so the intro style reaches step() through S.anim
 }
 function applyTheme(id, opts = {}) {
   if (!THEMES[id]) id = "foundation";
@@ -1562,9 +1559,9 @@ const S = {
   queryLocked: new Set(),
   view: { blend: 0, blendT: 0 },
   cam: { az: 0, el: CFG3D.el, dist: 3, target: [0, 0, 0], azT: 0, elT: CFG3D.el, distT: 3, targetT: [0, 0, 0], tween: null, ramp: 0, idleAt: 0, zoom2d: 1 },
-  anim: { fadeInMs: 900, fadeOutMs: 1400, fadeInK: 5.1, fadeOutK: 3.3, breathePeriodS: 6, breatheAmp: 0.06, blendMs: 900, blendK: 5.1,
-          autoRotateRadPerS: 0.05, cameraEaseMs: 1200, cameraEasing: null, bokeh: true,
-          edgeTravelDotSpeed: 0, cursorBlinkMs: 0, flareMax: 2, flareEnabled: true, flareLenFactor: 6 },
+  anim: { fadeInK: 5.1, fadeOutK: 3.3, breathePeriodS: 6, breatheAmp: 0.06, blendK: 5.1,
+          autoRotateRadPerS: 0.05, cameraEaseMs: 1200, cameraEasing: null,
+          edgeTravelDotSpeed: 0, flareMax: 2, flareEnabled: true, flareLenFactor: 6 },
   apOrder: [], clientOrder: [], order: [], orderDirty: true,
   mode: "demo", source: "", note: "", generated: null, centerLabel: "YOU ARE HERE", maxAgeS: null, pollIntervalS: null,
   sourceKind: "none", sourceLabel: "", sourceKey: "", sourceApCount: 0, liveFeed: false, lastGen: null, stalePolls: 0, staleMs: 0, lostPolls: 0, gaps: [], fresh: false, ingestSeq: 0,   // D3/D4 (§38)
