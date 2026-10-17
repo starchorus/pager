@@ -431,19 +431,14 @@ b { font-weight: 600; }
 
 #detail { top: var(--lay-detail-top, calc(var(--chrome-top) + 76px)); right: 20px; width: 300px; max-height: var(--lay-detail-maxh, calc(100vh - 140px - var(--chrome-top) - var(--chrome-bot))); overflow: auto; padding: 12px 14px 14px; z-index: 12; }
 #detail h3 { margin: 0 24px 2px 0; font-size: var(--size-title); font-weight: 600; word-break: break-word; }
-#detail .vend { color: var(--ink-secondary); font-size: var(--size-hud); margin-bottom: 8px; }
 #detail-close { position: absolute; top: 8px; right: 8px; padding: 2px 7px; }
 #detail table { width: 100%; border-collapse: collapse; font-size: var(--size-hud); }
 #detail th { text-align: left; font-weight: 400; color: var(--ink-secondary); padding: 3px 8px 3px 0; vertical-align: top; white-space: nowrap; width: 34%; }
 #detail td { color: var(--ink-primary); padding: 3px 0; vertical-align: top; word-break: break-word; }
-#detail td.mono, #detail .members { font-family: var(--font-mono); text-transform: none; }
+#detail td.mono { font-family: var(--font-mono); }
 #detail td .est { color: var(--ink-secondary); }
-#detail .members { max-height: 220px; overflow: auto; margin-top: 4px; font-size: 10px; }
-#detail .members div { padding: 1px 0; cursor: pointer; }
-#detail .members div:hover { color: var(--accent-selection); }
 #detail canvas#detail-spark { display: block; width: 240px; height: 64px; margin: 6px 0 2px; }
 canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
-#detail .row { display: flex; gap: 8px; margin-top: 8px; }
 
 #help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); overflow-y: auto; z-index: 40; padding: 12px 16px 12px; }
 #help h3 { margin: 0 0 8px; font-size: var(--size-title); font-weight: 600; }
