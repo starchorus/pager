@@ -243,7 +243,13 @@ b { font-weight: 600; }
 
 #masthead { left: 20px; padding: 14px 18px 15px; max-width: 340px; }
 /* the brand: in #masthead, or in the phone's #bar (§9.8) */
-.brand .ver { font-size: .6em; font-weight: 400; letter-spacing: 0; opacity: .55; margin: 0 .7em 0 .55em; align-self: baseline; }   /* the version, small and dim; set at boot from STARCHORUS.version, the one place the number lives */
+.brand .ver { font-size: .6em; font-weight: 400; letter-spacing: 0; opacity: .55; margin: 0 .7em 0 .55em; align-self: baseline; }
+/* A wide fallback face or a browser's minimum font size (an in-car browser, say) can make the name wider than the box: the version and the
+   cursor then wrap under it instead of leaving the box, layoutEdges() tightens the letters first (.tight), and keeps the name clear of the
+   plot clock, the lamps or the badge in the top right corner (.clear-right). At the design sizes neither class is ever set (rows in edge-layout.sh). */
+#masthead .brand { flex-wrap: wrap; row-gap: 0; }
+#masthead.tight .brand { letter-spacing: .06em; }
+#masthead.clear-right .brand { padding-right: 46px; }   /* the version, small and dim; set at boot from STARCHORUS.version, the one place the number lives */
 .brand {
   display: flex; align-items: baseline; gap: 8px; white-space: nowrap;
   font-size: var(--size-hero); font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase;
@@ -286,7 +292,7 @@ b { font-weight: 600; }
 #stats .lbl, #n-alarm { display: flex; align-items: center; justify-content: center; gap: 5px; }
 #stats .lbl svg, #n-alarm .asw { width: 8px; height: 8px; flex: none; }
 
-#source { right: 20px; padding: 10px 13px; display: flex; align-items: center; gap: 10px; max-width: 380px; }
+#source { right: 20px; padding: 10px 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: 380px; }   /* wraps the button under the text when the text would get narrower than 9em */
 .mode { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 10px; padding: 3px 8px;
   border-radius: calc(var(--panel-radius) * .6); border: 1px solid var(--panel-border); color: var(--ink-primary); }
 .mode.demo { border-color: var(--accent-selection); color: var(--accent-selection); background: var(--accent-wash); }
@@ -295,7 +301,7 @@ b { font-weight: 600; }
 .mode.recorded { border-color: var(--ink-secondary); }
 .mode.active { border-color: var(--ink-primary); background: var(--ink-primary); color: var(--ink-on-fill); }
 .mode.none { border-style: dashed; color: var(--ink-muted); }
-#source .desc { color: var(--ink-secondary); flex: 1; min-width: 0; line-height: 1.4; }
+#source .desc { color: var(--ink-secondary); flex: 1 1 11em; min-width: 9em; line-height: 1.4; }
 #source .desc b { color: var(--ink-primary); font-weight: 600; }
 #src-center { display: block; font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
 .filebtn { font-size: 10px; color: var(--ink-secondary); background: var(--line-soft); border: 1px solid var(--line-hairline);
@@ -379,7 +385,7 @@ b { font-weight: 600; }
 #controls { right: 20px; padding: 10px 13px; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }   /* gap and padding sized so the docked channel bar still fits at 1000×500 (D15) */
 #controls .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 @media (min-width: 721px) { #controls { max-width: calc(100vw - 340px); } }   /* D15: never wider than the space right of the legend (20 + 280 + 20 gap + 20 margin): the groups wrap instead of running under the legend */
-#controls .glabel { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-secondary); width: 50px; flex: none; }
+#controls .glabel { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-secondary); width: max(50px, 5.5em); flex: none; }   /* 50 px at 9 px; grows with a minimum font size so 'ANALYSE' never runs under its first button */
 .btn {
   font-size: var(--size-hud); color: var(--ink-secondary); background: var(--line-soft); border: 1px solid var(--line-hairline);
   border-radius: calc(var(--panel-radius) * .75); padding: 5px 9px; cursor: pointer; user-select: none;
@@ -6306,6 +6312,16 @@ function statsFitWidth(cells, room) {   // smallest content width that keeps the
   for (let i = 0; i < cells.length; i++) { let s = 0; for (let j = i; j < cells.length; j++) { s += cells[j]; if (s >= maxC && s < best && rows(s) <= need) best = s; } }
   return best;
 }
+function fitMasthead() {   // the name under a wide face or a minimum font size: tighter letters, then room for the clock or the lamps (CSS above)
+  const mh = el("masthead"), mb = el("mast-brand"); if (!mh || !mb || mb.parentElement !== mh) return;
+  mh.classList.remove("tight", "clear-right");
+  // the extent of dot, name and version on the first line: not the flex box (as wide as the panel) and not the cursor, which may touch the lamps
+  const ext = () => { const r = document.createRange(); r.setStartBefore(mb.firstChild); r.setEndAfter(mb.childNodes[1]); const nm = r.getBoundingClientRect(), v = el("mast-ver"), vr = v ? v.getBoundingClientRect() : null;
+    return (vr && vr.top < nm.bottom) ? { left: nm.left, right: Math.max(nm.right, vr.right), top: nm.top, bottom: nm.bottom } : nm; };
+  if (ext().right > mb.getBoundingClientRect().right + 0.5 || mb.scrollWidth > mb.clientWidth + 1) mh.classList.add("tight");
+  const deco = mh.querySelector(".plotclock, .lamps");   // the badge sits above the cap height and is left alone
+  if (deco) { const a = ext(), d = deco.getBoundingClientRect(); if (a.right > d.left + 1 && a.top < d.bottom && a.bottom > d.top) mh.classList.add("clear-right"); }
+}
 function layoutEdges() {
   const rs = document.documentElement.style, vw = window.innerWidth, vh = window.innerHeight, G = EDGE.gapPx;
   const set = (k, v) => { rs.removeProperty(k); rs.setProperty(k, v); };   // re-appended, see the note below
@@ -6319,6 +6335,7 @@ function layoutEdges() {
   // No variable is off :root at a measuring reflow: one that changes there restyles the whole page, one that is back with the
   // value it had restyles :root alone. .raw lays a panel out as without its variables, and comes off where the pass sets them
   // (or removes them for good) — so every box below is read in the state a pass that starts from a bare :root reads it in.
+  fitMasthead();
   const scr = EDGE_SCROLLERS.map(e => e.scrollTop);   // measured without their caps, the scrollers lose their offset: keep where the reader was
   for (const e of [statsEl, legend, detail]) e.classList.add("raw");
   const mast = boxOf(el("masthead")), src = boxOf(el("source")), ctl = boxOf(el("controls"));
