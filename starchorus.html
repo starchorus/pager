@@ -326,15 +326,15 @@ b { font-weight: 600; }
 :is(#inv-body, #air-body, #time-body, #rec-body) .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
 :is(#inv-body, #air-body, #time-body, #rec-body) .chip { font-size: 10px; padding: 2px 6px; border: 1px solid var(--line-hairline); border-radius: 10px; color: var(--ink-secondary); background: none; cursor: pointer; text-transform: none; }
 :is(#inv-body, #air-body, #time-body, #rec-body) .chip.on { color: var(--toggle-ink); background: var(--toggle-on); border-color: var(--toggle-border); }
-:is(#air-body, #time-body, #rec-body) table { width: 100%; border-collapse: collapse; font-size: 10px; }
-:is(#air-body, #time-body, #rec-body) th { text-align: left; color: var(--ink-secondary); font-weight: 600; padding: 2px 3px; }
-:is(#air-body, #time-body, #rec-body) td { padding: 2px 3px; border-top: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+:is(#inv-body, #air-body, #time-body, #rec-body) table { width: 100%; border-collapse: collapse; font-size: 10px; }
+:is(#inv-body, #air-body, #time-body, #rec-body) th { text-align: left; color: var(--ink-secondary); font-weight: 600; padding: 2px 3px; }
+:is(#inv-body, #air-body, #time-body, #rec-body) td { padding: 2px 3px; border-top: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
 :is(#air-body, #time-body, #rec-body) input[type=number], :is(#air-body, #time-body, #rec-body) input[type=range] { background: var(--surface-raised); color: var(--ink-primary); border: 1px solid var(--line-hairline); border-radius: 4px; font: 10px var(--font-mono); }
 #time-body canvas { display: block; width: 100%; height: 96px; }
 #rec-body input[type=range] { width: 100%; }
-#inv-body table { width: 100%; border-collapse: collapse; font-size: 10px; text-transform: none; }
-#inv-body th { text-align: left; color: var(--ink-secondary); font-weight: 600; cursor: pointer; padding: 2px 3px; position: sticky; top: 0; background: var(--panel-fill); }
-#inv-body td { padding: 2px 3px; border-top: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; }
+#inv-body table { text-transform: none; }
+#inv-body th { cursor: pointer; position: sticky; top: 0; background: var(--panel-fill); }
+#inv-body td { max-width: 96px; }
 #inv-body tr[data-id] { cursor: pointer; }
 #inv-body tr[data-id]:hover td { color: var(--ink-primary); }
 #inv-body textarea { width: 100%; height: 64px; background: var(--surface-raised); color: var(--ink-primary); border: 1px solid var(--line-hairline); border-radius: 4px; font: 10px var(--font-mono); text-transform: none; }
