@@ -282,10 +282,9 @@ b { font-weight: 600; }
 #stats .cell { padding: 10px 16px 9px; text-align: center; min-width: 74px; border-right: 1px solid var(--line-soft); }
 #stats .cell:last-child { border-right: 0; }
 #stats .num { font-size: var(--size-hero); font-weight: 600; line-height: 1; color: var(--ink-primary); font-variant-numeric: proportional-nums; }
-#stats .lbl { margin-top: 5px; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-secondary);
-  display: flex; align-items: center; justify-content: center; gap: 5px; }
+#stats .lbl { margin-top: 5px; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-secondary); }
+#stats .lbl, #n-alarm { display: flex; align-items: center; justify-content: center; gap: 5px; }
 #stats .lbl svg, #n-alarm .asw { width: 8px; height: 8px; flex: none; }
-#n-alarm { display: flex; align-items: center; justify-content: center; gap: 5px; }
 
 #source { right: 20px; padding: 10px 13px; display: flex; align-items: center; gap: 10px; max-width: 380px; }
 .mode { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 10px; padding: 3px 8px;
@@ -389,7 +388,7 @@ b { font-weight: 600; }
   border-radius: calc(var(--panel-radius) * .75); padding: 5px 9px; cursor: pointer; user-select: none;
   text-transform: var(--text-transform); transition: color .16s ease, background-color .16s ease, border-color .16s ease;
 }
-.btn:hover, .filebtn:hover { color: var(--ink-primary); border-color: var(--panel-border); }
+.btn:hover, .filebtn:hover, #t-chan:hover { color: var(--ink-primary); border-color: var(--panel-border); }
 .btn.on { color: var(--ink-on-fill); font-weight: 600; }
 .btn.b24.on { background: var(--band-24); border-color: var(--band-24); }
 .btn.b5.on  { background: var(--band-5);  border-color: var(--band-5); }
@@ -451,7 +450,6 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 #chanbar { bottom: var(--lay-chan-b, calc(var(--chrome-bot) + 20px)); left: var(--lay-chan-x, 50%); transform: translateX(-50%); height: 78px; width: var(--lay-chan-w, min(640px, 60vw)); padding: 6px 10px; }
 #chanbar canvas#chan { display: block; width: 100%; height: 100%; }
 #t-chan { position: absolute; top: 3px; right: 6px; width: 18px; height: 16px; padding: 0; font-size: 11px; line-height: 14px; color: var(--ink-secondary); background: none; border: 1px solid var(--line-hairline); border-radius: 4px; cursor: pointer; }
-#t-chan:hover { color: var(--ink-primary); border-color: var(--panel-border); }
 #chan-tip { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); display: none; margin-bottom: 6px;
   background: var(--panel-fill); border: 1px solid var(--panel-border); padding: 6px 8px; font-size: 10px; white-space: nowrap; }
 
