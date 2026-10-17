@@ -1188,41 +1188,25 @@ function parseColor(c) {
   return [255, 255, 255, 1];
 }
 function rgbaOf(c, a) { const p = parseColor(c); return "rgba(" + p[0] + "," + p[1] + "," + p[2] + "," + (Math.round(p[3] * a * 1000) / 1000) + ")"; }
-function fontString(kind, theme = THEME) {
-  const f = theme.font, s = f.sizesPx;
+function fontString(kind, t) {
+  const f = t.font, s = f.sizesPx;
   switch (kind) {
     case "label": return f.weight.label + " " + s.label + "px " + f.ui;
-    case "tip": return "400 " + s.tip + "px " + f.ui;
-    case "title": return f.weight.title + " " + s.title + "px " + f.ui;
-    case "hero": return f.weight.hero + " " + s.hero + "px " + f.ui;
-    case "mono": return "400 " + s.hud + "px " + f.mono;
     case "monoSmall": return "600 9px " + f.mono;
     default: return "400 " + s.hud + "px " + f.ui;   // "hud"
   }
 }
 function deriveStrings(t) {
-  const d = { css: {}, bandCore: {}, bandGlow: {}, alphaStr: {}, labelText: new Map() };
+  const d = { css: {}, bandCore: {} };
   for (const [name, path, suffix] of CSS_MIRROR) { const v = resolveToken(path, t); d.css[name] = v === null ? "none" : String(v) + suffix; }
-  for (const b of ["2.4", "5", "6", "unknown"]) {
-    d.bandCore[b] = t.band[b].core;
-    d.bandGlow[b] = t.band[b].glow === "self" ? t.band[b].core : t.band[b].glow;
-  }
-  d.fontLabel = fontString("label", t); d.fontHud = fontString("hud", t); d.fontMono = fontString("mono", t);
-  d.fontHero = fontString("hero", t); d.fontTitle = fontString("title", t); d.fontMonoSmall = fontString("monoSmall", t);
-  d.persistAlpha = new Float32Array(32);
-  const P = t.crt.persistenceAlpha;
-  for (let i = 0; i < 32; i++) { const a = i / 32; d.persistAlpha[i] = P > 0 ? a * P / (1 - a * (1 - P)) : a; }
+  for (const b of ["2.4", "5", "6", "unknown"]) d.bandCore[b] = t.band[b].core;
+  d.fontLabel = fontString("label", t); d.fontHud = fontString("hud", t); d.fontMonoSmall = fontString("monoSmall", t);
   d.edgeStroke = t.line.edge.color; d.edgeGlow = rgbaOf(t.line.edge.color, 0.25);
   const pAlpha = [0.25, 0.37, 0.48, 0.60];
   d.particleFill = pAlpha.map(a => rgbaOf(t.particles.color || t.ink.primary, a));
   // lit dust: the same four alpha steps in the shade colour, so freshness still reads the same on both sides of a grain cloud
   d.particleLit = !!(t.particles.lit && t.particles.shade);
   d.particleShade = d.particleLit ? pAlpha.map(a => rgbaOf(t.particles.shade, a)) : d.particleFill;
-  const alphaColors = { ink: t.ink.primary, inkSecondary: t.ink.secondary, base: t.surface.base, alarm: t.status.alarm, sel: t.accent.selection,
-    hair: t.line.hairline, hairSoft: t.line.hairlineSoft, client: t.render.clientCore, mono: t.glow.color || t.ink.secondary,
-    b24: t.band["2.4"].core, b5: t.band["5"].core, b6: t.band["6"].core, unknown: t.band.unknown.core };
-  for (const k of Object.keys(alphaColors)) d.alphaStr[k] = Array.from({ length: 32 }, (_, i) => rgbaOf(alphaColors[k], i / 32));
-  d.ringColor = { alarm: t.status.alarm, neutral: t.status.ringNeutral, strong: t.status.ringStrong, muted: t.ink.muted };
   d.upper = t.font.transform === "uppercase";
   d.cursorBlink = t.motion.cursorBlinkMs > 0;
   d.clientKind = t.render.clientShape === "cross" ? "clientCross" : "client";

@@ -428,8 +428,9 @@ identical to `copy.rx`) and in section 21 (the tokens).
 
   `null` rule: only `surface.gradient` may be `null` → `none` (a valid `background-image` value); any other
   `null` value of a mirrored path is a schema error (`validateTheme`, `S.themeErrors++`).
-- `TK = flatten(THEME)` (path → value); `TD` = precomputed strings (band colours, fonts, persistence alphas, edge
-  and particle colours, alpha tables). The hot path reads only `TD` and sprites, never `THEME.x.y.z` chains.
+- `TK = flatten(THEME)` (path → value); `TD` = precomputed strings and flags (the CSS mirror values, band core
+  colours, fonts, edge and particle colours, glow and shape switches). The hot path reads only `TD` and sprites,
+  never `THEME.x.y.z` chains.
 - `STARCHORUS.themeCheck()` compares every `CSS_MIRROR` variable via `getComputedStyle(...).getPropertyValue(name)`
   with **`TD.css[name]`** and returns `{ok, mismatches: [[name, css, js]…]}`.
 
