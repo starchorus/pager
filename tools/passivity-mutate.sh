@@ -20,7 +20,8 @@
 #                 green forever, because nothing ever plants a violation.
 # NEGATIVE PROBE: `sh tools/passivity-mutate.sh --meta` (also a regress row): NETX loses `window\.open\(|`, or the location
 #                 alternative loses its object prefix, or one alternative of NETX/TX_WORDS/SEC6_RE/NETSURF_RE goes, or the
-#                 sqlite3 rule reads the whole line again ⇒ the matching mutation/alternative prints GREEN (BLIND!), exit 1.
+#                 sqlite3 rule reads the whole line again, or the hcitool row counts only `hcitool lescan` and lets other hcitool
+#                 words through ⇒ the matching mutation/alternative prints GREEN (BLIND!), exit 1.
 # NOT PROVEN:     proves nothing about behaviour, only that the SOURCE guard bites (a sqlite3 call through a variable or
 #                 `command`, a method check outside the `case` in starchorus-serve.sh: seen by no rule, hence by no
 #                 mutation); one example per alternative does not prove that every OTHER spelling of the same alternative hits
@@ -41,9 +42,9 @@ if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; t
 me="$here/$(basename "$0")"
 
 MIN_MUT=12    # mutations in the table (≥); count: sh tools/passivity-mutate.sh | grep -c '^mutation '
-# alternatives per regex family (≥, only ever raised); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> ' (family: netsurf 6, netx 19, tx 8, iw 3, sec6 6)
-MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=8; MIN_ALTS_IW=3; MIN_ALTS_SEC6=6
-MIN_ROWS=12   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'
+# alternatives per regex family (≥, only ever raised); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> ' (family: netsurf 6, netx 19, tx 19, iw 3, sec6 21)
+MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=19; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21
+MIN_ROWS=13   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'
 
 # ---- 0 · the probe may only ever RUN the checker (and itself for --meta) on a copy: grep our own executable lines
 self_guard() {
@@ -108,7 +109,7 @@ apply() {
 }
 
 # ---- the rows of passivity-check.sh, by name prefix. Every one must be red at least once (coverage line below).
-ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|sqlite3 read-only|starchorus-serve.sh: GET|§14.7 denylist'
+ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|hcitool: only|sqlite3 read-only|starchorus-serve.sh: GET|§14.7 denylist'
 
 sel=""; meta=0
 while [ $# -gt 0 ]; do
@@ -186,6 +187,8 @@ if [ "$meta" = 1 ]; then
   metaprobe alt-netx-evidence-unwired tools/passivity-check.sh 'grep -nE "$NETX" "$H"' 'grep -nE "$NETSURF_RE" "$H"' alts 'alt netx RTCPeerConnection: GREEN (BLIND!) line'
   # (d) the sqlite3 rule must read only the code part of the line: reading the whole line lets a trailing `# -readonly` pass
   metaprobe sqlite-whole-line tools/passivity-check.sh 'if ((" " substr(seg, 1, cut - 1) " ") !~' 'if ((" " t " ") !~' sqlite-comment-flag 'mutation sqlite-comment-flag: GREEN (BLIND!)'
+  # (e) the hcitool row counts only `hcitool lescan` without `--passive` and lets every other hcitool word through
+  metaprobe hcitool-others-ignored tools/passivity-check.sh '[ "$nhi/$nhl" = 0/0 ]' '[ "$nhl" = 0 ]' bt-hcitool-other 'mutation bt-hcitool-other: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -232,6 +235,20 @@ mut sqlite-comment-flag starchorus-collect.sh  fnappend 'sqlite3 "$db" "DELETE F
 mut sqlite-two-calls starchorus-collect.sh     fnappend 'sqlite3 -readonly a "SELECT 1"; sqlite3 "$db" "DELETE FROM t"' '' 'sqlite3 read-only'
 mut sqlite-flag-in-string starchorus-collect.sh fnappend 'sqlite3 "$db" "SELECT '"'"'-readonly '"'"'"' ''                'sqlite3 read-only'
 mut sqlite-after-hash starchorus-collect.sh    fnappend 'printf "%s #" x; sqlite3 "$db" "DELETE FROM t"' ''            'sqlite3 read-only'
+# ---- the firmware's outward commands by prefix, and the Bluetooth tools: a prefix hits what it has not listed by name (WIFI_PCAP_ + anything);
+# `hcitool lescan --passive` is the one hcitool call that passes, a second call on the same line or a spelling that is not the literal does not
+mut prefix-family    starchorus-collect.sh     fnappend 'WIFI_PCAP_NEW_VERB x' ''                                       '§14.6 device calls'
+mut prefix-vpn       starchorus-collect.sh     fnappend 'OPENVPN_NEW_VERB x' ''                                         '§14.6 device calls'
+mut bt-transmit      starchorus-collect.sh     fnappend 'l2ping -c 1 x' ''                                              'transmit tools invoked'
+mut bt-hcitool-scan  starchorus-collect.sh     fnappend 'hcitool scan' ''                                               'transmit tools invoked|hcitool: only'
+mut bt-hcitool-lescan starchorus-collect.sh    fnappend 'hcitool lescan' ''                                             'hcitool: only'
+mut bt-hcitool-lescan-opt starchorus-collect.sh fnappend 'hcitool lescan --duplicates --passive' ''                     'hcitool: only'
+mut bt-hcitool-other starchorus-collect.sh     fnappend 'hcitool name x' ''                                             'hcitool: only'
+mut bt-hcitool-second starchorus-collect.sh    fnappend 'hcitool lescan --passive; hcitool name x' ''                   'hcitool: only'
+mut bt-hcitool-display starchorus-display.sh   fnappend 'hcitool lescan' ''                                             'hcitool: only'
+mut bt-hcitool-helper library/user/reconnaissance/starchorus/helper newfile 'hcitool name x' ''                         'hcitool: only'
+mut bt-hciconfig-up  starchorus-collect.sh     fnappend 'hciconfig hci0 up' ''                                          'transmit tools invoked'
+mut bt-hciconfig-a-up starchorus-collect.sh    fnappend 'hciconfig -a hci0 leadv' ''                                    'transmit tools invoked'
 # ---- display script (one of the two copies; the cmp of the copies belongs to static checks, not here)
 mut display-transmit starchorus-display.sh       fnappend 'mdk4 wlan0mon d' ''                                            'transmit tools invoked'
 # ---- the listener (starchorus-serve.sh is in the §14.6 shell scope: a transmit tool in it is seen, and losing it from the list is named)
@@ -252,6 +269,9 @@ mut fnhead-selftest  starchorus-collect.sh     subst    '^selftest() {' 'selftes
 mut comment-only     starchorus-collect.sh     fnappend '# aireplay-ng -0 1 wlan0mon' ''                                ''
 mut sqlite-ok-comment starchorus-collect.sh    fnappend 'sqlite3 -readonly -noheader "$db" "SELECT 1"   # read only' ''  ''
 mut sqlite-ok-two    starchorus-collect.sh     fnappend 'sqlite3 -readonly "$db" "SELECT 1" && sqlite3 -readonly "$db" "SELECT 2"' '' ''
+mut bt-hcitool-passive-ok starchorus-collect.sh fnappend 'hcitool lescan --passive' ''                                     ''
+mut bt-btmon-ok      starchorus-collect.sh     fnappend 'btmon -w /tmp/x' ''                                            ''
+mut bt-hciconfig-ok  starchorus-collect.sh     fnappend 'hciconfig -a | head -n 5; hciconfig; hciconfig -a >/tmp/x' ''  ''
 
 # ============================== alternatives: one planted sample per regex alternative ==============================
 # alt FAMILY KEY SAMPLE ROW : KEY is a literal piece of exactly ONE alternative of the family (as `sh tools/passivity-check.sh
@@ -292,6 +312,17 @@ alt tx 'hcxdumptool'            'hcxdumptool -i wlan0mon'                       
 alt tx 'wpa_supplicant'         'wpa_supplicant -i wlan0mon -c /tmp/x'            'transmit tools invoked'
 alt tx 'nmcli'                  'nmcli dev wifi list'                             'transmit tools invoked'
 alt tx 'iwlist'                 'iwlist wlan0mon frequency'                       'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+scan'  'hcitool scan'                                    'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+inq'   'hcitool inq'                                     'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+cc'    'hcitool cc'                                      'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+lecc'  'hcitool lecc'                                    'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+leadv' 'hcitool leadv'                                   'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+cmd'   'hcitool cmd'                                     'transmit tools invoked'
+alt tx 'l2ping'                   'l2ping -c 1 x'                                   'transmit tools invoked'
+alt tx 'bluetoothctl['            'bluetoothctl scan on'                            'transmit tools invoked'
+alt tx 'btmgmt'                   'btmgmt find'                                     'transmit tools invoked'
+alt tx 'gatttool'                 'gatttool -I'                                     'transmit tools invoked'
+alt tx 'hciconfig('               'hciconfig hci0 up'                               'transmit tools invoked'
 alt iw 'connect'                'iw dev wlan0mon connect x'                       'transmit tools invoked'
 alt iw 'ibss['                  'iw dev wlan0mon ibss join x 2412'                'transmit tools invoked'
 alt iw 'mesh['                  'iw dev wlan0mon mesh join x'                     'transmit tools invoked'
@@ -301,6 +332,21 @@ alt sec6 'WIGLE_'               'WIGLE_X=1'                                     
 alt sec6 'DEAUTH'               'DEAUTH=1'                                        '§14.6 device calls'
 alt sec6 'SSID_POOL'            'SSID_POOL=x'                                     '§14.6 device calls'
 alt sec6 'GPS_GET'              'GPS_GET=1'                                       '§14.6 device calls'
+alt sec6 'WIFI_CONNECT'         'WIFI_CONNECT=1'                                  '§14.6 device calls'
+alt sec6 'WIFI_DISCONNECT'      'WIFI_DISCONNECT=1'                               '§14.6 device calls'
+alt sec6 'WIFI_MGMT_AP'         'WIFI_MGMT_AP=1'                                  '§14.6 device calls'
+alt sec6 'WIFI_OPEN_AP'         'WIFI_OPEN_AP=1'                                  '§14.6 device calls'
+alt sec6 'WIFI_WPA_AP'          'WIFI_WPA_AP=1'                                   '§14.6 device calls'
+alt sec6 'WIFI_PCAP_'           'WIFI_PCAP_START=1'                               '§14.6 device calls'
+alt sec6 'INSTALL_FIRMWARE'     'INSTALL_FIRMWARE=x'                              '§14.6 device calls'
+alt sec6 'OPENVPN_'             'OPENVPN_START=1'                                 '§14.6 device calls'
+alt sec6 'WIREGUARD_'           'WIREGUARD_START=1'                               '§14.6 device calls'
+alt sec6 'AUTOSSH_'             'AUTOSSH_START=1'                                 '§14.6 device calls'
+alt sec6 'SSH_ADD_KNOWN_HOST'   'SSH_ADD_KNOWN_HOST=x'                            '§14.6 device calls'
+alt sec6 'DNSSPOOF_'            'DNSSPOOF_START=1'                                '§14.6 device calls'
+alt sec6 'SYSTEM_DNS'           'SYSTEM_DNS=x'                                    '§14.6 device calls'
+alt sec6 'GPS_CONFIGURE'        'GPS_CONFIGURE=1'                                 '§14.6 device calls'
+alt sec6 'FIND_CLIENT_IP'       'FIND_CLIENT_IP=x'                                '§14.6 device calls'
 
 TAB=$(printf '\t')
 # the top-level alternatives of the ERE in $1, one per line (depth 0 of `(...)`, `[...]` classes and `\x` escapes respected)

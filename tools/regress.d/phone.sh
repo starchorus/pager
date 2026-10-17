@@ -5,17 +5,23 @@
 #                 that shows two cards at once or forgets its height; the sky under the bar or the sheet; phone rules leaking
 #                 into the desktop (any --ph-* variable, a .ph-only element shown, the sky off the viewport centre); a Hide
 #                 that drops the Whitehall disclaimer, the dialogues or the status; reduced motion that still animates.
+#                 A label box that leaves the sky (phone and desktop); a Camera row that is missing in 2D or shows the orbit arrows
+#                 there; a 2D zoom that stops at 1 or leaves the rings, the names or the bubble counters behind when it shrinks.
 # NEGATIVE PROBE: the probes name what fails; they went red while this was built on 25 px sortable columns, on a channel bar
 #                 that kept its desktop offset inside the sheet, on a mouse drag that left the sheet's head, on a reduced-motion
 #                 sheet that still faded with the panels hidden. The breakpoint row has both sides of every bound. Nothing
 #                 inside a sideways scroller (the inventory table) counts as off the screen.
+#                 The label rows have one too: a page copy without the label margin must see labels outside the sky, on the phone and
+#                 on the desktop; the numbers they judge are layoutInfo().labelsOutside and the least labelsDrawn per state.
+#                 The count is taken over the list of drawn labels, not inside place(), so a second page copy draws the AP names without place()
+#                 (the old occupy loop) and must also see labels outside on the phone.
 # NOT PROVEN:     iOS WebKit (safe areas, the soft keyboard, Safari's bars, VoiceOver), a real finger; the check on a real iPhone
 #                 is listed in docs/architecture.md §9.8. The desktop pixels are compared with the page before the change by hand, not here.
 # --mobile (cdp.py) emulates a phone: mobile metrics and touch, so (pointer: coarse) matches as on a phone on its side.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only PHN_* globals are set.
 
 PHN_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED"
-PHN_MAXB=600000   # bytes: the size the page may reach (wc -c starchorus.html)
+PHN_MAXB=620000   # bytes: the size the page may reach (wc -c starchorus.html)
 # shared helpers inside every eval: visible, rect, pairwise overlap of the phone chrome, tap targets under 44 px, overflow
 PHN_JS='const E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).visibility!=="hidden"&&R(e).width>0,
 ovl=()=>{const L=["bar","sheet","classbar-top","classbar-bot","dtg","panels-pill"].map(E).filter(vis),o=[];for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=R(L[i]),b=R(L[j]),w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);if(w>0.5&&h>0.5)o.push(L[i].id+"/"+L[j].id)}return o},
@@ -197,3 +203,76 @@ runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-verp" --width 375 --height 812 
 PHN_V1=$(evalv "out/$P-phn-ver.json" 1); PHN_V2=$(evalv "out/$P-phn-verp.json" 1)
 rowif "masthead version: '$PHN_VER' from STARCHORUS.version, small type, brand on one line on desktop and on a 375-px phone [$PHN_V1 / $PHN_V2]" \
   [ "$PHN_V1/$PHN_V2" = "true|true|true|$PHN_VER/true|true|true|$PHN_VER" ]
+
+# ---- 2D zoom out to half, the Camera buttons on the phone, and every label inside the sky (0.2)
+# The built-in sample sky (?demo=1: nothing is polled) on a live clock: a frozen one never fades the stars in, and then no label is drawn.
+PHN_DQ="?demo=1&poll=0&spin=0&intro=0"
+# per theme and state: the least labelsDrawn and the sum of layoutInfo().labelsOutside (drawn boxes that leave the sky box); the states are
+# [view, 2D zoom, camera]: the phone shrinks the sky to half, the desktop grows it to two and a half times, where stars at the edge carry labels that would leave.
+# The last state is 3D seen from above (elevation 1, azimuth 2.4) with the camera at 0.3 of its distance (the nearest the page allows is 1.1): the stars at the rim of the
+# disc sit at the edge, and labels there bite in a page copy without the margin on both screens, where the plain 3D state (kept) has none to move
+PHN_LB1='(async()=>{const S=STARCHORUS,o={},st='
+PHN_LB2=';for(const t of ["foundation","wargames","whitehall"])for(const [v,z,c] of st){S.setTheme(t);S.resetCamera();S.setView(v);S.setZoom2d(z);await S.wait(1300);if(c){S.setCamera({az:c.az,el:c.el,dist:Math.max(1.1,S.camera().dist*c.k)});await S.wait(300)}S.frame();const L=S.layoutInfo(),k=v+z+(c?"c":""),a=o[k]||(o[k]={min:1e9,out:0});a.min=Math.min(a.min,L.labelsDrawn);a.out+=L.labelsOutside}S.setView("2d");S.setZoom2d(1);S.resetCamera();o.errors=S.errors().length;return JSON.stringify(o)})()'
+phn_lab() {   # phn_lab JSON ok|bite KEY MIN2 MIN3: "state:least-drawn/outside ..." on stdout; ok: exit 0 iff no errors, no box outside in any state, every 2D state drew >= MIN2 labels and every 3D one >= MIN3; bite: exit 0 iff every state of the comma list KEY has a box outside
+  python3 -c 'import json,sys
+r=json.loads(sys.argv[1]); m=sys.argv[2]; k=sys.argv[3]; lo2=int(sys.argv[4]); lo3=int(sys.argv[5])
+b={x:v for x,v in r.items() if isinstance(v,dict)}
+print(" ".join("%s:%d/%d" % (x,v["min"],v["out"]) for x,v in sorted(b.items())))
+if m=="bite": sys.exit(0 if all(b.get(x,{}).get("out",0)>=1 for x in k.split(",")) else 1)
+sys.exit(0 if len(b)==4 and r.get("errors")==0 and all(v["out"]==0 and v["min"]>=(lo3 if x.startswith("3d") else lo2) for x,v in b.items()) else 1)' "$@" 2>/dev/null
+}
+# the Camera group on the phone: in the sheet in both views, + - and reset in 2D, all seven in 3D
+PHN_CAMJS='(async()=>{const E=i=>document.getElementById(i),q=()=>[...document.querySelectorAll("#cam button")].filter(b=>!b.hidden).map(b=>b.id.slice(4)).join("+"),o=[E("cam").hidden,q()];STARCHORUS.setView("3d");await STARCHORUS.wait(300);o.push(E("cam").hidden,q());STARCHORUS.setView("2d");await STARCHORUS.wait(300);o.push(q());return o.join()})()'
+PHN_MUT="out/$P-phn-nomargin.html"
+sed 's/labelMarginPx: 6/labelMarginPx: -9999/' "$H" > "$PHN_MUT"   # the margin gone: no label is moved inside any more
+PHN_MN=$(grep -c 'labelMarginPx: -9999' "$PHN_MUT")
+# the number the rows judge is counted over the list of drawn labels, not inside place(): a copy that draws the AP names without place() (the old occupy loop, no clamp) must show boxes outside
+PHN_MUT2="out/$P-phn-noplace.html"
+sed 's/const placed = place(positions, w + ext, 12);/const placed = positions.find(p => occupy(p[0], p[1], w + ext, 12));/' "$H" > "$PHN_MUT2"
+PHN_MN2=$(grep -c 'const placed = positions.find(p => occupy(p\[0\], p\[1\], w + ext, 12));' "$PHN_MUT2")
+PHN_STP='[["2d",1],["2d",0.5],["3d",1],["3d",1,{"az":2.4,"el":1,"k":0.3}]]'
+PHN_STD='[["2d",1],["2d",2.5],["3d",1],["3d",1,{"az":2.4,"el":1,"k":0.3}]]'
+runq demo "$PHN_DQ" "out/$P-phn-lab" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STP$PHN_LB2" --eval "$PHN_CAMJS" >/dev/null 2>&1
+runq demo "$PHN_DQ" "out/$P-phn-labd" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STD$PHN_LB2" >/dev/null 2>&1
+PHN_HKEEP=$H; H=$PHN_MUT   # runq serves $H: point it at the copy for these two calls, then put it back
+runq demo "$PHN_DQ" "out/$P-phn-labm" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STP$PHN_LB2" >/dev/null 2>&1
+runq demo "$PHN_DQ" "out/$P-phn-labdm" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STD$PHN_LB2" >/dev/null 2>&1
+H=$PHN_MUT2
+runq demo "$PHN_DQ" "out/$P-phn-labn" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STP$PHN_LB2" >/dev/null 2>&1
+H=$PHN_HKEEP
+PHN_V=$(evalv "out/$P-phn-lab.json" 1); PHN_O=$(phn_lab "$PHN_V" ok x 4 3); PHN_R=$?
+rowif "phone 375x812, sample sky, 3 themes x (2D, 2D at half size, 3D, 3D from above and near): no drawn label box leaves the sky and every state draws labels [$PHN_O]" [ "$PHN_R" = 0 ]
+[ "$PHN_R" = 0 ] || echo "    got: ${PHN_V:-no-value}"
+PHN_V=$(evalv "out/$P-phn-labd.json" 1); PHN_O=$(phn_lab "$PHN_V" ok x 4 5); PHN_R=$?
+rowif "desktop 1440x900, sample sky, 3 themes x (2D, 2D at 2.5 times the size, 3D, 3D from above and near): no drawn label box leaves the sky [$PHN_O]" [ "$PHN_R" = 0 ]
+[ "$PHN_R" = 0 ] || echo "    got: ${PHN_V:-no-value}"
+PHN_OP=$(phn_lab "$(evalv "out/$P-phn-labm.json" 1)" bite 2d1,3d1c 0 0); PHN_RP=$?
+PHN_OD=$(phn_lab "$(evalv "out/$P-phn-labdm.json" 1)" bite 2d2.5,3d1c 0 0); PHN_RD=$?
+PHN_B=0; [ "$PHN_MN" = 1 ] && [ "$PHN_RP" = 0 ] && [ "$PHN_RD" = 0 ] && PHN_B=1
+rowif "label rows can bite: a page copy without the margin has boxes outside, on the phone (2D, and 3D from above and near) and on the desktop (2D at 2.5 times the size, and 3D from above and near) (mutation $PHN_MN) [$PHN_OP / $PHN_OD]" [ "$PHN_B" = 1 ]
+PHN_ON=$(phn_lab "$(evalv "out/$P-phn-labn.json" 1)" bite 2d1 0 0); PHN_RN=$?
+rowif "label rows count by themselves: a page copy that draws the AP names without place() has boxes outside on the phone (2D) (mutation $PHN_MN2) [$PHN_ON]" [ "$PHN_MN2/$PHN_RN" = 1/0 ]
+PHN_V=$(evalv "out/$P-phn-lab.json" 2)
+rowif "phone: the Camera group is in the sheet in 2D with + - reset only, all seven in 3D [$PHN_V]" [ "$PHN_V" = "false,in+out+reset,false,left+right+up+down+in+out+reset,in+out+reset" ]
+
+# 2D zoom out on the desktop (field-scale: 120 APs, 44 bubbles): the zoom stops at 0.5 and 4, the buttons and keys step it (x1.25, 0 and reset give
+# 1), the stars sit at half their distance, the -60 dBm ring is drawn at half its radius and no longer at the old one (pixels of #bg), every bubble keeps
+# its counter, and the names the stars had at 1 they keep at 0.5
+PHN_EVZ='(async()=>{const S=STARCHORUS,E=i=>document.getElementById(i),W=S.wait,z=()=>S.camera().zoom2d,key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubbles:true})),
+cnt=()=>{const ids=new Set(S.bubbles().map(b=>b.id));return S.labels().filter(l=>l.kind==="counter"&&ids.has(l.id)).length},
+bg=E("bg").getContext("2d"),kk=E("bg").width/innerWidth,mr=S.phone().sky.r,inn=Math.min(96,Math.max(64,0.22*mr)),R=(d,f)=>f*(inn+(1-(d+90)/60)*(mr-inn)),
+ring=r=>{let h=0;for(let a=0;a<36;a++){const t=a*Math.PI/18+0.13;let m=0;for(let d=-1.5;d<=1.5;d+=0.5)m=Math.max(m,bg.getImageData(Math.round((innerWidth/2+Math.cos(t)*(r+d))*kk),Math.round((innerHeight/2+Math.sin(t)*(r+d))*kk),1,1).data[3]);if(m>30)h++}return h/36},o={};
+await W(2500);S.frame();
+const ids=S.nodes("ap").filter(n=>n.visible).slice(0,3).map(n=>n.id),dist=()=>ids.map(i=>{const n=S.node(i);return Math.hypot(n.sx-innerWidth/2,n.sy-innerHeight/2)}),d1=dist(),k1=S.labelCandidates().length,r1=ring(R(-60,1));
+S.setZoom2d(0.3);o.clamp=[z()];S.setZoom2d(9);o.clamp.push(z());
+S.setZoom2d(1);const st=[];for(let i=0;i<5;i++){E("cam-out").click();st.push(z())}E("cam-in").click();st.push(z());E("cam-reset").click();st.push(z());key("-");st.push(z());key("0");st.push(z());o.steps=st.join();
+S.setZoom2d(0.5);await W(700);S.frame();const d5=dist();
+o.scale=d5.length===3&&d5.every((d,i)=>Math.abs(d/d1[i]-0.5)<0.002);
+o.rings=[r1>=0.9,ring(R(-60,0.5))>=0.9,ring(R(-60,1))<=0.3];
+o.counters=cnt()===S.bubbles().length&&cnt()>0;o.labels=[S.labelCandidates().length===k1,S.layoutInfo().labelsDrawn>=5];
+S.setZoom2d(1);o.errors=S.errors().length;return JSON.stringify(o)})()'
+runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&theme=foundation" "out/$P-phn-zoom" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_EVZ" >/dev/null 2>&1
+PHN_V=$(evalv "out/$P-phn-zoom.json" 1)
+PHN_W='{"clamp":[0.5,4],"steps":"0.8,0.64,0.512,0.5,0.5,0.625,1,0.8,1","scale":true,"rings":[true,true,true],"counters":true,"labels":[true,true],"errors":0}'
+rowif "2D zoom out (1440x900, 1200 stations): clamped to 0.5 and 4, buttons and keys step it by 1.25 and reset to 1, stars at half their distance, the -60 dBm ring at half its radius and gone from the old one, every bubble counter and the same star names" [ "$PHN_V" = "$PHN_W" ]
+[ "$PHN_V" = "$PHN_W" ] || { echo "    got:  ${PHN_V:-no-value}"; echo "    want: $PHN_W"; }

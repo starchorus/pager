@@ -77,8 +77,14 @@ configuration (no rules, no services) and controls neither LED nor buzzer.
   APIs and no navigation used as a command path; external URLs only in the font's licence header.
 - The AP service's command words (command-line call, the service's environment variables, deauth,
   SSID pool, upload, GPS) appear only in `apcli_ro`, `apcli_stub` and `apcli_selftest`; the `pineap`
-  source reaches the command line only through `apcli_ro`.
-- `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1`; no transmitting tool is called.
+  source reaches the command line only through `apcli_ro`. The firmware's other active or outward
+  commands are denied the same way, by name and by the prefixes `WIFI_PCAP_`, `OPENVPN_`,
+  `WIREGUARD_`, `AUTOSSH_`, `DNSSPOOF_` and `PINEAPPLE_`.
+- `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1`; no transmitting tool is called, and the
+  check denies the Bluetooth verbs that transmit by name (`hcitool` with `scan`, `inq`, `cc`, `lecc`,
+  `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` beyond `-a`),
+  not every Bluetooth command; the one `hcitool` call it lets through is the literal
+  `hcitool lescan --passive`, which only listens.
 - Every `sqlite3` call outside the self-test carries `-readonly`.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
 

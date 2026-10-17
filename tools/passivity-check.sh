@@ -38,7 +38,19 @@ NETSURF_RE='method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon'
 # (createElement("a") + .click() / download=) is the same hole without the word "location".
 NETX='RTCPeerConnection|WebTransport|serviceWorker|new (Shared)?Worker\(|importScripts|import\(|window\.open\(|location\.(assign|replace)\(|(^|[^A-Za-z0-9_])((document|top|parent|self|window)\.)?location(\.href)?[[:space:]]*=[^=]|createElement\(["'"'"'`]a["'"'"'`]\)|\.click\(|download=|<form|<iframe|new Image\(|<link|<script[^>]+src=|@import|url\(["'"'"']?https?:'
 SEC6_RE='_pineap|PINEAPPLE_|WIGLE_|DEAUTH|SSID_POOL|GPS_GET'
+# The firmware's other active or outward commands, by name and by prefix (a trailing `_` is a prefix: every command that starts
+# so is denied, whatever the firmware adds to the family later). PINEAPPLE_ above already covers PINEAPPLE_LOOT_ARCHIVE.
+SEC6_RE=$SEC6_RE'|WIFI_CONNECT|WIFI_DISCONNECT|WIFI_MGMT_AP|WIFI_OPEN_AP|WIFI_WPA_AP|WIFI_PCAP_|INSTALL_FIRMWARE'
+SEC6_RE=$SEC6_RE'|OPENVPN_|WIREGUARD_|AUTOSSH_|SSH_ADD_KNOWN_HOST|DNSSPOOF_|SYSTEM_DNS|GPS_CONFIGURE|FIND_CLIENT_IP'
 TX_WORDS='aireplay(-ng)?|mdk[34]|hostapd|airbase(-ng)?|hcxdumptool|wpa_supplicant|nmcli|iwlist'
+# The named Bluetooth tools and verbs that transmit (inquiry, paging, connecting, advertising, raw commands, `bluetoothctl scan on`,
+# GATT access, and `hciconfig` with anything after an optional `-a`, which can change an adapter's state). By name: another
+# `bluetoothctl` command, or a tool this list does not name, is not seen. `hcitool lescan --passive` and `btmon` are not here on
+# purpose: they are the planned passive route, and row 6b below lets exactly that one literal through. `hciconfig` without an
+# argument or with `-a` only reads (a `-a` may stand before the argument that makes it an adapter command: `hciconfig -a hci0 up`).
+TX_WORDS=$TX_WORDS'|hcitool[[:space:]]+scan|hcitool[[:space:]]+inq|hcitool[[:space:]]+cc|hcitool[[:space:]]+lecc'
+TX_WORDS=$TX_WORDS'|hcitool[[:space:]]+leadv|hcitool[[:space:]]+cmd|l2ping|bluetoothctl[[:space:]]+(.*[[:space:]])?scan[[:space:]]+on'
+TX_WORDS=$TX_WORDS'|btmgmt|gatttool|hciconfig([[:space:]]+-a)*[[:space:]]+([^[:space:];&|)<>#-][^[:space:]]*|-[^a[:space:]][^[:space:]]*|-a[A-Za-z0-9_]+)'
 IW_VERBS='connect|ibss[[:space:]]+join|mesh[[:space:]]+join'
 TX_RE="(^|[^A-Za-z0-9_-])($TX_WORDS)([^A-Za-z0-9_]|\$)|(^|[^A-Za-z_])iw[[:space:]].*[[:space:]]($IW_VERBS)([^A-Za-z_]|\$)"
 [ "${1:-}" != --regexes ] || {
@@ -134,6 +146,28 @@ rowif "iw scan opt-in only (default $d, guard $g, stray $ns)" [ "$d/$g/$ns" = 1/
 scoped "$TX_RE" > "$tmp/tx"
 rowif "transmit tools invoked = $(lines "$tmp/tx")" [ ! -s "$tmp/tx" ]
 [ -s "$tmp/tx" ] && show < "$tmp/tx"
+
+# 6b · hcitool: `hcitool lescan --passive` (it listens and sends nothing) is the planned passive Bluetooth route, and that literal is
+# the ONLY hcitool invocation allowed anywhere: in every function and at the top level of every shell file of the scope, not just
+# outside an allowlist. Any other `hcitool` word is a hit, so a verb that TX_WORDS does not list is caught as well, and `hcitool
+# lescan` without `--passive` (an active LE scan) is counted on its own. A literal, not a pattern: another spacing, or an option
+# before `--passive`, is a hit. No floor: nothing calls it yet, so 0 is the measured value. A line that the transmit row already
+# lists is counted here but not printed twice.
+scoped '(^|[^A-Za-z0-9_-])hcitool([^A-Za-z0-9_]|$)' > "$tmp/hci"
+# shellcheck disable=SC2016   # awk program
+hci_left() { # the lines of $tmp/hci that still match ERE $1 once the allowed literal is cut out of their text ("file:line:function:" off first)
+  HCI_RE=$1 awk 'BEGIN { re = ENVIRON["HCI_RE"] }
+    { t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+      gsub(/hcitool lescan --passive([^A-Za-z0-9_-]|$)/, " ", t)
+      if (t ~ re) print $0 }' "$tmp/hci"
+}
+hci_left '(^|[^A-Za-z0-9_-])hcitool([^A-Za-z0-9_]|$)' > "$tmp/hci_other"
+hci_left '(^|[^A-Za-z0-9_-])hcitool[[:space:]]+lescan([^A-Za-z0-9_]|$)' > "$tmp/hci_lescan"
+nhi=$(lines "$tmp/hci_other"); nhl=$(lines "$tmp/hci_lescan")
+rowif "hcitool: only 'hcitool lescan --passive' ($(lines "$tmp/hci") uses, others $nhi, lescan without --passive $nhl)" [ "$nhi/$nhl" = 0/0 ]
+if [ -s "$tmp/hci_other" ]; then
+  if [ -s "$tmp/tx" ]; then grep -vxFf "$tmp/tx" "$tmp/hci_other" | show; else show < "$tmp/hci_other"; fi
+fi
 
 # 7b · recon.db is only ever READ, and read-only (SECURITY.md, first permitted way): every sqlite3 CALL outside
 # selftest() carries -readonly. `have sqlite3` is a presence test, not a call. The floor keeps the row from turning

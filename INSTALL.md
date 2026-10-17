@@ -33,6 +33,10 @@ Facts about the Pager itself (cable, address, password, menus) follow Hak5's doc
   for Hak5's Virtual Pager.
 - A web browser.
 
+Nothing else is needed on the Pager. Starchorus installs no packages and needs no Internet
+connection, and `jq` and `sqlite3`, which it uses, are already present on the firmware we measured
+(see the [device notes](docs/device-notes.md#2-tools-on-board)).
+
 A few terms used below:
 
 - **Terminal**: a window in which you type commands instead of clicking. On macOS it is called
@@ -367,6 +371,13 @@ payload …' or 'Installed files differ from the payload.') and tells you what t
 Started this way, the Overview does not open on the Pager's display; it opens only from the
 payload menu.
 
+**For a long session**, follow Hak5's own advice
+([Welcome to the WiFi Pineapple Pager](https://documentation.hak5.org/wifi-pineapple-pager/setup/welcome-to-the-wifi-pineapple-pager)):
+the battery lasts an estimated four hours per charge, so charge it fully before you start; for
+longer, run the Pager from a USB battery bank with a high-quality USB-C cable, starting full and
+staying connected; and keep the vents clear, because the Pager runs warm. Use a cable that carries
+data, not only charge (section 0), if the same cable also connects your computer.
+
 **If something goes wrong**
 
 - *'Starchorus is not installed.' on the Pager, or 'Starchorus not installed in
@@ -449,6 +460,11 @@ or when no server can run on the Pager, you have two choices, both described in
 
 Stopping ends only Starchorus's own collector and page server, never the Pager's own web interface.
 
+The terminal in Hak5's [Virtual Pager](https://documentation.hak5.org/wifi-pineapple-pager/connecting-to-the-wifi-pineapple-pager/virtual-pager)
+(`http://172.16.52.1:1471` in a browser, the same root password) is the same shell as ssh. So
+`payload.sh stop`, `payload.sh status` and the uninstall below can be typed there, without the
+`ssh root@172.16.52.1` in front. Installing still goes through section 3 or 4.
+
 **Update**
 
 1. Stop Starchorus (above).
@@ -485,6 +501,11 @@ installation.
    ```
 
 This deletes the collected `starchorus.json` and your saved settings as well, and cannot be undone.
+
+**Recovery, reset and system updates.** Starchorus lives under `/root`. As Hak5 documents it, a
+[firmware recovery](https://documentation.hak5.org/wifi-pineapple-pager/firmware-recovery) rewrites the boot flash only, so `/root` stays; a
+[factory reset](https://documentation.hak5.org/wifi-pineapple-pager/factory-reset) erases it, so install again afterwards; and a
+[system update](https://documentation.hak5.org/wifi-pineapple-pager/software-updates/software-updates) keeps it.
 
 ---
 

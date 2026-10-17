@@ -352,7 +352,7 @@ why = []
 try: o = json.loads(sys.argv[1])
 except ValueError: print("no result"); sys.exit()
 rows = ["Addresses=121 · randomised (locally administered)", None, "Rhythm=about every 47 s · 30 bursts", "First heard=25 min ago",
-        "Last heard=24 s ago", "Freshness=heard < 1 min", "Probes for=HomeWiFi · Cafe-Free · Lab-Net (heard probe requests, rx only)"]
+        "Last heard=24 s ago", "Freshness=heard < 1 min", "Probes=named probes: HomeWiFi, Cafe-Free, Lab-Net (heard probe requests, rx only)"]
 want = {"title": "121 randomised addresses", "members": 121, "chip": "Show the addresses",
         "lead": "Probably one nearby device changing its address: the same signal, heard in bursts at a steady rhythm. An estimate from signal and timing only; it does not count devices.",
         "note": "Random [X]: one node per cloud, one by one, or hidden. Enter shows the addresses of the selected cloud again."}

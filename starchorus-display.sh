@@ -826,13 +826,13 @@ JQ_PROBES='_D(
   _R("n"; [probers] | length),
   _R("plist"; [probers | .probes[]]
       | group_by(.) | map({k:.[0], n:length}) | sort_by(-.n) | .[0:8][]
-      | "  " + .k + "  (x" + (.n|tostring) + ")"))'
+      | "  named: " + .k + "  (x" + (.n|tostring) + ")"))'
 screen_probes() {   # who is looking for which network (probe requests, rx only)
     ready probes "$JQ_PROBES" || return
     ACTIVE=$R_claim
     log blue "Probe requests (GEN $GEN)  $(claim short)"
-    if [ "${R_n:-0}" -eq 0 ]; then log "No probe requests naming a network."; return; fi
-    log "$R_n client(s) probing:"
+    if [ "${R_n:-0}" -eq 0 ]; then log "No named probe heard."; return; fi
+    log "$R_n client(s) with a named probe:"
     rec_lines plist | logeach
 }
 
@@ -853,7 +853,7 @@ JQ_CLIENTS='_D(
           ($CL.clouds[]? | {mac: "", r: (.mean | round), a: null, np: 0, k: .n}) ]
       | sort_by(-.r, .mac) | .[0:8][]
       | if .k != null then (.r|tostring) + " dBm  cloud of \(.k) random addresses"
-        else (.r|tostring) + " dBm  " + .mac + "  " + (if .a then "assoc " + .a else (if .np>0 then "probing" else "free" end) end) end))'
+        else (.r|tostring) + " dBm  " + .mac + "  " + (if .a then "assoc " + .a else (if .np>0 then "named probe" else "free" end) end) end))'
 screen_clients() {
     ready clients "$JQ_CLIENTS" || return
     ACTIVE=$R_claim

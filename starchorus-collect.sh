@@ -2071,7 +2071,8 @@ build_from_iwscan() {
 # --------------------------------------------------------------------------- spec §14.6: the AP-service CLI allowlist
 # The ONLY functions in which an AP-service CLI command may be written (tools/passivity-check.sh lists them in SEC6_FUNCS and greps every
 # other line of the collector, both starchorus-display.sh, payload.sh and library/** for `_pineap`, PINEAPPLE_, WIGLE_, DEAUTH, SSID_POOL,
-# GPS_GET). Three LITERAL command lines (two commands, one of them also in a bounded form), no eval, no command name from a variable, no
+# GPS_GET and the firmware's other active or outward commands by name and prefix: WIFI_CONNECT, WIFI_PCAP_, OPENVPN_, WIREGUARD_ and the rest
+# of SEC6_RE there). Three LITERAL command lines (two commands, one of them also in a bounded form), no eval, no command name from a variable, no
 # argument taken from outside (the lines only carry the optional prefix `timeout 10`). `recon_aps` and `recon_devices` are the two read-only
 # lists the opt-in source STARCHORUS_SOURCE=pineap reads (verified on the device, docs/device-notes.md V-3: they leave the transmit counters of
 # every wireless interface unchanged); there is no `RECON CLIENTS` command on the device, the stations are in `RECON DEVICES`.
@@ -2116,7 +2117,7 @@ apcli_selftest() {
 RECON DEVICES format=json
 RECON DEVICES format=json sort=time sortdir=desc limit=400" ]; then st_pass "apcli_ro: the three allowed ids (recon_aps, recon_devices, recon_devices_recent) run exactly their literal command lines"; else st_fail "apcli_ro allowed ids: [$pl]"; fi
     n0=$(wc -l < "$plog" | tr -d ' '); bad=""
-    for rid in DEAUTH deauth "RECON STOP" "RECON NEW" "RECON CLIENTS" recon_clients SSID_POOL_ADD WIGLE_UPLOAD GPS_GET "" monitor MONITOR aa:bb:cc:00:00:01; do
+    for rid in DEAUTH deauth "RECON STOP" "RECON NEW" "RECON CLIENTS" recon_clients SSID_POOL_ADD WIGLE_UPLOAD GPS_GET WIFI_CONNECT WIFI_PCAP_START OPENVPN_START WIREGUARD_START AUTOSSH_START DNSSPOOF_START INSTALL_FIRMWARE GPS_CONFIGURE FIND_CLIENT_IP "" monitor MONITOR aa:bb:cc:00:00:01; do
         apcli_ro "$rid" >/dev/null 2>&1 && bad="$bad [$rid]"
     done
     apcli_ro recon_aps extra >/dev/null 2>&1 && bad="$bad [recon_aps extra]"
@@ -2128,7 +2129,7 @@ RECON DEVICES format=json sort=time sortdir=desc limit=400" ]; then st_pass "apc
         apcli_ro monitor "$pm" >/dev/null 2>&1 && bad="$bad [monitor $pm]"
     done
     n1=$(wc -l < "$plog" | tr -d ' ')
-    if [ -z "$bad" ] && [ "$n0" = "$n1" ]; then st_pass "apcli_ro: refuses DEAUTH/RECON STOP|NEW|CLIENTS/SSID_POOL/WIGLE/GPS ids, monitor with any BSSID, extra arguments, injection — no stub call"; else st_fail "apcli_ro refusals:$bad (stub calls $n0 -> $n1)"; fi
+    if [ -z "$bad" ] && [ "$n0" = "$n1" ]; then st_pass "apcli_ro: refuses DEAUTH/RECON STOP|NEW|CLIENTS/SSID_POOL/WIGLE/GPS ids and the firmware's other outward command names (WIFI_CONNECT, OPENVPN_START, ...), monitor with any BSSID, extra arguments, injection — no stub call"; else st_fail "apcli_ro refusals:$bad (stub calls $n0 -> $n1)"; fi
     APCLI_RO=0; apcli_ro recon_aps >/dev/null 2>&1; rc=$?
     n2=$(wc -l < "$plog" | tr -d ' ')
     if [ "$rc" = "3" ] && [ "$n2" = "$n1" ]; then st_pass "apcli_ro: flag off (STARCHORUS_APCLI_RO=0) -> rc 3, no call"; else st_fail "apcli_ro flag off (rc $rc, calls $n1 -> $n2)"; fi

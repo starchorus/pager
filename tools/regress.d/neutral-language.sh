@@ -82,3 +82,44 @@ if [ -s "$NTL_LG" ] && ntl_p10file "$NTL_LG" "$NTL_P10_RE"; then
 else
   row "P10 display LOG + literals: 0 hits ($NTL_LN lines)" FAIL
 fi
+
+# ---- probe wording (v0.2): the collector drops wildcard probes at every source, so the JSON cannot know of one: 'broadcast probe' is never written, a station
+# reads 'named probe: a' / 'named probes: a, b' / 'no named probe heard'. Page source and rendered text above, both Overview copies and their LOG.
+# The bare words 'named probe' also stand in 'No named probe heard.' and in the legend line, so a source substring proves nothing about the
+# per-station wording: the page is grepped for the two phrases with their tail ('named probe: ', 'named probes: '), and each Overview copy is
+# RUN (probes and clients screens on field-probes.json, the probes screen on a fixture without a probe) and its output must carry the
+# header 'N client(s) with a named probe:', a line '  named: <SSID>  (xN)', a Stations line that ends in 'named probe', and 'No named probe heard.'.
+NTL_BPN=0; NTL_NP=0; NTL_NN=0; NTL_OVOK=0; NTL_OVBAD=""; NTL_I=0
+grep -q 'named probe: ' starchorus.html && grep -q 'named probes: ' starchorus.html && NTL_NP=1
+grep -qi 'no named probe heard' starchorus.html && NTL_NN=1
+NTL_OVD="out/$P-ntl-ov"; rm -rf "$NTL_OVD"; mkdir -p "$NTL_OVD"
+for NTL_PG in starchorus.html starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh; do
+  NTL_BPN=$((NTL_BPN + $(grep -ci 'broadcast probe' "$NTL_PG")))
+done
+for NTL_PG in starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh; do
+  NTL_I=$((NTL_I + 1)); NTL_M=""
+  STARCHORUS_DISPLAY_PLAIN=1 sh "$NTL_PG" --once probes "$F/field-probes.json" > "$NTL_OVD/probes-$NTL_I.txt" 2>&1
+  STARCHORUS_DISPLAY_PLAIN=1 sh "$NTL_PG" --once clients "$F/field-probes.json" > "$NTL_OVD/clients-$NTL_I.txt" 2>&1
+  STARCHORUS_DISPLAY_PLAIN=1 sh "$NTL_PG" --once probes "$F/single-ap.json" > "$NTL_OVD/none-$NTL_I.txt" 2>&1
+  grep -Eq '^[0-9]+ client\(s\) with a named probe:$' "$NTL_OVD/probes-$NTL_I.txt" || NTL_M="$NTL_M header"
+  grep -Eq '^  named: .+  \(x[0-9]+\)$' "$NTL_OVD/probes-$NTL_I.txt" || NTL_M="$NTL_M named-line"
+  grep -Eq '^-?[0-9]+ dBm  [^ ]+  named probe$' "$NTL_OVD/clients-$NTL_I.txt" || NTL_M="$NTL_M stations-tag"
+  grep -qx 'No named probe heard\.' "$NTL_OVD/none-$NTL_I.txt" || NTL_M="$NTL_M none-line"
+  NTL_BPN=$((NTL_BPN + $(cat "$NTL_OVD/probes-$NTL_I.txt" "$NTL_OVD/clients-$NTL_I.txt" "$NTL_OVD/none-$NTL_I.txt" | grep -ci 'broadcast probe')))
+  if [ -z "$NTL_M" ]; then NTL_OVOK=$((NTL_OVOK + 1)); else NTL_OVBAD="$NTL_OVBAD copy$NTL_I:$NTL_M;"; fi
+done
+for NTL_FX in demo active devices field-probes; do NTL_BPN=$((NTL_BPN + $(grep -ci 'broadcast probe' "out/$P-p10-$NTL_FX.txt"))); done
+NTL_BPN=$((NTL_BPN + $(grep -ci 'broadcast probe' "$NTL_LG")))
+rowif "probe wording: 'broadcast probe' $NTL_BPN times in the page, its rendered text, both Overview copies and their LOG (0 wanted); page has 'named probe: ' and 'named probes: ' $NTL_NP/1 and 'no named probe heard' $NTL_NN/1; Overview copies whose probes and Stations screens read 'named' / 'named probe' and say 'No named probe heard.' $NTL_OVOK/2" [ "$NTL_BPN/$NTL_NP/$NTL_NN/$NTL_OVOK" = 0/1/1/2 ]
+[ -z "$NTL_OVBAD" ] || echo "   missing in the rendered Overview:$NTL_OVBAD"
+NTL_EVW='(async()=>{
+const st=(n,pr)=>Object.assign({mac:"3c:22:fb:00:06:0"+n,rssi:-60},pr?{probes:pr}:{});
+STARCHORUS.load({source:"recon-db",generated:1789300000,aps:[{bssid:"02:00:00:00:06:01",ssid:"Home",band:"5",channel:36,rssi:-50,security:"WPA2"}],unassociated:[st(1,["Cafe"]),st(2,["Cafe","Lab-Net"]),st(3)]},"probes");
+await STARCHORUS.wait(600);const o=[],g=(id)=>(document.getElementById(id).innerText.match(/Probes\s*([^\n]*)/)||[])[1];
+for(let i=1;i<=3;i++){const id="3c:22:fb:00:06:0"+i;STARCHORUS.hoverNode(id);const t=g("tip-body");STARCHORUS.hoverNode(null);STARCHORUS.select(id);o.push(t+" | "+g("detail-body"));}
+STARCHORUS.deselect();return JSON.stringify(o);})()'
+runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-ntl-probes" --wait 2 --fps 0 --eval "$NTL_EVW" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+NTL_W=$(evalv "out/$P-ntl-probes.json" 1); NTL_WE=$(evalv "out/$P-ntl-probes.json" 2)
+NTL_WW='["named probe: Cafe | named probe: Cafe (heard probe requests, rx only)","named probes: Cafe, Lab-Net | named probes: Cafe, Lab-Net (heard probe requests, rx only)","no named probe heard | no named probe heard"]'
+if [ "$NTL_W" = "$NTL_WW" ] && [ "$NTL_WE" = 0 ]; then row "probe wording on the page: tooltip and detail of a station with one probe, with two, and with none" PASS
+else row "probe wording on the page (err ${NTL_WE:-?})" FAIL; echo "    got:  $NTL_W"; echo "    want: $NTL_WW"; fi

@@ -95,7 +95,7 @@ have gaps (reserve). 'Section NN' in this file always means such a marker.
 | `<!-- ==== 17 PASTE DIALOG ==== -->` | **`#paste-wrap` > `#paste-box`** (`h3` 'Load a starchorus.json capture', explanatory text **verbatim** with 'Everything runs in your browser — nothing is uploaded.'), **`#paste-ta`**, **`#paste-err`**, **`#paste-cancel`**, **`#paste-ok`** ('Render'). |
 | `<!-- ==== 17b EXPORT DIALOG … ==== -->` | `#export-wrap` > `#export-box` (`role="dialog"`): format choice `#export-fmt` (JSON, CSV, SITREP), `#export-ta`, `#export-png`, buttons Copy/Print/Snapshot; `#export-printable` for printing. Local only, nothing is uploaded (§8.12). |
 | `<!-- ==== 18 INTRO ==== -->` | `#intro` > `pre#intro-text`, `button#intro-skip` ('SKIP ▮'). |
-| `<!-- ==== 19 HELP ==== -->` | `#help.panel` (`hidden`, `role="dialog"`, `aria-label="Keyboard shortcuts"`) > `h3`, `dl#help-list` (built by `buildHelp()` from `KEYS`), `button#help-close`. Opened with `?` or `STARCHORUS.setToggles({help:true})`; closes with `Esc`, `?` or `#help-close`. |
+| `<!-- ==== 19 HELP ==== -->` | `#help.panel` (`hidden`, `role="dialog"`, `aria-label="Keyboard shortcuts"`) > `h3`, `dl#help-list` (built by `buildHelp()` from `KEYS`), one `p` (PMF, §8.3), `button#help-close`. On a desktop it sits 96 px above the bottom and is at most `100vh − 112px` high, scrolling inside itself (`overflow-y: auto`); in the phone sheet it has no cap. Opened with `?` or `STARCHORUS.setToggles({help:true})`; closes with `Esc`, `?` or `#help-close`. |
 
 ### 1.3 JavaScript (one `<script>`, IIFE, `"use strict"`)
 
@@ -127,7 +127,7 @@ aggregation need from the theme is placed beforehand in **`S.anim`** (§2.6): a 
 | `// ==== 38 DATA SOURCE ====` | `sourceKindOf`, `setSource`, `staleAfterMs`, `captureStale`, `captureOffline`, `liveness`, `noteStalePoll`, `tryPoll()` (§9.9 item 1), `captureSpacing`, `pollNextMs`, `pollArm` (the cadence, §9.5), `copyFor(site)`, `setSourcePanel`, `renderSourceTruth`, `loadData(obj, label, opts)`, `sourceHint`, paste dialog, drag and drop. |
 | `// ==== 39 INTRO ====` | `logonLines()`, `bannerLines()`, `runLogon()`, `releaseLogon()`, `endLogon()`, `skipLogon()` – via `THEME.copy` and `THEME.motion.introStyle`. |
 | `// ==== 40 DEBUG API ====` | `window.STARCHORUS = Object.freeze({…})` (§10; `clouds()`, `expandCloud()`), error collector (`window.onerror`, `unhandledrejection`). |
-| `// ==== 41 BOOT ====` | `loadUi()` + query overrides (→ `S.queryLocked`), `validateThemes()` (once, symmetrical), `applyTheme(start, {intro: !query.intro0, persist: !query.theme})` (starts the logon itself), `data-panels`, `buildHelp()`, `applyPhone()`, `applyDrawer()`, `setView(start, {persist: !query.view, snap: true})`, `resize()`, load the demo, `tryPoll()`, then (without `?poll=0`) `pollArm(pollNextMs(…))`, `requestAnimationFrame(tick)`. |
+| `// ==== 41 BOOT ====` | `loadUi()` + query overrides (→ `S.queryLocked`), `validateThemes()` (once, symmetrical), `applyTheme(start, {intro: !query.intro0, persist: !query.theme})` (starts the logon itself), `data-panels`, `buildHelp()`, `applyPhone()`, `applyDrawer()`, `setView(start, {persist: !query.view, snap: true})`, `resize()`, load the demo, `tryPoll()` (with `?demo=1` instead `releaseLogon()` and no poll), then (without `?poll=0`) `pollArm(pollNextMs(…))`, `requestAnimationFrame(tick)`. |
 
 Convention: new helper functions go into the section whose marker carries their main callers. An assignment
 `.shadowBlur =` may appear only in 31, 33 and 34, `createRadialGradient(` only in 31, 33 and 37; in practice both appear
@@ -307,6 +307,7 @@ All models belong to **one source** (D2): a change of source resets them. Time c
 | `?obs=0|1`, `?baseline=0|1`, `?inv=0|1` | Start values for observations, baseline diff and inventory |
 | `?pollto=<ms>` | Tests only: shorten the 4 s deadline of a poll (100–60000) |
 | `?poll=0` | Tests only: the first `tryPoll()` runs, the cadence is not armed (no race between the poll and `STARCHORUS.load()` evals; without the parameter §9.9 item 1 applies unchanged) |
+| `?demo=1` | Hold the built-in sample sky and never poll `starchorus.json`: the chip reads 'Sample' from the start, no request is made (not even by `STARCHORUS.pollNow()`), and the logon is released at the boot, as the first completed poll releases it. `?poll=0` keeps its meaning (without `?demo=1` its first poll runs) |
 | `?phone=1|0` | Phone mode (§9.8) on or off whatever the viewport (otherwise `PHONE.query` decides) |
 | `?panels=0|1` | Hide panels at the start (§9.8); like every override it is not saved |
 | `?random=cloud|show|hide` | The Random switch at the start (§8.8a): one node per cloud, one by one, hidden |
@@ -328,9 +329,9 @@ The contract stands; all rules are tolerant, no path throws.
 | `generated` | Finite number → timestamp and age reference; otherwise `null` (everything undated) |
 | `bssid` | `String(x).trim().toLowerCase()`, `-` → `:`, 12 hex digits without separators → with `:`; missing → `"ap"+i` |
 | `ssid` | String; `null`/missing → `""` (hidden); control characters removed; max 32 characters; always escaped on display |
-| `band` | `"2.4"/"5"/"6"` or with suffix `/\s*ghz$/i`; otherwise from `freq` (≥ 5925 → 6, ≥ 5000 → 5, ≥ 2400 → 2.4); otherwise from `channel` (> 177 → 6; 32..177 → 5; 1..14 → 2.4; 6 GHz channels ≤ 177 cannot be told apart from 5 GHz without `band`/`freq` and end up on 5); otherwise `"unknown"` (own encoding: square; `#n-24/-5/-6` do not count `unknown`) |
+| `band` | `"2.4"/"5"/"6"` or with suffix `/\s*ghz$/i`; otherwise from `freq` (≥ 5925 → 6, ≥ 5000 → 5, ≥ 2400 → 2.4); otherwise from `channel` (> 177 → 6; 32..177 → 5; 1..14 → 2.4; 6 GHz channels ≤ 177 cannot be told apart from 5 GHz without `band`/`freq` and end up on 5); otherwise `"unknown"` (own encoding: square; `#n-24/-5/-6` do not count `unknown`). The node also keeps `bandF`, the band from `band`/`freq` alone and never from `channel`, for the PMF row (§8.3) |
 | `channel`, `freq`, `rssi`, `rate`, `width`, `last_seen`, `beacons`, `packets` | `Number.isFinite(+x) ? +x : null`; `rssi` clamped to [−120, 0]; `width` only ∈ {20, 40, 80, 160, 320}; `rssi` missing → −75 (AP) / `null` (client; the layout uses −85, size t = 0.25) |
-| `security` | Raw string (max 48); `secClass(security, akm, cipher)`: AKM `owe` (without `psk`/`sae`/`1x…`) or text `OWE` → `owe` (before WPA3, because OWE sets the WPA3 class bit); `ENTERPRISE`/`802.1X` or a `1x…`/`fils…` AKM → `enterprise`; `TKIP` without `CCMP`/`GCMP`, or `pairwise` only `tkip` → `tkip-weak`; `WPA3` **and** `WPA2`, or AKM `sae` **and** `psk…` → `wpa3-transition`; otherwise `WPA3`/`SAE` → `wpa3`; `WEP` → `wep`; `WPA2`/`RSN`/`CCMP` → `wpa2`; `WPA`/`PSK`/`TKIP`/`SECURED` → `wpa`; empty/`OPEN`/`NONE`/`ESS` → `open`; otherwise `unknown` |
+| `security` | Raw string (max 48); `secClass(security, akm, cipher)`: AKM `owe` (without `psk`/`sae`/`1x…`) or text `OWE` → `owe` (before WPA3, because OWE sets the WPA3 class bit); `ENTERPRISE`/`802.1X` or a `1x…`/`fils…` AKM → `enterprise`; `TKIP` without `CCMP`/`GCMP`, or `pairwise` only `tkip` → `tkip-weak`; `WPA3` **and** `WPA2`, or AKM `sae` **and** `psk…`, or the text `SAE` **and** `PSK` → `wpa3-transition`; otherwise `WPA3`/`SAE` → `wpa3`; `WEP` → `wep`; `WPA2`/`RSN`/`CCMP` → `wpa2`; `WPA`/`PSK`/`TKIP`/`SECURED` → `wpa`; empty/`OPEN`/`NONE`/`ESS` → `open`; otherwise `unknown` |
 | `vendor` | String, trimmed, max 48 characters, otherwise `null` (displayed as '—') |
 | `phy` | String (`a/b/g/n/ac/ax/be`, also `"g/n"`), max 8, otherwise `null` → estimate §8.3 |
 | `caps` | Array or string (split at `,`) → array of strings (max 12), otherwise `null` |
@@ -859,7 +860,7 @@ rebuildBubbles():                     // only when settled && S.aggDirty; never 
   = max(blend of the members). Members with `blend ≥ 0.98` are neither drawn nor hit.
 - **Appearance:** circle `render.bubbleFill` + border `render.bubbleStroke` 1 px (wireframe themes: circle + 4 ticks); the counter
   `n` is a baked text sprite (`counter`, `ink.primary`), below it 'clients' in `ink.secondary` – no `fillText`
-  per frame. **Minimum legibility:** the counter appears only when `r·scale ≥ minCounterPx` and `alphaDraw ≥ minCounterAlpha`;
+  per frame. **Minimum legibility:** the counter appears only when the drawn radius `px` (2D: `r·zoom2d`; 3D: projected) is `≥ minCounterPx` and `alphaDraw ≥ minCounterAlpha`;
   in 3D the fog alpha for the counter is raised to `max(fog, CFG3D.bubbleFogFloor)` (§5.4).
 - **Hover/click:** hit area `r + HIT.bubblePad`; tooltip '<n> clients · mean −71 dBm · top vendors · n randomised' + up
   to 8 MACs; click → detail panel (member list scrollable, vendor distribution top 5 as small bars), selection ring.
@@ -884,12 +885,15 @@ clientsInStarZone      free single clients within starZonePx(ap) (incl. orbit zo
 clientsInApHalo        free single clients within 3.0·basePxMax(ap) (glow reach; subset of clientsInStarZone)
 freeInOrbitZone        free single clients within orbitZonePx(ap) of a star with clientCount > 0 (target 0)
 apMinGapPx, apRadiusErrPx, clusterCount (= bubbles), settled, iterations, labelsDrawn, labelCollisions
+labelsOutside          drawn label boxes (core text, names, vendor lines, badges, group labels, cloud tags) that leave the sky box; 0 (§6.6)
+                       counted at the end of the frame over the list of drawn labels (each box entry carries its width),
+                       not inside the placement, so a label drawn without it is counted too
 ```
 `layoutInfo()` is a function of the **layout values** (`angleT/radiusT`, `lx/lz`, `basePxMax`, viewport) and of the drawn
 `sx/sy` after `settle()`, never of the faded-in sprite size. Field classes: **geometric** `minClientDistancePx,
 p5ClientDistancePx, medianClientDistancePx, overlapsPx, clientsInStarZone, clientsInApHalo, freeInOrbitZone, apMinGapPx,
 apRadiusErrPx, clusterCount`; **layout state** `settled, iterations`; **render/font-dependent** `labelsDrawn,
-labelCollisions`. Theme invariance: with a frozen clock (`setFixedTime(0)` after fade-in), running
+labelCollisions, labelsOutside`. Theme invariance: with a frozen clock (`setFixedTime(0)` after fade-in), running
 `setTheme(x); await wait(300); settle(); frame()` per theme yields identical geometric and state fields in all three themes; only the
 render/font-dependent fields may differ.
 
@@ -911,7 +915,7 @@ CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1, distM
           fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // theme-independent: drive px/alphaDraw → label eligibility and hits
           minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
           sortEveryAbove: 600, plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
-          zoom2dMin: 1, zoom2dMax: 4, focusFrac: 0.55 };
+          zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 ```
 
 ### 5.1 Scene construction from the 2D layout (`p3Of(node)`)
@@ -999,9 +1003,9 @@ fog alpha of the bucket mean.
 | Input | 3D (`tS ≥ 0.5`) | 2D (`tS < 0.5`) |
 |---|---|---|
 | Drag (pointer, `setPointerCapture`, threshold 4 px mouse / 10 px touch; once exceeded, the whole path since `pointerdown` counts) | `az −= dx·dragRadPerPx`, `el += dy·dragRadPerPx` (clamped), direct | no effect – the observer is the fixed anchor; there is no 2D pan |
-| Wheel / trackpad pinch | `distT ·= exp(deltaY·wheelK)`, clamped | zoom **about the observer**, not about the cursor: `zoom2d' = clamp(zoom2d·exp(−deltaY·wheelK), 1, 4)`; rings, grid and ring labels scale along (`#bg` is re-baked), core and ring origin stay at `CX, CY` |
+| Wheel / trackpad pinch | `distT ·= exp(deltaY·wheelK)`, clamped | zoom **about the observer**, not about the cursor: `zoom2d' = clamp(zoom2d·exp(−deltaY·wheelK), 0.5, 4)` (the sky can shrink to half; the rings stay centred on the device); rings, grid and ring labels scale along (`#bg` is re-baked), core and ring origin stay at `CX, CY` |
 | Two fingers | pinch → `distT`, midpoint drift → orbit | pinch → `zoom2d` |
-| Buttons `#cam-*` (3D only) | ⟲/⟳ `azT ∓ btnAz`, ▲/▼ `elT ± btnEl`, +/− `distT ÷/· btnZoom`, ⌂ reset tween | – |
+| Buttons `#cam-*` | ⟲/⟳ `azT ∓ btnAz`, ▲/▼ `elT ± btnEl`, +/− `distT ÷/· btnZoom`, ⌂ reset tween | only +/− (`zoom2d ·/÷ btnZoom`, clamped 0.5–4) and ⌂ (reset, `zoom2d 1`); the four orbit arrows are hidden, on the desktop and on the phone; on a desktop window 620 px high or less the 2D Camera row gives way (D15, §9.8a) |
 | Keyboard (§9.6) | ←/→ azimuth, ↑/↓ elevation, `+`/`−` zoom, `0` reset | `+`/`−` zoom about the observer, `0` reset |
 | Click on node | `select(node)`: `locked = id`, tween **without re-targeting** (`target` stays `[0,0,0]`): `az → atan2(p.x, p.z)` (the node turns in front of the core), `dist` such that the node stays ≤ `focusFrac` of half the height below `CY`; detail panel; AP additionally pin toggle | pin toggle (AP; client additive) **and** detail panel; no centring (the rings remain the reference) |
 | Click on empty space / `Esc` / ⌂ | `deselect()`: tween back, detail closes | detail closes; pins remain |
@@ -1049,7 +1053,7 @@ RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetMs: 16.
            upMs: 15000, upMaxMs: 120000, failMs: 60000, capRatio: 0.85, probeGapMs: 60000, emaAlpha: 0.1,
            maxLabels: [[24, 16], [18, 12], [12, 8], [8, 6]],     // [lod] → [2d, 3d] (§6.4)
            maxText: { "2d": 30, "3d": 24 },                       // hard fillText budget per frame on #hud (§6.6)
-           maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24,
+           maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24, labelMarginPx: 6,
            mobile: { maxLabels: 12, particlesMax: 800, dprCap: 1.5, lodBias: 1 },   // phone mode (§9.8)
            spriteTiers: [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32], spriteCap: 128, alphaSteps: 32,
            maxLiveBlur: 3, flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
@@ -1195,9 +1199,14 @@ occupy grid cells (labels move out of their way).
 
 Grid `labelGridPx × labelRowPx` as a `Uint8Array`, zeroed each frame; width from a `measureText` cache
 (`Map<font + text, width>`, invalidated on theme/SSID/vendor). Rectangle above the star; occupied → alternative below the
-star, then to the right, otherwise discarded (no shifting by random amounts). Which APs may carry a label, and in which
+star, then to the right, otherwise discarded (no shifting by random amounts). **Inside the sky:** a box that would leave the sky box
+(`skyBox()`: the whole viewport outside phone mode, §9.8) is moved inside, to within `labelMarginPx` (6 px) of its edge, horizontally and
+vertically alike, and the same rule serves 2D and 3D, AP names, vendor lines, badges, group labels and cloud tags (the kinds that go through `place()`). The core text is fixed, and three things follow their own rules and are neither moved nor counted: the Wargames cursor block after a hovered label (it can sit about 2 px past a label that was moved to the margin), the security glyphs and the dBm posts of the 3D rings. A position that
+needs no move is tried before one that does, so a star at the edge keeps a label beside it where there is room; a box wider or
+taller than the room is dropped like a colliding one, and so is the label of a star (group centre, cloud) that lies off the sky, which
+is never pulled to the edge. Which APs may carry a label, and in which
 order, is decided by `labelCandidateList()` (theme-free): not hidden, SSID known, outside a 2D↔3D transition,
-`alphaDraw > 0.6 && px ≥ 5` (or locked/hover/pinned), with device links only the carrier per device; sorted locked 4 /
+`alphaDraw > 0.6 && px ≥ 5·min(1, zoom2d)` (the bound shrinks with the stars when zoomed out in 2D; in 3D `px` is never below 5) (or locked/hover/pinned), with device links only the carrier per device; sorted locked 4 /
 hover 3 / pinned 2, then `rssi·alphaDraw`. Fonts, grid, text budget and `maxLabels` then decide only **which**
 candidates are drawn (`labels()` is an ordered subsequence of `STARCHORUS.labelCandidates()`). Hidden APs never
 (§8.5). Text = `strokeText` in `surface.base` + `fillText` (legible over glows); capitals according to `font.transform`, the
@@ -1499,8 +1508,8 @@ Bars → Spectrum → Waterfall (§8.13). Redrawn only on ingest/filter/theme/re
 
 Rows (missing → '—'; all values via `textContent`): SSID / '(hidden SSID)' · BSSID · Vendor · Band · Channel · Frequency ·
 Width (missing → '— (20 MHz assumed for overlap)') · PHY (`phy` raw; otherwise an estimate prefixed '≈ ' with the note that the
-collector reports no PHY) · Max rate · Caps · Security (raw + class from `ENCODING`, plus AKM/cipher/auth if supplied)
-· Clients · Signal + sparkline + min/max/last · Last seen (`fmtAge` relative to `generated`; outside
+collector reports no PHY) · Max rate · Caps · Security (raw + class from `ENCODING`, plus AKM/cipher/auth if supplied) ·
+PMF (derived, below) · Clients · Signal + sparkline + min/max/last · Last seen (`fmtAge` relative to `generated`; outside
 [generated − 86400, generated + 60] the raw value) · Freshness (D1) · Overlaps (§8.2) · Group/device (§8.6, §8.8) ·
 Change log (§8.11) · Identity, alias, notes (§8.10, §8.12).
 
@@ -1513,6 +1522,14 @@ phyEstimate(ap): if ap.phy → ap.phy (without ≈); r = ap.rate; if r == null �
 ```
 This one table applies to the tooltip, the detail and `STARCHORUS.node(id).phyEstimate`. Examples: `rate 866, band 5` → '≈ ac/ax';
 `rate 300, band 2.4` → '≈ n'; `phy "g/n"` → 'g/n'.
+
+**PMF** (detail panel only: no legend row, no counter, nothing in the Overview). `pmfDerived(ap)` reads 'yes (derived)' for the classes
+in which the standard guarantees Protected Management Frames (802.11w): pure WPA3 (`sec` `wpa3`, so neither the WPA2/WPA3 transition nor
+enterprise), OWE (`owe`) and a 6 GHz network, the band taken from the `band`/`freq` fields alone (`bandF`: a channel number above 177
+puts a node on 6 GHz for the layout, but never for this row); every other network reads 'unknown', never 'no', because the beacon's own
+capability flags are not read. The value is marked derived like the PHY estimate (class `.est`, with a `title`). PMF is spelt out once, as
+'Protected Management Frames', in a line under the key list of the help (`?`), because a `title` shows on no phone; the line stays within two
+lines at 1440x900 and 375x812 in every theme (a row in `collector-fields.sh` counts them). Also `STARCHORUS.node(id).pmf` (§10).
 
 ### 8.4 Security overview
 
@@ -1725,6 +1742,14 @@ travelling dot (nothing is exchanged), tooltip/detail 'probe orbit · looking fo
 Real associations always win. Probe orbiters count as `free` in `stats()`, `stats().affinity` gives their number, and they
 are **not** an obstacle for the spread relaxation, so that the layout remains theme-invariant.
 
+**Wording.** Every source drops wildcard probes, so `probes[]` holds named probes only and the JSON cannot say whether a station also
+sent a wildcard one: the words 'broadcast probe' are never written (`tools/regress.d/neutral-language.sh` counts them: 0). One helper,
+`probeWords(list, max)`, gives a station (and a random cloud) its words in the tooltip, the detail panel and the cloud sheet: 'named
+probe: <SSID>', several 'named probes: a, b' (the tooltip shows three, then '+n'), none 'no named probe heard'. The legend line reads
+'dashed orbit = named probe for this network (derived, not associated)'. The Overview uses the same words within its 50 columns: the
+Probes screen 'N client(s) with a named probe:' with one line 'named: <SSID>  (xN)' per name, or 'No named probe heard.'; the Stations
+screen 'named probe' for a free station that has one.
+
 ### 8.10 Manual identity (set by the operator)
 
 Purely **manual** classification per observed identifier (AP or station) – the operator classifies, the tool never does so
@@ -1772,7 +1797,7 @@ playback is a view: no model advances, polls are recorded and shown after 'Back 
 | Watch | `#t-obs`, `#t-baseline` (+ `#baseline-set`, `#baseline-clear`), `#t-inv`, `#btn-export` | `W`, `B`, `I` | Observations, baseline diff, inventory (drawers, §8.11/§8.12), export dialogue | yes (toggles) |
 | Analyse | `#t-air`, `#t-time`, `#t-rec` | `Q`, `J`, `H` | Air quality, signal over time, recording/playback (§8.13) | no |
 | Look | `#t-theme` | `T` | cycles through the three themes; text = name of the next theme; `applyTheme()` | yes |
-| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides `#cam` | yes |
+| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides the four orbit arrows of `#cam` | yes |
 | Look | `#t-rotate` | `R` | Auto-rotation (effective only in 3D) | yes |
 | Look | `#t-spin` | `S` | Sky rotation about the observer (§4.2a), 2D and 3D, default on | yes |
 | Look | `#t-crt` | `C` | Scanlines + vignette + persistence; visible only with `crt.userToggle` | yes |
@@ -1782,7 +1807,7 @@ playback is a view: no model advances, polls are recorded and shown after 'Back 
 | Layers | `#t-nebula` | `N` | Interference nebula | yes |
 | Layers | `#t-groups` | `G` | Constellations | yes |
 | Layers | `#t-devices`, `#t-merge`, `#t-probes` | `D`, `M`, `P` | Device links, ESS merge, probe orbits (§8.8, §8.9) | yes |
-| Camera | `#cam-left/-right/-up/-down/-in/-out/-reset` | Arrows, `+/−`, `0` | §5.6; visible only in 3D (in phone mode `+`, `−` and reset in 2D too: the 2D zoom about the device) | – |
+| Camera | `#cam-left/-right/-up/-down/-in/-out/-reset` | Arrows, `+/−`, `0` | §5.6; `#cam` is there in both views, in 3D with all seven buttons and in 2D with `+`, `−` and reset only (titles 'Zoom in [+]', 'Zoom out [−]', 'Reset [0]'), except that on a desktop window 620 px high or less the 2D row is hidden (`#cam.flat`, a media query), because the D15 rules at 760×600 and 1000×500 need its 40 px; `+`, `−`, `0` and the wheel still zoom there | – |
 | Analyse (phone) | `#t-home` ('Homing'), `#t-help` (in About) | `F`, `?` | Homing meter and the shortcut list, which have no button on the desktop | no |
 
 'Random' sits in the View group, not Layers: Layers is the widest group and sets the width of `#controls`, so a button there
@@ -1802,13 +1827,13 @@ Opens on a click on an AP, client or bubble (2D and 3D) and via `STARCHORUS.sele
 the Detail card of the sheet, §9.8); `aria-live="polite"`; content via `textContent`. Header: title (SSID / MAC / 'n clients') + cursor span,
 vendor line, `#detail-close`; `Esc` closes it (and releases the camera lock). Content per type: AP → §8.3 + client list; client →
 MAC, vendor, randomised ('locally administered'), signal, freshness, orbit (SSID/BSSID, probe orbit or 'unassociated'),
-identity/notes, pin button; bubble → count, mean RSSI, vendor distribution, member list (scrollable, capped),
+Probes ('named probe: <SSID>', with the theme's probe note; 'no named probe heard' without), identity/notes, pin button; bubble → count, mean RSSI, vendor distribution, member list (scrollable, capped),
 row click → expand + select the member (§4.6); random cloud (§8.8a) → title 'n randomised addresses', a lead ('Probably one nearby
 device changing its address: the same signal, heard in bursts at a steady rhythm. An estimate from signal and timing only; it does not
 count devices.'; for a kept cloud 'Probably the same nearby device as before, though its rhythm is no longer clear: the addresses still here are
 kept together.', for a mixed one 'Possibly one or more nearby devices changing their address: the same signal, heard in bursts that keep no one
 rhythm.', each with the same last sentence), rows Addresses ('n · randomised (locally administered)'), Signal ('-29 dBm (100 %, …) · range -34 to -28 dBm'),
-Rhythm ('about every 47 s · 30 bursts'; 'no one rhythm · 153 bursts' when mixed), First heard, Last heard, Freshness, Probes for (with the theme's probe note, '—' without),
+Rhythm ('about every 47 s · 30 bursts'; 'no one rhythm · 153 bursts' when mixed), First heard, Last heard, Freshness, Probes (the same words, with the theme's probe note; 'no named probe heard' without),
 'Show the addresses' (expands it), the members newest first (MAC · dBm · age; at most `CLOUD.listMax`, then 'first 300 shown'; a row
 click expands, pins and selects that address) and the note 'Random [X]: one node per cloud, one by one, or hidden. Enter shows the
 addresses of the selected cloud again.'; the sparkline shows the cloud's series in `render.clientCore`; opening it expands it once
@@ -1820,9 +1845,9 @@ exists; otherwise it closes. Pin: a click on an AP toggles `pinned`, and likewis
 Above the cursor (`translate(-50%, calc(-100% − 14px))`, mirrored at the edges), cursor `pointer`. AP: SSID (hidden in italics),
 BSSID, **Vendor** ('—'), band with shape + '5 GHz · ch 44 · 80 MHz' (without width: '20 MHz assumed'), signal + mini sparkline,
 security (class + glyph), clients, freshness, overlaps (max 2, with 'derived'), group/device. Client: 'client · orbits
-<SSID>' / 'client · unassociated' / probe orbit, MAC, **Vendor** ('—' or 'randomised'), signal ('n/a' without RSSI). Bubble:
-§4.6. Random cloud (§8.8a): 'random cloud', 'n randomised addresses · about every 47 s', Signal with its range, Heard, Probes (when
-there are any); no sparkline. With `data-plaque="on"` the same rows side by side in pairs. Values in `ink.primary`, keys in `ink.secondary`.
+<SSID>' / 'client · unassociated' / probe orbit, MAC, **Vendor** ('—' or 'randomised'), Probes ('named probe: <SSID>', 'named probes: a, b',
+three names at most and then '+n'; 'no named probe heard'), signal ('n/a' without RSSI). Bubble:
+§4.6. Random cloud (§8.8a): 'random cloud', 'n randomised addresses · about every 47 s', Signal with its range, Heard, Probes (the same words); no sparkline. With `data-plaque="on"` the same rows side by side in pairs. Values in `ink.primary`, keys in `ink.secondary`.
 Touch: a tap shows the tooltip briefly, a second tap opens the detail. One hit test per frame.
 
 ### 9.4 Legend (`#legend`, `buildLegend()`, rebuilt per theme)
@@ -1846,7 +1871,7 @@ Rows in this order (`data-kind` in brackets):
    'rings = received signal (dBm), not range · direction is not measured'.
 2. **Derived** – 'channel overlap (derived, width unknown → 20 MHz)' (`#leg-nebula`), 'same ESSID' (`#leg-groups`), 'linked
    radios · likely same device (heuristic)' (`#leg-devices`), 'merged SSID · one node per ESS (count = APs)' (`#leg-merge`),
-   'dashed orbit = probes for this network (derived, not associated)' (`#leg-probes`), `copyFor("legArc")` (`#leg-arc`, exactly
+   'dashed orbit = named probe for this network (derived, not associated)' (`#leg-probes`), `copyFor("legArc")` (`#leg-arc`, exactly
    when `render.probeArc` and `line.edge.style === "parabola"`), crowding (`#leg-crowding`), deviation (`#leg-deviation`),
    ghost (`#leg-ghost`); each row follows its toggle **and** its data.
 3. **Operator** – identity (`id-head`, `id-friend`, `id-neutral`, `id-hostile`), 'selected' (`selected`), 'pinned' (`pinned`).
@@ -1916,7 +1941,7 @@ may have been waiting for any time, so the 2 s steps take over until the next ca
 payload's 30 s cycle that is about three polls per capture, each within 2 s of the capture. A spacing is read as at most 600 s as
 well. A poll that throws after the request counts as a failed one (`STARCHORUS.errors()` has the fault) and the next is armed all
 the same: nothing between two polls can end the chain. `STARCHORUS.pollPlan()` reports
-the spacing, the threshold, the poll time and the waits of the last 60 scheduled polls. `?poll=0` arms nothing.
+the spacing, the threshold, the poll time and the waits of the last 60 scheduled polls. `?poll=0` arms nothing; `?demo=1` makes no poll at all (§2.7).
 
 **Poll deadline.** `tryPoll()` returns the same pending promise while a fetch is in progress, and has a deadline: after
 `POLL_TIMEOUT_MS` (4 s; `?pollto=<ms>` shortens it, for tests only) an `AbortController` aborts the fetch, and the poll
@@ -2032,7 +2057,7 @@ visible edge panels at 1440×900, 1280×800, 1000×640 and 760×600, in three th
 1 Poll `fetch("starchorus.json?_=" + clock.toFixed(0), {cache:"no-store"})` immediately, then on the cadence of §9.5 (spacing −
 3 s after a capture, 2 s steps until the next, `POLL_MS` 5000 once stale or without a poll-fed capture; the only
 network call; `tryPoll()` returns its promise and starts no second fetch while one is in progress; `STARCHORUS.pollNow()`
-triggers exactly this poll). Success → chip 'Live' + timestamp from `generated`, **only as long as the feed is not stale**
+triggers exactly this poll; with `?demo=1`, §2.7, there is none). Success → chip 'Live' + timestamp from `generated`, **only as long as the feed is not stale**
 (§9.5; from `staleAfterMs()` of poll time onwards chip 'Stale', or 'Offline' when the last three polls got no answer); a fetch that has not answered after `POLL_TIMEOUT_MS` is aborted and counts
 as a failed poll. Other errors pass without a message; a response without an `aps` array is ignored; the poll continues after
 load/paste (the source panel names the source unambiguously; `?poll=0` for tests only). During playback
@@ -2113,7 +2138,7 @@ window.STARCHORUS = Object.freeze({
   clouds() → Array<{ id, kind, n, core, joined, members, rssi, rssiMin, rssiMax, centre, first, last, bursts, cadenceS, rhythm, probes,
                      kept, shown, expanded, pinned, freshTier, ageS, sx, sy, px, zc, alphaDraw }>,   // §8.8a the live random clouds, by id
   hitTest(x, y) → id | null,             // pure hit test without side effect
-  node(id) → { …public fields (§2.1/§2.2), phyEstimate, sx, sy, zc, px, fog, alphaDraw, bubble, bubbleBlend, pinned, cloud, randOut } | null,
+  node(id) → { …public fields (§2.1/§2.2), phyEstimate, pmf, sx, sy, zc, px, fog, alphaDraw, bubble, bubbleBlend, pinned, cloud, randOut } | null,
                                          //   a cloud id returns its clouds() entry
   nodes(filter?) → Array<{ id, kind, sx, sy, px, zc, alphaDraw, visible, bubble, vendor, width, rssi }>,   // filter: "ap"|"client"|"free"|"assoc"|"bubble"|"cloud";
                                          //   clouds are not in the unfiltered list (as bubbles)
@@ -2491,8 +2516,13 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   `timeout` exists). No upload, no location query.
 - Static check (`tools/passivity-check.sh`, with mutation probe `tools/passivity-mutate.sh`): calls of the AP service CLI
   and of the device's transmitting or upload commands, across the collector, both `starchorus-display.sh`, both `payload.sh`
-  and `library/**`, hit only lines of the allowlist function. A device check per command needs approval per command; the yardstick
-  is that the transmit counters of the monitor interfaces are the same before and after.
+  and `library/**`, hit only lines of the allowlist function. Besides the AP service's own words, the firmware's other active or
+  outward commands are denied by name (the full list is `SEC6_RE`) and by the prefixes `WIFI_PCAP_`, `OPENVPN_`, `WIREGUARD_`, `AUTOSSH_`,
+  `DNSSPOOF_` and `PINEAPPLE_`, and so are the Bluetooth verbs that transmit (`hcitool` with `scan`, `inq`, `cc`, `lecc`, `leadv` or `cmd`,
+  `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` with anything but `-a`), by name only, so another `bluetoothctl`
+  command is not seen; `btmon` is not denied, and the literal
+  `hcitool lescan --passive` is the only `hcitool` invocation allowed anywhere (a row of its own). A device check per command
+  needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same before and after.
 
 ### 14.7 Law (binding)
 

@@ -87,7 +87,7 @@ def sec_class(s, akm=None, cipher=None):
     if "ENTERPRISE" in u or "802.1X" in u or any(re.match(r"1x|fils", x) for x in ak): return "enterprise"
     pw = cipher["pairwise"] if isinstance(cipher, dict) and isinstance(cipher.get("pairwise"), list) else []
     if ("TKIP" in u and "CCMP" not in u and "GCMP" not in u) or ("tkip" in pw and not any(re.match(r"(ccmp|gcmp)", x) for x in pw)): return "tkip-weak"
-    if ("WPA3" in u and "WPA2" in u) or ("sae" in ak and any(re.match(r"psk", x) for x in ak)): return "wpa3-transition"
+    if ("WPA3" in u and "WPA2" in u) or ("sae" in ak and any(re.match(r"psk", x) for x in ak)) or ("SAE" in u and "PSK" in u): return "wpa3-transition"
     if "WPA3" in u or "SAE" in u: return "wpa3"
     if "WEP" in u: return "wep"
     if "WPA2" in u or "RSN" in u or "CCMP" in u: return "wpa2"

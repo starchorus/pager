@@ -53,12 +53,46 @@ else row "collector fields: an unchanged second capture is no change (classes fr
 CFL_EVL='(async()=>{
 const ap=(n,sec,extra)=>Object.assign({bssid:"02:00:00:00:04:"+String(n).padStart(2,"0"),ssid:"l"+n,band:"2.4",channel:6,rssi:-60,security:sec},extra||{});
 const cls=(sec,extra)=>{STARCHORUS.load({source:"recon-db",generated:1789300000,aps:[ap(1,sec,extra)]},"cls"+Math.random().toString(36).slice(2));return STARCHORUS.node("02:00:00:00:04:01").sec;};
-return JSON.stringify([cls("WPA2/PSK/CCMP"),cls("WPA2/PSK/TKIP"),cls("WPA2/PSK/TKIP,CCMP"),cls("OWE"),cls("WPA3"),cls("WPA2/WPA3"),cls("WPA3-Enterprise"),cls("Secured"),cls("Open"),cls("WPA3",{akm:["owe"]}),cls("WPA2",{akm:["psk","sae"]})]);})()'
+return JSON.stringify([cls("WPA2/PSK/CCMP"),cls("WPA2/PSK/TKIP"),cls("WPA2/PSK/TKIP,CCMP"),cls("OWE"),cls("WPA3"),cls("WPA2/WPA3"),cls("WPA3-Enterprise"),cls("Secured"),cls("Open"),cls("WPA3",{akm:["owe"]}),cls("WPA2",{akm:["psk","sae"]}),cls("WPA3/SAE PSK/CCMP"),cls("WPA3/SAE/CCMP")]);})()'
 runq demo "$CFL_Q" "out/$P-cfl-lbl" --wait 2 --fps 0 --eval "$CFL_EVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_L=$(evalv "out/$P-cfl-lbl.json" 1); CFL_LE=$(evalv "out/$P-cfl-lbl.json" 2)
-CFL_LW='["wpa2","tkip-weak","wpa2","owe","wpa3","wpa3-transition","enterprise","wpa","open","owe","wpa3-transition"]'
+CFL_LW='["wpa2","tkip-weak","wpa2","owe","wpa3","wpa3-transition","enterprise","wpa","open","owe","wpa3-transition","wpa3-transition","wpa3"]'
 if [ "$CFL_L" = "$CFL_LW" ] && [ "$CFL_LE" = 0 ]; then row "collector fields: label-only classification (airodump strings, akm overrides) [$CFL_L]" PASS
 else row "collector fields: label-only classification (airodump strings, akm overrides) [$CFL_L]" FAIL; fi
+
+# ---- PMF in the detail (v0.2): 'yes (derived)' for pure WPA3, OWE and a 6 GHz network (the band from band/freq alone, never from the channel number), otherwise 'unknown';
+# a label that names both SAE and PSK ('WPA3/SAE PSK/CCMP') is a transition network, not pure WPA3, so it reads 'unknown'.
+# marked derived like the PHY estimate (span.est with a title), and 'Protected Management Frames' spelt out once, in the help (a title shows on no phone). Per network: node.pmf / the detail row / the mark is there / the page's band; then whether the help carries the name.
+# The help may not grow by more than two lines (spec item 1): with the help open, the paragraph that carries the name counts at most 2 lines (Range.getClientRects, one rect row per line)
+# at 1440x900 and at 375x812 (--mobile), in every theme. The counter proves it bites: the same paragraph set to an earlier, longer wording (128 characters) must count 3 or more in every cell.
+# On a desktop (1440x900 and a short 1000x500) the whole help box also lies inside the window, scrolling inside itself where the keys are taller than it (a box that ran off the top could not be reached).
+CFL_EVP='(async()=>{
+const mk=(n,sec,f)=>Object.assign({bssid:"02:00:00:00:05:0"+n,ssid:"pmf"+n,rssi:-60-n,security:sec},f);
+STARCHORUS.load({source:"recon-db",generated:1789300000,aps:[mk(1,"WPA3",{band:"5",channel:36,akm:["sae"]}),mk(2,"OWE",{band:"2.4",channel:6,akm:["owe"]}),mk(3,"WPA2",{band:"6",channel:5}),mk(4,"WPA2",{freq:5955}),
+ mk(5,"WPA2",{band:"5",channel:36}),mk(6,"WPA2/WPA3",{band:"5",channel:36}),mk(7,"WPA3-Enterprise",{band:"5",channel:36}),mk(8,"WPA2",{channel:197}),mk(9,"WPA3/SAE PSK/CCMP",{band:"5",channel:36})]},"pmf");
+await STARCHORUS.wait(600);const o=[];
+for(let i=1;i<=9;i++){const id="02:00:00:00:05:0"+i,n=STARCHORUS.node(id);STARCHORUS.select(id);const d=document.getElementById("detail-body"),m=d.innerText.match(/PMF\s*([^\n]*)/);
+ o.push([n.pmf,m?m[1].trim():null,!!d.querySelector("span.est[title]"),n.band].join("/"));}
+STARCHORUS.deselect();o.push(document.getElementById("help").textContent.includes("Protected Management Frames"));return JSON.stringify(o);})()'
+runq demo "$CFL_Q" "out/$P-cfl-pmf" --wait 2 --fps 0 --eval "$CFL_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+CFL_P=$(evalv "out/$P-cfl-pmf.json" 1); CFL_PE=$(evalv "out/$P-cfl-pmf.json" 2); CFL_PS=$(grep -c 'Protected Management Frames' starchorus.html)
+CFL_EVH='(async()=>{const T0=STARCHORUS.getTheme(),n=[],b=[],bad=[],long="PMF, in the detail of an access point: Protected Management Frames (802.11w), derived from the security class or the 6 GHz band.";
+STARCHORUS.setToggles({help:true});
+const lines=p=>{const r=document.createRange();r.selectNodeContents(p);return new Set(Array.from(r.getClientRects()).filter(x=>x.width>0).map(x=>Math.round(x.top))).size;};
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await STARCHORUS.wait(200);STARCHORUS.frame();
+ const p=Array.from(document.querySelectorAll("#help p")).find(x=>x.textContent.includes("Protected Management Frames")),keep=p.textContent;
+ const a=lines(p);p.textContent=long;const c=lines(p);p.textContent=keep;n.push(a);b.push(c);
+ if(!(a>=1&&a<=2))bad.push(t+" paragraph "+a+" lines");if(!(c>=3))bad.push(t+" counter reads "+c+" for the long sentence");
+ if(innerWidth>720){const b=document.getElementById("help").getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)bad.push(t+" help box "+Math.round(b.top)+" to "+Math.round(b.bottom)+" of "+innerHeight);}}
+STARCHORUS.setToggles({help:false});STARCHORUS.setTheme(T0);return (bad.length?"BAD "+bad.join("; "):"ok")+" [lines "+n.join(",")+"; long sentence "+b.join(",")+"]";})()'
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-d" --width 1440 --height 900 --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-p" --width 375 --height 812 --mobile --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-s" --width 1000 --height 500 --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
+CFL_HD=$(evalv "out/$P-cfl-pmfh-d.json" 1); CFL_HP=$(evalv "out/$P-cfl-pmfh-p.json" 1); CFL_HS=$(evalv "out/$P-cfl-pmfh-s.json" 1)
+CFL_PW='["yes (derived)/yes (derived)/true/5","yes (derived)/yes (derived)/true/2.4","yes (derived)/yes (derived)/true/6","yes (derived)/yes (derived)/true/6","unknown/unknown/true/5","unknown/unknown/true/5","unknown/unknown/true/5","unknown/unknown/true/6","unknown/unknown/true/5",true]'
+case $CFL_HD in ok\ *) CFL_HDO=1 ;; *) CFL_HDO=0 ;; esac; case $CFL_HP in ok\ *) CFL_HPO=1 ;; *) CFL_HPO=0 ;; esac; case $CFL_HS in ok\ *) CFL_HSO=1 ;; *) CFL_HSO=0 ;; esac
+if [ "$CFL_P" = "$CFL_PW" ] && [ "$CFL_PE" = 0 ] && [ "$CFL_PS" = 1 ] && [ "$CFL_HDO" = 1 ] && [ "$CFL_HPO" = 1 ] && [ "$CFL_HSO" = 1 ]; then row "PMF derived: WPA3-only, OWE, 6 GHz by band and by freq = yes (derived); WPA2, transition (also a label that names SAE and PSK), enterprise and a 6 GHz guess from the channel number alone = unknown; spelt out once, in the help ($CFL_PS), whose paragraph is at most 2 lines at 1440x900 and 375x812 in every theme, and the help box lies inside a 1440x900 and a 1000x500 window" PASS
+else row "PMF derived (err ${CFL_PE:-?}, spelt out ${CFL_PS:-?}x, help lines desktop ${CFL_HD:-?}, phone ${CFL_HP:-?}, short desktop ${CFL_HS:-?})" FAIL; echo "    got:  $CFL_P"; echo "    want: $CFL_PW"; fi
 
 # ---- older documents run unchanged (no akm/channels/own_*): stats keys, no hop, empty own
 CFL_EVO='(async()=>{await STARCHORUS.wait(800);const s=STARCHORUS.stats();return JSON.stringify([s.hop,s.own,Object.keys(s.security).length]);})()'

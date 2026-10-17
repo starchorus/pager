@@ -36,6 +36,15 @@ else
   row "doc drift: README $DRF_A/$DRF_B, spec §14 $DRF_D/$DRF_P10/$DRF_U" FAIL
 fi
 
+# ---- the 2D zoom range and the label margin are written once in the page and once in the spec; ?demo=1 is in the README's parameter text
+DRF_ZP=$(sed -n 's/^.*zoom2dMin: \([0-9.]*\), zoom2dMax: \([0-9.]*\),.*$/\1-\2/p' starchorus.html)
+DRF_ZS=$(sed -n 's/^.*zoom2dMin: \([0-9.]*\), zoom2dMax: \([0-9.]*\),.*$/\1-\2/p' "$DRF_S")
+DRF_MP=$(sed -n 's/^.*labelRowPx: 24, labelMarginPx: \([0-9]*\),.*$/\1/p' starchorus.html)
+DRF_MS=$(sed -n 's/^.*labelRowPx: 24, labelMarginPx: \([0-9]*\),.*$/\1/p' "$DRF_S")
+DRF_DM=$(grep -cF '?demo=1' README.md)
+DRF_ZOK=0; [ -n "$DRF_ZP" ] && [ -n "$DRF_MP" ] && [ "$DRF_ZP/$DRF_MP" = "$DRF_ZS/$DRF_MS" ] && [ "$DRF_DM" -ge 1 ] && DRF_ZOK=1
+rowif "doc drift: 2D zoom $DRF_ZP and label margin $DRF_MP px equal in the page and the spec, ?demo=1 in the README ($DRF_DM)" [ "$DRF_ZOK" = 1 ]
+
 # ---- spec chapter shape: one heading, ten sections, U1 still open, the three analysis toggles in §14.8, every
 # button id that §14.8 names exists in the page (a toggle the page does not have may not be documented).
 DRF_H=$(grep -c '^## 14\. Guiding principles and decisions$' "$DRF_S")

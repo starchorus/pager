@@ -33,3 +33,34 @@ if [ "$NRT_HAS" = 1 ] && [ "$NRT_MRC" -le 1 ] && [ "$NRT_MC" = 1 ] && [ "$NRT_MN
    && printf '%s\n' "$NRT_MW" | grep -q 'server log: POST /x'; then NRT_MOK=1; fi
 rowif "runtime network probe: page with POST + foreign image is RED (4 reasons: path, method, origin, server log)" [ "$NRT_MOK" = 1 ]
 [ "$NRT_MOK" = 1 ] || { printf '    %s\n' "verdict: $NRT_MV" "verify exit $NRT_MRC, judge exit $NRT_MC, $NRT_MN reasons, closing tags in page $NRT_HAS"; }
+
+# ?demo=1 holds the built-in sample sky and never asks for starchorus.json. The file IS served, so a poll that slipped through shows in the
+# request list and as a 'Live' chip. The run lasts about 11 s, in which the boot poll and four cadence polls would have been made. Two rows:
+# zero starchorus.json requests, the page itself seen and nothing but GET to the own origin (net_verdict, no server log, no poll floor); and the
+# chip 'Sample' at the start, after 7 s and after STARCHORUS.pollNow(), which asks nothing either.
+NRT_DQ="?demo=1&intro=0&spin=0"
+NRT_EVD='(async()=>{const c=document.getElementById("mode-chip"),o=[c.textContent+"/"+c.className];await STARCHORUS.wait(7000);const r=await STARCHORUS.pollNow();o.push(JSON.stringify(r),c.textContent+"/"+c.className,STARCHORUS.errors().length);return o.join("|")})()'
+runq "$F/many-clients.json" "$NRT_DQ" "out/$P-net-demo" --wait 3 --fps 0 --eval-timeout 40 --eval "$NRT_EVD" >/dev/null 2>&1
+NRT_DV=$(net_verdict "out/$P-net-demo.json" - 0); NRT_DC=$?
+NRT_DOK=0; [ "$NRT_DC" = 0 ] && case $NRT_DV in *starchorus.json*) ;; *) NRT_DOK=1 ;; esac
+rowif "?demo=1: no starchorus.json request in 11 s with the file served: $NRT_DV" [ "$NRT_DOK" = 1 ]
+NRT_DE=$(evalv "out/$P-net-demo.json" 1)
+rowif "?demo=1: the chip reads Sample at the start, after 7 s and after pollNow() (which answers ok:false), no error [$NRT_DE]" [ "$NRT_DE" = 'Sample/mode demo|{"ok":false}|Sample/mode demo|0' ]
+# the sensor can see: a page copy that ignores ?demo=1 polls, and reads Live
+NRT_DP="out/$P-net-demo.html"
+sed 's/q.demo1 = q.demo === "1";/q.demo1 = false;/' "$H" > "$NRT_DP"
+NRT_DN=$(grep -c 'q.demo1 = false;' "$NRT_DP")
+NRT_HKEEP=$H; H=$NRT_DP   # runq serves $H: point it at the copy for this one call, then put it back
+runq "$F/many-clients.json" "$NRT_DQ" "out/$P-net-demom" --wait 3 --fps 0 --eval-timeout 40 --eval "$NRT_EVD" >/dev/null 2>&1
+H=$NRT_HKEEP
+NRT_MDV=$(net_verdict "out/$P-net-demom.json" - 0); NRT_MDE=$(evalv "out/$P-net-demom.json" 1)
+NRT_MDOK=0
+case $NRT_MDV in *"GET /starchorus.json x"*) case $NRT_MDE in *"|Live/mode live|"*) [ "$NRT_DN" = 1 ] && NRT_MDOK=1 ;; esac ;; esac
+rowif "?demo=1 probe bites: a page copy that ignores it polls and reads Live (mutation $NRT_DN)" [ "$NRT_MDOK" = 1 ]
+[ "$NRT_MDOK" = 1 ] || { echo "    verdict: $NRT_MDV"; echo "    chip: ${NRT_MDE:-no-value}"; }
+# the logon gate is released at the boot: with the feed held back 2 s nothing is typed at ~400 ms on a page that polls (source-truth.sh holds
+# that control, 0 characters), and on ?demo=1 the typing has begun
+NRT_EVG='[document.getElementById("intro-text").textContent.length>0,STARCHORUS.stats().introShown].join("/")'
+runq "$F/active.json" "?theme=wargames&demo=1" "out/$P-net-demo-gate" --delay 2 --wait 0.4 --fps 0 --eval "$NRT_EVG" >/dev/null 2>&1
+NRT_G=$(evalv "out/$P-net-demo-gate.json" 1)
+rowif "?demo=1: the logon is released at the boot, not by the first poll [$NRT_G]" [ "$NRT_G" = "true/true" ]

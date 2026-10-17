@@ -111,7 +111,8 @@ Starchorus 0.1.1. Every part carries the same number:
   signal over time (`J`), recording and replay (`H`), channel view (`Y`), homing meter (`F`).
   Export as JSON, CSV, SITREP text or PNG.
 - **2D/3D** (`V`): a flat ring chart or a tilted orbit (height = band). The device always stays in
-  the middle, and zoom centres on the device.
+  the middle, and zoom centres on the device (in 2D from half size to four times). The Camera buttons
+  `+`, `−` and reset are there in both views (not in 2D on a window 620 px high or less); the orbit arrows only in 3D.
 
 The page is a single HTML file without external resources. Its only network call fetches
 `starchorus.json` from the same directory: shortly before the next capture is due, then every 2
@@ -283,6 +284,9 @@ environment variable takes precedence. `payload.sh set KEY VALUE` sets the same 
 `payload.sh get`, `status`, `start` and `reset` work without the on-device menu. Details: the
 payload's README.
 
+Firmware: the payload's menus use Hak5's [`LIST_PICKER`](https://documentation.hak5.org/wifi-pineapple-pager/list_picker), which needs firmware 1.0.8 or later, and the
+QR dialogue of 'Open on Phone' is reported to need 1.1.1 or later (not tried here on an older firmware; where the command is missing, the payload shows the address as text).
+
 The Overview `starchorus-display.sh` reads the same `starchorus.json` and shows seven screens on the
 device's display: the summary, strongest networks, bands and security, devices and merges, probe
 requests, stations and air quality. It starts its wait for a key, with no time limit, before it draws a
@@ -365,8 +369,9 @@ that cycle is built from recon.db and the collector says so once.
 | `STARCHORUS_HOST` | – | Address of the device for `tools/install.sh` (like `--host`). |
 
 **Page:** query parameters override the stored settings without storing them, for example
-`?theme=whitehall`, `?view=3d`, `?intro=0`, `?rm=1` (Reduced Motion) or `?spin=0`. The full list is
-in [docs/architecture.md](docs/architecture.md) §2.7.
+`?theme=whitehall`, `?view=3d`, `?intro=0`, `?rm=1` (Reduced Motion) or `?spin=0`. `?demo=1` holds the
+built-in sample sky and never asks the server for `starchorus.json`. The full list is in
+[docs/architecture.md](docs/architecture.md) §2.7.
 
 ## Themes and keys
 

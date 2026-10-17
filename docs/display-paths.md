@@ -197,7 +197,7 @@ changes nothing in the device's interface; a firmware update does not touch it.
 | Strongest networks | `top` | the eight strongest networks by RSSI, with band and security; open and WEP networks in red |
 | Bands and security | `bands` | APs per band and the count per security class; Open and WEP in red |
 | Devices and merges | `devices` | logical devices (at least two BSSIDs sharing the first five bytes, locally administered addresses excepted), merged SSIDs (one name under at least two devices), up to four examples |
-| Probe requests | `probes` | how many stations are asking for a network, the eight most sought SSIDs (received only) |
+| Probe requests | `probes` | how many stations have a named probe, the eight most named SSIDs as 'named: <SSID>' (received only; 'No named probe heard.' when there is none) |
 | Stations | `clients` | clients free (randomised, clouds)/associated, the eight strongest stations with their assignment; the addresses of a cloud as one line |
 | Air quality | `air` | crowding level; per band the three busiest channels with co-channel and adjacent-channel counts, the least occupied common channel and the estimated beacon share |
 

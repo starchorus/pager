@@ -53,6 +53,38 @@ else
   echo "    area: $(printf '%s' "${EDG_OV:-no-value}" | cut -c1-140)"
 fi
 
+# the Camera row is there in 2D on the desktop too: `+`, `−` and reset (titles 'Zoom in [+]', 'Zoom out [−]', 'Reset [0]'), the four orbit
+# arrows only in 3D; with it the 2D panels still do not overlap (smallest reference viewport, EDG_OVL first, in 2D)
+EDG_CAM='(async()=>{const E=i=>document.getElementById(i),vis=e=>!!e&&!e.hidden&&e.getClientRects().length>0&&getComputedStyle(e).display!=="none",q=()=>[...document.querySelectorAll("#cam button")].filter(vis).map(b=>b.id.slice(4)).join("+"),o=[vis(E("cam")),q(),["cam-in","cam-out","cam-reset"].map(i=>E(i).title).join("|")];STARCHORUS.setView("3d");await STARCHORUS.wait(300);o.push(vis(E("cam")),q());STARCHORUS.setView("2d");await STARCHORUS.wait(300);o.push(q());return o.join()})()'
+runq "$F/field-probes.json" "$EDG_Q" "out/$P-d15-cam" --width 1000 --height 640 --wait 4 --fps 0 \
+  --eval "$EDG_OVL" --eval "$EDG_CAM" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+EDG_OV=$(evalv "out/$P-d15-cam.json" 1)
+EDG_V=$(evalv "out/$P-d15-cam.json" 2)
+EDG_ER=$(evalv "out/$P-d15-cam.json" 3)
+EDG_W='true,in+out+reset,Zoom in [+]|Zoom out [−]|Reset [0],true,left+right+up+down+in+out+reset,in+out+reset'
+if [ "$EDG_OV" = 0 ] && [ "$EDG_V" = "$EDG_W" ] && [ "$EDG_ER" = 0 ]; then
+  row "Camera row in 2D on the desktop: + - reset, arrows only in 3D, overlap 0 (1000x640)" PASS
+else
+  row "Camera row in 2D (err ${EDG_ER:-?}, overlap area $(printf '%s' "${EDG_OV:-no-value}" | cut -c1-100))" FAIL
+  echo "    got:  ${EDG_V:-no-value}"
+  echo "    want: $EDG_W"
+fi
+
+# ... but it gives way in 2D on a desktop window 620 px high or less, where the 760x600 and 1000x500 rules (small-screen.sh, below) need its
+# 40 px: gone in 2D at 1000x620, back in 3D (where it always was), gone again in 2D, and still nothing overlaps
+EDG_CAMY='(async()=>{const c=document.getElementById("cam"),v=()=>getComputedStyle(c).display!=="none"&&c.getClientRects().length>0,o=[v()];STARCHORUS.setView("3d");await STARCHORUS.wait(300);o.push(v());STARCHORUS.setView("2d");await STARCHORUS.wait(300);o.push(v());return o.join()})()'
+runq "$F/field-probes.json" "$EDG_Q" "out/$P-d15-camy" --width 1000 --height 620 --wait 4 --fps 0 \
+  --eval "$EDG_OVL" --eval "$EDG_CAMY" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+EDG_OV=$(evalv "out/$P-d15-camy.json" 1)
+EDG_V=$(evalv "out/$P-d15-camy.json" 2)
+EDG_ER=$(evalv "out/$P-d15-camy.json" 3)
+if [ "$EDG_OV" = 0 ] && [ "$EDG_V" = "false,true,false" ] && [ "$EDG_ER" = 0 ]; then
+  row "Camera row yields in 2D at 620 px high or less, stays in 3D, overlap 0 (1000x620)" PASS
+else
+  row "Camera row at 620 px (err ${EDG_ER:-?}, overlap area $(printf '%s' "${EDG_OV:-no-value}" | cut -c1-100))" FAIL
+  echo "    got:  ${EDG_V:-no-value} (want false,true,false: 2D, 3D, 2D)"
+fi
+
 # chrome tokens drive (no [data-theme] rules): brackets (chrome.bezel), banner + edge offsets
 # (chrome.banner.show -> data-banner -> --chrome-top/--chrome-bot), CRT overlay (crt.userToggle)
 EDG_TOK="(()=>{const TH=STARCHORUS._internals.THEMES,el=i=>document.getElementById(i),bad=[];for(const t of ['foundation','wargames','whitehall']){STARCHORUS.setTheme(t);STARCHORUS.setToggles({crt:true});const c=TH[t].chrome,on=!!c.banner.show,b=getComputedStyle(el('masthead'),'::before'),e=20+(on?24:0);const ok=b.width===c.bezel.bracketPx+'px'&&b.borderTopWidth===c.bezel.widthPx+'px'&&document.documentElement.dataset.banner===(on?'on':'off')&&getComputedStyle(el('classbar-top')).display===(on?'block':'none')&&getComputedStyle(el('classbar-bot')).display===(on?'block':'none')&&getComputedStyle(el('dtg')).display===(on?'block':'none')&&['masthead','stats','source'].every(i=>Math.round(el(i).getBoundingClientRect().top)===e)&&['legend','controls'].every(i=>Math.round(innerHeight-el(i).getBoundingClientRect().bottom)===e)&&getComputedStyle(el('crt')).display===(TH[t].crt.userToggle?'block':'none')&&STARCHORUS.themeCheck().ok;if(!ok)bad.push(t);}STARCHORUS.setTheme('foundation');return bad.join(',')||'ok'})()"

@@ -3,6 +3,29 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.0 - unreleased
+
+### Added
+
+- The detail panel of an access point reads 'PMF: yes (derived)' for a network whose class guarantees Protected Management Frames (pure WPA3, OWE, and anything on 6 GHz, with the band read from the band or frequency and never from the channel number) and 'PMF: unknown' for every other. Like the PHY estimate, it is marked as derived, and the help spells PMF out.
+- On a desktop the zoom and reset buttons also show in the 2D view, titled 'Zoom in [+]', 'Zoom out [−]' and 'Reset [0]' in both views; the four orbit arrows stay in 3D. On a desktop window 620 px high or less the 2D row is hidden, to keep the panels apart.
+- Page query parameter `?demo=1` holds the built-in sample sky: the chip reads 'Sample' from the start and the page never asks for `starchorus.json`. `?poll=0` keeps its meaning.
+- The passivity check also denies the firmware's other active or outward commands, by name and by prefix (`WIFI_PCAP_`, `OPENVPN_`, `WIREGUARD_`, `AUTOSSH_`, `DNSSPOOF_` and `PINEAPPLE_` among them), and the Bluetooth commands that transmit, by name (`hcitool` with `scan`, `inq`, `cc`, `lecc`, `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, and `hciconfig` with anything but `-a`). The one `hcitool` call it lets through is the literal `hcitool lescan --passive`, and its mutation probe plants one violation for every new alternative.
+
+### Changed
+
+- Probe requests are worded as named ones, because the collector drops wildcard probes at every source and the data cannot say that a station sent one. On the page, the tooltips, the detail panel and the cloud sheet read 'named probe: <SSID>', 'named probes: a, b' for several and 'no named probe heard' for a station without one; the SITREP text export counts them ('named probes 3') and still says 'free' or 'assoc ...' for a station without any. On the Overview, the Probes screen reads 'N client(s) with a named probe:' and then one line per network, 'named: <SSID>  (xN)', or 'No named probe heard.' when there is none, and the Stations screen reads 'named probe' where it used to read 'probing'.
+- The 2D sky can be zoomed out to half its size. The rings stay centred on the device, and reset returns to full size.
+- The page may grow to 620,000 bytes in 0.2 (it was 600,000), for the Scope and the radio pair.
+- Documentation: the installation guide says that the Virtual Pager's terminal is the same shell as ssh, that Starchorus needs no packages and no Internet connection, what a firmware recovery, a factory reset and a system update do to `/root`, and what Hak5 advises for a long session; the README names the firmware that `LIST_PICKER` (1.0.8) and the QR dialogue of 'Open on Phone' (1.1.1) need.
+
+### Fixed
+
+- A label near the edge of the sky, on a phone or a desktop and in 2D or 3D, is moved inside it, 6 px from the edge, where it used to run off the screen; a label that cannot fit is dropped like one that collides with another, and so is the label of a star that is itself off the sky. `layoutInfo().labelsOutside` counts the boxes that still leave it, over the list of what was drawn. The cursor block of Wargames, the security glyphs and the dBm posts of the 3D rings are not moved and not counted.
+- A security label that names both SAE and PSK, as one built from separate privacy and authentication columns can, counts as WPA3/WPA2 transition. It used to count as pure WPA3, and so would have read 'PMF: yes (derived)'; it now reads 'PMF: unknown'.
+- On a desktop window shorter than the keyboard help, the help ran off the top of the window with no way to reach its first keys; it now stops 16 px below the top and scrolls inside itself.
+- A zoom left over from 2D still decided, in the 3D view, whether a bubble showed its counter, and in 2D the zoom was counted twice in that test; it is now counted once, from the radius that is drawn.
+
 ## 0.1.1 - 2026-10-16
 
 ### Added

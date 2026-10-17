@@ -445,10 +445,11 @@ b { font-weight: 600; }
 canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 #detail .row { display: flex; gap: 8px; margin-top: 8px; }
 
-#help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); z-index: 40; padding: 12px 16px 12px; }
+#help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); overflow-y: auto; z-index: 40; padding: 12px 16px 12px; }
 #help h3 { margin: 0 0 8px; font-size: var(--size-title); font-weight: 600; }
 #help dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: var(--size-hud); }
 #help dt { margin: 0; } #help dd { margin: 0; color: var(--ink-secondary); }
+#help p { margin: 8px 0 0; font-size: var(--size-hud); color: var(--ink-secondary); }
 #help kbd { font-family: var(--font-mono); font-size: 10px; color: var(--ink-primary); border: 1px solid var(--line-hairline); border-radius: 3px; padding: 0 4px; text-transform: none; }
 #help-close { margin-top: 10px; }
 
@@ -485,6 +486,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 
 /* ==== 09 RESPONSIVE & MOTION ==== */
 @media (max-width: 1099px) { #masthead, #source { max-width: 300px; } }   /* D15: room for #stats to wrap into two rows */
+@media (max-height: 620px) { :root:not([data-phone="on"]) #cam.flat { display: none; } }   /* D15: the 2D Camera row gives way where the 760×600 and 1000×500 rules need its 40 px */
 @media (max-width: 899px) {   /* D15 (760×600): fewer wrapped control rows, so the detail sheet keeps its room; the two top panels give #stats room to wrap into three rows instead of a 100 px column */
   #masthead .motto { display: none; }
   #controls .btn { padding: 4px 6px; } #controls .glabel { width: 38px; } #controls { padding: 8px 10px; }
@@ -680,7 +682,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
     <button class="btn toggle" id="t-merge" aria-pressed="false" title="Merge same-SSID APs [M]">Merge SSID</button>
     <button class="btn toggle on" id="t-probes" aria-pressed="true" title="Probe orbits [P]">Probes</button>
   </div>
-  <div class="group" id="cam" hidden>
+  <div class="group" id="cam">
     <span class="glabel">Camera</span>
     <button class="btn cam" id="cam-left" title="Orbit left [←]">⟲</button>
     <button class="btn cam" id="cam-right" title="Orbit right [→]">⟳</button>
@@ -688,7 +690,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
     <button class="btn cam" id="cam-down" title="Elevation down [↓]">▼</button>
     <button class="btn cam" id="cam-in" title="Zoom in [+]">+</button>
     <button class="btn cam" id="cam-out" title="Zoom out [−]">−</button>
-    <button class="btn cam" id="cam-reset" title="Reset camera [0]">⌂</button>
+    <button class="btn cam" id="cam-reset" title="Reset [0]">⌂</button>
   </div>
 </div>
 
@@ -747,6 +749,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 <div id="help" class="panel" hidden role="dialog" aria-label="Keyboard shortcuts" aria-modal="false">
   <h3>Keyboard shortcuts</h3>
   <dl id="help-list"></dl>
+  <p>PMF (access point detail): Protected Management Frames, derived.</p>
   <button class="btn" id="help-close">Close</button>
 </div>
 
@@ -790,13 +793,13 @@ const CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1,
   fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // depth fog + far size, theme-free (they gate 3D px, alphaDraw, labels, hit-test)
   minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
   sortEveryAbove: 600, plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
-  zoom2dMin: 1, zoom2dMax: 4, focusFrac: 0.55 };
+  zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 const RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetMs: 16.6, lateK: 1.1, panelK: 1.25,
   blockMs: 1000, settleMs: 250, lateFrac: 0.25, okFrac: 0.05, slowBlocks: 2, upBlocks: 3, upMs: 15000, upMaxMs: 120000,
   failMs: 60000, capRatio: 0.85, probeGapMs: 60000, emaAlpha: 0.1,
   maxLabels: [[24, 16], [18, 12], [12, 8], [8, 6]],
   maxText: { "2d": 30, "3d": 24 },
-  maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24,
+  maxGroupLabels: { "2d": 6, "3d": 4 }, labelGridPx: 64, labelRowPx: 24, labelMarginPx: 6,
   mobile: { maxLabels: 12, particlesMax: 800, dprCap: 1.5, lodBias: 1 },
   spriteTiers: [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32], spriteCap: 128, alphaSteps: 32,
   maxLiveBlur: 3, flareMax: 2, nebulaMax: 40, persistFadeFrames: 20, dtMax: 0.05, lodRectPx: 3 };
@@ -1349,7 +1352,7 @@ function fmtAge(sec) {
 const query = (() => {
   const q = {};
   try { new URLSearchParams(location.search).forEach((v, k) => { q[k] = v; }); } catch (e) { /* no query */ }
-  q.intro0 = q.intro === "0"; q.poll0 = q.poll === "0"; q.rm1 = q.rm === "1"; q.debug1 = q.debug === "1";
+  q.intro0 = q.intro === "0"; q.poll0 = q.poll === "0"; q.demo1 = q.demo === "1"; q.rm1 = q.rm === "1"; q.debug1 = q.debug === "1";
   return q;
 })();
 const storageState = { failed: false };
@@ -1387,7 +1390,7 @@ function secClass(s, akm, cipher) {   // the collector's label AND, when present
   if (u.includes("ENTERPRISE") || u.includes("802.1X") || ak.some(x => /^1x|^fils/.test(x))) return "enterprise";
   const pw = cipher && Array.isArray(cipher.pairwise) ? cipher.pairwise : [];
   if ((u.includes("TKIP") && !u.includes("CCMP") && !u.includes("GCMP")) || (pw.includes("tkip") && !pw.some(x => /^(ccmp|gcmp)/.test(x)))) return "tkip-weak";
-  if ((u.includes("WPA3") && u.includes("WPA2")) || (ak.includes("sae") && ak.some(x => /^psk/.test(x)))) return "wpa3-transition";
+  if ((u.includes("WPA3") && u.includes("WPA2")) || (ak.includes("sae") && ak.some(x => /^psk/.test(x))) || /SAE.*PSK|PSK.*SAE/.test(u)) return "wpa3-transition";
   if (u.includes("WPA3") || u.includes("SAE")) return "wpa3";
   if (u.includes("WEP")) return "wep";
   if (u.includes("WPA2") || u.includes("RSN") || u.includes("CCMP")) return "wpa2";
@@ -1477,7 +1480,7 @@ function normalizeDoc(raw) {
     let cipher = null;   // optional, APs only
     if (isObj(a.cipher)) cipher = { group: typeof a.cipher.group === "string" ? stripCtl(a.cipher.group, 16) : null, pairwise: strs(a.cipher.pairwise, 8, 16) || [] };
     let resp = numOrNull(a.responded_ssids); resp = resp != null && resp >= 2 ? Math.round(resp) : null;
-    const ap = { bssid, ssid: stripCtl(a.ssid, 32), channel, freq, band: bandOf(a.band, freq, channel), rssi,
+    const ap = { bssid, ssid: stripCtl(a.ssid, 32), channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
       security: stripCtl(a.security, 48), vendor, rate: numOrNull(a.rate), width, last_seen: numOrNull(a.last_seen), phy, caps,
       beacons: numOrNull(a.beacons), packets: numOrNull(a.packets), akm: strs(a.akm, 12, 24), cipher, auth: strs(a.auth, 6, 16), responded_ssids: resp, clients: [] };
     const cl = Array.isArray(a.clients) ? a.clients : [];
@@ -1489,6 +1492,7 @@ function normalizeDoc(raw) {
     const empty = (v) => v === null || v === "" || v === undefined;
     for (const k of ["ssid", "channel", "freq", "security", "vendor", "rate", "width", "last_seen", "phy", "caps", "beacons", "packets", "akm", "cipher", "auth", "responded_ssids"]) if (empty(prev[k]) && !empty(ap[k])) prev[k] = ap[k];
     if (prev.band === "unknown" && ap.band !== "unknown") prev.band = ap.band;
+    if (prev.bandF === "unknown" && ap.bandF !== "unknown") prev.bandF = ap.bandF;
     const have = new Set(prev.clients.map(c => c.mac));
     for (const c of ap.clients) if (!have.has(c.mac)) { have.add(c.mac); prev.clients.push(c); }
   });
@@ -1589,7 +1593,7 @@ const S = {
           rendered: 0, idleFrames: 0, rafTicks: 0, fpsAt: 0, samples: [], drawCalls: { drawImage: 0, fillRect: 0, stroke: 0, fillText: 0, shadowBlur: 0, gradient: 0, cue: 0 } },
   countCalls: true,
   themeErrors: 0, errors: [],
-  introShown: false, twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, nodeCount: 0, nFreeTotal: 0,
+  introShown: false, twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
   security: Object.fromEntries(Object.keys(ENCODING.security).map(k => [k, 0])),
   chg: new Map(), baseline: null, base: { set: false, size: 0, new: 0, gone: 0, changed: 0, ghosts: 0, sizeCl: 0, newCl: 0, goneCl: 0, ghostsCl: 0 }, ghosts: new Map(),
   watch: [], obs: [], obsFirst: new Map(), alerts: [], obsProbe: { firstGen: null },
@@ -1600,7 +1604,7 @@ const S = {
 };
 const canvasBg = document.getElementById("bg"), canvasSky = document.getElementById("sky"), canvasHud = document.getElementById("hud");
 const ctxBg = canvasBg.getContext("2d"), ctxSky = canvasSky.getContext("2d"), ctxHud = canvasHud.getContext("2d");
-let W = 0, H = 0, CX = 0, CY = 0, skyH = 0, maxRadius = 300, inner = 64, hudDpr = 1;
+let W = 0, H = 0, CX = 0, CY = 0, skyH = 0, skyR = { x: 0, y: 0, w: 0, h: 0 }, maxRadius = 300, inner = 64, hudDpr = 1;
 const mqReduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
 let rmApi = null, reduceMotion = false;
 const mqPhone = window.matchMedia ? window.matchMedia(PHONE.query) : { matches: false };   // D21 (§37 applyPhone)
@@ -1641,7 +1645,7 @@ function saveUi() {
 
 // ==== 25 INGEST ====
 function newAp(id) {
-  return { id, kind: "ap", essBlend: 0, essFolded: false, bssid: id, ssid: "", ssidKnown: null, band: "unknown", channel: null, freq: null, rssi: -75, security: "", sec: "unknown",
+  return { id, kind: "ap", essBlend: 0, essFolded: false, bssid: id, ssid: "", ssidKnown: null, band: "unknown", bandF: "unknown", channel: null, freq: null, rssi: -75, security: "", sec: "unknown",
     hidden: true, clientCount: 0, vendor: null, rate: null, last_seen: null, width: null, phy: null, caps: null, beacons: null,
     a0: 0, angleT: null, radiusT: 0.5, angle: null, radius: 0.5, wx: 0, wz: 0, p3: [0, 0, 0], p: [0, 0, 0], jitY: hash(id + "y"),
     sx: 0, sy: 0, zc: 1, px: 0, fog: 1, lod: 0, alphaDraw: 0, basePx: 0, basePxMax: LAYOUT.basePxMaxCore,
@@ -1776,7 +1780,7 @@ function ingest(doc, opts = {}) {
       n.ssidKnown = a.ssid; n.hidden = false;
     } else if (n.ssidKnown == null) n.hidden = true;
     n.seen = true;
-    n.ssid = a.ssid; n.band = a.band; n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;
+    n.ssid = a.ssid; n.band = a.band; n.bandF = a.bandF ?? bandOf(a.band, a.freq, null); n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;   // bandF: band/freq only (the demo skips normalizeDoc)
     n.security = a.security; n.sec = secClass(a.security, a.akm, a.cipher);
     n.akm = a.akm; n.cipher = a.cipher; n.auth = a.auth; n.respondedSsids = a.responded_ssids; n.packets = a.packets;
     n.vendor = a.vendor; n.rate = a.rate; n.width = a.width; n.last_seen = a.last_seen; n.phy = a.phy; n.caps = a.caps; n.beacons = a.beacons;
@@ -2430,7 +2434,7 @@ function layoutInfo() {
   return { minClientDistancePx: r3(free.length > 1 && minD !== Infinity ? minD : 0), p5ClientDistancePx: r3(pick(0.05)), medianClientDistancePx: r3(pick(0.5)),
     overlapsPx: overlaps, clientsInStarZone: inStar, clientsInApHalo: inHalo, freeInOrbitZone: inOrbit,
     apMinGapPx: r3(apMinGapPx === Infinity ? 0 : apMinGapPx), apRadiusErrPx: r3(apRadiusErrPx), clusterCount: S.bubbles.size,
-    settled: S.settlePhase === 0 && !S.settleCapped, iterations: settleIterTotal, labelsDrawn: S.labelsDrawn, labelCollisions: S.labelCollisions };
+    settled: S.settlePhase === 0 && !S.settleCapped, iterations: settleIterTotal, labelsDrawn: S.labelsDrawn, labelCollisions: S.labelCollisions, labelsOutside: S.labelsOutside };
 }
 
 // ==== 27 AGGREGATION ====
@@ -3267,6 +3271,9 @@ function phyEstimate(ap) {
     default: return r <= 54 ? "≈ legacy" : "≈ n+";
   }
 }
+function pmfDerived(ap) {   // 802.11w is mandatory in pure WPA3, OWE and on 6 GHz (bandF: never from the channel number); no other class is judged
+  return ap.sec === "wpa3" || ap.sec === "owe" || ap.bandF === "6" ? "yes (derived)" : "unknown";
+}
 function securityCounts() {
   const c = Object.fromEntries(Object.keys(ENCODING.security).map(k => [k, 0]));
   for (const ap of S.apOrder) c[ap.sec]++;
@@ -4015,7 +4022,7 @@ function resize() {
   applyPhone();
   W = window.innerWidth; H = window.innerHeight;
   if (phoneOn) phoneLayout(true);
-  const sb = skyBox(); CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
+  const sb = skyBox(); skyR = sb; CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
   maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac;
   inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
   resizeCanvases();
@@ -4851,7 +4858,7 @@ function drawClouds() {   // §8.8a one glyph per shown cloud, the theme's rando
   setAlpha(ctx, 1);
 }
 function drawBubbles() {
-  const ctx = ctxSky, scale = S.cam.zoom2d || 1;
+  const ctx = ctxSky;
   S.bubbles.forEach(b => {
     if (b.alpha <= 0.02) return;
     const expanded = b.expandedUntil != null && b.expandedUntil > S.clock;
@@ -4863,7 +4870,7 @@ function drawBubbles() {
     ringArc(THEME.render.bubbleStroke, 1, null, aDraw, b.sx, b.sy, b.px, 0, Math.PI * 2);
     if (THEME.render.bubbleTicks) for (let i = 0; i < 4; i++) { const ang = i * Math.PI / 2; ringSeg(THEME.render.bubbleStroke, 1, aDraw, b.sx + Math.cos(ang) * (b.px - 3), b.sy + Math.sin(ang) * (b.px - 3), b.sx + Math.cos(ang) * (b.px + 3), b.sy + Math.sin(ang) * (b.px + 3)); }
     drawSelectionMarks(ctx, b, b.alpha);
-    if (!expanded && b.px * scale >= AGG.minCounterPx && aDraw >= AGG.minCounterAlpha) {
+    if (!expanded && b.px >= AGG.minCounterPx && aDraw >= AGG.minCounterAlpha) {
       const cs = getSprite("counter", "ink", b.n, "sharp");
       setAlpha(ctx, aDraw); blitFixed(ctx, cs, b.sx, b.sy - 4);
       const sub = getSprite("counter", "secondary", 0, "sharp");
@@ -5081,7 +5088,7 @@ function labelCandidateList(devCarrier) {
     if (ap.hidden) continue;
     const forced = isForced(ap.id);
     if (trans && !forced) continue;   // during 2D↔3D transition only Hover/Pinned/Locked labels
-    if (!forced && (ap.alphaDraw <= 0.6 || ap.px < 5)) continue;
+    if (!forced && (ap.alphaDraw <= 0.6 || ap.px < 5 * Math.min(1, S.cam.zoom2d))) continue;   // zoomed out in 2D the bound shrinks with the stars
     if (!(ap.ssidKnown ?? ap.ssid)) continue;   // nothing to write
     if (devCarrier) { const dev = S.devices.get(S.deviceOf.get(ap.id)); if (dev && devCarrier.get(dev.id) !== ap.id && !forced) continue; }   // §8.8 one label per physical device
     cand.push(ap);
@@ -5108,6 +5115,20 @@ function drawHud() {
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) labelGrid[r * gw + c] = 1;
     return true;
   };
+  // §6.6: a label box keeps labelMarginPx from the edge of the sky box (the viewport outside phone mode). place() takes the first free position that needs no
+  // move, else the first free one moved inside, else drops the label; a label whose star lies off the sky (onSky) is dropped too. labelsOutside is counted
+  // at the end over the drawn list (entries with a width w), not by place().
+  const sk = skyR, m = RENDER.labelMarginPx, lx0 = sk.x + m, lx1 = sk.x + sk.w - m, ly0 = sk.y + m, ly1 = sk.y + sk.h - m;
+  const onSky = (x, y, r) => x + r >= sk.x && x - r <= sk.x + sk.w && y + r >= sk.y && y - r <= sk.y + sk.h;
+  const place = (ps, w, h) => {
+    if (w > lx1 - lx0 || h > ly1 - ly0) return null;
+    for (let pass = 0; pass < 2; pass++) for (const p of ps) {
+      const x = clamp(p[0], lx0, lx1 - w), y = clamp(p[1], ly0, ly1 - h);
+      if ((x !== p[0] || y !== p[1]) === (pass === 0) || !occupy(x, y, w, h)) continue;   // pass 0: as it lies; pass 1: moved inside
+      return [x, y];
+    }
+    return null;
+  };
   ctx.lineJoin = "round"; ctx.lineWidth = 2; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   // core text (fixed)
   {
@@ -5121,7 +5142,7 @@ function drawHud() {
       if (baked) blitFixed(ctx, getSprite("text", "secondary", text, "hud"), CX, CY + 20);
       else { ctx.font = font; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.secondary; fT(ctx, text, CX - w / 2, CY + 24, true); budget--; }
       labelsDrawn++;
-      S.labelsList.push({ id: "__center__", kind: "label", text, x: r3(CX - w / 2), y: r3(CY + 14), sprite: baked });
+      S.labelsList.push({ id: "__center__", kind: "label", text, x: r3(CX - w / 2), y: r3(CY + 14), w: r3(w), sprite: baked });
     }
   }
   // ring-dBm (fixed post): 3D at projected ring point (§6.6); 2D labels stay baked on #bg
@@ -5141,11 +5162,11 @@ function drawHud() {
   if (S.ui.random === "cloud") for (const k of S.cloudOrder) {
     if (k.alphaDraw <= 0.3) continue;
     const tag = k.n + " · " + (TD.upper ? "RANDOM" : "random"), w = textWidth(ctx, TD.fontLabel, tag), r = k.px;
-    let at = null;
-    for (const p of [[k.sx + r + 4, k.sy - 6], [k.sx - r - 4 - w, k.sy - 6], [k.sx - w / 2, k.sy + r + 3]]) if (occupy(p[0], p[1], w, 12)) { at = p; break; }
+    if (!onSky(k.sx, k.sy, r)) continue;
+    const at = place([[k.sx + r + 4, k.sy - 6], [k.sx - r - 4 - w, k.sy - 6], [k.sx - w / 2, k.sy + r + 3]], w, 12);
     if (!at) continue;
     ctx.globalAlpha = Math.min(1, k.alphaDraw); blitFixed(ctx, getSprite("text", "secondary", tag, "label"), at[0] + w / 2, at[1] + 6); ctx.globalAlpha = 1;
-    S.labelsList.push({ id: k.id, kind: "cloud", text: tag, x: r3(at[0]), y: r3(at[1]), sprite: true });
+    S.labelsList.push({ id: k.id, kind: "cloud", text: tag, x: r3(at[0]), y: r3(at[1]), w: r3(w), sprite: true });
   }
   const devCarrier = labelDevCarriers();
   // AP labels: candidates from labelCandidateList()
@@ -5158,6 +5179,7 @@ function drawHud() {
     if (budget <= 0) break;
     const forced = isForced(ap.id);
     if (apLabels >= maxL && !forced) continue;
+    if (!onSky(ap.sx, ap.sy, ap.px)) continue;
     const dev = S.ui.deviceLinks ? S.devices.get(S.deviceOf.get(ap.id)) : null;
     const carrier = dev && devCarrier.get(dev.id) === ap.id;
     let raw = ap.ssidKnown ?? ap.ssid; if (!raw) continue;
@@ -5167,12 +5189,11 @@ function drawHud() {
     const w = textWidth(ctx, font, text), px = ap.px;
     const nFacet = carrier ? dev.bands.filter(b => b !== "unknown").length : 0, ext = carrier ? 5 + nFacet * 7 + 20 : 0;   // facets + ×n ride in the label's own rectangle
     const positions = [[ap.sx - (w + ext) / 2, ap.sy - px - 14], [ap.sx - (w + ext) / 2, ap.sy + px + 6], [ap.sx + px + 6, ap.sy - 6]];
-    let placed = null;
-    for (const p of positions) { if (occupy(p[0], p[1], w + ext, 12)) { placed = p; break; } }
+    const placed = place(positions, w + ext, 12);
     if (!placed) { collisions++; continue; }
     ctx.font = font; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = forced ? THEME.ink.primary : THEME.ink.secondary;
     fT(ctx, text, placed[0], placed[1] + 10, true); budget--; apLabels++; labelsDrawn++;
-    S.labelsList.push({ id: ap.id, kind: "label", text, x: r3(placed[0]), y: r3(placed[1]) });
+    S.labelsList.push({ id: ap.id, kind: "label", text, x: r3(placed[0]), y: r3(placed[1]), w: r3(w + ext) });
     if (TD.cursorBlink && (ap.id === S.hover || ap.id === S.locked)) cursorAt = { x: placed[0] + w, y: placed[1] + 10 };   // one cursor (hover wins over locked)
     if (carrier) {   // §8.8 one device label + band facet dots (2.4/5/6) + "×n" member count
       const fy = placed[1] + 5;
@@ -5183,17 +5204,19 @@ function drawHud() {
     }
     if (S.ui.vendor && ap.vendor && budget > 0) {
       const vt = ap.vendor, vw = textWidth(ctx, font, vt);
-      if (occupy(placed[0], placed[1] + 12, vw, 12)) {
-        ctx.fillStyle = THEME.ink.secondary; fT(ctx, vt, placed[0], placed[1] + 22, true); budget--;
-        S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(placed[0]), y: r3(placed[1] + 12) });
+      const vq = place([[placed[0], placed[1] + 12]], vw, 12);
+      if (vq) {
+        ctx.fillStyle = THEME.ink.secondary; fT(ctx, vt, vq[0], vq[1] + 10, true); budget--;
+        S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
       }
     }
     if (ap.clientCount > 0 && lod < 3 && budget > 0) {
       const bt = String(ap.clientCount), bf = TD.fontMonoSmall, bw = textWidth(ctx, bf, bt), bx = ap.sx + px + 2, by = ap.sy + px + 2;
-      if (occupy(bx, by, 14, 12)) {
+      const bq = place([[bx, by]], 14, 12);
+      if (bq) {
         ctx.font = bf; ctx.fillStyle = THEME.ink.secondary; ctx.strokeStyle = THEME.surface.base;
-        fT(ctx, bt, bx, by + 9, true); budget--;
-        S.labelsList.push({ id: ap.id, kind: "badge", text: bt, x: r3(bx), y: r3(by) });
+        fT(ctx, bt, bq[0], bq[1] + 9, true); budget--;
+        S.labelsList.push({ id: ap.id, kind: "badge", text: bt, x: r3(bq[0]), y: r3(bq[1]), w: 14 });
       }
     }
   }
@@ -5204,14 +5227,14 @@ function drawHud() {
       if (budget <= 0) return;
       if (c.target !== 1 || c.alphaDraw <= 0.3) return;
       if (c.bubble != null && c.bubbleBlend >= 0.5) return;
-      if (!isForced(c.id)) return;
+      if (!isForced(c.id) || !onSky(c.sx, c.sy, c.px)) return;
       const vt = c.randomized ? "randomised" : c.vendor; if (!vt) return;
       const vw = textWidth(ctx, cfont, vt);
-      const vx = c.sx - vw / 2, vy = c.sy + c.px + 4;
-      if (!occupy(vx, vy, vw, 12)) return;
+      const vq = place([[c.sx - vw / 2, c.sy + c.px + 4]], vw, 12);
+      if (!vq) return;
       ctx.font = cfont; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.secondary;
-      fT(ctx, vt, vx, vy + 10, true); budget--; labelsDrawn++;
-      S.labelsList.push({ id: c.id, kind: "vendor", text: vt, x: r3(vx), y: r3(vy) });
+      fT(ctx, vt, vq[0], vq[1] + 10, true); budget--; labelsDrawn++;
+      S.labelsList.push({ id: c.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
     });
   }
   // group labels at the constellation centroid (§8.6): ≥3 members, or any member hovered/locked
@@ -5226,13 +5249,15 @@ function drawHud() {
       let cx = 0, cy = 0, nv = 0;
       for (const id of g.members) { const ap = S.aps.get(id); if (ap && ap.alphaDraw > 0.05) { cx += ap.sx; cy += ap.sy; nv++; } }
       if (nv === 0) continue; cx /= nv; cy /= nv;
+      if (!onSky(cx, cy, 0)) continue;
       let text = g.key;
       const ws = worstSec(g.members); if (ws && SEC_RANK[ws] <= 2 && ENCODING.security[ws].glyph) text += " " + ENCODING.security[ws].glyph;   // the weakest member of the constellation (open/WEP "!", TKIP "~")
       const w = textWidth(ctx, gfont, text);
-      if (!occupy(cx - w / 2, cy - 6, w, 12)) continue;
+      const gq = place([[cx - w / 2, cy - 6]], w, 12);
+      if (!gq) continue;
       ctx.font = gfont; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.muted;
-      fT(ctx, text, cx - w / 2, cy + 4, true); budget--; labelsDrawn++; gDrawn++;
-      S.labelsList.push({ id: "__group__" + g.key, kind: "group", text, x: r3(cx - w / 2), y: r3(cy - 6) });
+      fT(ctx, text, gq[0], gq[1] + 10, true); budget--; labelsDrawn++; gDrawn++;
+      S.labelsList.push({ id: "__group__" + g.key, kind: "group", text, x: r3(gq[0]), y: r3(gq[1]), w: r3(w) });
     }
   }
   // security / alarm glyphs; alarm "!" blinks 1 Hz but is always listed
@@ -5256,6 +5281,7 @@ function drawHud() {
     S.labelsList.push({ id: "__cursor__", kind: "cursor", text: "▮", x: r3(cursorAt.x + 1), y: r3(cursorAt.y - 10), sprite: true });
   }
   S.labelsDrawn = labelsDrawn; S.labelCollisions = collisions;
+  S.labelsOutside = S.labelsList.filter(l => l.w && (l.x < sk.x - 0.5 || l.y < sk.y - 0.5 || l.x + l.w > sk.x + sk.w + 0.5 || l.y + 12 > sk.y + sk.h + 0.5)).length;
 }
 
 // ==== 36 INTERACTION ====
@@ -5488,8 +5514,8 @@ function getToggles() {   // the BTN_OF keys (in their order), then the rest
 function updateControlsLook() {
   const tt = el("t-theme"); if (tt) { const lb = THEMES[nextTheme(S.ui.theme)].meta.label; tt.textContent = lb.charAt(0) + lb.slice(1).toLowerCase(); }
   const tv = el("t-view"); if (tv) tv.textContent = S.ui.view === "3d" ? "2D" : "3D";
-  const cam = el("cam"); if (cam) cam.hidden = !phoneOn && S.ui.view !== "3d";   // phone: zoom and reset in 2D too
-  for (const k of ["left", "right", "up", "down"]) { const b = el("cam-" + k); if (b) b.hidden = phoneOn && S.ui.view !== "3d"; }
+  const flat = S.ui.view !== "3d"; el("cam").classList.toggle("flat", flat);
+  for (const k of ["left", "right", "up", "down"]) { const b = el("cam-" + k); if (b) b.hidden = flat; }   // 2D: only +, − and reset
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
@@ -5596,13 +5622,13 @@ function exportText(fmt) {
     const top = m.aps.slice().sort((a, b) => rssiOf(b) - rssiOf(a)).slice(0, 5).map(a => "  " + (a.alias || a.ssid || "(hidden)") + " · " + a.bssid + " · " + fmtBand(a.band) + (a.channel != null ? " ch " + a.channel : "") + " · " + a.rssi + " dBm");
     const cl = m.clouds || null, outside = cl ? m.stations.filter(x => x.cloud == null) : m.stations;
     const staTop = outside.slice().sort((a, b) => rssiOf(b) - rssiOf(a) || (a.mac < b.mac ? -1 : 1)).slice(0, STA_SITREP_MAX)
-      .map(x => "  " + (x.alias || x.mac) + " · " + fmtBand(x.band) + (x.rssi != null ? " · " + x.rssi + " dBm" : "") + " · " + (x.association ? "assoc " + x.association : x.probes.length ? "probes " + x.probes.length : "free"));
+      .map(x => "  " + (x.alias || x.mac) + " · " + fmtBand(x.band) + (x.rssi != null ? " · " + x.rssi + " dBm" : "") + " · " + (x.association ? "assoc " + x.association : x.probes.length ? "named probes " + x.probes.length : "free"));
     const cap = m.generated != null ? new Date(m.generated * 1000).toISOString().slice(0, 19) + "Z" : "undated";
     return ["SITREP · Starchorus", EXPORT_FOOTER, "", "Capture: " + cap + " · source: " + m.source,
       "Access points: " + m.aps.length + " · stations: " + m.stations.length + " (" + m.station_counts.free + " free, " + m.station_counts.associated + " associated) · mobile hotspots: " + m.mobile_hotspots]
       .concat(cl ? ["Randomised: " + m.station_counts.randomised + " · " + m.station_counts.in_clouds + " of them in " + cl.length + (cl.length === 1 ? " cloud" : " clouds") + " (an estimate, not a device count)"] : [],
       ["Bands: " + by(a => a.band), "Security: " + by(a => a.class), "Crowding: " + m.crowding + " of 5", "", "Strongest:"], top, ["", "Stations (strongest " + Math.min(outside.length, STA_SITREP_MAX) + " of " + outside.length + (cl ? " outside clouds" : "") + "):"], staTop,
-      cl ? ["", "Clouds of randomised addresses (an estimate):"].concat(cl.map(c => "  " + c.id + " · " + c.addresses + " addresses · " + c.rssi + " dBm (" + c.rssi_min + " to " + c.rssi_max + ")" + (c.cadence_s != null ? " · " + cadText(c.cadence_s) : "") + " · probes " + c.probes.length)) : [],
+      cl ? ["", "Clouds of randomised addresses (an estimate):"].concat(cl.map(c => "  " + c.id + " · " + c.addresses + " addresses · " + c.rssi + " dBm (" + c.rssi_min + " to " + c.rssi_max + ")" + (c.cadence_s != null ? " · " + cadText(c.cadence_s) : "") + " · named probes " + c.probes.length)) : [],
       ["", "Observations:"], S.obs.length ? S.obs.map(o => "  " + o.text) : ["  none"], ["", EXPORT_FOOTER]).join("\n") + "\n";
   }
   return JSON.stringify(m, null, 1) + "\n";
@@ -5968,7 +5994,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push(derivedRow("leg-groups", "groups", "same ESSID"));
   rows.push(derivedRow("leg-devices", "devices", "linked radios · likely same device (heuristic)"));
   rows.push(derivedRow("leg-merge", "merge", "merged SSID · one node per ESS (count = APs)"));
-  rows.push(derivedRow("leg-probes", "probes", "dashed orbit = probes for this network (derived, not associated)"));
+  rows.push(derivedRow("leg-probes", "probes", "dashed orbit = named probe for this network (derived, not associated)"));
   // probe arcs are drawn only by drawEdgesWargames' render.probeArc block (§34) → same condition here (not the CRT toggle)
   rows.push(derivedRow("leg-arc", "arc", esc(copyFor("legArc"))));
   rows.push(derivedRow("leg-crowding", "crowding", "crowding 1–5 = the busiest channel's overlap (derived)"));
@@ -6050,13 +6076,19 @@ function bubbleSummary(b) {
   if (b.randomized) parts.push(b.randomized + " randomised");
   return parts.join(" · ");
 }
+function probeWords(list, max) {   // a station's probes in one wording: wildcard probes are dropped at every source, so only named ones exist
+  if (!list || !list.length) return "no named probe heard";
+  const l = max && list.length > max ? list.slice(0, max).concat("+" + (list.length - max)) : list;
+  return (list.length === 1 ? "named probe: " : "named probes: ") + l.join(", ");
+}
+function probeCell(list) { return esc(probeWords(list)) + (list && list.length ? ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>' : ""); }
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid
   let html = "";
   if (n.kind === "cloud") {   // §8.8a
     html += '<div class="ssid">random cloud</div><div class="sub">' + esc(n.n + " randomised addresses" + (n.cadenceS != null && !cloudMixed(n) ? " · " + cadText(n.cadenceS) : "")) + '</div><div class="grid">';
     html += kv("Signal", esc(fmtSignal(n.rssi) + " · range " + n.rssiMin + " to " + n.rssiMax + " dBm")) + kv("Heard", esc(heardWord(n)));
-    if (n.probes.length) html += kv("Probes", esc(n.probes.join(" · ")));
+    html += kv("Probes", esc(probeWords(n.probes)));
     html += '</div>';
   } else if (n.kind === "bubble") {
     html += '<div class="ssid">density bubble</div><div class="sub">' + esc(bubbleSummary(n)) + '</div>';
@@ -6078,7 +6110,7 @@ function showTip(n) {
   } else {
     html += '<div class="ssid">client · ' + clientOrbitText(n) + '</div><div class="sub">' + esc(n.mac) + '</div><div class="grid">';
     html += kv("Vendor", n.randomized ? "randomised" : esc(n.vendor || "—"), "v mono");
-    if (n.probes) html += kv("Probes", esc(n.probes.slice(0, 3).join(" · ") + (n.probes.length > 3 ? " · +" + (n.probes.length - 3) : "")));
+    html += kv("Probes", esc(probeWords(n.probes, 3)));
     html += kv("Signal", esc(fmtSignal(n.rssi))) + '</div>';
   }
   tipBody.innerHTML = html; tip.style.opacity = "1";
@@ -6111,7 +6143,7 @@ function cloudSheet(kc) {   // §8.8a the sheet of a random cloud: an estimate f
   body += row("First heard", esc(fmtAge(g != null && kc.first != null ? g - kc.first : null)));
   body += row("Last heard", esc(fmtAge(g != null && kc.last != null ? g - kc.last : null)));
   body += row("Freshness", esc(heardWord(kc)));
-  body += row("Probes for", kc.probes.length ? esc(kc.probes.join(" · ")) + ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>' : "—");
+  body += row("Probes", probeCell(kc.probes));
   body += '</table><div class="chips"><button class="chip" id="cloud-show">Show the addresses</button></div><div class="cloud-members" style="max-height:180px;overflow:auto;margin-top:8px">';
   const ms = kc.members.map(m => S.clients.get(m)).filter(Boolean).sort((a, b) => (b.last_seen ?? -Infinity) - (a.last_seen ?? -Infinity) || cmpStr(a.mac, b.mac));
   for (const c of ms.slice(0, CLOUD.listMax)) body += '<div class="legrow" style="cursor:pointer" data-member="' + esc(c.mac) + '"><span class="mono">' + esc(fmtMac(c.mac)) + '</span> · ' + (c.rssi != null ? c.rssi + " dBm" : "n/a") + ' · ' + esc(fmtAge(lastSeenAge(c))) + '</div>';
@@ -6176,6 +6208,7 @@ function openDetail(id) {
     body += row("Max rate", n.rate != null ? n.rate + " Mbit/s" : "—");
     body += row("Caps", n.caps && n.caps.length ? esc(n.caps.join(" · ")) : "—");
     body += row("Security", esc((n.security || ENCODING.security[n.sec].label) + " (" + n.sec + ")"));
+    body += row("PMF", '<span class="est" title="802.11w, derived from the security class or the 6 GHz band">' + esc(pmfDerived(n)) + '</span>');
     if (n.akm && n.akm.length) body += row("AKM", esc(n.akm.join(" · ")));   // what the collector decoded from libwifi's encryption_info
     if (n.cipher && (n.cipher.group || (n.cipher.pairwise && n.cipher.pairwise.length))) body += row("Cipher", esc([n.cipher.group ? "group " + n.cipher.group : "", n.cipher.pairwise && n.cipher.pairwise.length ? "pairwise " + n.cipher.pairwise.join(" · ") : ""].filter(Boolean).join(" · ")));
     if (n.auth && n.auth.length) body += row("Auth scheme", esc(n.auth.join(" · ")));
@@ -6219,7 +6252,7 @@ function openDetail(id) {
     body += row("Vendor", n.randomized ? "randomised (locally administered)" : esc(n.vendor || "—"));
     body += row("Signal", esc(fmtSignal(n.rssi)));
     body += row("Orbit", clientOrbitText(n));
-    if (n.probes) body += row("Probes for", esc(n.probes.join(" · ")) + ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>');
+    body += row("Probes", probeCell(n.probes));
     body += localRows(false);
   }
   body += "</table>";
@@ -6513,10 +6546,10 @@ function cyclePinned(dir) {   // [ / ] step through pinned nodes and open their 
   i = i < 0 ? (dir > 0 ? 0 : arr.length - 1) : ((i + dir) % arr.length + arr.length) % arr.length;
   select(arr[i]);
 }
-// camera buttons (#cam-*, 3D only)
+// camera buttons (#cam-*)
 const wire = (id, fn) => { const b = el(id); if (b) b.addEventListener("click", fn); };
 for (const k of Object.keys(CAM_STEP)) wire("cam-" + k, () => {
-  if (tS < 0.5 && (k === "in" || k === "out")) setZoom2d(S.cam.zoom2d * (k === "in" ? CFG3D.btnZoom : 1 / CFG3D.btnZoom));   // 2D (phone): zoom about the device, as + and − do
+  if (tS < 0.5 && (k === "in" || k === "out")) setZoom2d(S.cam.zoom2d * (k === "in" ? CFG3D.btnZoom : 1 / CFG3D.btnZoom));   // 2D: zoom about the device
   else { CAM_STEP[k](S.cam); S.cam.tween = null; }
   interacted(); S.dirty = true;
 });
@@ -6701,6 +6734,7 @@ let pollPromise = null, firstPollDone = false;
 // so a hung server or a half-open connection cannot keep the chip on "Live". `?pollto=<ms>` shortens it for tests only.
 const POLL_TIMEOUT_MS = Number.isFinite(+query.pollto) && +query.pollto >= 100 ? Math.min(+query.pollto, 60000) : 4000;
 function tryPoll(tickMs) {   // MUSS BLEIBEN 1: the page's only network call; returns the in-flight promise (no double request). tickMs: the poll time it stands for
+  if (query.demo1) return Promise.resolve({ ok: false });   // ?demo=1 (§2.7): nothing is requested
   if (pollPromise) return pollPromise;
   const ac = typeof AbortController === "function" ? new AbortController() : null;
   let late = false, heard = false; const tick = () => (tickMs ?? POLL_MS) + (late ? POLL_TIMEOUT_MS : 0);   // a deadline adds its time
@@ -6966,7 +7000,7 @@ function pubNode(n) {
   if (n.kind === "ap") return { id: n.id, kind: "ap", bssid: n.bssid, ssid: n.ssid, ssidKnown: n.ssidKnown, hidden: n.hidden,
     band: n.band, channel: n.channel, freq: n.freq, rssi: n.rssi, security: n.security, sec: n.sec, vendor: n.vendor, rate: n.rate,
     width: n.width, phy: n.phy, caps: n.caps, beacons: n.beacons, last_seen: n.last_seen, clientCount: n.clientCount, ageS: n.ageS, freshTier: n.freshTier, akm: n.akm, cipher: n.cipher, auth: n.auth, respondedSsids: n.respondedSsids, packets: n.packets, mobile: n.mobile, baseState: n.baseState || null, isNew: isNewAp(n), newSeq: n.newSeq, changedSeq: n.changedSeq, cueSeq: n.cueSeq,
-    phyEstimate: phyEstimate(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt,
+    phyEstimate: phyEstimate(n), pmf: pmfDerived(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt,
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: null, bubbleBlend: 0, pinned: S.pinned.has(n.id) };
   return { id: n.id, kind: "client", mac: n.mac, rssi: n.rssi, vendor: n.vendor, randomized: n.randomized, last_seen: n.last_seen, ageS: n.ageS, freshTier: n.freshTier, isNew: isNewAp(n),
     packets: n.packets, parent: n.parent, free: n.free, affinity: !!n.affinity, probeVia: n.probeVia || null, probes: n.probes ? n.probes.slice() : null, band: n.band, basePxMax: r3(n.basePxMax),
@@ -7329,8 +7363,8 @@ S.labelsList = [];
   resize();
   setView(startView, { persist: !S.queryLocked.has("view"), snap: true });
   const demo = demoData(); setSource(demo, "demo", "demo"); ingest(demo, { newSource: true }); renderSourceTruth();
-  const boot = tryPoll();
-  if (!query.poll0) boot.then(r => pollArm(pollNextMs(r)));   // §9.9 item 1
+  if (query.demo1) { firstPollDone = true; guard(releaseLogon); }   // ?demo=1: no poll; the logon is released as the first poll does
+  else { const boot = tryPoll(); if (!query.poll0) boot.then(r => pollArm(pollNextMs(r))); }   // §9.9 item 1
   // The embedded label font loads async; once ready, invalidate text caches and repaint so canvas
   // labels switch from the fallback to the signage face (matters for the Whitehall theme).
   try {

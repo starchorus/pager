@@ -5,7 +5,7 @@
 #                 hostapd, DEAUTH, sendBeacon ...) stays green, because nothing ever plants a violation.
 # NEGATIVE PROBE: `window\.open\(|` taken from NETX, the object prefix of the location alternative, one
 #                 alternative each from NETX/TX_WORDS/SEC6_RE/NETSURF_RE, the evidence lines of a family, switching the
-#                 sqlite3 rule to whole-line reading => "GREEN (BLIND!)", exit 1, these rows red (`--meta`, one image each).
+#                 sqlite3 rule to whole-line reading, the hcitool row to `lescan` only => "GREEN (BLIND!)", exit 1, these rows red (`--meta`, one image each).
 # NOT PROVEN:     proves only that the source guard bites, not the behaviour of the running page (that is net-runtime.sh); one
 #                 example per alternative, not every spelling (header of tools/passivity-mutate.sh).
 # Sourced by tools/regress.sh with cwd = repo root; chrome-free (about 29 s plus 14 s for --meta). Only MUT_* names are set.

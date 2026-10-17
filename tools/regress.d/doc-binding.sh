@@ -44,8 +44,8 @@ DBN_KM=""; for DBN_K in $DBN_KEYS; do grep -q "\`$DBN_K\`" "$DBN_T/s96.txt" || D
 if [ -z "$DBN_KM" ] && [ -n "$DBN_KEYS" ]; then row "spec binding: every hotkey ($DBN_KEYS) is in §9.6 (missing:${DBN_KM:- none})" PASS
 else row "spec binding: every hotkey ($DBN_KEYS) is in §9.6 (missing:${DBN_KM:- none})" FAIL; fi
 
-# every query parameter of the page is in §2.7 (query.intro0 -> ?intro, poll0 -> ?poll, rm1 -> ?rm, debug1 -> ?debug)
-DBN_Q=$(grep -o 'query\.[a-zA-Z0-9]*' starchorus.html | sed 's/query\.//' | sort -u | sed 's/^intro0$/intro/;s/^poll0$/poll/;s/^rm1$/rm/;s/^debug1$/debug/' | tr '\n' ' ')
+# every query parameter of the page is in §2.7 (query.intro0 -> ?intro, poll0 -> ?poll, demo1 -> ?demo, rm1 -> ?rm, debug1 -> ?debug)
+DBN_Q=$(grep -o 'query\.[a-zA-Z0-9]*' starchorus.html | sed 's/query\.//' | sort -u | sed 's/^intro0$/intro/;s/^poll0$/poll/;s/^demo1$/demo/;s/^rm1$/rm/;s/^debug1$/debug/' | tr '\n' ' ')
 awk '/^### 2\.7 /{f=1} /^### 2\.8 /{f=0} f' "$DBN_SPEC" > "$DBN_T/s27.txt"
 DBN_QM=""; for DBN_P in $DBN_Q; do grep -q "?$DBN_P" "$DBN_T/s27.txt" || DBN_QM="$DBN_QM $DBN_P"; done
 if [ -z "$DBN_QM" ] && [ -n "$DBN_Q" ]; then row "spec binding: every query parameter ($DBN_Q) is in §2.7 (missing:${DBN_QM:- none})" PASS
