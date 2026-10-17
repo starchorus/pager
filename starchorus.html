@@ -792,7 +792,7 @@ const CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1,
   nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
   fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // depth fog + far size, theme-free (they gate 3D px, alphaDraw, labels, hit-test)
   minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
-  sortEveryAbove: 600, plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
+  plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
   zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 const RENDER = { maxDpr: 2, dprSteps: [2, 1.5, 1.25, 1], hudMinDpr: 1.5, budgetMs: 16.6, lateK: 1.1, panelK: 1.25,
   blockMs: 1000, settleMs: 250, lateFrac: 0.25, okFrac: 0.05, slowBlocks: 2, upBlocks: 3, upMs: 15000, upMaxMs: 120000,
@@ -1562,7 +1562,7 @@ const S = {
   anim: { fadeInK: 5.1, fadeOutK: 3.3, breathePeriodS: 6, breatheAmp: 0.06, blendK: 5.1,
           autoRotateRadPerS: 0.05, cameraEaseMs: 1200, cameraEasing: null,
           edgeTravelDotSpeed: 0, flareMax: 2, flareEnabled: true, flareLenFactor: 6 },
-  apOrder: [], clientOrder: [], order: [], orderDirty: true,
+  apOrder: [], clientOrder: [],
   mode: "demo", source: "", note: "", generated: null, centerLabel: "YOU ARE HERE", maxAgeS: null, pollIntervalS: null,
   sourceKind: "none", sourceLabel: "", sourceKey: "", sourceApCount: 0, liveFeed: false, lastGen: null, stalePolls: 0, staleMs: 0, lostPolls: 0, gaps: [], fresh: false, ingestSeq: 0,   // D3/D4 (§38)
   captureSeq: 0, ev: { lastGen: null, arrived: 0, departed: 0, changed: 0, cues: 0, newStations: 0, newInClouds: 0 },   // D2: one event record per source (see eventsBegin)
@@ -1831,7 +1831,6 @@ function ingest(doc, opts = {}) {
   if (changed) { S.layoutDirty = true; S.aggDirty = true; }
   settleLayout(LAYOUT.settleSyncIter);
   if (opts.newSource) S.relayHold = false;   // another source is another sky: its first layout is not held
-  S.orderDirty = true;
   computeGroupEdges();
   securityCounts(); rebuildChannelStats(); rebuildInterference();
   if (cap) { skyUpdate(); chanPeakUpdate(); }
@@ -2665,13 +2664,6 @@ function project2D() {   // the device (world origin) is pinned to CX,CY — zoo
   }
   for (const b of S.bubbles.values()) { flat(b, b.cx, b.cz, b.r); b.alphaDraw = b.alpha; if (b.target === 1 || b.alpha > 0.02) count++; }
   S.nodeCount = count;
-}
-function sortOrder() {
-  if (!S.orderDirty) return;
-  S.orderDirty = false;
-  const cls = Array.from(S.clients.values()).sort((a, b) => cmpStr(a.mac, b.mac));
-  const aps = Array.from(S.aps.values()).sort((a, b) => b.rssi - a.rssi || cmpStr(a.bssid, b.bssid));
-  S.order = cls.concat(aps);
 }
 function startTween(to) {
   const c = S.cam;
@@ -3874,7 +3866,7 @@ function stepNodes(dt, liveDt) {
     const alphaT = (n.target === 1 && S.ui.filters[n.band] !== false) ? 1 : 0;
     n.alpha = easeBy(n.alpha, alphaT, alphaT > n.alpha ? eIn : eOut);
     if (n.alpha !== alphaT) moving = true;
-    if (n.target === 0 && n.alpha < 0.02) { if (n.pStart >= 0) pfree(n.pStart, n.pCount); S.aps.delete(n.id); S.orderDirty = true; continue; }   // hand the particle block back (core fade 1.2 s < dissolve 1.4 s)
+    if (n.target === 0 && n.alpha < 0.02) { if (n.pStart >= 0) pfree(n.pStart, n.pCount); S.aps.delete(n.id); continue; }   // hand the particle block back (core fade 1.2 s < dissolve 1.4 s)
     n.angle = easeAngle(n.angle, n.angleT, 3, dt); n.radius = ease(n.radius, n.radiusT, 2.2, dt);
     if (n.angle !== n.angleT || n.radius !== n.radiusT) moving = true;
     n.wx = Math.cos(n.angle) * n.radius; n.wz = Math.sin(n.angle) * n.radius;
@@ -3894,7 +3886,7 @@ function stepNodes(dt, liveDt) {
     n.alpha = easeBy(n.alpha, alphaT, alphaT > n.alpha ? eIn : eOut);
     if (n.alpha !== alphaT) moving = true;
     n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;
-    if (n.target === 0 && n.alpha < 0.02) { S.clients.delete(n.id); S.orderDirty = true; continue; }
+    if (n.target === 0 && n.alpha < 0.02) { S.clients.delete(n.id); continue; }
     if (ap && !n.free) {
       n.orbitPhase += n.orbitSpeed * liveDt;
       n.wx = ap.wx + Math.cos(n.orbitPhase) * n.orbitR / maxRadius; n.wz = ap.wz + Math.sin(n.orbitPhase) * n.orbitR / maxRadius; n.placed = true;
@@ -3943,7 +3935,7 @@ function step(dt, liveDt) {
   stepSky(liveDt);
   stepBubbles(dt);
   stepParticles(liveDt); stepFlares(dt);
-  nodeEaseDt = dt; projectAll(); sortOrder();
+  nodeEaseDt = dt; projectAll();
 }
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
@@ -7270,10 +7262,10 @@ window.STARCHORUS = Object.freeze({
       const ap = S.aps.get(n.parent);
       if (ap) { n.wx = ap.wx + Math.cos(n.orbitPhase) * n.orbitR / maxRadius; n.wz = ap.wz + Math.sin(n.orbitPhase) * n.orbitR / maxRadius; n.placed = true; }
     });
-    computeGroupEdges(); projectAll(); sortOrder(); render();
+    computeGroupEdges(); projectAll(); render();
     return layoutInfo();
   }),
-  frame: () => guard(() => { projectAll(); sortOrder(); render(); S.perf.rendered++; }),
+  frame: () => guard(() => { projectAll(); render(); S.perf.rendered++; }),
   wait: (ms) => new Promise(r => setTimeout(r, ms)),
   measure: (seconds = 2) => new Promise(res => {
     const t0 = performance.now();

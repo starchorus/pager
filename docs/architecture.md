@@ -114,9 +114,9 @@ aggregation need from the theme is placed beforehand in **`S.anim`** (§2.6): a 
 | `// ==== 25 INGEST ====` | `ingest(doc, opts)`: create/update nodes, `target`, history, freshness, events (D2), groups, `applyAffinity()`, `layoutDirty`, `updateStats()`. |
 | `// ==== 26 LAYOUT 2D ====` | `rssiToRadius`, `basePxMax(node)`, `starZonePx(ap)`, `placeAPs()`, `homeOfClient()` (stations and clouds), `spreadStep(iters)`, `settleLayout(maxIter)`, `countFreeLayout()`, `freeSingles()`, `layoutInfo()`. |
 | `// ==== 27 AGGREGATION ====` | `rebuildBubbles()`, `stepBubbles(dt)`, `expandBubble(id)`. |
-| `// ==== 28 LAYOUT 3D & CAMERA ====` | `p3Of` (also a cloud, §5.1), `cameraBasis`, `project`, `projectAll`, `sortOrder`, `stepCamera`, `stepBlend`, `flyTo`, `resetCamera`, `setView(v, {persist})`, `setZoom2d(z)` (around the observer, no pan), `skyPt`/`easeSky` (§4.2a). |
+| `// ==== 28 LAYOUT 3D & CAMERA ====` | `p3Of` (also a cloud, §5.1), `cameraBasis`, `project`, `projectAll`, `stepCamera`, `stepBlend`, `flyTo`, `resetCamera`, `setView(v, {persist})`, `setZoom2d(z)` (around the observer, no pan), `skyPt`/`easeSky` (§4.2a). |
 | `// ==== 29 ANALYZER ====` | Channel span, overlap, `rebuildInterference()`, `rebuildChannelStats()`, `phyEstimate`, `securityCounts()`, `rebuildGroups()`, `rebuildDevices()`, `rebuildEss()`, the random clouds (`newCloud`, `cloudBands`, `cloudBursts`, `cloudRhythm`, `rebuildClouds(gen, rp)`, `applyRandom()`, `pubCloud`, `liveCloud`, `cloudExpanded`, §8.8a), baseline, change log, observations, library, inventory, homing, channel/time/recording models (§8). |
-| `// ==== 30 STEP ====` | `tick(t)`, `step(dt)`, `stepNodes(dt, liveDt)`, `stepClouds(dt)` (§8.8a), `stepSky(liveDt)`: alpha, position, orbit, twinkle, breathing, bubble blend, camera, sorting, dirty logic, governor measurement (§6); all theme timings from `S.anim`. |
+| `// ==== 30 STEP ====` | `tick(t)`, `step(dt)`, `stepNodes(dt, liveDt)`, `stepClouds(dt)` (§8.8a), `stepSky(liveDt)`: alpha, position, orbit, twinkle, breathing, bubble blend, camera, dirty logic, governor measurement (§6); all theme timings from `S.anim`. |
 | `// ==== 31 SPRITES ====` | `spriteCache`, `getSprite(kind, colorKey, tier, variant)`, `bakeSprite()`, `clearSprites()`; also the text sprites `counter`, `glyph`, `devcount` and `text` (§6.3). |
 | `// ==== 32 PARTICLES ====` | Particle pool (`Float32Array`), spawn, step, drawing, `particlesReset`, `particlesRestartCurves`, coalescing free list (§7.2). |
 | `// ==== 33 RENDER PIPELINE ====` | `render()`, `beginFrame()` (clears `#sky` or the persistence fill, and `#hud`), `endFrame()`, draw-call wrappers `dI/fR/sT/fT` (§10), `S.countCalls`, governor `budget.*` (§6.5). |
@@ -249,7 +249,7 @@ S.anim = {                          // theme-free injection, filled by fillAnim(
   breathePeriodS, breatheAmp,                // 0 = no breathing
   blendK,                                    // bubble blend, K from motion.fadeInMs
   autoRotateRadPerS, cameraEaseMs, cameraEasing, edgeTravelDotSpeed, flare* };
-S.apOrder, S.clientOrder, S.order;  // persistent sort lists (§4.0, §5.5)
+S.apOrder, S.clientOrder;         // persistent sort lists, rebuilt on every ingest (§4.0, §5.5)
 S.mode = "demo"|"live";             // "demo" only for the built-in demo
 S.sourceKind = "demo"|"live"|"recorded"|"active"|"none";   // D4 source truth (section 38), basis of copyFor()
 S.sourceLabel, S.sourceKey, S.sourceApCount;                // label, change key (kind|route|label|doc.source), AP count
@@ -915,7 +915,7 @@ CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1, distM
           nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
           fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // theme-independent: drive px/alphaDraw → label eligibility and hits
           minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
-          sortEveryAbove: 600, plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
+          plumbAlpha: 0.35, shadowAlpha: 0.12, parallaxPx: 14,
           zoom2dMin: 0.5, zoom2dMax: 4, focusFrac: 0.55 };
 ```
 
@@ -989,14 +989,15 @@ Bubbles: alphaHud = alpha · max(fog, bubbleFogFloor); counter only when r·scal
 Bokeh (TD.bokehSoft = depth.bokeh.enabled): sFar > 0.5 or (2D: t < 0.25) → sprite variant "soft"; never ctx.filter. Without bokeh: variant "sharp"
 ```
 
-### 5.5 Painter's sort and hit test
+### 5.5 Draw order and hit test
 
-`S.order` = persistent array (APs, single clients with `bubbleBlend < 0.98`, bubbles). Insertion sort by `zc` descending per
-frame (nearly sorted → O(n)); from `nodeCount > sortEveryAbove` only every 2nd frame. Invisible ones stay in the array and are
-skipped; removed nodes are deleted in the same step. Hit test (`nodeAt`, section 36) in projected
-coordinates from **near to far**, hit when `(mx − sx)² + (my − sy)² ≤ max(px + pad, HIT.minPx)²` (AP 6, client 5, bubble 4;
-touch min 16), only `alphaDraw ≥ 0.25`; the first hit wins; bubble members with `blend > 0.5` cannot be hit.
-In 2D the same function. One hit test per frame. Connections are drawn before all nodes in three depth buckets with the
+There is no depth-sorted list of nodes. Each layer (§6.2) draws its own kind of mark in a fixed order: the APs from
+`S.apOrder` (rssi desc, bssid asc), the stations from `S.clientOrder` (mac asc), the bubbles and clouds from their maps. A node
+that has faded out is deleted from its map in the same step (`stepNodes`: alpha < 0.02, target 0). Hit test (`nodeAt`, section 36)
+in projected coordinates: in 3D the candidates are sorted by `zc` from **near to far** on each call and the first hit wins,
+in 2D the nearest centre within its radius wins; hit when `(mx − sx)² + (my − sy)² ≤ max(px + pad, HIT.minPx)²` (AP 6, client 5,
+bubble 4; touch min 16), only `alphaDraw ≥ 0.25`; bubble members with `blend > 0.5` cannot be hit.
+One hit test per frame. Connections are drawn before all nodes in three depth buckets with the
 fog alpha of the bucket mean.
 
 ### 5.6 Input (3D and 2D)
@@ -1040,7 +1041,7 @@ No auto-rotation, no idle resume; all camera easings with `k = kReduced`; tweens
 2. Connections from `nodeCount > 400` only for the hovered/locked AP; orbit arcs off from 400.
 3. Labels ≤ `RENDER.maxLabels[lod][1]`; group labels ≤ `RENDER.maxGroupLabels["3d"]`; total ≤ `RENDER.maxText["3d"]` (§6.6).
 4. Plumb lines only for APs at LOD ≤ 1, otherwise only hover/locked/pinned/bubbles; ground shadow off from LOD 2.
-5. Sorting every 2nd frame from `sortEveryAbove` nodes; projection of all nodes in one `Float32Array`.
+5. Projection of all nodes in one `Float32Array`.
 6. Particles in 3D at the projected node, scaled by `scale`; distant nodes (`sFar > 0.5`) without particles (the bokeh sprite
    carries the softness).
 
@@ -1074,7 +1075,7 @@ tick(t):
   if (S.settling && !blending) spreadStep(LAYOUT.settlePerFrame)         // 26
   stepNodes(dt, liveDt)   // alpha (S.anim.fadeInK/fadeOutK), position, orbit phase (liveDt), twinkle/breathing, bubble blend, basePx, delete at alpha < 0.02 && target 0
   stepSky(liveDt); stepParticles(liveDt)
-  projectAll(); sortOrder()                                              // 28 (2D path at tS = 0)
+  projectAll()                                                           // 28 (2D path at tS = 0)
   animating = auto-rotation, easing, settle, blend, bubble blend, twinkle, tween, sky rotation, particles (without reduced motion),
               travelling dots, persistence decay, flicker, cursor blink
   if (S.fixedTime != null) animating = false                              // frozen: only dirty renders
@@ -1136,12 +1137,12 @@ bubble/glyph – only `drawImage`, `fillRect` and one `stroke()` per path group.
 
 ### 6.4 LOD levels (`nodeCount` = APs + individually drawn clients + bubbles + shown random clouds; start from the node count, controller §6.5)
 
-| LOD | Starts at | Clients | Particles | Connections | Orbit arcs | Labels | Aggregation | Nebula | Sort |
-|---|---|---|---|---|---|---|---|---|---|
-| 0 | < 250 | sprite with halo (px ≥ 6), without halo (3 ≤ px < 6) | full | all associated | yes | 24 / 16 | toggle | ≤ 40 | every frame |
-| 1 | 250–600 | as 0 | half | all | yes | 18 / 12 | toggle | ≤ 40 | every frame |
-| 2 | 600–1000 | sprite only at px ≥ 4 && fog ≥ 0.5, otherwise `3×3` rect | APs only | hover/locked/pinned only | off | 12 / 8 | toggle (+ `forced`) | ≤ 20 | every 2nd frame during rotation |
-| 3 | > 1000 | `3×3` rect except hover/locked/pinned; bubbles as sprites | off | hover/locked only | off | 8 / 6 | forced | hover AP only | every 2nd frame |
+| LOD | Starts at | Clients | Particles | Connections | Orbit arcs | Labels | Aggregation | Nebula |
+|---|---|---|---|---|---|---|---|---|
+| 0 | < 250 | sprite with halo (px ≥ 6), without halo (3 ≤ px < 6) | full | all associated | yes | 24 / 16 | toggle | ≤ 40 |
+| 1 | 250–600 | as 0 | half | all | yes | 18 / 12 | toggle | ≤ 40 |
+| 2 | 600–1000 | sprite only at px ≥ 4 && fog ≥ 0.5, otherwise `3×3` rect | APs only | hover/locked/pinned only | off | 12 / 8 | toggle (+ `forced`) | ≤ 20 |
+| 3 | > 1000 | `3×3` rect except hover/locked/pinned; bubbles as sprites | off | hover/locked only | off | 8 / 6 | forced | hover AP only |
 
 Column 'Labels' = `RENDER.maxLabels[lod]` (2D / 3D); all text items together are additionally subject to `RENDER.maxText`
 (§6.6). `stats().lod` reports the level; `S.ui.autoLod = false` (`?autolod=0`, `setToggles({autoLod:false})`) freezes it
@@ -2304,7 +2305,7 @@ Documentation binding: STARCHORUS.version = spec §10 · spec §14 complete (D1�
 | R3 | `shadowBlur` cost | frame rate | bloom baked into sprites; live at most `maxLiveBlur` elements, travelling dots in one path (§6.3, §7.3) |
 | R4 | Full orbit circles = ring moiré | 'mush ring' | 60° arcs only for associated clients, no arcs for free clients, LOD ≤ 1 (§4.3) |
 | R5 | DPR 2 quadruples the raster | < 60 fps on high-resolution displays | controller with hysteresis in both directions, start cap by node count, `#hud` sharp (§6.5) |
-| R6 | Hit test in 3D hits hidden/distant nodes | wrong tooltip/detail | `order` near→far, first hit, `alphaDraw ≥ 0.25`, bubble members not hittable (§5.5) |
+| R6 | Hit test in 3D hits hidden/distant nodes | wrong tooltip/detail | 3D candidates sorted near→far (`zc`), first hit, `alphaDraw ≥ 0.25`, bubble members not hittable (§5.5) |
 | R7 | Determinism broken (randomness, dt-dependent relaxation, array index) | jumping nodes, non-reproducible screenshots | seeded PRNG only for star field/particles, relaxation without dt in `mac` order, AP angle from hash + spiral, sorting at ingest, `setFixedTime` (§4.0–4.2, §10) |
 | R8 | Relaxation does not converge at extreme density | permanent `settling`, CPU | density rule forces aggregation, two-phase settle, iteration cap, stop at `settleEpsPx` (§4.2, §4.6) |
 | R9 | Bubbles flicker at the threshold / giant bubbles | restlessness, density information lost | anchor ID from the densest cell, hysteresis, rebuild only on events, cluster cap of 4 cells (§4.6) |
@@ -2340,7 +2341,7 @@ Documentation binding: STARCHORUS.version = spec §10 · spec §14 complete (D1�
 | R39 | Motion metaphors suggest active scanning | loss of trust | no radar sweep; travelling dot AP → client or client → core (heard probe); permanent passivity notices in masthead, legend, logon, paste text (§0, §9.4, §9.5) |
 | R40 | Collector fields missing | empty columns, wrong heuristic | display '—', PHY only with '≈' from `rate`; the collector emits fields only when they have a value (§8.3) |
 | R41 | Sprite memory (tiers × colours × variants × themes) | memory pressure | LRU cap `spriteCap`, fixed tier table, invalidation on theme/DPR, `stats().spriteBytes` (§6.3) |
-| R42 | The persistent `order` list drifts apart | zombie drawings | removal from `order` in the same step as from the map (§5.5) |
+| R42 | The draw lists drift from the maps | zombie drawings | a node leaves its map in the same step it finishes fading (`stepNodes`: alpha < 0.02, target 0); `S.apOrder`/`S.clientOrder` are rebuilt on every ingest (§4.0, §5.5) |
 | R43 | The poll overwrites a loaded file | confusion | deliberately so (contract); the source panel names the source unambiguously (§9.9) |
 | R44 | Allocations per hover with many nodes | GC judder | `canvas#tip-spark`/`#detail-spark` persistent, sparkline rebuilt only on hover change/ingest (§8.1) |
 | R45 | Poll race in tests | flaky evals | `?poll=0` for every `load()` eval; without the parameter §9.9 point 1 applies unchanged (§2.7, §11.0) |
