@@ -1565,23 +1565,23 @@ const S = {
   apOrder: [], clientOrder: [],
   mode: "demo", source: "", note: "", generated: null, centerLabel: "YOU ARE HERE", maxAgeS: null, pollIntervalS: null,
   sourceKind: "none", sourceLabel: "", sourceKey: "", sourceApCount: 0, liveFeed: false, lastGen: null, stalePolls: 0, staleMs: 0, lostPolls: 0, gaps: [], fresh: false, ingestSeq: 0,   // D3/D4 (§38)
-  captureSeq: 0, ev: { lastGen: null, arrived: 0, departed: 0, changed: 0, cues: 0, newStations: 0, newInClouds: 0 },   // D2: one event record per source (see eventsBegin)
+  captureSeq: 0, ev: { lastGen: null, arrived: 0, departed: 0, newStations: 0, newInClouds: 0 },   // D2: one event record per source (see eventsBegin)
   sky: { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] }, crowding: { level: 1, busiest: null },   // D11: per-source EWMA reference of channel occupancy (skyUpdate), crowding 1–5
   pinned: new Set(), hover: null, locked: null,
-  clock: 0, skyA: 0, dirty: true, settling: false, settlePhase: 0, settleCapped: false, relayHold: false, relayT0: 0, layoutDirty: true, aggDirty: true, fixedTime: null, moving: false,
+  clock: 0, skyA: 0, dirty: true, settling: false, settlePhase: 0, settleCapped: false, relayHold: false, relayT0: 0, layoutDirty: true, fixedTime: null, moving: false,
   perf: { fps: 0, frameMs: 16.6, lod: 0, lodBase: 0, dpr: 1, dprStep: 0, dprStart: 0, down: 0, capMs: 0, lateMs: 1.4 * RENDER.budgetMs,
           slowRun: 0, fastRun: 0, ambRun: 0, bT0: 0, bN: 0, bLate: 0, bMin: Infinity, bMin2: Infinity, upT: 0, upAt: 0, upWait: 0, probe: -1, probeMs: 0, probeT: -1e9, rSeen: 0,
-          rendered: 0, idleFrames: 0, rafTicks: 0, fpsAt: 0, samples: [], drawCalls: { drawImage: 0, fillRect: 0, stroke: 0, fillText: 0, shadowBlur: 0, gradient: 0, cue: 0 } },
+          rendered: 0, rafTicks: 0, fpsAt: 0, samples: [], drawCalls: { drawImage: 0, fillRect: 0, stroke: 0, fillText: 0, shadowBlur: 0, gradient: 0, cue: 0 } },
   countCalls: true,
   themeErrors: 0, errors: [],
-  introShown: false, twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
+  twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
   security: Object.fromEntries(Object.keys(ENCODING.security).map(k => [k, 0])),
   chg: new Map(), baseline: null, base: { set: false, size: 0, new: 0, gone: 0, changed: 0, ghosts: 0, sizeCl: 0, newCl: 0, goneCl: 0, ghostsCl: 0 }, ghosts: new Map(),
   watch: [], obs: [], obsFirst: new Map(), alerts: [], obsProbe: { firstGen: null },
   rules: [], notes: new Map(), inv: { sort: "rssi", dir: -1, filter: {} }, homing: null, homeOpen: false, homePeak: { bssid: null, dbm: null, gen: null, polls: 0 },
   recvT0: null, dx: null, chanMode: "bars", timeScale: "10m", wfBand: "2.4", threshold: null, long: new Map(), chanPeak: new Map(), rec: null, replay: null,   // analysis drawers (air|time|rec), channel-bar mode, operator threshold, long RSSI history, peak hold, recorder/replay (memory only)
   hop: null, own: { bssids: new Set(), ssids: new Set() },   // channels[] of the last document (null = none: absence is never "gone"); own transmitters, in memory only
-  persistOn: false, persistFade: 0, arcs: [], travelDots: 0, probeArcs: 0,
+  persistOn: false, persistFade: 0, travelDots: 0, probeArcs: 0,
 };
 const canvasBg = document.getElementById("bg"), canvasSky = document.getElementById("sky"), canvasHud = document.getElementById("hud");
 const ctxBg = canvasBg.getContext("2d"), ctxSky = canvasSky.getContext("2d"), ctxHud = canvasHud.getContext("2d");
@@ -1630,7 +1630,7 @@ function newAp(id) {
     hidden: true, clientCount: 0, vendor: null, rate: null, last_seen: null, width: null, phy: null, caps: null, beacons: null,
     a0: 0, angleT: null, radiusT: 0.5, angle: null, radius: 0.5, wx: 0, wz: 0, p3: [0, 0, 0], p: [0, 0, 0], jitY: hash(id + "y"),
     sx: 0, sy: 0, zc: 1, px: 0, fog: 1, lod: 0, alphaDraw: 0, basePx: 0, basePxMax: LAYOUT.basePxMaxCore,
-    target: 1, alpha: 0, born: 0, dying: null, phase: hash(id + "p") * Math.PI * 2, capSeq: -1, newSeq: -1, changedSeq: -1, cueSeq: -1, cueT0: 0, cueAmp: 0, revealAt: null,
+    target: 1, alpha: 0, born: 0, phase: hash(id + "p") * Math.PI * 2, capSeq: -1, newSeq: -1, changedSeq: -1, cueSeq: -1, cueT0: 0, cueAmp: 0, revealAt: null,
     akm: null, cipher: null, auth: null, respondedSsids: null, packets: null, mobile: false, groupKey: null, interfere: [], sparkDirty: true, flare: 0, flareT: 0, ageS: null, freshTier: null, freshA: 1, freshAT: 1,
     pStart: -1, pCount: 0, pState: null, pT0: 0, orbitRcap: LAYOUT.orbitMaxPx, hexA: 0, seen: false };
 }
@@ -1639,7 +1639,7 @@ function newClient(mac) {
     parent: null, free: true, band: null, homeAngle: 0, homeR: 0.5, jitterR: 0, lx: 0, lz: 0, wx: 0, wz: 0, placed: false,   // placed: wx/wz hold a position (a flag instead of null, so both stay plain number fields and the per-frame writes allocate nothing)
     orbitR: 32, orbitPhase: 0, orbitSpeed: 0, orbitTilt: 0, rank: 0, p3: [0, 0, 0], p: [0, 0, 0], jitY: hash(mac + "h"), jitZ: hash(mac + "z"),
     sx: 0, sy: 0, zc: 1, px: 0, fog: 1, lod: 0, alphaDraw: 0, basePx: 3.5, basePxMax: 5,
-    target: 1, alpha: 0, born: 0, dying: null, bubble: null, bubbleBlend: 0, cell: 0, capSeq: -1, newSeq: -1, cloud: null, randOut: false,
+    target: 1, alpha: 0, born: 0, bubble: null, bubbleBlend: 0, capSeq: -1, newSeq: -1, cloud: null, randOut: false,
     ageS: null, freshTier: null, freshA: 1, freshAT: 1, sparkDirty: true, baseState: null };
 }
 function histPush(node, rssi, gen) {
@@ -1682,7 +1682,7 @@ function histPushCl(seenCl, gen) {
 const NEW_CAPTURES = 3, CUE_DB = 3, CUE_S = 0.9;   // "new" lasts 3 captures · RSSI jump that raises the change cue (dB) · cue pulse length (s of S.clock)
 function eventsReset() {
   // every register below belongs to the one source (rule above)
-  S.captureSeq = 0; S.ev = { lastGen: null, arrived: 0, departed: 0, changed: 0, cues: 0, newStations: 0, departedStations: 0, newInClouds: 0 };
+  S.captureSeq = 0; S.ev = { lastGen: null, arrived: 0, departed: 0, newStations: 0, departedStations: 0, newInClouds: 0 };
   S.clouds.clear(); S.cloudOrder = [];   // §8.8a
   S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;
   S.chg = new Map();
@@ -1695,7 +1695,7 @@ function eventsBegin(gen, newSource) {   // → true when this ingest is a new c
   if (newSource) eventsReset();
   if (gen == null || gen === S.ev.lastGen) return false;
   S.captureSeq++; S.ev.lastGen = gen;
-  S.ev.arrived = S.ev.departed = S.ev.changed = S.ev.cues = S.ev.newStations = S.ev.departedStations = S.ev.newInClouds = 0;
+  S.ev.arrived = S.ev.departed = S.ev.newStations = S.ev.departedStations = S.ev.newInClouds = 0;
   return true;
 }
 const isNewAp = (n) => n.newSeq > 0 && S.captureSeq - n.newSeq < NEW_CAPTURES;
@@ -1714,15 +1714,14 @@ function chgPush(id, seq, t, kind, from, to) {
   a.push({ seq, t, kind, from, to }); if (a.length > CHG_MAX) a.shift();
 }
 function eventsSettle(pend, gen, seq, seenAp, seenCl) {   // recount the capture's events without mobile/own APs, then write the change log
-  let ar = 0, ch = 0, cu = 0, dp = 0, dps = 0;
+  let ar = 0, dp = 0, dps = 0;
   S.aps.forEach(n => {
     if (eventSkip(n)) return;
-    if (n.newSeq === seq) ar++; if (n.changedSeq === seq) ch++; if (n.cueSeq === seq) cu++;
+    if (n.newSeq === seq) ar++;
     if (!seenAp.has(n.id) && n.capSeq === seq - 1) dp++;
   });
   S.clients.forEach(n => { if (!seenCl.has(n.id) && n.capSeq === seq - 1) dps++; });   // a station in the previous capture and not in this one
   if (seq > 1) { S.ev.arrived = ar; S.ev.departed = dp; S.ev.departedStations = dps; }
-  S.ev.changed = ch; S.ev.cues = cu;
   for (const [id, kind, from, to] of pend) if (!eventSkip(S.aps.get(id))) chgPush(id, seq, gen, kind, from, to);
 }
 function ingest(doc, opts = {}) {
@@ -1743,15 +1742,15 @@ function ingest(doc, opts = {}) {
   for (const a of doc.aps) {
     let n = S.aps.get(a.bssid); const isNew = !n;
     if (!n) { n = newAp(a.bssid); S.aps.set(a.bssid, n); changed = true; n.born = now; if (opts.resume) resumeMarks(opts.resume.aps, n); }
-    if (n.target !== 1) { n.target = 1; n.dying = null; n.born = now; changed = true; }
+    if (n.target !== 1) { n.target = 1; n.born = now; changed = true; }
     if (cap) {   // D2/D18: judged against the values the previous capture left on the node, before they are overwritten
       if (cmp && n.capSeq !== seq - 1) { n.newSeq = seq; S.ev.arrived++; }
       else if (cmp) {
         const ns = secClass(a.security, a.akm, a.cipher);   // same classifier as n.sec below (akm/cipher decide some classes); freq is NOT compared (DS channel only)
         const p0 = pend.length;
         for (const [k, from, to] of [["channel", n.channel, a.channel], ["security", n.sec, ns], ["ssid", n.ssid, a.ssid], ["band", n.band, a.band]]) if (from !== to) pend.push([n.id, k, from, to]);
-        if (pend.length > p0) { n.changedSeq = seq; S.ev.changed++; }
-        if (n.rssi != null && a.rssi != null && Math.abs(a.rssi - n.rssi) >= CUE_DB) { n.cueSeq = seq; n.cueT0 = S.clock; n.cueAmp = Math.min(1, Math.abs(a.rssi - n.rssi) / 12); S.ev.cues++; S.twinkles++; }
+        if (pend.length > p0) n.changedSeq = seq;
+        if (n.rssi != null && a.rssi != null && Math.abs(a.rssi - n.rssi) >= CUE_DB) { n.cueSeq = seq; n.cueT0 = S.clock; n.cueAmp = Math.min(1, Math.abs(a.rssi - n.rssi) / 12); S.twinkles++; }
       }
       n.capSeq = seq;
     }
@@ -1780,7 +1779,7 @@ function ingest(doc, opts = {}) {
       if (cap) { if (cmp && cn.capSeq !== seq - 1) { cn.newSeq = seq; cn.newT0 = S.clock; S.ev.newStations++; } cn.capSeq = seq; }
       if (cNew || cn.free || cn.affinity || cn.parent !== n.id) cn.orbitPhase = NaN;   // a new orbit: orbitOfClient() starts its phase
       if (cn.target !== 1 || cn.free || cn.affinity || cn.parent !== n.id || cn.rssi !== c.rssi) changed = true;
-      cn.target = 1; cn.dying = null; cn.parent = n.id; cn.free = false; cn.band = n.band; cn.rank = rank;
+      cn.target = 1; cn.parent = n.id; cn.free = false; cn.band = n.band; cn.rank = rank;
       cn.rssi = c.rssi; cn.vendor = c.vendor; cn.last_seen = c.last_seen; cn.packets = c.packets; cn.randomized = c.randomized;
       cn.probes = c.probes; cn.affinity = false; cn.probeVia = null;
       const fc = freshOf(c.last_seen, gen); cn.ageS = fc.ageS; cn.freshTier = fc.tier;   // D1: the station's own last_seen, never its AP's
@@ -1795,7 +1794,7 @@ function ingest(doc, opts = {}) {
     if (cap) { if (cmp && cn.capSeq !== seq - 1) { cn.newSeq = seq; cn.newT0 = S.clock; S.ev.newStations++; } cn.capSeq = seq; }
     if (cn.target !== 1 || !(cn.free || cn.affinity) || cn.rssi !== c.rssi) changed = true;
     if (!cn.affinity) { cn.parent = null; cn.free = true; cn.band = null; }   // applyAffinity() below decides the orbit
-    cn.target = 1; cn.dying = null;
+    cn.target = 1;
     if (String(cn.probes) !== String(c.probes) || cn.vendor !== c.vendor || cn.randomized !== c.randomized) changed = true;   // vendor/randomized: the bubble's summary
     cn.rssi = c.rssi; cn.vendor = c.vendor; cn.last_seen = c.last_seen; cn.packets = c.packets; cn.randomized = c.randomized; cn.probes = c.probes;
     const fc = freshOf(c.last_seen, gen); cn.ageS = fc.ageS; cn.freshTier = fc.tier;   // D1
@@ -1803,8 +1802,8 @@ function ingest(doc, opts = {}) {
     seenCl.add(c.mac);
   }
   if (cmp) S.aps.forEach(n => { if (!seenAp.has(n.id) && n.capSeq === seq - 1) S.ev.departed++; });   // D2: in the previous capture, not in this one
-  S.aps.forEach(n => { if (!seenAp.has(n.id) && n.target !== 0) { n.target = 0; n.dying = now; changed = true; } });
-  S.clients.forEach(n => { if (!seenCl.has(n.id) && n.target !== 0) { n.target = 0; n.dying = now; changed = true; } });
+  S.aps.forEach(n => { if (!seenAp.has(n.id) && n.target !== 0) { n.target = 0; changed = true; } });
+  S.clients.forEach(n => { if (!seenCl.has(n.id) && n.target !== 0) { n.target = 0; changed = true; } });
   if (rebuildClouds(gen, rp)) changed = true;   // §8.8a, before the station history
   // history sweep: a vanished node's history goes HIST_KEEP_S of capture time after its last sample, or HIST_KEEP_INGESTS ingests when undated (no wall clock)
   if (!rp) histPushCl(seenCl, gen);   // station RSSI history
@@ -1828,7 +1827,7 @@ function ingest(doc, opts = {}) {
   const freeLayout = countFreeLayout();
   if (S.nFreeTotal !== freeLayout) changed = true;   // the free set was resized since the last layout: aggForced() answers anew
   S.nFreeTotal = freeLayout;
-  if (changed) { S.layoutDirty = true; S.aggDirty = true; }
+  if (changed) S.layoutDirty = true;
   settleLayout(LAYOUT.settleSyncIter);
   if (opts.newSource) S.relayHold = false;   // another source is another sky: its first layout is not held
   computeGroupEdges();
@@ -1856,7 +1855,7 @@ function applyAffinity() {
     if (!a) { a = []; bySsid.set(ap.groupKey, a); }
     a.push(ap);
   }
-  S.aps.forEach(ap => { ap.orbitCount = ap.clientCount; ap.probeCount = 0; });
+  S.aps.forEach(ap => { ap.orbitCount = ap.clientCount; });
   // capacity: an AP without ≥ hexAbove real clients keeps single orbits (lanes) — probe orbiters never push it into
   // the large hex zone; a hex AP may fill its remaining hex slots (7 + 12 + 18).
   const cap = (ap) => ap.clientCount >= LAYOUT.hexAbove ? 37 : LAYOUT.hexAbove - 1;
@@ -1878,7 +1877,7 @@ function applyAffinity() {
       if (moved) c.orbitPhase = NaN;
       if (moved || c.rank !== best.orbitCount) changed = true;
       c.affinity = true; c.free = false; c.parent = best.id; c.band = best.band; c.probeVia = via;
-      c.rank = best.orbitCount; best.orbitCount++; best.probeCount++;   // after the real clients' ranks → stable lanes
+      c.rank = best.orbitCount; best.orbitCount++;   // after the real clients' ranks → stable lanes
     } else if (c.affinity) {
       changed = true; c.affinity = false; c.free = true; c.parent = null; c.band = null; c.probeVia = null;
     }
@@ -2424,7 +2423,6 @@ function newBubble(id, gx, gz) {
     meanRssi: null, vendors: [], randomized: 0, expandedUntil: null, born: S.clock };
 }
 function rebuildBubbles() {
-  S.aggDirty = false;
   const active = S.clientOrder.filter(c => c.free && c.target === 1 && !c.randOut);   // §8.8a
   for (const c of S.clientOrder) if (!c.free || c.randOut) c.bubble = null;
   const nFree = active.length;
@@ -3204,7 +3202,7 @@ function replayObj() { const r = S.replay, n = S.rec ? S.rec.docs.length : 0; re
 function replayTo(i, opts) {
   const r = S.rec; if (!r || !r.docs.length) return null;
   i = clamp(Math.round(+i), 0, r.docs.length - 1);
-  if (!S.replay) S.replay = { i, pending: null, buffered: 0, play: false, acc: 0, marks: stashMarks(), stale0: S.stalePolls };
+  if (!S.replay) S.replay = { i, pending: null, buffered: 0, play: false, acc: 0, marks: stashMarks() };
   S.replay.i = i;
   const rec = r.docs[i];
   ingest(rec.doc, { replay: true });
@@ -3424,7 +3422,7 @@ function newCloud(id) {
     first: null, last: null, bursts: 0, cadenceS: null, rhythm: 0, probes: [], anchor: "", kept: false, ageS: null, freshTier: null, freshA: 1, freshAT: 1,
     homeAngle: 0, homeR: 0.5, jitterR: 0, homeX: 0, homeZ: 0, lx: 0, lz: 0, wx: 0, wz: 0, placed: false, jitY: hash(id + "h"), jitZ: hash(id + "z"),
     p3: [0, 0, 0], p: [0, 0, 0], sx: 0, sy: 0, zc: 1, px: 0, fog: 1, scale: 1, basePx: CLOUD.pxBase, basePxMax: 7, bubble: null,
-    target: 1, alpha: 0, alphaDraw: 0, born: S.clock, dying: null, expandedUntil: null, sparkDirty: true,
+    target: 1, alpha: 0, alphaDraw: 0, born: S.clock, expandedUntil: null, sparkDirty: true,
     hist: { buf: new Int8Array(HISTORY_LEN), ts: new Float64Array(HISTORY_LEN), head: 0, n: 0, lastGen: null, lastSeq: 0, cl: false } };   // its own series, not in S.hist
 }
 function cloudBands(E) {   // E sorted (rssi desc, MAC asc) → { bands: [{ c, W }], rest }: flat-window mean shift
@@ -3616,14 +3614,14 @@ function rebuildClouds(gen, rp) {   // → true when a member list, the cloud se
     k.rssi = rssi; k.rssiMin = lo; k.rssiMax = hi;   // signal
     k.first = t0; k.last = t1;   // time
     k.bursts = it.bursts; k.cadenceS = it.cad; k.rhythm = it.share; k.kept = it.kept;   // rhythm
-    k.target = 1; k.dying = null; it.was = was;   // lifecycle
+    k.target = 1; it.was = was;   // lifecycle
     k.probes = Array.from(pc.entries()).sort((x, y) => y[1] - x[1] || cmpStr(x[0], y[0])).slice(0, 8).map(x => x[0]);
     const fr = freshOf(t1, gen); k.ageS = fr.ageS; k.freshTier = fr.tier; k.freshAT = ENCODING.fresh.alpha[fr.tier ?? 0]; if (!it.match) k.freshA = k.freshAT;
     for (const e of M) e.c.cloud = k.id;
     live.add(k.id);
     if (!rp && gen != null && k.hist.lastGen !== gen) pushCloudHist(k, rssi, gen);
   }
-  S.clouds.forEach(k => { if (k.target === 1 && !live.has(k.id)) { k.target = 0; k.dying = S.clock; k.expandedUntil = null; changed = true; } });
+  S.clouds.forEach(k => { if (k.target === 1 && !live.has(k.id)) { k.target = 0; k.expandedUntil = null; changed = true; } });
   S.cloudOrder = Array.from(live).sort(cmpStr).map(id => S.clouds.get(id));
   if (!rp && gen != null && gen === S.ev.lastGen && S.ev.cloudGen !== gen) {   // D2, once per capture: new addresses a live cloud took in
     S.ev.cloudGen = gen; let nic = 0;
@@ -3968,7 +3966,7 @@ function tick(t) {
   } else if (S.persistFade > 0) {   // §6.7 idle trail: let phosphor spurs fade, then one clean full frame
     S.persistFade--; render(); S.perf.rendered++;
     if (S.persistFade === 0 && S.persistOn) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }
-  } else S.perf.idleFrames++;
+  }
   perfTick(t);
   requestAnimationFrame(tick);
 }
@@ -4000,7 +3998,7 @@ function resize() {
   inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
   resizeCanvases();
   rebuildBackground();
-  S.layoutDirty = true; S.aggDirty = true;
+  S.layoutDirty = true;
   settleLayout(LAYOUT.settleSyncIter);
   computeGroupEdges();
   layoutEdges();
@@ -5439,7 +5437,7 @@ function toggleBand(b) {
   S.ui.filters[b] = !S.ui.filters[b];
   refreshEssLeads(); applyAffinity(); S.nFreeTotal = countFreeLayout();   // a filtered AP hands its ESS lead and its probe orbiters over
   const btn = document.querySelector('[data-band="' + b + '"]'); if (btn) { btn.classList.toggle("on", S.ui.filters[b]); btn.setAttribute("aria-pressed", String(S.ui.filters[b])); }
-  S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter);
+  S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter);
   computeGroupEdges(); securityCounts(); rebuildChannelStats(); rebuildInterference();
   updateStats(); S.dirty = true;   // updateStats() ends in layoutEdges() → drawChannelBar()
 }
@@ -5451,14 +5449,14 @@ function applyCrt() { const crt = el("crt"); if (crt) crt.classList.toggle("on",
 function setToggle(key, on, opts = {}) {
   S.ui[key] = on;
   if (key === "paused") { const b = el("t-pause"); if (b) b.textContent = on ? "Resume" : "Pause"; }
-  if (key === "agg") { S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter); }
+  if (key === "agg") { S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter); }
   if (key === "crt") applyCrt();
   if (key === "observations" || key === "inventory") {   // one drawer at a time (see applyDrawer)
     if (on) { dropToggle(key === "observations" ? "inventory" : "observations"); S.homeOpen = false; S.dx = null; }
     applyDrawer();
   }
   if (key === "baselineDiff") { baselineRecompute(); obsCompute(); renderObs(); renderInv(); }
-  if (key === "affinity") { if (applyAffinity()) { S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter); } }
+  if (key === "affinity") { if (applyAffinity()) { S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter); } }
   syncButton(key, on);
   if (opts.persist !== false && PERSIST_KEYS.indexOf(key) >= 0) { S.queryLocked.delete(key); saveUi(); }
   updateControlsLook(); updateStats(); S.dirty = true;
@@ -5654,7 +5652,7 @@ function setRandomMode(m, opts = {}) {
   // §8.8a: release a lock or hover on a node the new mode no longer draws
   if (S.locked && ((m !== "cloud" && S.clouds.has(S.locked)) || (m === "hide" && (S.clients.get(S.locked) || {}).randOut))) deselect();
   if (S.hover && ((S.clients.get(S.hover) || {}).randOut || S.clouds.has(S.hover))) setHover(null);
-  applyAffinity(); S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; S.aggDirty = true; settleLayout(LAYOUT.settleSyncIter);
+  applyAffinity(); S.nFreeTotal = countFreeLayout(); S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter);
   if (opts.persist !== false) { S.queryLocked.delete("random"); saveUi(); }
   updateControlsLook(); updateStats(); S.dirty = true; return m;
 }
@@ -7250,7 +7248,7 @@ window.STARCHORUS = Object.freeze({
   clearLocalData: () => guard(clearLocalData),   // P8: deletes every starchorus.* key this page writes
   contrast: (pairs, themeId) => guard(() => contrastPairs(pairs, themeId)),   // WCAG 2.x ratios, default = CONTRAST_PAIRS
   settle: (maxIter = 600) => guard(() => {
-    S.layoutDirty = true; S.aggDirty = true;
+    S.layoutDirty = true;
     S.aps.forEach(n => { n.hexA = 0; });
     S.clientOrder.forEach(n => { n.orbitPhase = NaN; });
     settleLayout(maxIter);

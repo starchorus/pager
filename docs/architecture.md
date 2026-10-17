@@ -157,7 +157,7 @@ ApNode = {
   basePx,                            // core radius px (theme-free, §3.4) – hit test, label offset, drawing
   basePxMax,                         // theme-free maximum (§4.1) – the only size used for layout spacing
   // --- Lifecycle ---
-  target: 1|0, alpha, born, dying, phase, twinkleUntil, twinkleAmp, revealAt,
+  target: 1|0, alpha, born, phase, twinkleUntil, twinkleAmp, revealAt,
   // --- Analyzer ---
   groupKey, interfere: [{id, score, kind}] (max 6), sparkDirty, flare: 0..1, flareT: 0|1,
   // --- Foundation particles (pointers into the pool) ---
@@ -178,8 +178,8 @@ ClientNode = {
   wx, wz,                            // drawn 2D world (eased towards lx, lz; k=3/s)
   orbitR, orbitPhase, orbitSpeed, orbitTilt, rank, // associated or probe orbit (§4.3, §8.9)
   p3, p, sx, sy, zc, px, fog, lod, basePx,
-  target, alpha, born, dying,
-  bubble: bubbleId|null, bubbleBlend: 0..1, cell,
+  target, alpha, born,
+  bubble: bubbleId|null, bubbleBlend: 0..1,
   cloud: cloudId|null,               // §8.8a model: the random cloud it belongs to, set for every present station on every rebuild
   randOut: bool                      // §8.8a view: folded into a shown cloud (Random: cloud) or hidden (Random: hide, randomised and not associated)
 };
@@ -226,7 +226,7 @@ CloudNode = { id: "rc:xxxxxxxx", kind: "cloud", mac: id /* hash key of the relax
   ageS, freshTier (D1 of the newest member), freshA, freshAT,
   homeAngle, homeR, jitterR, homeX, homeZ, lx, lz, wx, wz, placed, jitY, jitZ,   // §4.2, like a free station
   p3, p, sx, sy, zc, px, fog, scale, basePx, basePxMax: 7, bubble: null,
-  target, alpha, alphaDraw, born, dying, expandedUntil: clock|null,
+  target, alpha, alphaDraw, born, expandedUntil: clock|null,
   hist: Hist }                       // one sample per capture, on the node and never in S.hist (keyed by observed MACs)
 ```
 
@@ -256,7 +256,7 @@ S.sourceLabel, S.sourceKey, S.sourceApCount;                // label, change key
 S.liveFeed;                          // fed by the poll or by STARCHORUS.load(…, {mode:"live"}) – only this can go stale (D3)
 S.lastGen, S.stalePolls, S.staleMs, S.lostPolls, S.gaps, S.fresh, S.ingestSeq;   // D3: polls and poll time without a new `generated`, polls without an answer, the last three capture gaps (§9.5)
 S.pinned = Set; S.hover; S.locked;
-S.skyA (sky rotation, rad), S.clock (does not run while paused; stands still under fixedTime), S.dirty, S.settling, S.layoutDirty, S.aggDirty, S.fixedTime;
+S.skyA (sky rotation, rad), S.clock (does not run while paused; stands still under fixedTime), S.dirty, S.settling, S.layoutDirty, S.fixedTime;
 S.perf = { fps, frameMs (EMA α 0.1), lod, dpr, dprStep, drawCalls: {drawImage, fillRect, stroke, fillText, shadowBlur, gradient} };
 S.themeErrors;                       // findings from validateThemes()/validateTheme() (§3.1)
 S.errors;                            // window.onerror + unhandledrejection + API errors (strings, max 50)
@@ -841,9 +841,8 @@ AGG = { cellPx: 32, minCell: (nFree) => nFree <= 200 ? 4 : 3, minCluster: (nFree
 ```
 forced = nFree > LAYOUT.forceAggAbove || density > LAYOUT.forceAggDensity
          density = nFree·(clientMinDistPx + 2)² / (π·(maxRadius² − inner²))
-rebuildBubbles():                     // only when settled && S.aggDirty; never per frame
-  // aggDirty is set with layoutDirty and cleared here; the phase-2 relaxation does NOT set it (no rebuild cycle)
-  S.aggDirty = false
+rebuildBubbles():                     // only from the settle (phase 1 → 2, or when phase 1 runs out of iterations); never per frame
+  // the phase-2 relaxation does NOT call it (no rebuild cycle)
   if (!S.ui.agg && !forced) { all bubbles.target = 0; all client.bubble = null; return }
   grid cellPx over (lx, lz)·maxRadius of the free clients with target = 1
   occupied = cells with count ≥ minCell(nFree), in key order (gz asc, gx asc)
@@ -1079,7 +1078,7 @@ tick(t):
   animating = auto-rotation, easing, settle, blend, bubble blend, twinkle, tween, sky rotation, particles (without reduced motion),
               travelling dots, persistence decay, flicker, cursor blink
   if (S.fixedTime != null) animating = false                              // frozen: only dirty renders
-  if (dirty || animating) { render(); dirty = false } else idleFrames++
+  if (dirty || animating) { render(); dirty = false }
   budget.endFrame(); perf.tick(t)                                        // stats().fps counts rAF ticks
   requestAnimationFrame(tick)
 ```
