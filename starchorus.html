@@ -5881,6 +5881,7 @@ function updateStats() {
 }
 // §9.4 legend = the canvas marks: every colour is a mirrored token (var(--x) → CSS_MIRROR path) that the
 // draw code in §31–35 uses for that mark; ring width/dash/double come from ENCODING. STARCHORUS.legendRows() checks it.
+const swFrame = (inner) => '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true">' + inner + '</svg>';   // the 12 × 12 frame of every swatch except the ring's (14 × 14)
 function svgSwatch(shape, fillVar, strokeVar, strokeW = 1.5, dotVar = null) {
   let inner;
   if (shape === "diamond") inner = '<path d="M6 1 11 6 6 11 1 6Z"';
@@ -5890,7 +5891,7 @@ function svgSwatch(shape, fillVar, strokeVar, strokeW = 1.5, dotVar = null) {
   const fill = fillVar ? ' fill="var(' + fillVar + ')"' : ' fill="none"';
   const stroke = strokeVar ? ' stroke="var(' + strokeVar + ')" stroke-width="' + strokeW + '"' : '';
   const dot = dotVar ? '<circle cx="6" cy="6" r="1.5" fill="var(' + dotVar + ')"/>' : '';
-  return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true">' + inner + fill + stroke + '/>' + dot + '</svg>';
+  return swFrame(inner + fill + stroke + '/>' + dot);
 }
 function bandSwatch(b) {   // core sprites (§31): filled shape if render.shapeFill, else 1-px outline + centre dot, colour band.<b>.core
   const e = ENCODING.band[b] || ENCODING.band.unknown, v = "--band-" + (b === "2.4" ? "24" : b);
@@ -5901,7 +5902,7 @@ function clientSwatch(ringVar, rnd) {   // client/clientAssoc (disc + surface ri
   const mark = THEME.render.clientShape === "cross"
     ? (rnd && THEME.render.clientRandomizedMark === "crossX" ? '<path d="M3.7 3.7l4.6 4.6M8.3 3.7l-4.6 4.6" fill="none" stroke="var(--client)" stroke-width="1"/>' : '<path d="M3.5 6h5M6 3.5v5" fill="none" stroke="var(--client)" stroke-width="1"/>')
     : (rnd && THEME.render.clientRandomizedMark === "hollow" ? '<circle cx="6" cy="6" r="2.6" fill="none" stroke="var(--client)" stroke-width="1.4"/>' : '<circle cx="6" cy="6" r="3" fill="var(--client)" stroke="var(--surface-base)" stroke-width="1"/>');
-  return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true">' + ring + mark + '</svg>';
+  return swFrame(ring + mark);
 }
 function gapRingPath(cx, cy, rad, mid = -Math.PI / 4, gapDeg = ENCODING.gapDeg) {   // a full circle minus a gap centred at `mid` (default: the D6 60° gap at NE)
   const g = gapDeg * Math.PI / 360, a0 = mid + g, a1 = mid - g;
@@ -5918,17 +5919,17 @@ function ringSwatch(enc, strokeVar, r) {   // drawApRings (§34): ENCODING width
 }
 function identitySwatch(e) {   // D7: the frame's form in ink.primary, exactly what drawIdentityFrame strokes
   const d = e.frame === "diamond" ? '<path d="M6 1 11 6 6 11 1 6Z"' : e.frame === "rect" ? '<rect x="0.8" y="2.6" width="10.4" height="6.8"' : '<rect x="1.8" y="1.8" width="8.4" height="8.4"';
-  return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true">' + d + ' fill="none" stroke="var(--ink-primary)" stroke-width="1.5"' + (e.dash ? ' stroke-dasharray="' + e.dash.join(" ") + '"' : '') + '/></svg>';
+  return swFrame(d + ' fill="none" stroke="var(--ink-primary)" stroke-width="1.5"' + (e.dash ? ' stroke-dasharray="' + e.dash.join(" ") + '"' : '') + '/>');
 }
-function freshSwatch(alpha) { return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="var(--ink-secondary)" fill-opacity="' + alpha + '"/></svg>'; }   // D1: the tier's alpha on a neutral disc
+function freshSwatch(alpha) { return swFrame('<circle cx="6" cy="6" r="4.5" fill="var(--ink-secondary)" fill-opacity="' + alpha + '"/>'); }   // D1: the tier's alpha on a neutral disc
 const SEC_TONE_VAR = { alarm: "--status-alarm", strong: "--status-ring-strong", neutral: "--status-ring-neutral", muted: "--ink-muted" };   // = drawHud glyph colorKey
 function derivedSwatch() {   // D17/D10: every derived row carries the same hatch — a theme-free "computed, not measured" mark
-  return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="var(--ink-muted)" stroke-width="1"/><path d="M2 10L10 2M2 6L6 2M6 10L10 6" fill="none" stroke="var(--ink-muted)" stroke-width="1"/></svg>';
+  return swFrame('<rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="var(--ink-muted)" stroke-width="1"/><path d="M2 10L10 2M2 6L6 2M6 10L10 6" fill="none" stroke="var(--ink-muted)" stroke-width="1"/>');
 }
 function pinSwatch() {   // D5: the notched arc drawPinMark strokes (ink.secondary)
   const r = 4.6, g = ENCODING.pin.gapDeg * Math.PI / 360, a0 = -Math.PI / 2 + g, a1 = -Math.PI / 2 - g + 2 * Math.PI, nt = 1.6, f = (v) => v.toFixed(2);
   const tick = (a) => 'M' + f(6 + Math.cos(a) * (r - nt)) + ' ' + f(6 + Math.sin(a) * (r - nt)) + 'L' + f(6 + Math.cos(a) * (r + nt)) + ' ' + f(6 + Math.sin(a) * (r + nt));
-  return '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true"><path d="' + gapRingPath(6, 6, r, -Math.PI / 2, ENCODING.pin.gapDeg) + tick(a0) + tick(a1) + '" fill="none" stroke="var(--ink-secondary)" stroke-width="1.5"/></svg>';
+  return swFrame('<path d="' + gapRingPath(6, 6, r, -Math.PI / 2, ENCODING.pin.gapDeg) + tick(a0) + tick(a1) + '" fill="none" stroke="var(--ink-secondary)" stroke-width="1.5"/>');
 }
 const derivedRow = (id, kind, text) => '<div class="legrow note" id="' + id + '" data-kind="' + kind + '" hidden>' + derivedSwatch() + '<span>' + text + '</span></div>';
 function buildLegend() {   // D10: one builder, four blocks (Measured / Derived / Operator / Look), the same rows in every theme; visibility in legendVisibility()
@@ -5974,7 +5975,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push(block("operator"));
   rows.push('<div class="legrow note" data-kind="id-head">identity (APP-6, set in detail):</div>');
   for (const k of ["friend", "neutral", "hostile"]) rows.push('<div class="legrow note" data-kind="id-' + k + '">' + identitySwatch(ENCODING.identity[k]) + '<span>' + esc(ENCODING.identity[k].label) + '</span></div>');
-  rows.push('<div class="legrow note" data-kind="selected"><svg class="sw" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="var(--accent-selection)" stroke-width="1.5"/></svg><span>selected</span></div>');
+  rows.push('<div class="legrow note" data-kind="selected">' + swFrame('<circle cx="6" cy="6" r="4.6" fill="none" stroke="var(--accent-selection)" stroke-width="1.5"/>') + '<span>selected</span></div>');
   rows.push('<div class="legrow note" data-kind="pinned">' + pinSwatch() + '<span>pinned</span></div>');
   rows.push(block("look"));
   rows.push('<div class="legrow note" id="leg-height" data-kind="height" hidden>height = band (2.4 below · 5 mid · 6 above)</div>');
