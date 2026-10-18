@@ -39,7 +39,9 @@ SIGHUP down ignored to every process it starts, a shell cannot trap a signal it 
 the HUP case of the Overview's trap row (`display-selftest.sh`, S18) would then test the runner rather
 than the code (exit 0 instead of 129, a waiter left). The row asks each shell once whether a HUP trap
 works in it and, where it does not, starts the Overview through a small python3 relauncher that puts
-HUP back to default; its text says when it had to.
+HUP back to default; its text says when it had to. On a Mac the run holds `caffeinate -i` for its own
+lifetime: an idle sleep otherwise stretches it across the maintenance wakes (3 h instead of 40 min on
+18 October 2026); a closed lid still sleeps, and `fresh-check.sh` inherits the hold through the regress it starts.
 
 **Timing.** The wall time per phase and per drop-in (whole seconds) is written to
 `out/PREFIX-timing.txt`; a row at the end of `regress.sh` asks for every drop-in in the directory

@@ -15,6 +15,11 @@
 preflight $PF_TOOLS_FULL || exit 2
 [ "${STARCHORUS_PREFLIGHT_ONLY:-0}" != 1 ] || { echo "preflight: ok (T2)"; exit 0; }   # probe mode of tools/regress.d/preflight.sh
 P=${1:-rg}; cd "$R" || exit 2
+# Idle sleep stretches a run across the Mac's maintenance wakes (3 h instead of 40 min with a one-minute sleep
+# setting, 18 October 2026): where caffeinate exists (macOS) hold the machine awake for this shell's lifetime.
+# Started from a subshell so it is no job of this shell (a bare `wait` would otherwise wait for it), -w ends it
+# with the run; idle sleep only, a closed lid still sleeps. fresh-check.sh inherits it through the regress it starts.
+command -v caffeinate >/dev/null 2>&1 && (caffeinate -i -w $$ >/dev/null 2>&1 &)
 tm_begin "out/$P-timing.txt"   # wall time per phase and drop-in, whole seconds; read by the last row
 # shellcheck source-path=SCRIPTDIR source=static.sh
 . "$R/tools/static.sh"
