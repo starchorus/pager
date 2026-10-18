@@ -250,7 +250,7 @@ TR_PID=""           # the background RECON CHANNELS call of this cycle
 TR_REUSE=0          # 1 = the next cycle reads the answer file of this one again instead of calling: the call is made on the first cycle and then every second one
 # Bluetooth constants. The times are hundredths of a second of bt_now. A test may set the variables; production never does.
 BT_HOLD=120         # seconds a record is carried after its window (center.bt_hold)
-BT_T_READY=300      # the monitor has this long to hold its socket before the scan starts
+BT_T_READY=500      # the monitor has this long to hold its socket before the scan starts (0.5 s idle, over 3 s under a full load on the device, 18 October 2026)
 BT_T_KID=100        # how long the tool's own pid is looked for
 BT_T_GRACE=100      # the monitor is stopped this long after the scan is gone (it has recorded the disable by then)
 BT_T_MON=200        # a monitor that was told to end has this long before TERM, and after TERM before KILL
@@ -998,7 +998,7 @@ bt_end() {
         *terminated*) bt_issue terminated "Bluetooth: the scan did not end on SIGINT and was terminated; the controller may still be scanning (passive; see device-notes V-13)" ;;
     esac
     case $BT_NOTES in
-        *big*) bt_issue busy "Bluetooth: busy air, parsed the first 512 KiB and the end of the window" ;;
+        *big*) bt_issue busy "Bluetooth: busy air, parsed the first 256 KiB and the end of the window" ;;
     esac
     if [ "$be_scan" = 0 ]; then BT_VOID=nomonitor
     elif [ -n "$BT_VOID" ]; then :
@@ -1205,16 +1205,16 @@ AWK_BT='
         if (ext + order > 0) printf "F\t%d\t%d\n", ext, order
     }
 '
-# $1 = the window's text file; stdout = the B and W lines. The first 512 KiB and the last 8 KiB of a bigger file are read (the disable block is at
+# $1 = the window's text file; stdout = the B and W lines. The first 256 KiB and the last 8 KiB of a bigger file are read (the disable block is at
 # the end; BT_BIG says so), cut down by one grep (C speed) to the lines the grammar reads, then clean_ctrl; the awk runs under `timeout 6`, so a
-# crowded hall can never hold the Wi-Fi document back for longer than that (rc 124: the caller voids the window). 512 KiB is roughly 1,200 reports.
+# crowded hall can never hold the Wi-Fi document back for longer than that (rc 124: the caller voids the window). 256 KiB is roughly 600 reports (it was 512 KiB until 18 October 2026, when the Pager's awk, at 0.68 ms per kept line, ran past the 6 s on a 2-MiB test window).
 bt_parse() {
     bp_k='(^|\]: )[<>] HCI |^      LE (Extended )?Advertising Report|^        (Type|Scanning|Event type|Address type|Address|Company|Name \(complete\)|Name \(short\)|RSSI): '
     file_size "$1"; bp_n=${FSZ:-0}; BT_BIG=0
-    if [ "$bp_n" -gt 540672 ] 2>/dev/null; then BT_BIG=1; fi
+    if [ "$bp_n" -gt 278528 ] 2>/dev/null; then BT_BIG=1; fi
     {
         if [ "$BT_BIG" = 1 ]; then
-            head -c 524288 "$1" | LC_ALL=C grep -E "$bp_k"
+            head -c 262144 "$1" | LC_ALL=C grep -E "$bp_k"
             printf '#--#\n'
             tail -c 8192 "$1" | sed 1d | LC_ALL=C grep -E "$bp_k"
         else
@@ -1256,7 +1256,7 @@ EOF
     esac
     [ "$bj_sr" = 0 ] || bt_issue scanrsp "Bluetooth: $bj_sr scan responses in a passive window (counted, not used)"
     [ "$bj_su" = 0 ] || bt_issue suspect "Bluetooth: $bj_su malformed reports dropped"
-    [ "$BT_BIG" = 0 ] || bt_issue busy "Bluetooth: busy air, parsed the first 512 KiB and the end of the window"
+    [ "$BT_BIG" = 0 ] || bt_issue busy "Bluetooth: busy air, parsed the first 256 KiB and the end of the window"
     return 0
 }
 
@@ -3011,7 +3011,7 @@ RECON CHANNELS format=json" ]; then st_pass "apcli_ro: the four allowed ids that
     apcli_ro present; ap_pr=$?; mkdir -p "$pt/nobin"
     # shellcheck disable=SC2123  # PATH is replaced on purpose: the command line must not be found
     PATH="$pt/nobin"; apcli_ro present; ap_pn=$?; PATH="$pt/bin:$p_path"
-    if [ "$ap_pr/$ap_pn" = 0/1 ]; then st_pass "apcli_ro: present only asks whether the command line exists (no command run: 0 with the stub, 1 without)"; else st_fail "apcli_ro present ($ap_pr/$ap_pn)"; fi
+    if [ "$ap_pr" = 0 ] && [ "$ap_pn" != 0 ]; then st_pass "apcli_ro: present only asks whether the command line exists (no command run: 0 with the stub, non-zero without: $ap_pn here, 1 on dash and bash, 127 on the device's BusyBox ash)"; else st_fail "apcli_ro present ($ap_pr/$ap_pn)"; fi
     n0=$(wc -l < "$plog" | tr -d ' '); bad=""
     for rid in DEAUTH deauth "RECON STOP" "RECON NEW" "RECON CLIENTS" recon_clients SSID_POOL_ADD WIGLE_UPLOAD GPS_GET WIFI_CONNECT WIFI_PCAP_START OPENVPN_START WIREGUARD_START AUTOSSH_START DNSSPOOF_START INSTALL_FIRMWARE GPS_CONFIGURE FIND_CLIENT_IP "" monitor MONITOR aa:bb:cc:00:00:01; do
         apcli_ro "$rid" >/dev/null 2>&1 && bad="$bad [$rid]"
@@ -3852,7 +3852,7 @@ lay_selftest() {
         st_pass "traffic: every second cycle: an answer that gave nothing usable is not carried (no array that cycle, the next one calls again: $lay_n1/$lay_n2/$lay_n3 calls after each), and the usable answer after it is carried to the cycle after that"
     else st_fail "traffic: bad answer then good (calls after each cycle $lay_n1/$lay_n2/$lay_n3, want 1/2/2; $(grep -h activity "$LAY/alt1.json" "$LAY/alt2.json" "$LAY/alt3.json" | cut -c1-110 | tr '\n' '|'))"; fi
 
-    # 29) a window of 2 MiB: the first 512 KiB and the end are read, the disable block at the end is found, 'busy air' once
+    # 29) a window of 2 MiB: the first 256 KiB and the end are read, the disable block at the end is found, 'busy air' once
     awk 'BEGIN { pad = ""; for (i = 0; i < 100; i++) pad = pad "00"
         n = 1; printf "< HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7  #%d 1.%06d\n        Type: Passive (0x00)\n", n, n; n++
         printf "< HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2  #%d 1.%06d\n        Scanning: Enabled (0x01)\n", n, n; n++
@@ -3861,9 +3861,9 @@ lay_selftest() {
     lay_sz=$(wc -c < "$LAY/big.txt" | tr -d ' ')
     BT_CUR=" "; BT_LOGGED=" "; BT_NOTES=""; lay_a=$(command date +%s); bt_parse "$LAY/big.txt" > "$LAY/big.out"; lay_pr=$?; lay_b=$(command date +%s); bt_judge "$LAY/big.out" 2> "$LAY/big.log"; lay_jr=$?
     lay_w=$(sed -n '/^W/p' "$LAY/big.out"); lay_rep=$(awk -F'\t' '$1 == "B" { n += $5 } END { print n + 0 }' "$LAY/big.out"); lay_nb=$(grep -c '^B' "$LAY/big.out")
-    if [ "$lay_sz" -gt 2000000 ] && [ "$lay_pr" = 0 ] && [ "$lay_jr" = 0 ] && [ "$BT_BIG" = 1 ] && [ "$lay_rep" -gt 500 ] && [ "$lay_rep" -lt 1500 ] && [ "$lay_nb" -gt 0 ] \
+    if [ "$lay_sz" -gt 2000000 ] && [ "$lay_pr" = 0 ] && [ "$lay_jr" = 0 ] && [ "$BT_BIG" = 1 ] && [ "$lay_rep" -gt 300 ] && [ "$lay_rep" -lt 800 ] && [ "$lay_nb" -gt 0 ] \
        && [ "$(printf '%s\n' "$lay_w" | cut -f5)" = 1 ] && [ "$(printf '%s\n' "$lay_w" | cut -f2)" = 1 ] && [ "$(grep -c 'busy air' "$LAY/big.log")" = 1 ] && [ $((lay_b - lay_a)) -le 6 ]; then
-        st_pass "size: a $((lay_sz / 1024)) KiB window -> the first 512 KiB ($lay_rep reports) and the end are parsed in $((lay_b - lay_a)) s, the disable block at the end is found, one 'busy air' line"
+        st_pass "size: a $((lay_sz / 1024)) KiB window -> the first 256 KiB ($lay_rep reports) and the end are parsed in $((lay_b - lay_a)) s, the disable block at the end is found, one 'busy air' line"
     else st_fail "size: big window (size $lay_sz, rc $lay_pr/$lay_jr, big $BT_BIG, reports $lay_rep, W [$lay_w], $((lay_b - lay_a)) s)"; fi
     # the parse over its time: the stand-in for the timeout that ends the awk with 124 voids the window; the file of a window that is not there at all
     lay_pa=$PATH; printf '#!/bin/sh\nexit 124\n' > "$LAY/hb/timeout"; PATH="$LAY/hb:$PATH"
@@ -4136,14 +4136,14 @@ BTWIN
 
     # 15) the monitor does not get ready (no output, no socket): rc 6 after the wait, no scan was asked for, the monitor is stopped
     bts_reap; printf 'silent\n' > "$BTS/cfg/M.mode"; BT_T_READY=100
-    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=300
+    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=500
     if [ "$BTW_RC" = 6 ] && [ ! -e "$BTS/log/argv.S" ] && [ -e "$BTS/log/argv.M" ] && [ "$BT_VOID" = nomonitor ] && [ $((bts_t1 - bts_t0)) -le 5 ]; then
         st_pass "bt_begin: a monitor that holds no socket and writes nothing -> rc 6, the scan is never started, the monitor is stopped, the window is void"
     else st_fail "bt_begin: not ready (rc $BTW_RC, scan argv [$(cat "$BTS/log/argv.S" 2>/dev/null)], void [$BT_VOID], $((bts_t1 - bts_t0)) s)"; fi
     bts_idle "monitor not ready"
     # 15b) the monitor has written its banner but holds no socket yet (the device's order: banner after 0.1 s, socket after 0.5 s): not ready either
     bts_reap; printf 'banner\n' > "$BTS/cfg/M.mode"; BT_T_READY=100
-    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=300
+    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=500
     if [ "$BTW_RC" = 6 ] && [ ! -e "$BTS/log/argv.S" ] && [ -e "$BTS/log/argv.M" ] && [ "$BT_VOID" = nomonitor ] && [ $((bts_t1 - bts_t0)) -le 5 ]; then
         st_pass "bt_begin: a monitor that has written only its banner and holds no socket is not ready -> rc 6, the scan is never started, the window is void"
     else st_fail "bt_begin: banner counted as ready (rc $BTW_RC, scan argv [$(cat "$BTS/log/argv.S" 2>/dev/null)], void [$BT_VOID], $((bts_t1 - bts_t0)) s)"; fi
