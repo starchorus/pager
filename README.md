@@ -107,6 +107,20 @@ Starchorus 0.1.1. Every part carries the same number:
     hidden; the legend still counts them all ('n randomised MAC · k in m clouds'). The Overview
     counts clouds by the same rule ('Clients 247 free (245 random, 1 cloud)'), and the CSV export
     ends in a `cloud` column.
+- **Bluetooth LE** (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive scan of 6 seconds per refresh. What it
+  hears is drawn as small triangles at the radius of their signal on the same rings as the Wi-Fi nodes; the rings are shared, the scale is not,
+  and direction is not measured. A filled triangle is an address that does not rotate, a hollow one is rotating addresses of one
+  company in one signal ring, folded into one mark (a dot at its centre; the tooltip gives the count); the figures are **addresses, not
+  devices**, and a rotating address is never linked to another. The company is the id in the advertisement (it names who registered the
+  data, not necessarily the maker), shown by its name where the scan reports one. Key `4` and the 'BT' button hide the layer; the
+  counter 'BT addresses' (it keeps its count while the marks are hidden, and reads a dash when a scan failed and nothing is held) and
+  the legend say which window the figure covers. Without a valid scan this cycle the marks are kept for two minutes and dim by age. A
+  mark has a tooltip, no detail sheet in this release.
+- **Channel activity and traffic** (opt-in, Settings > Traffic, or `STARCHORUS_TRAFFIC=1`): the AP service's frame count per frequency
+  becomes a thin whisker in each channel bar, a **relative share** of the frames heard, with its own scale and never a device count; the
+  Bands screen of the Overview shows it as text bars. A station that is heard often wears four short ticks round its dot, in three
+  levels on a logarithmic scale of the frames heard from it per second (the scale ends at 5 per second, about the 95th percentile
+  measured on one device); it depends on where the radio listens, and it shows nothing when the feed is not live.
 - **Tools:** Observations (`W`), baseline diff (`B`), inventory (`I`), air quality (`Q`),
   signal over time (`J`), recording and replay (`H`), channel view (`Y`), homing meter (`F`).
   Export as JSON, CSV, SITREP text or PNG.
@@ -145,7 +159,7 @@ Starchorus contains no function that transmits or interferes:
 - no spoofed or impersonated access point
 - no packet injection
 - no association with other people's networks
-- no active scan
+- no active scan, and on Bluetooth no inquiry, no scan request, no advertising, no connection, no pairing
 
 Only the following is permitted:
 
@@ -154,7 +168,13 @@ Only the following is permitted:
 - asking the device's AP service for the recon lists it already holds, with two read-only commands
   (`STARCHORUS_SOURCE=pineap`, opt-in; see [SECURITY.md](SECURITY.md));
 - receiving in monitor mode (`tcpdump`, or `airodump-ng` without injection);
-- tuning the receiver to a channel.
+- tuning the receiver to a channel;
+- a passive Bluetooth LE scan (`STARCHORUS_BLUETOOTH=1`, opt-in, off by default): `hcitool -i hci0 lescan --passive --duplicates`
+  for 6 seconds per refresh, read with `btmon -i hci0`. A passive scan sends no scan request; it listens for advertisements that
+  devices broadcast anyway. A window counts only when `btmon` shows the collector's own scan parameters as `Passive`, and nothing else
+  of the Bluetooth stack is ever called (every other tool is denied by name in the static check; see [SECURITY.md](SECURITY.md));
+- the AP service's channel activity (`STARCHORUS_TRAFFIC=1`, opt-in, off by default): one read-only command,
+  `RECON CHANNELS format=json`.
 
 The collector creates its own monitor interface only if none exists, and removes it again on exit.
 It never touches the recon radio or the management radio.
@@ -273,7 +293,7 @@ and 'Stop' ask nothing and show a spinner while they work; 'Start' keeps its spi
 scan has been written (up to 20 seconds) and then opens the Overview, from which key B goes up one
 level, to the list of screens, and B there returns to the menu. Only 'Reset to Defaults' asks; key B goes back, and leaving the
 menu stops nothing. Settings holds 'Web Page', 'Refresh' (interval), 'Show Last' (window), 'Vendor
-Names', 'Channel Load' (channel occupancy), 'Port' and 'Reset to Defaults'; a change made while
+Names', 'Channel Load' (channel occupancy), 'Traffic' and 'Bluetooth' (both off by default), 'Port' and 'Reset to Defaults'; a change made while
 Starchorus runs is applied on leaving Settings. Three settings are environment variables only, with
 no row in the menu: `STARCHORUS_OWN` (the device's own radios), `STARCHORUS_DASHBOARD` (`0` keeps the
 Overview from opening after 'Start') and `STARCHORUS_COLLECTOR` (`0` starts no collector). A pid
@@ -287,11 +307,11 @@ payload's README.
 Firmware: the payload's menus use Hak5's [`LIST_PICKER`](https://documentation.hak5.org/wifi-pineapple-pager/list_picker), which needs firmware 1.0.8 or later, and the
 QR dialogue of 'Open on Phone' is reported to need 1.1.1 or later (not tried here on an older firmware; where the command is missing, the payload shows the address as text).
 
-The Overview `starchorus-display.sh` reads the same `starchorus.json` and shows seven screens on the
+The Overview `starchorus-display.sh` reads the same `starchorus.json` and shows eight screens on the
 device's display: the summary, strongest networks, bands and security, devices and merges, probe
-requests, stations and air quality. It starts its wait for a key, with no time limit, before it draws a
+requests, stations, Bluetooth and air quality. It starts its wait for a key, with no time limit, before it draws a
 screen and keeps one open while it draws, so a press made while it reads is kept, and it never redraws by itself: key A draws the screen
-again, key B goes up one level (a screen, then the list of the seven screens, then the menu), and Left
+again, key B goes up one level (a screen, then the list of the eight screens, then the menu), and Left
 and Right step through the screens. Each screen
 ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
 A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again).
@@ -299,7 +319,7 @@ Its only output is LOG lines. Red stands only
 for an alarm (an open or WEP network, the line 'jq incomplete', or 'No new scan' when the collector
 has stopped writing). On the development machine,
 `sh starchorus-display.sh --once <screen> <file>` prints the same content as text; `<screen>` is
-`summary`, `top`, `bands`, `devices`, `probes`, `clients` or `air`.
+`summary`, `top`, `bands`, `devices`, `probes`, `clients`, `bluetooth` or `air`.
 
 ## Configuration
 
@@ -309,7 +329,7 @@ All variables are optional.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_INTERVAL` | `5` | Seconds between two writes (with tcpdump, also the burst length). |
+| `STARCHORUS_INTERVAL` | `5` | Seconds between two writes (with tcpdump, also the burst length). With Bluetooth on, the collector's own default of 5 s leaves little between windows: the share of the Pager's CPU that the layer takes grows as the interval falls below the payload's 30 s. |
 | `STARCHORUS_OUTDIR` | `/tmp/starchorus` | Directory for `starchorus.json` (volatile; for persistence e.g. `/root/loot/starchorus`). |
 | `STARCHORUS_IFACE` | `auto` | Monitor interface, or `auto` to detect one. |
 | `STARCHORUS_SOURCE` | `auto` | `auto`, `capture`, `recondb`, `pineap` (opt-in: the AP service's own recon lists, read-only commands) or `iwscan` (only with `STARCHORUS_ALLOW_ACTIVE=1`). `auto` never picks `pineap`. |
@@ -319,7 +339,7 @@ All variables are optional.
 | `STARCHORUS_MAX_AGE` | `0` | Recon database and `pineap` sources: only devices from the last N seconds (live window, e.g. `120`); `0` = the whole record. |
 | `STARCHORUS_CAPDIR` | `$OUTDIR/cap` | Capture files, the vendor cache and the index of the OUI file (flash: the cache only grows and the index is built once per OUI file, neither is rewritten every cycle; the capture files of `airodump-ng` are, every 2 s, and so is the database copy when `STARCHORUS_TMPDIR` has no room for it). |
 | `STARCHORUS_TMPDIR` | `/tmp` | Recon database and `pineap` sources: where the working copy of the database lives (RAM on the device) and the `pineap` security cache (`starchorus-sec.txt`). With too little room for the database copy, `STARCHORUS_CAPDIR` is used as before; if it is not a writable directory at all, the `pineap` source can look up no security and marks every access point `Unknown`. |
-| `STARCHORUS_SKIP_UNCHANGED` | `1` | Recon database only: a cycle in which the database is unchanged since the last full pass, and no row can have left the window, only refreshes `generated` of that pass's document. `0` = always rebuild. |
+| `STARCHORUS_SKIP_UNCHANGED` | `1` | Recon database only: a cycle in which the database is unchanged since the last full pass, and no row can have left the window, only refreshes `generated` of that pass's document (the Bluetooth and traffic layers are still taken every cycle; with Bluetooth on, a skipped cycle lasts about the window). `0` = always rebuild. |
 | `STARCHORUS_PIDDIR` | `$OUTDIR` | Pidfiles. |
 | `STARCHORUS_VENDOR` | `1` | `1` = fields `vendor`/`randomized` from a local OUI file; `0` = never. |
 | `STARCHORUS_OUI_FILE` | `auto` | Path of the OUI file; `auto` tries the usual paths (listed in the collector's header). |
@@ -328,7 +348,10 @@ All variables are optional.
 | `STARCHORUS_OWN` | `0` | `1` = own BSSIDs (interface MACs) and own SSIDs (only from `STARCHORUS_OWN_SSID_FILE`) in `center`. |
 | `STARCHORUS_HOMING_BSSID` | empty | one AP for the homing meter; alternatively the first line of `$STARCHORUS_OUTDIR/homing.target`. |
 | `STARCHORUS_PINEAP_CALLS` | `recent` | `pineap` source only: `recent` = one `RECON DEVICES` call, newest first and cut at 400 entries (`sort=time sortdir=desc limit=400`; its passivity is checked on the device, the ordering and the cut are still to be looked at, device-notes §5a and §6a), the access points taken from its beacon records; `full` = `RECON APS` + `RECON DEVICES`, every device of the AP service's session is read and parsed, which costs about 22 ms of the device's CPU each. |
-| `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` its read-only commands of the AP service (three fixed command lines, see [SECURITY.md](SECURITY.md)). Nothing calls it except the `pineap` source, and `STARCHORUS_SOURCE=pineap` switches it on for itself. |
+| `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` its read-only recon commands of the AP service (three fixed command lines, see [SECURITY.md](SECURITY.md)). Nothing calls it except the `pineap` source, and `STARCHORUS_SOURCE=pineap` switches it on for itself. The channel-activity line is not one of them: it needs `STARCHORUS_TRAFFIC=1` alone. |
+| `STARCHORUS_BLUETOOTH` | `0` | `1` = a passive Bluetooth LE scan window every cycle (`hcitool -i hci0 lescan --passive --duplicates`, read with `btmon -i hci0`), written as `bluetooth[]`. Needs a controller `hci0` and the tools, otherwise the layer stays off. Payload key: `bluetooth on\|off` (Settings > Bluetooth). |
+| `STARCHORUS_BT_WINDOW` | `6` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 6, with one log line. Environment only. |
+| `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` every cycle (written as `activity[]`, a relative share per frequency) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 
@@ -396,6 +419,7 @@ friend, neutral or suspect. The page itself never classifies anything.
 | `D` `M` `P` | Device links, Merge SSID, probe orbits | `Esc` | Close dialogue or detail |
 | `W` `B` `I` | Observations, baseline, inventory | `?` | All keys |
 | `U` | Hide or show the panels | `X` | Random: clouds, one by one, hidden |
+| `4` | Bluetooth marks on or off (when the capture has them) | | |
 
 `?` on the page shows the full list; it is also in the specification (§9.6).
 
@@ -426,6 +450,12 @@ The collector produces exactly the format the page reads:
   `unassociated`.
 - Additional fields, such as `vendor`, `last_seen`, `akm`, `cipher`, `auth`, `channels[]` or
   `homing`, are omitted when unknown; they are never `null`.
+- Opt-in layers, each absent while its switch is off: `bluetooth[]` (`addr`, `addr_type`, `rssi`, `reports`, `last_seen`, and `company`,
+  `company_name`, `name`, `connectable` when advertised: addresses heard in the last passive scan and the ones held for two minutes,
+  at most 256, strongest first), with `center.bt_window` (the scan's length in seconds, `0` when this cycle had no valid scan) and
+  `center.bt_hold`; `activity[]` (`freq`, `share`: the share of the frames heard on that frequency among all frequencies from 2400 MHz up,
+  never a count) and the absolute `packets` counter on stations. `channels[]` is unchanged, so the baseline and the Watchlist never read
+  activity as 'visited'.
 
 The header of `starchorus-collect.sh` describes the fields. The page's data model is in the
 specification.
@@ -485,5 +515,6 @@ set out in [CONTRIBUTING.md](CONTRIBUTING.md#licensing-of-your-contributions).
 
 Hak5, WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC. They are used here only to
 say which device Starchorus runs on. Starchorus is an independent project; it is not affiliated
-with, sponsored or endorsed by Hak5 LLC, and Hak5 does not support it. Other product names belong to
-their respective owners.
+with, sponsored or endorsed by Hak5 LLC, and Hak5 does not support it. Bluetooth is a trademark of the
+Bluetooth SIG; it is used here only to name the radio technology that is observed, and the page draws a
+plain triangle, never the Bluetooth logo. Other product names belong to their respective owners.

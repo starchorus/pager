@@ -22,6 +22,8 @@ CHECKS
   runlist   the run list of docs/architecture.md §11.0 = the fixture loop of tools/regress.sh (names, order, count).
   headers   the "# Version:" header of every script that carries one (collector, display script and its library copy, serve script,
             both payload.sh) is the page version (`version: "x.y.z"` in starchorus.html): one project, one version number.
+  contract  [--want N]   the "# Contract:" header of the four scripts that carry one (collector, display script and its library copy,
+            the library payload.sh) is one number, and N where --want is given (the radio pair's interface number is 3).
 GUARDS AGAINST: a list or number that is copied by hand goes stale without any row noticing (a new shell script in no shell list; a
                 README that names a check count the selftest no longer has; a doc that names a collector version other than the current one).
 NEGATIVE PROBE: tools/regress.d/doc-truth.sh breaks one input per check in a copy (rename a source literal, a wrong count, a header
@@ -426,8 +428,34 @@ def chk_headers(a, root):
     return result("page %s = %d script headers (%s)" % (page, len(parts), "; ".join(parts) if parts else "none"), prob)
 
 
+# ------------------------------------------------------------------ contract
+CONTRACT_SCRIPTS = ("starchorus-collect.sh", "starchorus-display.sh", "library/user/reconnaissance/starchorus/starchorus-display.sh",
+                    "library/user/reconnaissance/starchorus/payload.sh")
+
+
+def chk_contract(a, root):
+    prob, nums = [], []
+    for script in CONTRACT_SCRIPTS:
+        n = None
+        for ln in rd(root, script).split("\n")[:40]:
+            m = re.match(r"^#\s*Contract:\s*(\d+)\s*$", ln)
+            if m:
+                n = int(m.group(1))
+                break
+        if n is None:
+            prob.append("%s has no `# Contract:` header in its first 40 lines" % script)
+        else:
+            nums.append(n)
+            if a.want is not None and n != a.want:
+                prob.append("%s: header says %d, want %d" % (script, n, a.want))
+    if len(set(nums)) > 1:
+        prob.append("the headers do not agree: %s" % ", ".join("%s %d" % (s, n) for s, n in zip(CONTRACT_SCRIPTS, nums)))
+    return result("Contract %s in %d script headers%s" % ("/".join(str(n) for n in sorted(set(nums))) or "none", len(nums),
+                                                        "" if a.want is None else " (want %d)" % a.want), prob)
+
+
 CHECKS = {"lists": chk_lists, "sources": chk_sources, "census": chk_census, "fixtures": chk_fixtures,
-          "prose": chk_prose, "runlist": chk_runlist, "headers": chk_headers}
+          "prose": chk_prose, "runlist": chk_runlist, "headers": chk_headers, "contract": chk_contract}
 
 
 def main():
@@ -437,6 +465,7 @@ def main():
     ap.add_argument("--list", action="append")
     ap.add_argument("--exception", action="append")
     ap.add_argument("--no-fixture", action="append", dest="no_fixture")
+    ap.add_argument("--want", type=int, default=None)
     a = ap.parse_args()
     try:
         return CHECKS[a.check](a, os.path.abspath(a.root))

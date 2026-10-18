@@ -145,7 +145,7 @@ else
 fi
 
 # ---- starchorus-display.sh: the same swap on the Overview (cmp + shellcheck are core rows)
-SRC_N1=$(for SRC_S in summary top bands devices probes clients air; do
+SRC_N1=$(for SRC_S in summary top bands devices probes clients bluetooth air; do
   STARCHORUS_DISPLAY_PLAIN=1 sh "$R/starchorus-display.sh" --once "$SRC_S" "$F/active.json"
 done | grep -ciE "$SRC_CLAIM")
 SRC_N2=$(for SRC_S in summary probes; do

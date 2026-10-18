@@ -9,9 +9,11 @@
 // the D10 visibility rules (a derived row exists exactly while its toggle AND its data allow the mark; the
 // randomized row (D8) exactly while such a client is present); and the "Band ?" row (hidden here, visible with
 // count 1 after a synthetic STARCHORUS.load of a band-less AP with a locally administered BSSID, P9).
+// 0.2 adds three kinds: bt (render.btMark), activity (ink.primary: the whisker) and traffic (render.clientCore: the cue's tick ring); they are hidden here,
+// since no row shows a Bluetooth address, an activity share or a station rate on the fixtures of this run (tools/regress.d/legend.sh drives them on radio-pair.json).
 // Ornaments (glow/bloom/halo, star highlight, WarGames bubble ticks) are not part of a swatch, by definition.
 (async () => {
-  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height"];
+  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","bt","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","activity","traffic","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height"];
   const RINGS = {"sec-open":[[1.5,""]],"sec-wep":[[1.5,""]],"sec-wpa":[[1,""]],"sec-wpa2":[[1,""],[1,""]],"sec-wpa3":[[1.5,""]],"sec-owe":[[1,""]],"sec-enterprise":[[1,"5,2"]],"sec-wpa3-transition":[[1.5,""],[1.5,""]],"sec-tkip-weak":[[1,"1,3"]],"sec-unknown":[],"hidden":[[1,"4,4"]]};
   const DERIVED = ["nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost"];
   const want = (t) => { const x = t.render.clientShape === "cross"; return {
@@ -20,6 +22,8 @@
     "client-assoc": x ? ["band.2.4.core","render.clientCore"] : ["band.2.4.core","render.clientCore","surface.base"],
     "client-random": ["render.clientCore"],
     "bubble":["render.bubbleFill","render.bubbleStroke"],
+    "bt":["render.btMark"],   // 0.2: the Bluetooth triangle swatch (fill and stroke), the token the canvas mark reads
+    "activity":["ink.primary"],"traffic":["render.clientCore"],   // 0.2: the whisker line in a channel bar; the cue's dotted ring round a station dot
     "sec-open": t.status.alarmAura === "wash" ? ["status.alarm","status.alarmWash"] : ["status.alarm"],
     "sec-wep": t.status.alarmAura === "wash" ? ["status.alarm","status.alarmWash"] : ["status.alarm"],
     "sec-wpa":["status.ringNeutral"],"sec-wpa2":["status.ringNeutral"],

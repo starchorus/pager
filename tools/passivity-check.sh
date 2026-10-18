@@ -1,9 +1,12 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # tools/passivity-check.sh -- static passivity + legal checks (spec §14.2, §14.6, §14.7).
-# usage: sh tools/passivity-check.sh [--files|--regexes]   (any cwd; reads repo files only, sends nothing; --files = print the shell file list of the §14.6 scope;
-#        --regexes = print "NAME<TAB>regex" of the alternation families the rows use, tools/passivity-mutate.sh splits them per alternative)
-# Prints one PASS/FAIL row per check; exit 0 = all PASS, 1 = at least one FAIL, 2 = setup problem.
+# usage: sh tools/passivity-check.sh [--files|--regexes|--pending]   (any cwd; reads repo files only, sends nothing; --files = print the shell file list of the §14.6 scope;
+#        --regexes = print "NAME<TAB>regex" of the alternation families the rows use, tools/passivity-mutate.sh splits them per alternative;
+#        --pending = print what is announced and not there yet (BT_NOT_YET, APCLI_NOT_YET), one name per line: empty once the collector has them all)
+# Prints one PASS/FAIL row per check; exit 0 = all PASS, 1 = at least one FAIL, 2 = setup problem. Besides the names of the Bluetooth stack (rows 6b), the row 6d lists every command
+# of the shell scope whose NAME is built when the line runs (a command word that holds an expansion), and the row 6e every command whose name a glob, `find -exec`, `xargs` or an alias makes,
+# each against a pinned list.
 # Every row here has a planted violation in tools/passivity-mutate.sh: a row renamed or a rule widened makes that script
 # say which name/mutation to adjust. The sqlite3 (-readonly) and starchorus-serve.sh rows are covered the same way.
 set -u
@@ -43,19 +46,45 @@ SEC6_RE='_pineap|PINEAPPLE_|WIGLE_|DEAUTH|SSID_POOL|GPS_GET'
 SEC6_RE=$SEC6_RE'|WIFI_CONNECT|WIFI_DISCONNECT|WIFI_MGMT_AP|WIFI_OPEN_AP|WIFI_WPA_AP|WIFI_PCAP_|INSTALL_FIRMWARE'
 SEC6_RE=$SEC6_RE'|OPENVPN_|WIREGUARD_|AUTOSSH_|SSH_ADD_KNOWN_HOST|DNSSPOOF_|SYSTEM_DNS|GPS_CONFIGURE|FIND_CLIENT_IP'
 TX_WORDS='aireplay(-ng)?|mdk[34]|hostapd|airbase(-ng)?|hcxdumptool|wpa_supplicant|nmcli|iwlist'
-# The named Bluetooth tools and verbs that transmit (inquiry, paging, connecting, advertising, raw commands, `bluetoothctl scan on`,
-# GATT access, and `hciconfig` with anything after an optional `-a`, which can change an adapter's state). By name: another
-# `bluetoothctl` command, or a tool this list does not name, is not seen. `hcitool lescan --passive` and `btmon` are not here on
-# purpose: they are the planned passive route, and row 6b below lets exactly that one literal through. `hciconfig` without an
-# argument or with `-a` only reads (a `-a` may stand before the argument that makes it an adapter command: `hciconfig -a hci0 up`).
+# More that send frames or packets, scan a network, replay a capture, or change or drive a radio (the control programs of hostapd and wpa_supplicant, the monitor-mode switch of
+# the aircrack family, the WPS attacks). Each is its own alternative with its own sample in tools/passivity-mutate.sh. Like the names above they are read wherever they stand in a
+# code line (a log text too, so a text names the tool by its role, or spells the product's name with a capital: Nmap); the lines of the collector that must name one are pinned below.
+TX_WORDS=$TX_WORDS'|nmap|iwconfig|tcpreplay|airmon(-ng)?|mausezahn|hping3?|arping|bettercap|wpa_cli|hostapd_cli|besside(-ng)?|reaver|bully'
+# The named Bluetooth verbs that transmit (inquiry, paging, connecting, advertising, raw commands, `bluetoothctl scan on`, GATT access,
+# and `hciconfig` with anything after an optional `-a`, which can change an adapter's state). By verb: it is defence in depth only, and
+# the rows 6b below, which deny every tool of the stack by NAME (BT_WORDS), are what actually keeps a verb nobody listed out. The passive
+# route (`btmon -i hci0` and `hcitool -i hci0 lescan --passive --duplicates`) is not here on purpose: it is the two literal lines of
+# bt_begin, which those rows pin.
 TX_WORDS=$TX_WORDS'|hcitool[[:space:]]+scan|hcitool[[:space:]]+inq|hcitool[[:space:]]+cc|hcitool[[:space:]]+lecc'
 TX_WORDS=$TX_WORDS'|hcitool[[:space:]]+leadv|hcitool[[:space:]]+cmd|l2ping|bluetoothctl[[:space:]]+(.*[[:space:]])?scan[[:space:]]+on'
 TX_WORDS=$TX_WORDS'|btmgmt|gatttool|hciconfig([[:space:]]+-a)*[[:space:]]+([^[:space:];&|)<>#-][^[:space:]]*|-[^a[:space:]][^[:space:]]*|-a[A-Za-z0-9_]+)'
 IW_VERBS='connect|ibss[[:space:]]+join|mesh[[:space:]]+join'
 TX_RE="(^|[^A-Za-z0-9_-])($TX_WORDS)([^A-Za-z0-9_]|\$)|(^|[^A-Za-z_])iw[[:space:]].*[[:space:]]($IW_VERBS)([^A-Za-z_]|\$)"
+# The Bluetooth stack, denied BY TOOL (docs/architecture.md §14.6), not by verb. BT_WORDS names every program and path of BlueZ that the device has or that
+# a contributor might reach for; a word of this family may stand only inside the functions of BT_FUNCS (below) and there only in the
+# forms the Bluetooth rows enforce. So a verb or an option nobody listed cannot pass: `hcitool -i hci0 scan`, `bluetoothctl scan le`,
+# `bluetoothctl advertise on`, `bluetoothctl connect`, `sdptool browse`, `rfcomm connect`, `btgatt-client`, `l2test`, `rctest`, `btmgmt`,
+# `gatttool` and `hciconfig` with any argument (or none) are all red wherever they stand. The D-Bus route to bluetoothd is denied by the name of the bus tools (dbus-send, busctl, gdbus) and of the service (org.bluez): `dbus-send --dest=org.bluez`
+# starts a discovery as well as `hcitool` does. The only exceptions are the two literal lines of
+# bt_begin and read-only reads of /sys/class/bluetooth, which holds no word of this family. TX_WORDS above stays as defence in depth.
+# The words are read after the quotes and backslashes of a line are deleted (and adjacent string literals joined): `hc'"''"'itool`, `hc\itool`, `"hci""tool"` and an awk
+# `"hci" "tool"` are `hcitool`. A name that is only BUILT when the line runs (a glob, a substitution, a variable) is not a word of any line: inside BT_FUNCS
+# (the test code included) a command word that is a glob, a `$` expansion or a backtick expansion is red (row 'Bluetooth wrappers'); in every shell file of the scope the rows 6d
+# (a command word that holds an expansion) and 6e (a glob in a command word, `find -exec`, an `xargs` whose command is a placeholder or missing, an alias) read the same forms. What no
+# row reads: a glob that is only an argument (`ln -s /usr/bin/hc?tool x`, `cp`), a program text that is built and run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`), and
+# a name that a function of the script makes; for those the guarantee is review, and the run-time witness covers only the collector's own Bluetooth window.
+# Every name V-13 of docs/device-notes.md finds in the device's BlueZ directories is added here, one alternative each, and one sample in
+# tools/passivity-mutate.sh (MIN_ALTS_BT there is raised with it).
+BT_WORDS='hcitool|btmon|hciconfig|bluetoothctl|btmgmt|bluetoothd|gatttool|l2ping|l2test|rctest|sdptool|rfcomm|hcidump|btattach|bccmd|bdaddr|hciattach|hid2hci|btgatt-client|btgatt-server|obexd|rfkill|init\.d/bluetooth|/sys/kernel/debug/bluetooth|dbus-send|busctl|gdbus|org\.bluez|ciptool|avinfo|isotest|meshctl|mesh-cfgclient|bluetooth-meshd|btproxy|bluemoon|mpris-proxy|hex2hcd|obexctl|bluetooth-player|btinfo|scotest|hcieventmask'
+# Command wrappers: inside a function of BT_FUNCS no simple command may begin with one of these (the command word is read after any
+# keyword, separator or `VAR=value`), because they let a tool name or an argument travel in a string or a variable. `command -v` stays
+# allowed. Every alternative starts with `^`: the family is tested against one simple command at a time, and the anchor keeps `ash -c`
+# apart from `sh -c`.
+BT_WRAP_RE='^eval([[:space:]]|$)|^sh[[:space:]]+-c([[:space:]]|$)|^ash[[:space:]]+-c([[:space:]]|$)|^busybox([[:space:]]|$)|^env([[:space:]]|$)|^xargs([[:space:]]|$)|^nohup([[:space:]]|$)|^setsid([[:space:]]|$)|^nice([[:space:]]|$)|^start-stop-daemon([[:space:]]|$)|^exec([[:space:]]|$)|^source([[:space:]]|$)|^time([[:space:]]|$)|^\.[[:space:]]|^command[[:space:]]+([^-[:space:]]|-([^v]|v[^[:space:]]))'
+BT_RE="(^|[^A-Za-z0-9_-])($BT_WORDS)([^A-Za-z0-9_-]|\$)"
 [ "${1:-}" != --regexes ] || {
-  for _n in NETSURF_RE NETX SEC6_RE TX_WORDS IW_VERBS; do
-    case $_n in NETSURF_RE) _v=$NETSURF_RE;; NETX) _v=$NETX;; SEC6_RE) _v=$SEC6_RE;; TX_WORDS) _v=$TX_WORDS;; *) _v=$IW_VERBS;; esac
+  for _n in NETSURF_RE NETX SEC6_RE TX_WORDS IW_VERBS BT_WORDS BT_WRAP_RE; do
+    case $_n in NETSURF_RE) _v=$NETSURF_RE;; NETX) _v=$NETX;; SEC6_RE) _v=$SEC6_RE;; TX_WORDS) _v=$TX_WORDS;; IW_VERBS) _v=$IW_VERBS;; BT_WORDS) _v=$BT_WORDS;; *) _v=$BT_WRAP_RE;; esac
     printf '%s\t%s\n' "$_n" "$_v"
   done; exit 0; }
 # Enclosing top-level shell function of every matching line; comment-only lines skipped. A one-line
@@ -65,13 +94,18 @@ TX_RE="(^|[^A-Za-z0-9_-])($TX_WORDS)([^A-Za-z0-9_]|\$)|(^|[^A-Za-z_])iw[[:space:
 FNDEF='^[A-Za-z_][A-Za-z0-9_]*[ \t]*\([ \t]*\)[ \t]*\{?[ \t]*(#.*)?$'
 export FNDEF
 # shellcheck disable=SC2016   # awk program: $0 is awk's field, not a shell expansion
-FNSCOPE='BEGIN { RE = ENVIRON["SCOPE_RE"]; DEF = ENVIRON["FNDEF"] }
+FNSCOPE='BEGIN { RE = ENVIRON["SCOPE_RE"]; DEF = ENVIRON["FNDEF"]; NORM = ENVIRON["SCOPE_NORM"] }
 FNR == 1 { fn = "-" }
 $0 ~ DEF { fn = $0; sub(/[ \t]*\(.*/, "", fn) }
-{ if ($0 ~ RE && $0 !~ /^[ \t]*#/) print FILENAME ":" FNR ":" fn ":" $0 }
+{ l = $0
+  if (NORM == "1") { gsub(/\\/, "", l); gsub(/"[ \t]+"/, "", l); gsub(/["\047]/, "", l) }   # the normal form: backslashes gone, string literals joined, quotes gone (hc\047\047itool, hc\itool, "hci" "tool" are hcitool)
+  if (l ~ RE && $0 !~ /^[ \t]*#/) print FILENAME ":" FNR ":" fn ":" $0 }
 /^}/ { fn = "-" }'
 scoped() { # scoped ERE → "file:line:function:text" over $tmp/shfiles (ERE via ENVIRON: no awk -v escape mangling)
-  while IFS= read -r _f; do SCOPE_RE=$1 awk "$FNSCOPE" "$_f"; done < "$tmp/shfiles"
+  while IFS= read -r _f; do SCOPE_RE=$1 SCOPE_NORM=0 awk "$FNSCOPE" "$_f"; done < "$tmp/shfiles"
+}
+scoped_n() { # the same, the hit read on the normal form of the line (the text printed is the line as it stands)
+  while IFS= read -r _f; do SCOPE_RE=$1 SCOPE_NORM=1 awk "$FNSCOPE" "$_f"; done < "$tmp/shfiles"
 }
 # shellcheck disable=SC2016   # awk program
 fnlist() { # "file:function" of every function head the scope check recognises, over $tmp/shfiles
@@ -80,11 +114,60 @@ fnlist() { # "file:function" of every function head the scope check recognises, 
   done < "$tmp/shfiles"
 }
 
+# pin_cmp HITS PINS NEW GONE [WITHFILE]: a hit of a row is a line "file:line:function:text"; a pin is "function:text" (with WITHFILE=1 "file:function:text"), the text with its leading
+# blanks cut and otherwise byte for byte. Each pin covers ONE hit, so a copy of a pinned line is a new line. NEW gets the hits no pin covers, GONE the pins no hit used (their
+# text); the function prints how many hits were pinned. Rows 6d, 6e and the transmit row use it, so a change here is a change of all three.
+# shellcheck disable=SC2016   # awk program
+pin_cmp() {
+  awk -v PINS="$2" -v NEW="$3" -v GONE="$4" -v WF="${5:-0}" '
+    function norm(l,   f, i, t) { f = l; sub(/:.*/, "", f); sub(/^[^:]*:[^:]*:/, "", l); i = index(l, ":"); t = substr(l, i + 1); sub(/^[ \t]+/, "", t); return (WF == 1 ? f ":" : "") substr(l, 1, i) t }
+    BEGIN { while ((getline ln < PINS) > 0) want[ln]++ }
+    { k = norm($0); if (want[k] > 0) { want[k]--; np++ } else print $0 > NEW }
+    END { for (k in want) for (j = 0; j < want[k]; j++) print k > GONE; print np + 0 }' "$1"
+}
+
+# The Bluetooth allowlist and the pinned lines of apcli_ro (rows 6b and 6c below). The collector's Bluetooth code defines the functions of
+# BT_FUNCS and the fifth `_pineap` line; until the collector has them, the names are announced here (the SEC6_NOT_YET pattern: a listed name that is not
+# defined is no failure while it is announced, and one that is defined and still announced is a hint). BT_NOT_YET holds the functions,
+# APCLI_NOT_YET the ids of apcli_ro whose pinned line is not there yet. Whoever adds the collector's Bluetooth code empties both; `--pending` prints what
+# is still announced, and tools/passivity-mutate.sh lets the mutations that need those lines wait while that list is not empty.
+BT_FUNCS=' bt_begin bt_end bt_busy bt_sweep bt_stub bt_selftest '
+BT_NOT_YET=' '   # announced, not defined yet (space-padded; empty: every listed name is defined)
+APCLI_NOT_YET=' '                                       # announced, its line not in apcli_ro yet (space-padded; empty: all five lines are there)
+# The five `_pineap` lines of apcli_ro, byte for byte (leading blanks cut): the per-command sign-off of every AP-service call. A sixth line, a
+# changed argument, a command name from a variable: red. `recon_channels` is the opt-in Traffic read (gated on that switch alone).
+# shellcheck disable=SC2016   # the pinned lines are literal shell text
+printf '%s\n' \
+  'present)       [ $# -eq 1 ] || return 2; command -v _pineap >/dev/null 2>&1 ;;' \
+  'recon_aps)     [ $# -eq 1 ] || return 2; $ap_to _pineap RECON APS format=json ;;' \
+  'recon_devices) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json ;;' \
+  'recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json sort=time sortdir=desc limit=400 ;;' \
+  'recon_channels) [ $# -eq 1 ] || return 2; [ "$TRAFFIC" = "1" ] || return 3; $ap_to _pineap RECON CHANNELS format=json ;;' > "$tmp/pins"
+# shellcheck disable=SC2016   # awk program
+apcli_scan() { # the lines of apcli_ro that hold `_pineap`: $tmp/ap_bad = the ones that are not a pin; $tmp/ap_cnt = "n", then "id<TAB>times" per pin
+  : > "$tmp/ap_bad"
+  scoped '_pineap' | awk -v PINS="$tmp/pins" -v BAD="$tmp/ap_bad" '
+    BEGIN { while ((getline ln < PINS) > 0) { id = ln; sub(/\).*/, "", id); pin[ln] = id; cnt[ln] = 0 } }
+    { fn = $0; sub(/^[^:]*:[^:]*:/, "", fn); sub(/:.*/, "", fn)
+      if (fn != "apcli_ro") next
+      t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+      sub(/^[ \t]+/, "", t); n++
+      if (t in pin) cnt[t]++; else print $0 > BAD }
+    END { print n + 0; for (p in pin) print pin[p] "\t" cnt[p] }' > "$tmp/ap_cnt"
+}
+
 # 0 · fill probe: every "outside the allowlist" / "stray" row below reads its hits through scoped(); a file list that
 # lost a shell file, or a function head the awk no longer recognises, would turn those rows green by looking at
 # less. So the scope is checked by NAME and by a floor, not just counted.
-MIN_FNSCOPE=95   # functions recognised over the shell files: fnlist | wc -l  (103: collector 58, each display script 21, each payload.sh 1, starchorus-serve.sh 1)
+MIN_FNSCOPE=127  # functions recognised over the shell files: fnlist | wc -l  (measured 270; the floor is 0.1.1's 95 plus the 32 collector functions of the radio pair)
 fnlist > "$tmp/fns"
+cut -d: -f2 "$tmp/fns" | LC_ALL=C sort -u > "$tmp/fnames"
+if [ "${1:-}" = --pending ]; then   # what is announced and not there yet (empty once the collector has the Bluetooth code)
+  for f in $BT_FUNCS; do grep -qxF "$f" "$tmp/fnames" || case "$BT_NOT_YET" in *" $f "*) printf '%s\n' "$f" ;; esac; done
+  apcli_scan
+  for f in $APCLI_NOT_YET; do awk -F'\t' -v I="$f" '$1 == I && $2 == 0 { f = 1 } END { exit !f }' "$tmp/ap_cnt" && printf 'apcli_ro/%s\n' "$f"; done
+  exit 0
+fi
 nfn=$(lines "$tmp/fns"); nsh=$(lines "$tmp/shfiles")
 miss=""
 for w in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh "$DISPLAY_COPY" payload.sh library/user/reconnaissance/starchorus/payload.sh; do
@@ -113,7 +196,7 @@ rowif "URLs outside the §00 licence header = $nu" [ "$nu" = 0 ]
 
 # 5 · §14.6 static check: device CLI words only inside the allowlist functions
 SEC6_FUNCS=' apcli_ro apcli_stub apcli_selftest '   # the allowlist + its stub factory + its selftest
-scoped "$SEC6_RE" > "$tmp/s6"
+scoped_n "$SEC6_RE" > "$tmp/s6"
 : > "$tmp/s6bad"; while IFS= read -r ln; do
   fn=$(printf '%s\n' "$ln" | cut -d: -f3)
   case "$SEC6_FUNCS" in *" $fn "*) ;; *) printf '%s\n' "$ln" >> "$tmp/s6bad" ;; esac
@@ -123,7 +206,6 @@ rowif "§14.6 device calls outside allowlist = $(lines "$tmp/s6bad") (hits $(lin
 # The allowlist is one-sided by itself (a name nobody defines allows nothing and hides a typo), so the other
 # direction is checked too: every SEC6_FUNCS name is defined in a shell file or announced in SEC6_NOT_YET.
 SEC6_NOT_YET=' '              # announced, not defined yet (space-padded; empty: every listed name is defined)
-cut -d: -f2 "$tmp/fns" | LC_ALL=C sort -u > "$tmp/fnames"
 unex=""; stale=""; nlist=0
 for f in $SEC6_FUNCS; do
   nlist=$((nlist + 1))
@@ -139,35 +221,396 @@ for f in $stale; do echo "    hint: $f is defined and still in SEC6_NOT_YET: ple
 d=$(grep -cF 'ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-0}' starchorus-collect.sh)
 # shellcheck disable=SC2016
 g=$(awk '/^build_from_iwscan\(\)[ \t]*\{/{getline; print; exit}' starchorus-collect.sh | grep -cF '[ "$ALLOW_ACTIVE" = "1" ] || return 1')
-scoped '(^|[^A-Za-z_])iw([[:space:]]+dev[[:space:]]+[^[:space:]|;]+)?[[:space:]]+scan([^A-Za-z_]|$)' | grep -v ':build_from_iwscan:' > "$tmp/scan"
+scoped_n '(^|[^A-Za-z_])iw([[:space:]]+dev[[:space:]]+[^[:space:]|;]+)?[[:space:]]+scan([^A-Za-z_]|$)' | grep -v ':build_from_iwscan:' > "$tmp/scan"
 ns=$(lines "$tmp/scan")
 rowif "iw scan opt-in only (default $d, guard $g, stray $ns)" [ "$d/$g/$ns" = 1/1/0 ]
 [ "$ns" = 0 ] || show < "$tmp/scan"
-scoped "$TX_RE" > "$tmp/tx"
-rowif "transmit tools invoked = $(lines "$tmp/tx")" [ ! -s "$tmp/tx" ]
-[ -s "$tmp/tx" ] && show < "$tmp/tx"
+# The three lines of the collector that must name a word of TX_WORDS stand in a pinned list, byte for byte (leading blanks cut) with their file and function; each pin covers one line, so a
+# copy of one, an edited one and a pin without a line are red. Two are the last resort of create_monitor (the collector made a monitor interface with `airmon-ng start` before the radio
+# pair: only when `iw phy ... interface add` failed, and only with STARCHORUS_CREATE_MON on, its default; it is a change of an interface, nothing is sent), the third is the path of the OUI
+# file that comes with Nmap (a file that is read, a program that is not started).
+cat > "$tmp/txpins" <<'TXPINS'
+starchorus-collect.sh:create_monitor:if have airmon-ng; then
+starchorus-collect.sh:create_monitor:out=$(airmon-ng start "$base" 2>/dev/null)
+starchorus-collect.sh:find_oui_file:for c in /lib/hak5/oui.txt /usr/share/nmap/nmap-mac-prefixes /usr/share/macchanger/OUI.list; do
+TXPINS
+scoped_n "$TX_RE" > "$tmp/tx0"
+: > "$tmp/tx"; : > "$tmp/tx_gone"
+tx_p=$(pin_cmp "$tmp/tx0" "$tmp/txpins" "$tmp/tx" "$tmp/tx_gone" 1)
+tx_ok=0; [ ! -s "$tmp/tx" ] && [ ! -s "$tmp/tx_gone" ] && tx_ok=1
+rowif "transmit tools invoked = $(lines "$tmp/tx") (pinned $tx_p of $(lines "$tmp/txpins"), pins without a line $(lines "$tmp/tx_gone"))" [ "$tx_ok" = 1 ]
+[ ! -s "$tmp/tx" ] || show < "$tmp/tx"
+[ ! -s "$tmp/tx_gone" ] || { sed 's/^/    pin without a line: /' "$tmp/tx_gone" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of the transmit row with it"; }
 
-# 6b · hcitool: `hcitool lescan --passive` (it listens and sends nothing) is the planned passive Bluetooth route, and that literal is
-# the ONLY hcitool invocation allowed anywhere: in every function and at the top level of every shell file of the scope, not just
-# outside an allowlist. Any other `hcitool` word is a hit, so a verb that TX_WORDS does not list is caught as well, and `hcitool
-# lescan` without `--passive` (an active LE scan) is counted on its own. A literal, not a pattern: another spacing, or an option
-# before `--passive`, is a hit. No floor: nothing calls it yet, so 0 is the measured value. A line that the transmit row already
-# lists is counted here but not printed twice.
-scoped '(^|[^A-Za-z0-9_-])hcitool([^A-Za-z0-9_]|$)' > "$tmp/hci"
-# shellcheck disable=SC2016   # awk program
-hci_left() { # the lines of $tmp/hci that still match ERE $1 once the allowed literal is cut out of their text ("file:line:function:" off first)
-  HCI_RE=$1 awk 'BEGIN { re = ENVIRON["HCI_RE"] }
-    { t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
-      gsub(/hcitool lescan --passive([^A-Za-z0-9_-]|$)/, " ", t)
-      if (t ~ re) print $0 }' "$tmp/hci"
-}
-hci_left '(^|[^A-Za-z0-9_-])hcitool([^A-Za-z0-9_]|$)' > "$tmp/hci_other"
-hci_left '(^|[^A-Za-z0-9_-])hcitool[[:space:]]+lescan([^A-Za-z0-9_]|$)' > "$tmp/hci_lescan"
-nhi=$(lines "$tmp/hci_other"); nhl=$(lines "$tmp/hci_lescan")
-rowif "hcitool: only 'hcitool lescan --passive' ($(lines "$tmp/hci") uses, others $nhi, lescan without --passive $nhl)" [ "$nhi/$nhl" = 0/0 ]
-if [ -s "$tmp/hci_other" ]; then
-  if [ -s "$tmp/tx" ]; then grep -vxFf "$tmp/tx" "$tmp/hci_other" | show; else show < "$tmp/hci_other"; fi
+# 6b · the Bluetooth stack, denied BY TOOL (§14.6; BT_WORDS, BT_WRAP_RE and BT_FUNCS above). Six rows. The two literal lines of bt_begin
+# are the only way a Bluetooth tool is ever started, and everything about the stack is read from these rows: a word of BT_WORDS (the name of
+# any tool or path of BlueZ, whatever the verb or the option order) is red outside BT_FUNCS, whether it stands in code, in a string or in a
+# log text; inside BT_FUNCS the forms are enumerated; no wrapper and no command word taken from a variable can start a tool; the test code
+# holds no tool at command position.
+# Rows read the code through scoped(): top-level text counts as outside every function, comment-only lines are skipped, a line is read as
+# it stands (a quote that spans lines is read line by line, a `#` after a blank starts a comment). Sysfs reads (/sys/class/bluetooth) hold no
+# word of the family and are not touched.
+scoped_n "$BT_RE" > "$tmp/bt"      # every hit of a word of the stack (read on the normal form of the line): file:line:function:text
+scoped '.' > "$tmp/code"           # every code line with its function, for the rows that read whole lines
+btfn_in() { case "$1" in *" $2 "*) return 0 ;; esac; return 1; }
+# row 1 · a word of the stack outside the functions of the allowlist
+: > "$tmp/btbad"; while IFS= read -r ln; do
+  fn=$(printf '%s\n' "$ln" | cut -d: -f3)
+  btfn_in "$BT_FUNCS" "$fn" || printf '%s\n' "$ln" >> "$tmp/btbad"
+done < "$tmp/bt"
+rowif "§14.6b Bluetooth words outside allowlist = $(lines "$tmp/btbad") (hits $(lines "$tmp/bt"))" [ ! -s "$tmp/btbad" ]
+if [ -s "$tmp/btbad" ]; then
+  show < "$tmp/btbad"
+  echo "    hint: a tool word of the stack is a hit wherever it stands outside BT_FUNCS, in a log text too: name the tool by its role there ('the scan tool')"
 fi
+# row 2 · the allowlist is one-sided by itself, so every BT_FUNCS name is defined or announced in BT_NOT_YET, and every announced name is listed
+unex=""; stale=""; nlist=0
+for f in $BT_FUNCS; do
+  nlist=$((nlist + 1))
+  if grep -qxF "$f" "$tmp/fnames"; then btfn_in "$BT_NOT_YET" "$f" && stale="$stale $f"
+  else btfn_in "$BT_NOT_YET" "$f" || unex="$unex $f"; fi
+done
+for f in $BT_NOT_YET; do btfn_in "$BT_FUNCS" "$f" || unex="$unex $f(only in NOT_YET)"; done
+rowif "Bluetooth allowlist names: $nlist listed, undefined and not announced:${unex:- none}" [ -z "$unex" ]
+for f in $stale; do echo "    hint: $f is defined and still in BT_NOT_YET: please remove"; done
+# row 3 · bt_begin: every line that holds a tool word of the stack or `timeout` is, leading blanks cut, one of seven; the two pinned lines once each
+# shellcheck disable=SC2016   # the allowed lines are literal shell text
+printf '%s\n' \
+  'timeout -s INT "$BT_MON_S" btmon -i hci0 > "$BT_F" 2>/dev/null &' \
+  'timeout -s INT "$BT_WIN" hcitool -i hci0 lescan --passive --duplicates > /dev/null 2> "$BT_F.err" &' \
+  'have hcitool || return 4' 'have btmon || return 4' 'have timeout || return 4' \
+  'BT_MKID=$(bt_kid "$BT_MPID" btmon)' 'BT_SKID=$(bt_kid "$BT_SPID" hcitool)' > "$tmp/btbl"
+scoped_n "$BT_RE|(^|[^A-Za-z0-9_-])timeout([^A-Za-z0-9_-]|\$)" > "$tmp/btb0"
+: > "$tmp/btbbad"
+awk -v LIST="$tmp/btbl" -v BAD="$tmp/btbbad" '
+  BEGIN { while ((getline ln < LIST) > 0) { ok[ln] = 1; if (++np <= 2) { pinned[ln] = 1 } } }
+  { fn = $0; sub(/^[^:]*:[^:]*:/, "", fn); sub(/:.*/, "", fn)
+    if (fn != "bt_begin") next
+    t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+    sub(/^[ \t]+/, "", t); n++
+    if (!(t in ok)) { print $0 > BAD; next }
+    if (t in pinned) seen[t]++ }
+  END { for (p in pinned) printf "%d\n", seen[p] + 0; print n + 0 }' "$tmp/btb0" > "$tmp/btb_cnt"
+btb_n=$(tail -n 1 "$tmp/btb_cnt"); btb_p=$(head -n 2 "$tmp/btb_cnt" | tr '\n' '/' | sed 's,/$,,')
+if grep -qxF bt_begin "$tmp/fnames"; then
+  btb_ok=0; [ ! -s "$tmp/btbbad" ] && [ "$btb_p" = 1/1 ] && btb_ok=1
+  rowif "Bluetooth lines in bt_begin: $btb_n lines hold a tool word or timeout, others $(lines "$tmp/btbbad"), the two pinned lines $btb_p times each (want 1/1)" [ "$btb_ok" = 1 ]
+elif btfn_in "$BT_NOT_YET" bt_begin; then rowif "Bluetooth lines in bt_begin: bt_begin is announced and not defined yet (BT_NOT_YET)" :
+else rowif "Bluetooth lines in bt_begin: bt_begin is neither defined nor announced" false; fi
+[ ! -s "$tmp/btbbad" ] || show < "$tmp/btbbad"
+# row 4 · the other functions of the allowlist (not bt_begin, and not the test code): a tool word stands only as the LAST argument of
+# `bt_is "$VAR" WORD` or `bt_kid "$VAR" WORD`, the identity checks that start nothing
+BT_FORM_RE='bt_(is|kid)[ \t]+"\$[{]?[A-Za-z_][A-Za-z0-9_]*[}]?"[ \t]+('"$BT_WORDS"')[ \t]*($|[;&|)])'
+BT_FORM_FNS=" "; for f in $BT_FUNCS; do case $f in bt_begin|bt_stub|bt_selftest) ;; *) BT_FORM_FNS="$BT_FORM_FNS$f " ;; esac; done
+: > "$tmp/btfbad"
+# shellcheck disable=SC2016   # awk program
+BT_RE=$BT_RE BT_FORM_RE=$BT_FORM_RE BT_FORM_FNS=$BT_FORM_FNS awk -v BAD="$tmp/btfbad" '
+  BEGIN { BT = ENVIRON["BT_RE"]; FORM = ENVIRON["BT_FORM_RE"]; FNS = ENVIRON["BT_FORM_FNS"] }
+  { fn = $0; sub(/^[^:]*:[^:]*:/, "", fn); sub(/:.*/, "", fn)
+    if (index(FNS, " " fn " ") == 0) next
+    t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+    gsub(FORM, " ", t)
+    gsub(/\\/, "", t); gsub(/"[ \t]+"/, "", t); gsub(/["\047]/, "", t)
+    if (t ~ BT) print $0 > BAD }' "$tmp/bt"
+rowif "Bluetooth word forms ($(printf '%s' "$BT_FORM_FNS" | sed 's/^ *//; s/ *$//')): tool words outside bt_is/bt_kid = $(lines "$tmp/btfbad")" [ ! -s "$tmp/btfbad" ]
+[ ! -s "$tmp/btfbad" ] || show < "$tmp/btfbad"
+# rows 5 and 6 · simple commands, read one at a time (BTSEG): the line is masked (blanks and separators inside quotes are text), cut at ;
+# & | ( ) and backticks, and at $( ; keywords (then do else if ...) and `VAR=value` prefixes are dropped; what is left starts with the
+# command word. wrap = in every function of BT_FUNCS: no wrapper of BT_WRAP_RE, no command word that is a `$` expansion (`$VAR`, `$(...)`, a backtick
+# expression, quoted or not), no glob in a command word, no `timeout` outside bt_begin. cmdpos = in bt_stub and bt_selftest: no tool word of the stack as the command word (also after `timeout [-s SIG] N`,
+# quoted, or with a path in front). The body of a here-document is text and is skipped (its first line, the command, is read).
+# dyn = row 6d, over every line of every shell file of the scope, functions and top level alike (BT_SEG_FNS is `*`): it does not use mask() and cmds() above but reads the raw
+# text with a stack of its own (dyn() below) and lists each simple command whose command word holds an expansion; the row compares what it lists with a pinned list.
+# shellcheck disable=SC2016   # awk program
+BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"] }
+function mask(t,   i, n, c, q, sd, bq, out) {
+  n = length(t); q = ""; sd = 0; bq = 0; out = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(t, i, 1)
+    if (q == "\047") { if (c == "\047") { q = ""; out = out c } else out = out "_"; continue }
+    if (q == "\"") {
+      if (sd == 0 && bq == 0) {
+        if (c == "\\") { out = out "_"; if (i < n) { i++; out = out "_" } continue }
+        if (c == "\"") { q = ""; out = out c; continue }
+        if (c == "$" && substr(t, i + 1, 1) == "(") { sd = 1; out = out "$("; i++; continue }
+        if (c == "`") { bq = 1; out = out c; continue }
+        out = out ((c ~ /[ \t;&|(){}]/) ? "_" : c); continue
+      }
+      if (bq) { if (c == "`") bq = 0; out = out c; continue }
+      if (c == "(") sd++; else if (c == ")") sd--
+      out = out c; continue
+    }
+    if (c == "\\") {   # outside quotes: \i is i (hc\itool is hcitool); an escaped blank or separator is masked
+      if (i < n && substr(t, i + 1, 1) ~ /[A-Za-z0-9]/) { out = out c substr(t, i + 1, 1); i++; continue }
+      out = out "_"; if (i < n) { i++; out = out "_" } continue }
+    if (c == "#" && (i == 1 || substr(t, i - 1, 1) ~ /[ \t;&|(]/)) break
+    if (c == "\047" || c == "\"") q = c
+    out = out c
+  }
+  return out
+}
+function add(s) {
+  sub(/^[ \t]+/, "", s)
+  while (s ~ /^(then|do|else|elif|if|while|until|!|\{|\})([ \t]|$)/) sub(/^[^ \t]+[ \t]*/, "", s)
+  while (s ~ /^[A-Za-z_][A-Za-z0-9_]*=[^ \t]*([ \t]|$)/) sub(/^[^ \t]+[ \t]*/, "", s)
+  if (s != "") C[++nc] = s
+}
+# an expansion ($( or a backtick) after nothing but keywords and complete assignments is the COMMAND WORD of its line: CWX = 1. `NAME=$(...)` and `NAME="$(...)"`
+# are assignments, an expansion after a word is an argument.
+function cwx(s) {
+  if (AFTER) return   # `$(a)$(b)`: the second is part of a word that began before it
+  sub(/^[ \t]+/, "", s)
+  while (s ~ /^(then|do|else|elif|if|while|until|!|\{|\})([ \t]|$)/) sub(/^[^ \t]+[ \t]*/, "", s)
+  while (s ~ /^[A-Za-z_][A-Za-z0-9_]*=[^ \t]*[ \t]/) sub(/^[^ \t]+[ \t]*/, "", s)
+  gsub(/["\047]/, "", s)
+  if (s == "") CWX = 1
+}
+function cmds(m,   i, n, c, cur, pd, bq, lastsep) {
+  n = length(m); cur = ""; pd = 0; bq = 0; lastsep = 0; nc = 0; AFTER = 0; split("", C); split("", AS)
+  for (i = 1; i <= n; i++) {
+    c = substr(m, i, 1)
+    if (c == "$" && substr(m, i + 1, 2) == "((") { cur = cur "___"; i += 2; continue }
+    if (c == "$" && substr(m, i + 1, 1) == "(") { cwx(cur); add(cur); cur = ""; AS[pd++] = AFTER; AFTER = 0; i++; continue }
+    if (c == "(") { add(cur); cur = ""; AS[pd++] = AFTER; AFTER = 0; continue }
+    if (c == ")") { if (pd > 0) { add(cur); pd--; AFTER = 1 } else nc = lastsep; cur = ""; continue }   # a `)` that closes nothing ends a case pattern: its words are no commands
+    if (c == "`") { if (!bq) { cwx(cur); bq = 1; add(cur); cur = ""; AFTER = 0 } else { bq = 0; add(cur); cur = ""; AFTER = 1 } continue }
+    if (c == ";" || c == "&") { add(cur); cur = ""; lastsep = nc; AFTER = 0; continue }
+    if (c == "|") { add(cur); cur = ""; AFTER = 0; continue }
+    if (AFTER) { if (c ~ /[ \t]/) { AFTER = 0; cur = c } continue }   # what is glued to a closed substitution is part of its word, not a command
+    cur = cur c
+  }
+  add(cur)
+  return nc
+}
+# MODE dyn (rows 6d and 6e, two verdicts of one pass; dbad is the first, dbad2 the second): a simple command whose COMMAND WORD holds an expansion (`$VAR`, `${...}`, `$( )`, a backtick expression, quoted or not, also behind
+# a wrapper word such as `exec`, `env`, `nice` or `timeout N`): the name of the command is then not in the text. The code is read as the shell would,
+# one token at a time, over the raw text of the lines (quotes nest inside `$( )`, a quote or a `$( )` may go on over several lines, a trailing backslash
+# joins two lines); DST is the stack of what is open: `$( )` (S), a backtick expression (K), `( )` (P), `$(( ))` (E, A, a), `${ }` (B), a single-quoted (q) or double-quoted (d)
+# string. The state starts afresh with every file and every function. dbad = 1 when a command word of the line holds an expansion; dbad2 = 1 when one holds an unquoted glob character (`[` and `[[`
+# apart), when a `find` has `-exec`, `-execdir`, `-ok` or `-okdir`, when an `xargs` has no command or its command is its replacement string, or when an `alias` is defined (row 6e).
+function darg(   a) {   # a word that is an argument of the simple command being read (dcmd = its name): `find ... -exec` and its three kin, `alias NAME=...`
+  if (dcmd == "") return
+  a = dtok; gsub(/["\047\\]/, "", a)
+  if (dcmd == "find" && a ~ /^-(exec|execdir|ok|okdir)$/) dbad2 = 1
+  else if (dcmd == "alias" && index(a, "=") > 0) dbad2 = 1
+}
+function dxarg(a) {   # a word after `xargs`: 1 = one of its options or the argument of one, 0 = the first word that is neither, its command. dxr = the replacement string (-I, -J, -i, --replace)
+  if (dxo != "") { if (dxo == "I") dxr = a; dxo = ""; return 1 }
+  if (dxe || a !~ /^-/) return 0
+  if (a == "--") { dxe = 1; return 1 }
+  if (a ~ /^-[IJ]$/) { dxo = "I"; return 1 }
+  if (a ~ /^-[IJ]./) { dxr = substr(a, 3); return 1 }
+  if (a == "-i" || a == "--replace") { dxr = "{}"; return 1 }
+  if (a ~ /^-i./) { dxr = substr(a, 3); return 1 }
+  if (a ~ /^--replace=/) { dxr = substr(a, 11); return 1 }
+  if (a ~ /^-[LnsPdEaRS]$/ || a ~ /^--(max-args|max-lines|max-chars|max-procs|delimiter|eof|arg-file|process-slot-var)$/) { dxo = "x"; return 1 }
+  return 1
+}
+function dxend() { if (dwr && dwc == "xargs") { dbad2 = 1; dwr = 0 } }   # `xargs` with no command of its own: it runs echo over what it reads (with -I its command would come from stdin)
+function dfin(   dn) {   # the token that has just ended
+  if (!dint) return
+  dint = 0
+  if (drd) { drd = 0; return }
+  if (!dtcs) { darg(); return }
+  dn = dtok; gsub(/["\047\\]/, "", dn)   # quotes and backslashes in a name do not hide it (a quoted find, a split exec, a backslash before xargs)
+  if (dwr) {
+    if (dsk) { dsk = 0; return }
+    if (dwc == "xargs" && dxarg(dn)) return
+    if (dtok ~ /^-[vV]$/ && dwc == "command") { dcs = 0; dwr = 0; return }
+    if (dtok ~ /^-[nsk]$/) { dsk = 1; return }
+    if (dtok ~ /^-/) return
+    if (dwc == "timeout" && !dwd) { dwd = 1; return }
+    if (dwc == "xargs" && (index(dn, "{}") > 0 || (dxr != "" && index(dn, dxr) > 0))) dbad2 = 1   # the command is the replacement string: it comes from stdin
+    dwr = 0
+  }
+  if (dtok ~ /^(then|do|else|elif|if|while|until|!|\{|\})$/) return
+  if (dn ~ /^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/) { dwr = 1; dwc = dn; dwd = 0; dsk = 0; if (dn == "xargs") { dxo = ""; dxr = ""; dxe = 0 }; return }
+  if (dtok ~ /^[A-Za-z_][A-Za-z0-9_]*=/) return
+  if (dtok ~ /^[0-9]*[<>]/) { if (dtok ~ /^[0-9]*(>>|>[|]|>&|<&|<|>)$/) drd = 1; return }
+  if (dtexp) dbad = 1
+  if (dtglob && dtok !~ /^\[\[?$/) dbad2 = 1   # a glob in the command word: the name is whatever the directory holds when the line runs (`[` and `[[` are the test)
+  sub(/^.*\//, "", dn); dcmd = dn
+  dcs = 0; dwr = 0
+}
+function dpush(ty) { DST[++dsp] = ty; DSI[dsp] = dint; DSC[dsp] = dtcs; DSK[dsp] = dtok; DSE[dsp] = dtexp; DSS[dsp] = dcs; DSG[dsp] = dtglob; DSM[dsp] = dcmd; dcmd = "" }
+function dpop() { dint = DSI[dsp]; dtcs = DSC[dsp]; dtok = DSK[dsp]; dtexp = DSE[dsp]; dcs = DSS[dsp]; dtglob = DSG[dsp]; dcmd = DSM[dsp]; dsp-- }
+function dtext(c) { if (!dint) { dint = 1; dtcs = dcs; dtok = ""; dtexp = 0; dtglob = 0 } dtok = dtok c }
+function dreset() { dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0 }
+function dyn(t,   i, n, c, top, bsep, bsep2, u, nx) {
+  n = length(t); dbad = 0; dbad2 = 0; bsep = 0; bsep2 = 0; DCONT = 0; DHDW = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(t, i, 1); nx = substr(t, i + 1, 1); top = (dsp > 0) ? DST[dsp] : ""
+    if (top == "q") { dtext(c); if (c == "\047") dsp--; continue }
+    if (top != "A" && top != "a") {
+      if (c == "\\") { if (i < n) { dtext(c); i++; dtext(substr(t, i, 1)) } else DCONT = 1; continue }
+      if (top == "d" && c == "\"") { dtext(c); dsp--; continue }
+    }
+    if (c == "$" && substr(t, i + 1, 2) == "((") { dtext("$"); dpush("E"); DST[++dsp] = "A"; DST[++dsp] = "A"; i += 2; continue }
+    if (c == "$" && nx == "(") { dtext("$"); dtexp = 1; dpush("S"); dint = 0; dcs = 1; i++; continue }
+    if (c == "`") {
+      if (top == "K") { dfin(); dpop(); dtext("`"); continue }
+      dtext("`"); dtexp = 1; dpush("K"); dint = 0; dcs = 1; continue }
+    if (top == "A" || top == "a") {   # arithmetic: its blanks, parentheses and operators are not shell syntax
+      if (c == "(") DST[++dsp] = "a"
+      else if (c == ")") { dsp--; if (dsp > 0 && DST[dsp] == "E") { dpop(); dtext("_") } }
+      continue }
+    if (c == "$") { dtext(c); if (nx ~ /[A-Za-z0-9_{@*#?!$-]/) dtexp = 1; if (nx == "{") { dtext("{"); i++; DST[++dsp] = "B" }; continue }
+    if (top == "B") {   # inside ${ }: blanks, parentheses, separators and glob characters are text; quotes and `$( )` nest
+      if (c == "}") { dtext(c); dsp--; continue }
+      if (c == "\047") { dtext(c); DST[++dsp] = "q"; continue }
+      if (c == "\"") { dtext(c); DST[++dsp] = "d"; continue }
+      dtext(c); continue }
+    if (top == "d") { dtext(c); continue }
+    if (c == "\047") { dtext(c); DST[++dsp] = "q"; continue }
+    if (c == "\"") { dtext(c); DST[++dsp] = "d"; continue }
+    if (c == "#" && !dint) break
+    if (c == " " || c == "\t") { dfin(); continue }
+    if (c == ";" || c == "|" || (c == "&" && substr(t, i - 1, 1) !~ /[<>]/)) { dfin(); dxend(); drd = 0; dwr = 0; dcs = 1; if (c != "|") { bsep = dbad; bsep2 = dbad2 }; continue }
+    if (c == "<" && nx == "<" && substr(t, i + 2, 1) == "<") { dtext("<<<"); i += 2; continue }
+    if (c == "<" && nx == "<") {   # a here-document: its delimiter word, for the caller
+      u = substr(t, i + 2); DHDD = (substr(u, 1, 1) == "-"); if (DHDD) u = substr(u, 2)
+      sub(/^[ \t]+/, "", u); sub(/^["\047]/, "", u); sub(/[^A-Za-z0-9_].*$/, "", u)
+      if (u ~ /^[A-Za-z_]/) DHDW = u
+      dtext("<<"); i++; continue }
+    if (c == "(") { dfin(); dpush("P"); dint = 0; dcs = 1; continue }
+    if (c == ")") {
+      dfin(); dxend()
+      if (dsp == 0) { dbad = bsep; dbad2 = bsep2; dcs = 1; continue }   # a `)` that closes nothing ends a case pattern: its words are no commands
+      if (top == "S") { dpop(); dtext(")"); continue }
+      dsp--; dcs = 1; continue }
+    dtext(c); if (index("*?[", c) > 0) dtglob = 1
+  }
+  top = (dsp > 0) ? DST[dsp] : ""
+  if (top != "q" && top != "d") { dfin(); if (!DCONT && top != "A" && top != "a") { dxend(); dcs = 1; drd = 0; dwr = 0 } }   # a newline ends a simple command, unless it is escaped or inside a quote
+  return dbad
+}
+{ fn = $0; sub(/^[^:]*:[^:]*:/, "", fn); sub(/:.*/, "", fn)
+  if (FNS != "*" && index(FNS, " " fn " ") == 0) next
+  t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+  if (MODE == "dyn") { fl = $0; sub(/:.*/, "", fl); if (fl != curfile || fn != dfn) { curfile = fl; dfn = fn; dreset() } }   # a new file or function starts with nothing open
+  if (fn != hdfn) hd = ""
+  if (hd != "") { u = t; if (hddash) sub(/^\t+/, "", u); if (u == hd) hd = ""; next }   # the body of a here-document is text, not a command of the function
+  nread++
+  if (MODE == "dyn") {
+    if (dyn(t)) print $0 > BAD
+    if (dbad2) print $0 > BAD2
+    if (DHDW != "") { hd = DHDW; hdfn = fn; hddash = DHDD }
+    next
+  }
+  CWX = 0; m = mask(t); n = cmds(m); bad = 0
+  if (MODE == "wrap" && CWX) bad = 1   # the command word is a $( ) or a backtick expansion: a name that is built when the line runs
+  p = index(m, "<<")
+  if (p > 0 && substr(m, p + 2, 1) != "<") {
+    u = substr(t, p + 2); hddash = (substr(u, 1, 1) == "-"); if (hddash) u = substr(u, 2)
+    sub(/^[ \t]+/, "", u); sub(/^["\047]/, "", u); sub(/[^A-Za-z0-9_].*$/, "", u)
+    if (u ~ /^[A-Za-z_]/) { hd = u; hdfn = fn }   # a word, not a shift in arithmetic
+  }
+  for (j = 1; j <= n; j++) {
+    s = C[j]; u = s; gsub(/["\047\\]/, "", u)   # quotes and backslashes in the command word do not hide it ("hci""tool", hc\itool are hcitool)
+    if (MODE == "wrap") {
+      cw = u; sub(/[ \t].*/, "", cw)
+      if (cw !~ /^\[\[?$/ && cw ~ /[?*\[]/) bad = 1   # a glob in the command word (/usr/bin/hcito?l): a name that is built when the line runs
+      else if (u ~ WRAP) bad = 1
+      else if (s ~ /^["\047]?\$/) bad = 1
+      else if (fn != "bt_begin" && u ~ /^timeout([ \t]|$)/) bad = 1
+    } else {
+      if (u ~ /^timeout[ \t]/) { sub(/^timeout[ \t]+/, "", u); sub(/^-s[ \t]+[^ \t]+[ \t]+/, "", u); sub(/^[^ \t]+[ \t]*/, "", u) }
+      if (u ~ CMDW) bad = 1
+    }
+  }
+  if (bad) print $0 > BAD }
+END { print nread + 0 > NREAD }'
+BT_CMD_RE="^([A-Za-z0-9_./-]*/)?($BT_WORDS)([^A-Za-z0-9_-]|\$)"
+for _m in wrap cmdpos; do
+  case $_m in wrap) _fns=$BT_FUNCS ;; *) _fns=' bt_stub bt_selftest ' ;; esac
+  : > "$tmp/bt_$_m"; : > "$tmp/bt_${_m}_n"
+  BT_WRAP_RE=$BT_WRAP_RE BT_CMD_RE=$BT_CMD_RE BT_MODE=$_m BT_SEG_FNS=$_fns awk -v BAD="$tmp/bt_$_m" -v NREAD="$tmp/bt_${_m}_n" "$BTSEG" "$tmp/code"
+  _nf=0; for f in $_fns; do grep -qxF "$f" "$tmp/fnames" && _nf=$((_nf + 1)); done
+  # shellcheck disable=SC2086   # _fns is a word list on purpose
+  _what="$(cat "$tmp/bt_${_m}_n") code lines read in $_nf of $(printf '%s\n' $_fns | grep -c .) functions"
+  case $_m in
+    wrap) rowif "Bluetooth wrappers: wrapper, command word from a variable, or timeout outside bt_begin = $(lines "$tmp/bt_wrap") ($_what)" [ ! -s "$tmp/bt_wrap" ] ;;
+    *) rowif "Bluetooth command position: tool word as a command in bt_stub or bt_selftest = $(lines "$tmp/bt_cmdpos") ($_what)" [ ! -s "$tmp/bt_cmdpos" ] ;;
+  esac
+  [ ! -s "$tmp/bt_$_m" ] || show < "$tmp/bt_$_m"
+done
+
+# 6c · the five `_pineap` lines of apcli_ro, byte for byte (the pins above): every line of apcli_ro that holds `_pineap` is one of them, each
+# exactly once (an id of APCLI_NOT_YET may still be missing). The collector's own selftest pins the same lines at run time; this is the
+# static guard that a sixth line, a changed argument or a command name taken from a variable cannot pass (SECURITY.md, the sign-off per command).
+apcli_scan
+ap_n=$(sed -n 1p "$tmp/ap_cnt"); ap_bad=$(lines "$tmp/ap_bad")
+ap_off=""; ap_dup=""; ap_ann=""; ap_stale=""; ap_unk=""
+while IFS="$(printf '\t')" read -r _id _c; do
+  [ "$_id" != "$ap_n" ] || [ -n "$_c" ] || continue
+  case $_c in
+    1) btfn_in "$APCLI_NOT_YET" "$_id" && ap_stale="$ap_stale $_id" ;;
+    0) if btfn_in "$APCLI_NOT_YET" "$_id"; then ap_ann="$ap_ann $_id"; else ap_off="$ap_off $_id"; fi ;;
+    *) ap_dup="$ap_dup $_id" ;;
+  esac
+done < "$tmp/ap_cnt"
+for f in $APCLI_NOT_YET; do awk -F'\t' -v I="$f" '$1 == I { f = 1 } END { exit !f }' "$tmp/ap_cnt" || ap_unk="$ap_unk $f"; done   # an announced id that is no pin is a typo
+ap_ok=0; [ "$ap_bad" = 0 ] && [ -z "$ap_off$ap_dup$ap_unk" ] && ap_ok=1
+rowif "apcli_ro literal lines: $ap_n lines hold _pineap, not pinned $ap_bad, pins missing:${ap_off:- none}, repeated:${ap_dup:- none} (announced, not there yet:${ap_ann:- none}; announced but unknown:${ap_unk:- none})" [ "$ap_ok" = 1 ]
+for f in $ap_stale; do echo "    hint: $f is in apcli_ro and still in APCLI_NOT_YET: please remove"; done
+[ "$ap_bad" = 0 ] || show < "$tmp/ap_bad"
+
+# 6d · a name that is built when a line runs, anywhere in the shell scope (SECURITY.md, docs/architecture.md §14.6). The rows above read NAMES: a tool put together
+# while the script runs (`zz_a=hci; zz_b=tool; "$zz_a$zz_b" -i hci0 lescan`) has no word of BT_WORDS on any line, and the row 'Bluetooth wrappers' reads only the functions of
+# BT_FUNCS. This row reads every code line of every shell file of the scope (BTSEG, mode dyn) and lists each simple command whose COMMAND WORD holds an expansion: `$VAR`,
+# `${...}`, `$( )` or a backtick expression, quoted or not, also behind a wrapper word (`exec`, `command`, `env`, `nice`, `nohup`, `setsid`, `time`, `xargs`, `busybox`,
+# `timeout [-s SIG] N`, `sudo`, `stdbuf`) and after `VAR=value` prefixes and redirections. The lines that stand today are the pinned list below, byte for byte, leading blanks cut,
+# each with the function it stands in (`-` = outside every function): the `nice` prefix of the launchers, the fixture builder `$rsq` of the self-test, the screen dispatch
+# `screen_$1` of the Overview, the page server's `$NC` and `$HANDLER` and the stop call; the four `$ap_to _pineap` lines of apcli_ro are the pins of row 6c and are taken from there.
+# A line that is not pinned, a pinned line that changed and a pin without a line are red: whoever adds or edits such a line reads its command word and changes this list on purpose.
+# NOT SEEN, and SECURITY.md says so: a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`, a `. file`), a name made by a function the script
+# defines, and a glob that is only handed on as an argument (`ln -s /usr/bin/hc?tool x; x ...`, `cp`). Nothing here reads what a program does, so for those the guarantee is review, and the run-time
+# witness of the collector's own Bluetooth window (it sees nothing of a tool that a scan started outside the window). The mutation probe plants every form the rows read, and the forms above as controls.
+cat > "$tmp/dynpins" <<'DYNPINS'
+-:"$HANDLER" < "$FIFO" | "$NC" "$@" > "$FIFO" &   # "$@" = the listening arguments chosen above
+-:$NICE ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &
+-:elif "$NC" -h 2>&1 </dev/null | grep -qE -- '(^|[[:space:]])-s([ ,]|$)'; then
+pl_col_launch:$PL_NICE setsid ./starchorus-collect.sh </dev/null >/dev/null 2>collect.log &
+pl_overview:STARCHORUS_SINCE=$pl_since STARCHORUS_PAGE_URL=$pl_pu STARCHORUS_PARENT_PID=$$ $PL_NICE sh "$STARCHORUS_DIR/starchorus-display.sh" >/dev/null 2>&1
+pl_serve:$PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 &
+pl_serve:$PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" || {
+pl_serve:STARCHORUS_BIND=$pl_sb $PL_NICE setsid "$STARCHORUS_DIR/starchorus-serve.sh" </dev/null >/dev/null 2>&1 &
+pl_serve:STARCHORUS_BIND=$pl_sb $PL_NICE start-stop-daemon -S -b -x "$STARCHORUS_DIR/starchorus-serve.sh"
+render:top|bands|devices|probes|clients|bluetooth|air) "screen_$1" ;;
+render:top|bands|devices|probes|clients|bluetooth|air) "screen_$1" ;;
+selftest:"$rsq" "$ldb" >/dev/null 2>&1 <<SQL
+selftest:"$rsq" "$npdb" >/dev/null 2>&1 <<SQL
+selftest:"$rsq" "$tdir/recon_pn.db" "INSERT INTO ssid VALUES (3,0,1,8,'AABBCC00000A','New',0,0,-40,2437,6,17184063752);" >/dev/null 2>&1
+selftest:i=0; while [ "$i" -lt 150 ]; do printf "INSERT INTO ssid VALUES (%s,0,1,8,'D2D2D2%06d','Grown%s',0,%s,-80,2437,6,8);\n" $((100 + i)) "$i" "$i" $((n0 + 90)); i=$((i + 1)); done | "$rsq" "$kdb" >/dev/null 2>&1
+serve:$NICE busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
+serve:$NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
+serve:$NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
+stop_servers:"$STARCHORUS_DIR/starchorus-serve.sh" stop >/dev/null 2>&1
+DYNPINS
+# shellcheck disable=SC2016   # the literal text of the pinned lines
+grep -F '$ap_to' "$tmp/pins" | sed 's/^/apcli_ro:/' >> "$tmp/dynpins"
+: > "$tmp/dyn_bad"; : > "$tmp/dyn_n"; : > "$tmp/dyn_new"; : > "$tmp/dyn_gone"
+: > "$tmp/dyn_bad2"
+BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' awk -v BAD="$tmp/dyn_bad" -v BAD2="$tmp/dyn_bad2" -v NREAD="$tmp/dyn_n" "$BTSEG" "$tmp/code"
+dyn_p=$(pin_cmp "$tmp/dyn_bad" "$tmp/dynpins" "$tmp/dyn_new" "$tmp/dyn_gone")
+dyn_ok=0; [ ! -s "$tmp/dyn_new" ] && [ ! -s "$tmp/dyn_gone" ] && dyn_ok=1
+rowif "§14.6d command words from an expansion: $(lines "$tmp/dyn_bad") lines hold one, pinned $dyn_p, not pinned $(lines "$tmp/dyn_new"), pins without a line $(lines "$tmp/dyn_gone") ($(cat "$tmp/dyn_n") code lines read)" [ "$dyn_ok" = 1 ]
+[ ! -s "$tmp/dyn_new" ] || { show < "$tmp/dyn_new"; echo "    hint: the command word of that line is built when it runs: name the tool in the line, or read it and add the line (function:text) to the pinned list of row 6d"; }
+[ ! -s "$tmp/dyn_gone" ] || { sed 's/^/    pin without a line: /' "$tmp/dyn_gone" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of row 6d with it"; }
+
+# 6e · a name built by something other than an expansion, anywhere in the shell scope (the same pass as 6d, its second verdict): a command word that holds an unquoted glob character (`*`, `?`, `[`;
+# `[` and `[[` themselves are the test: `/usr/bin/hc?tool`, `/usr/bin/hci[t]ool`, `/usr/sbin/i[w]`), `find` with `-exec`, `-execdir`, `-ok` or `-okdir` (the command is then whatever `find` turns up
+# or, with `{}` first, what it names), `xargs` whose command is its replacement string (`xargs -I{} {} ...`: the command comes from stdin) or is missing (it then runs `echo` over what it reads),
+# and any `alias` definition (`alias zz_s="$zz_a$zz_b"`: a later line runs a name that no line spells). A glob in a for-list, in a case pattern or as an argument is no command word and stays unread.
+# The row compares with a pinned list as 6d does; nothing stands there today, so any line is a new one.
+cat > "$tmp/dynpins2" <<'DYNPINS2'
+DYNPINS2
+: > "$tmp/dyn_new2"; : > "$tmp/dyn_gone2"
+dyn_p2=$(pin_cmp "$tmp/dyn_bad2" "$tmp/dynpins2" "$tmp/dyn_new2" "$tmp/dyn_gone2")
+dyn_ok2=0; [ ! -s "$tmp/dyn_new2" ] && [ ! -s "$tmp/dyn_gone2" ] && dyn_ok2=1
+rowif "§14.6e command names from a glob, find -exec, xargs or alias: $(lines "$tmp/dyn_bad2") lines hold one, pinned $dyn_p2, not pinned $(lines "$tmp/dyn_new2"), pins without a line $(lines "$tmp/dyn_gone2") ($(cat "$tmp/dyn_n") code lines read)" [ "$dyn_ok2" = 1 ]
+[ ! -s "$tmp/dyn_new2" ] || { show < "$tmp/dyn_new2"; echo "    hint: the command of that line is found by a glob, by find or by xargs, or is an alias: name the tool in the line, or read it and add the line (function:text) to the pinned list of row 6e"; }
+[ ! -s "$tmp/dyn_gone2" ] || { sed 's/^/    pin without a line: /' "$tmp/dyn_gone2" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of row 6e with it"; }
 
 # 7b · recon.db is only ever READ, and read-only (SECURITY.md, first permitted way): every sqlite3 CALL outside
 # selftest() carries -readonly. `have sqlite3` is a presence test, not a call. The floor keeps the row from turning

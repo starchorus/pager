@@ -66,8 +66,8 @@ DBN_CX=$(grep -ciE '^## .*(not a condition|not mandatory|no obligation)' CONTRIB
 if [ "$DBN_CO" = 1 ] && [ "$DBN_CR" = 1 ] && [ "$DBN_CX" = 0 ]; then row "spec binding: CONTRIBUTING makes the passivity check mandatory for every PR and the regression mandatory before the merge, no heading says the opposite (passivity $DBN_CO, regress $DBN_CR, contrary headings $DBN_CX)" PASS
 else row "spec binding: CONTRIBUTING makes the passivity check mandatory for every PR and the regression mandatory before the merge, no heading says the opposite (passivity $DBN_CO, regress $DBN_CR, contrary headings $DBN_CX)" FAIL; fi
 # the display script's outputs are described where a reader looks for them: SECURITY.md (LOG lines only) and the payload's
-# README (its seven screens, down to the last one, air quality)
+# README (its eight screens, down to the last one, air quality)
 DBN_PR=library/user/reconnaissance/starchorus/README.md
-DBN_SS=$(grep -c 'LOG lines' SECURITY.md); DBN_HK=$(grep -c 'Overview (.starchorus-display.sh.): seven screens' "$DBN_PR"); DBN_HA=$(grep -c 'stations, air quality)' "$DBN_PR")
+DBN_SS=$(grep -c 'LOG lines' SECURITY.md); DBN_HK=$(grep -c 'Overview (.starchorus-display.sh.): eight screens' "$DBN_PR"); DBN_HA=$(grep -c 'stations, Bluetooth, air quality)' "$DBN_PR")
 if [ "$DBN_SS" -ge 1 ] && [ "$DBN_HK" -ge 1 ] && [ "$DBN_HA" -ge 1 ]; then row "spec binding: SECURITY.md and the payload README describe the display outputs ($DBN_SS/$DBN_HK/$DBN_HA)" PASS
 else row "spec binding: SECURITY.md and the payload README describe the display outputs ($DBN_SS/$DBN_HK/$DBN_HA)" FAIL; fi

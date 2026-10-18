@@ -43,3 +43,11 @@ rowif "contrast: rings stroked with line.ring (2D+3D) = $CTR_N" [ "$CTR_N" = 2 ]
 CTR_C=$(grep -c 'c.fillStyle = THEME.ink.secondary; c.fillText(TD.upper ? "CLIENTS"' "$H")
 CTR_P=$(sed -n '/^const CONTRAST_PAIRS/,/^window.STARCHORUS = /p' "$H" | grep -c 'Date\.now\|Math\.random\|performance\.now\|document\.\|getComputedStyle\|fetch(')
 rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P)" [ "$CTR_C/$CTR_P" = 1/0 ]
+
+# ---- 0.2, the radio pair: the Bluetooth mark is a contrast pair of its own (render.btMark on surface.base, minimum 3, the ring minimum), in all three themes; the pair is one of
+# the rows CTR_EV1 above already requires to pass. A mark too dark for the ground fails the same API, so the row can bite.
+CTR_EVB='(function(){const o=[];for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);const r=STARCHORUS.contrast().filter(p=>p.fg==="render.btMark");o.push(r.length===1&&r[0].bg==="surface.base"&&r[0].min===3&&r[0].pass?r[0].ratio:"bad:"+JSON.stringify(r))}
+const dark=STARCHORUS.contrast([["#2a1020","surface.base",3]],"foundation")[0].pass;STARCHORUS.setTheme("foundation");return o.join("/")+"|"+dark})()'
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-bt" --fps 0 --wait 2 --eval "$CTR_EVB" >/dev/null 2>&1
+CTR_B=$(evalv "out/$P-contrast-bt.json" 1)
+rowif "contrast (radio pair): render.btMark on surface.base is a pair of its own, minimum 3, passing in all 3 themes (7.18 / 8.05 / 3.94), and a too-dark mark fails the same API [$CTR_B]" [ "$CTR_B" = "7.18/8.05/3.94|false" ]

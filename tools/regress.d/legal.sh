@@ -56,18 +56,18 @@ done
 rowif "rendered text+panels: no denied term (logon lines$LGL_LOG)" [ -z "$LGL_BAD" ]
 [ -z "$LGL_BAD" ] || echo "   $LGL_BAD"
 
-# R5 · display LOG (a visible surface, P10): both starchorus-display.sh copies, 7 screens x every fixture
+# R5 · display LOG (a visible surface, P10): both starchorus-display.sh copies, 8 screens x every fixture
 LGL_LG="out/$P-display-log.txt"; : > "$LGL_LG"; LGL_FXN=0
 for LGL_FJ in "$F"/*.json; do LGL_FXN=$((LGL_FXN + 1)); done
 for LGL_PG in starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh; do
-  for LGL_S in summary top bands devices probes clients air; do
+  for LGL_S in summary top bands devices probes clients bluetooth air; do
     for LGL_FJ in "$F"/*.json; do STARCHORUS_DISPLAY_PLAIN=1 sh "$LGL_PG" --once "$LGL_S" "$LGL_FJ" >> "$LGL_LG" 2>&1; done
   done
 done
 LGL_LN=$(wc -l < "$LGL_LG" | tr -d ' '); LGL_O="empty log $LGL_LG"; LGL_RC=1
 if [ -s "$LGL_LG" ]; then LGL_O=$(sh tools/denylist-check.sh "$R/$LGL_LG" 2>&1); LGL_RC=$?; fi
 if [ "$LGL_RC" = 0 ]; then
-  row "display LOG: no denied term (7 screens x $LGL_FXN fixtures x 2 copies, $LGL_LN lines)" PASS
+  row "display LOG: no denied term (8 screens x $LGL_FXN fixtures x 2 copies, $LGL_LN lines)" PASS
 else
   row "display LOG: no denied term ($LGL_LN lines)" FAIL; printf '%s\n' "$LGL_O" | cut -c1-170 | sed 's/^/    /'
 fi

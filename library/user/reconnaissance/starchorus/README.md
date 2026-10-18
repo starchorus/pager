@@ -21,11 +21,15 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
   `STARCHORUS_INTERVAL` seconds. One collector runs per Pager, so that two loops never share the
   monitor interface or radio: starting or stopping any instance stops every other collector loop on
   the device, and each loop so stopped is named in the collector's LOG with its pid and directory.
+  Two settings, both off by default, add to what it reads: 'Traffic' (channel activity from the AP
+  service and the frame counts of stations) and 'Bluetooth' (a scan of 6 s per refresh). Bluetooth:
+  passive LE scan only: by the Bluetooth specification a passive scan sends no scan request, it listens for advertisements that devices
+  broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)).
 - Page (`starchorus.html`, `index.html` on the device): a single, self-contained HTML file on port
   8199; it fetches only `starchorus.json` and sends nothing.
-- Overview (`starchorus-display.sh`): seven screens on the device's display (summary, strongest
-  networks, bands and security, devices and merges, probe requests, stations, air quality), opened
-  from the menu or after 'Start'. It starts its wait for a key before it draws a screen and keeps one open
+- Overview (`starchorus-display.sh`): eight screens on the device's display (summary, strongest
+  networks, bands and security, devices and merges, probe requests, stations, Bluetooth, air quality),
+  opened from the menu or after 'Start'. It starts its wait for a key before it draws a screen and keeps one open
   while it draws, so a press made while it reads is kept, and it never redraws by itself: key A draws the screen again, key B goes up
   one level, and Left and Right step through the screens. It starts and stops nothing, and its only
   output is LOG lines.
@@ -124,18 +128,27 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
   keeps one open while it draws, so a press made while 'Reading...' shows is kept (it ends that draw and is acted on at once); it never
   redraws by itself.
   Key A draws the screen again, key B goes up one level (a screen, then the list 'Overview', then this
-  menu), and Left and Right step through the seven screens; Up and Down do nothing. The list offers
-  'Summary', 'Strongest Networks', 'Bands & Security', 'Devices & Merges', 'Probe Requests', 'Stations'
-  and 'Air Quality'. Each screen ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the
+  menu), and Left and Right step through the eight screens; Up and Down do nothing. The list offers
+  'Summary', 'Strongest Networks', 'Bands & Security', 'Devices & Merges', 'Probe Requests', 'Stations',
+  'Bluetooth' and 'Air Quality'. Each screen ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the
   keys ('A: Refresh   B: Back'); 'Reading...' shows while a scan is read. A scan that takes `jq` more than
   20 seconds ends as 'This scan took over 20 s to read.' with the hint 'Try Settings > Show Last: 1 h.'.
+  The summary's 'APs' line ends in 'BT 23' when the scan carries Bluetooth, and 'Bluetooth' lists the
+  addresses heard in the last scan and the strongest few by company (a company id is what an advertiser
+  puts in its manufacturer data, not necessarily who made the device); the figures are addresses, not
+  devices, because random addresses dominate what is heard and they change from time to time. Without the
+  Bluetooth setting it says 'No Bluetooth in this scan.' With the Traffic setting on, 'Bands & Security' adds
+  to each band line that band's share of the frames heard ('act ######-- 78%', a relative figure) and a line
+  that says what it is.
 - **Open on Phone** shows the page's address as a QR code, with the address written under it (firmware
   1.1.1 or later; on an older firmware the address is shown as text). Without a network address it says
   'No network address.' and asks you to connect USB-C or Wi-Fi.
 - **Stop** asks nothing. It stops the collector and the page server and waits until the collector
   has really ended.
-- **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Port' and
-  'Reset to Defaults'. A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
+- **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Traffic',
+  'Bluetooth', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default; switching one
+  on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
+  scan, 6 s per refresh.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
   short list ('Show Last' also offers 'All (may be slow)'), 'Port' a number entry. Every change is
   saved at once. While Starchorus runs, 'Web Page' takes effect at once, and the other changes are
   applied when you leave Settings, without a question. Only 'Reset to Defaults' asks first. A
@@ -178,6 +191,7 @@ Environment variables, all optional:
 | `STARCHORUS_ALLOW_ACTIVE` | `0` | `1` permits the collector, as a last resort, the ACTIVE `iw scan` (sends probe requests); the page and the Overview then show the ACTIVE line. |
 | `STARCHORUS_OWN` | `0` | `1` marks the device's own radios (interface MACs from sysfs). Environment only. |
 | `STARCHORUS_DASHBOARD` | `1` | `0` keeps the Overview from opening after 'Start'. Environment only. |
+| `STARCHORUS_BT_WINDOW` | `6` | Length of the Bluetooth window in whole seconds, 5 to 15; any other value is 6. Environment only; the payload passes it to the collector unchanged. |
 | `STARCHORUS_COLLECTOR` | `1` | `0` starts no collector; the menu then refuses to run, and `payload.sh start` serves the page alone. Environment only. |
 | `STARCHORUS_DISPLAY_TEMPLATE` | – | a template line for the Overview's summary with `{aps}`, `{b24}`, `{b5}`, `{b6}`, `{open}`, `{crowding}`, `{gen}`; otherwise the first line of `/root/loot/starchorus/display.tpl`. |
 
@@ -198,8 +212,11 @@ touch the file.
 | `vendor` | `on` | `on`, `off` | `STARCHORUS_VENDOR` (`1`/`0`): vendor name from the local OUI list ('Vendor Names') |
 | `survey` | `off` | `on`, `off` | `STARCHORUS_SURVEY` (`1`/`0`): channel occupancy from the survey dump ('Channel Load') |
 | `page` | `on` | `on`, `off` | payload only (`STARCHORUS_PAGE`): serve the page ('Web Page') |
+| `bluetooth` | `off` | `on`, `off` | `STARCHORUS_BLUETOOTH` (`1`/`0`): the passive Bluetooth LE scan, 6 s per refresh ('Bluetooth') |
+| `traffic` | `off` | `on`, `off` | `STARCHORUS_TRAFFIC` (`1`/`0`): channel activity from the AP service and the frame counts of stations ('Traffic') |
 
-'Refresh' in the menu is `interval`, 'Show Last' is `window`. The collector options only read.
+'Refresh' in the menu is `interval`, 'Show Last' is `window`, 'Traffic' is `traffic` and 'Bluetooth' is `bluetooth`.
+The collector options only read.
 `own`, `collector` and `dashboard` are no longer keys: a line for them in an older settings file is
 skipped, and the environment variables above take their place. No key, no menu item and no command-line command reaches the
 collector's active scan; that remains an environment variable alone (above).

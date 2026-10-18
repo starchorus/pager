@@ -1,0 +1,4884 @@
+Bluetooth monitor ver 5.72
+btmon[3546]: = Note: Linux version 6.6.86 (mips)                       0.760722
+btmon[3546]: = Note: Bluetooth subsystem version 2.22                  0.760744
+= New Index: 02:00:00:00:00:01 (Primary,USB,hci0)                      0.760750
+= Open Index: 02:00:00:00:00:01                                        0.760754
+= Index Info: 02:00:00:00:00:01 (MediaTek, Inc.)                       0.760757
+bluetoothd[3895]: @ MGMT Open: b.. (privileged) version 1.22  {0x0001} 0.760765
+hcitool[3550]: @ RAW Open: hcitool (privileged) version 2.22  {0x0002} 1.530100
+hcitool[3550]: < HCI Command: LE Set Scan P.. (0x08|0x000b) plen 7  #1 1.531002
+        Type: Passive (0x00)
+        Interval: 10.000 msec (0x0010)
+        Window: 10.000 msec (0x0010)
+        Own address type: Public (0x00)
+        Filter policy: Accept all advertisement (0x00)
+> HCI Event: Command Complete (0x0e) plen 4                         #2 1.533412
+      LE Set Scan Parameters (0x08|0x000b) ncmd 1
+        Status: Success (0x00)
+hcitool[3550]: < HCI Command: LE Set Scan E.. (0x08|0x000c) plen 2  #3 1.533820
+        Scanning: Enabled (0x01)
+        Filter duplicates: Disabled (0x00)
+> HCI Event: Command Complete (0x0e) plen 4                         #4 1.534910
+      LE Set Scan Enable (0x08|0x000c) ncmd 1
+        Status: Success (0x00)
+> HCI Event: LE Meta Event (0x3e) plen 29                           #5 1.546345
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                           #6 1.648735
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 39                           #7 1.654371
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                           #8 1.666964
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -70 dBm (0xba)
+> HCI Event: LE Meta Event (0x3e) plen 43                           #9 1.694969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #10 1.733719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #11 1.735518
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #12 1.748978
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #13 1.785105
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -100 dBm (0x9c)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #14 1.843217
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #15 1.901717
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0A (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -96 dBm (0xa0)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #16 1.922472
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #17 1.938222
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #18 2.011717
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #19 2.028105
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #20 2.033340
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #21 2.053976
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #22 2.070843
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #23 2.102365
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #24 2.208100
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -70 dBm (0xba)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #25 2.222965
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #26 2.253969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #27 2.304976
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #28 2.309590
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #29 2.404969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #30 2.439215
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #31 2.461989
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #32 2.485634
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #33 2.562862
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #34 2.580970
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #35 2.584637
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -79 dBm (0xb1)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #36 2.588225
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #37 2.598103
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #38 2.627338
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #39 2.631877
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0C (Static)
+        Data length: 8
+        Service Data: Unknown (0xfffe)
+          Data: 00000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #40 2.667874
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #41 2.759211
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0D (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #42 2.760254
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #43 2.769358
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #44 2.811967
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #45 2.837720
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #46 2.851108
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #47 2.853359
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #48 2.864095
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #49 2.867389
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #50 2.934467
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0E (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -81 dBm (0xaf)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #51 2.951858
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0F (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #52 2.960719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #53 3.031842
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -68 dBm (0xbc)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #54 3.043100
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #55 3.079840
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:10 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -96 dBm (0xa0)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #56 3.110987
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #57 3.144979
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -86 dBm (0xaa)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #58 3.146739
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #59 3.191879
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #60 3.276853
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #61 3.309093
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:11 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -81 dBm (0xaf)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #62 3.310261
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -71 dBm (0xb9)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #63 3.313349
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:12 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #64 3.336605
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 20                          #65 3.373970
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:13 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -68 dBm (0xbc)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #66 3.379114
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #67 3.381017
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #68 3.401592
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #69 3.407870
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -55 dBm (0xc9)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #70 3.410885
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #71 3.423462
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -80 dBm (0xb0)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #72 3.524345
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #73 3.585843
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #74 3.590865
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #75 3.654221
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #76 3.680894
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #77 3.683701
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #78 3.707861
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #79 3.746600
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #80 3.777969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -55 dBm (0xc9)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #81 3.808996
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -100 dBm (0x9c)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #82 3.861973
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -66 dBm (0xbe)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #83 3.895511
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #84 3.928721
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #85 3.935745
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #86 3.957721
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #87 3.960476
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #88 3.971096
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -87 dBm (0xa9)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #89 4.080592
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #90 4.092719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #91 4.122091
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #92 4.131347
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -76 dBm (0xb4)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #93 4.151589
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 30                          #94 4.207423
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #95 4.214609
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 31                          #96 4.240250
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -80 dBm (0xb0)
+> HCI Event: LE Meta Event (0x3e) plen 39                          #97 4.270474
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                          #98 4.304343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #99 4.339224
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #100 4.411968
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #101 4.460468
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #102 4.484220
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #103 4.486265
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #104 4.510967
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #105 4.512764
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -79 dBm (0xb1)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #106 4.523719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #107 4.617843
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #108 4.631840
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0C (Static)
+        Data length: 8
+        Service Data: Unknown (0xfffe)
+          Data: 00000000
+        RSSI: -70 dBm (0xba)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #109 4.647856
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #110 4.676092
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #111 4.691391
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -70 dBm (0xba)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #112 4.709355
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #113 4.759110
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #114 4.765465
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0D (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #115 4.785104
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #116 4.830119
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #117 4.862467
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #118 4.896967
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #119 4.940855
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0E (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -81 dBm (0xaf)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #120 4.955721
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0F (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -84 dBm (0xac)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #121 4.967720
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -71 dBm (0xb9)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #122 5.016342
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #123 5.022006
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #124 5.049107
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #125 5.056595
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #126 5.081217
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #127 5.207584
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #128 5.236760
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #129 5.248372
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #130 5.270357
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #131 5.312479
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:11 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #132 5.322233
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:12 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -79 dBm (0xb1)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #133 5.335851
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #134 5.383488
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:13 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -75 dBm (0xb5)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #135 5.389586
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #136 5.418729
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #137 5.420258
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -92 dBm (0xa4)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #138 5.459497
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #139 5.523131
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #140 5.576101
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #141 5.578355
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #142 5.604012
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #143 5.610605
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #144 5.621345
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #145 5.648000
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #146 5.770093
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #147 5.789469
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #148 5.792873
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #149 5.823717
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #150 5.836218
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #151 5.851968
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #152 5.887335
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #153 5.891470
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #154 5.950965
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #155 6.024592
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #156 6.061484
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -74 dBm (0xb6)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #157 6.127461
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #158 6.138343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #159 6.154970
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #160 6.164342
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #161 6.168373
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #162 6.210599
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #163 6.223718
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #164 6.332842
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -73 dBm (0xb7)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #165 6.338541
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #166 6.399879
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #167 6.440614
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #168 6.449500
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #169 6.526595
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -100 dBm (0x9c)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #170 6.584968
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -55 dBm (0xc9)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #171 6.606015
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -69 dBm (0xbb)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #172 6.626992
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -90 dBm (0xa6)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #173 6.714097
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #174 6.718720
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #175 6.729247
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -83 dBm (0xad)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #176 6.765592
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0D (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #177 6.768102
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #178 6.886620
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #179 6.896358
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #180 6.926350
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #181 6.945601
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #182 6.947140
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0E (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -84 dBm (0xac)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #183 6.954463
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #184 6.996728
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #185 6.998856
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -84 dBm (0xac)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #186 7.030593
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #187 7.044352
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:14 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #188 7.077969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #189 7.090847
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:10 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -84 dBm (0xac)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #190 7.139858
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #191 7.165841
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -70 dBm (0xba)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #192 7.222512
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #193 7.261228
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #194 7.269236
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #195 7.278593
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -75 dBm (0xb5)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #196 7.316968
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:11 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #197 7.320750
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #198 7.332854
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:12 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -87 dBm (0xa9)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #199 7.384601
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:13 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -72 dBm (0xb8)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #200 7.430251
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #201 7.442640
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #202 7.445729
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #203 7.452093
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #204 7.496113
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #205 7.507344
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #206 7.542343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #207 7.557381
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #208 7.631338
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #209 7.643459
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #210 7.692217
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #211 7.719248
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -71 dBm (0xb9)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #212 7.776229
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #213 7.818615
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #214 7.823506
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #215 7.829842
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -77 dBm (0xb3)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #216 7.880719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #217 7.923735
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0A (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #218 7.994728
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -68 dBm (0xbc)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #219 8.008104
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #220 8.066722
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #221 8.093090
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #222 8.145640
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #223 8.195715
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -59 dBm (0xc5)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #224 8.196912
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #225 8.237222
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #226 8.252853
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #227 8.271226
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #228 8.320124
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #229 8.373596
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #230 8.377714
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #231 8.379504
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -77 dBm (0xb3)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #232 8.386598
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #233 8.443676
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #234 8.560217
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #235 8.567720
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #236 8.592593
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #237 8.628470
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #238 8.642367
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0C (Static)
+        Data length: 8
+        Service Data: Unknown (0xfffe)
+          Data: 00000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #239 8.644964
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -96 dBm (0xa0)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #240 8.649225
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #241 8.743594
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #242 8.766718
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0D (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #243 8.810847
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #244 8.824468
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -66 dBm (0xbe)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #245 8.868106
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #246 8.919968
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -83 dBm (0xad)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #247 8.924878
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #248 8.928117
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #249 8.939469
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #250 8.952218
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0E (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -81 dBm (0xaf)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #251 8.967595
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0F (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -77 dBm (0xb3)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #252 9.002095
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #253 9.044843
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -91 dBm (0xa5)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #254 9.051746
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:14 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -93 dBm (0xa3)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #255 9.095718
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #256 9.101225
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:10 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -96 dBm (0xa0)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #257 9.106964
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #258 9.120473
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #259 9.198098
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #260 9.213345
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:15 (OUI 02-00-00)
+        Data length: 19
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: Maker A (65535)
+          Data: 0000000000000000
+        16-bit Service UUIDs (partial): 1 entry
+          Maker A (0xfffe)
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #261 9.298337
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #262 9.326869
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:11 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -81 dBm (0xaf)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #263 9.341851
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:12 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -87 dBm (0xa9)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #264 9.350470
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #265 9.366868
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -68 dBm (0xbc)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #266 9.372883
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #267 9.415139
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #268 9.446994
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -94 dBm (0xa2)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #269 9.472468
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -78 dBm (0xb2)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #270 9.475141
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #271 9.478964
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #272 9.562469
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -56 dBm (0xc8)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #273 9.646240
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #274 9.662719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #275 9.680857
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #276 9.687464
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 29                         #277 9.743214
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #278 9.746391
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #279 9.750133
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -83 dBm (0xad)
+> HCI Event: LE Meta Event (0x3e) plen 39                         #280 9.843591
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #281 9.849849
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 43                         #282 9.864592
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 31                         #283 9.922492
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -82 dBm (0xae)
+> HCI Event: LE Meta Event (0x3e) plen 20                         #284 9.932857
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0A (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -102 dBm (0x9a)
+> HCI Event: LE Meta Event (0x3e) plen 30                         #285 9.964594
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #286 10.020464
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -84 dBm (0xac)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #287 10.034721
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #288 10.055339
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #289 10.117218
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #290 10.204729
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -68 dBm (0xbc)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #291 10.219879
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #292 10.238716
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #293 10.243880
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -62 dBm (0xc2)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #294 10.255737
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -89 dBm (0xa7)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #295 10.290487
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #296 10.297591
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -76 dBm (0xb4)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #297 10.305722
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #298 10.409843
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #299 10.430593
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #300 10.478859
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -91 dBm (0xa5)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #301 10.491719
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #302 10.514970
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #303 10.564871
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #304 10.571100
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -99 dBm (0x9d)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #305 10.601466
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #306 10.615851
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -63 dBm (0xc1)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #307 10.646096
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0C (Static)
+        Data length: 8
+        Service Data: Unknown (0xfffe)
+          Data: 00000000
+        RSSI: -57 dBm (0xc7)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #308 10.662601
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -90 dBm (0xa6)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #309 10.681107
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #310 10.753478
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -87 dBm (0xa9)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #311 10.788479
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #312 10.795590
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -52 dBm (0xcc)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #313 10.952343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0E (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -80 dBm (0xb0)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #314 10.971969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0F (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -76 dBm (0xb4)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #315 10.973266
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -98 dBm (0x9e)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #316 10.979873
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #317 11.030474
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -67 dBm (0xbd)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #318 11.056343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #319 11.060500
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:14 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -91 dBm (0xa5)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #320 11.071344
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -60 dBm (0xc4)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #321 11.073892
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #322 11.110235
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:10 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -92 dBm (0xa4)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #323 11.116469
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -85 dBm (0xab)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #324 11.124230
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #325 11.169343
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #326 11.240094
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #327 11.303982
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:05 (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -65 dBm (0xbf)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #328 11.336595
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:11 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -86 dBm (0xaa)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #329 11.348219
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:12 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -75 dBm (0xb5)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #330 11.350006
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:07 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 39                        #331 11.356844
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:04 (Resolvable)
+        Data length: 27
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Product A (9)
+          Data: 0000000000000000
+          Type: Unknown (22)
+          Data: 0000000000000000
+        RSSI: -50 dBm (0xce)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #332 11.379969
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Scannable undirected - ADV_SCAN_IND (0x02)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:06 (Resolvable)
+        Data length: 31
+        Company: Maker A (65535)
+          Type: Unknown (7)
+          Data: 00000000000000000000000000000000000000000000000000
+        RSSI: -64 dBm (0xc0)
+> HCI Event: LE Meta Event (0x3e) plen 31                        #333 11.386256
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:0B (Resolvable)
+        Data length: 19
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 00000000000000
+        RSSI: -76 dBm (0xb4)
+> HCI Event: LE Meta Event (0x3e) plen 20                        #334 11.389722
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:13 (Static)
+        Data length: 8
+        Company: Maker A (65535)
+          Type: Unknown (18)
+          Data: 0000
+        RSSI: -80 dBm (0xb0)
+> HCI Event: LE Meta Event (0x3e) plen 30                        #335 11.402367
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:08 (Resolvable)
+        Data length: 18
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        TX power: 12 dBm
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 000000000000
+        RSSI: -53 dBm (0xcb)
+> HCI Event: LE Meta Event (0x3e) plen 29                        #336 11.422893
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Flags: 0x1a
+          LE General Discoverable Mode
+          Simultaneous LE and BR/EDR (Controller)
+          Simultaneous LE and BR/EDR (Host)
+        Company: Maker A (65535)
+          Type: Unknown (16)
+          Data: 0000000000
+        TX power: 0 dBm
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                        #337 11.476605
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:09 (OUI 02-00-00)
+        Data length: 31
+        Flags: 0x06
+          LE General Discoverable Mode
+          BR/EDR Not Supported
+        Company: not assigned (65534)
+          Data: 000000000000000000000000000000000000000000000000
+        RSSI: -96 dBm (0xa0)
+hcitool[3550]: < HCI Command: LE Set Sca.. (0x08|0x000c) plen 2  #338 11.528127
+        Scanning: Disabled (0x00)
+        Filter duplicates: Disabled (0x00)
+> HCI Event: Command Complete (0x0e) plen 4                      #339 11.528888
+      LE Set Scan Enable (0x08|0x000c) ncmd 1
+        Status: Success (0x00)
+hcitool[3550]: @ RAW Close: hcitool                          {0x0002} 11.529153

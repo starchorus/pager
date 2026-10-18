@@ -44,6 +44,7 @@ dtr_row "tools/README.md fixture table" fixtures
 dtr_row "prose" prose
 dtr_row "spec §11.0 run list = regress.sh loop" runlist
 dtr_row "script headers = page version" headers
+dtr_row "Contract 3 in the four script headers" contract --want 3
 
 # ---- the probes: the same checks on a COPY of the tree (no .git, no out/) with exactly one broken input each. Nothing in the copy runs.
 DTR_w=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-doctruth.XXXXXX")
@@ -103,6 +104,7 @@ DTR_cbad=""
 }
 dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
 for DTR_c in sources fixtures prose runlist headers; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
+dtr_run "$DTR_w" contract --want 3; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad contract"
 [ -z "$DTR_cbad" ] || echo "    the unbroken copy is not green for:$DTR_cbad"
 grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
 { cat "out/$P-shfiles.txt"; echo nosuch.sh; } > "$DTR_w/l-phantom.txt"
@@ -172,7 +174,14 @@ checks.' ''
   dtr_probe 1 'starchorus-display.sh: header 0.1.2, but the page version is 0.1.1' headers starchorus-display.sh replace '# Version:      0.1.1' '# Version:      0.1.2'
   dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.1.2' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.1.1' '# Version: 0.1.2'
   dtr_probe 1 'but the page version is 0.1.2' headers starchorus.html replace '  version: "0.1.1",' '  version: "0.1.2",'
+  # contract: one header left at the old number (collector, display script and its copy, payload), one bumped alone, one gone
+  dtr_probe 1 'starchorus-collect.sh: header says 2, want 3' contract starchorus-collect.sh replace '# Contract:     3' '# Contract:     2' --want 3
+  dtr_probe 1 'starchorus-display.sh: header says 2, want 3' contract starchorus-display.sh replace '# Contract:     3' '# Contract:     2' --want 3
+  dtr_probe 1 'library/user/reconnaissance/starchorus/starchorus-display.sh: header says 2, want 3' contract library/user/reconnaissance/starchorus/starchorus-display.sh replace '# Contract:     3' '# Contract:     2' --want 3
+  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header says 4, want 3' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4' --want 3
+  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4'
+  dtr_probe 1 'starchorus-collect.sh has no `# Contract:` header' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3
 }
 rm -rf "$DTR_w"
-DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 40 ] && DTR_pok=1
-rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 40), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]
+DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 46 ] && DTR_pok=1
+rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 46), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]

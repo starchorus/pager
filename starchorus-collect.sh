@@ -10,7 +10,7 @@
 #               features of the device's AP service. It only RECEIVES what the air already carries.
 # Author:       Starchorus
 # Version:      0.1.1
-# Contract:     2
+# Contract:     3
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Notes:        Monitor-mode capture (tcpdump / airodump-ng) and reading the already-passive
@@ -25,9 +25,20 @@
 #                       (receiver retuning is not a transmission), and, opt-in only
 #                       (STARCHORUS_SOURCE=pineap), the AP service's two read-only recon list
 #                       commands (RECON APS / RECON DEVICES, format=json; docs/device-notes.md V-3).
+#                       Opt-in only (STARCHORUS_TRAFFIC=1): one more read-only command of the AP service,
+#                       RECON CHANNELS (frames counted per frequency), and the frame counter of the stations
+#                       in the recon database. Opt-in only (STARCHORUS_BLUETOOTH=1): ONE passive Bluetooth LE
+#                       scan window per cycle (bt_begin, the one place a Bluetooth tool is started: a passive scan,
+#                       which sends no scan request and only listens to advertisements that devices broadcast
+#                       anyway, and the monitor that decodes what the controller hands the host). A window counts
+#                       only when that monitor shows the scan parameters of the collector's own scan with
+#                       Type: Passive before the first report (the witness, bt_parse).
 #   Never done here   : aireplay/mdk (deauth), hostapd/airbase (rogue AP), hcxdumptool active,
 #                       besside/wifite, associating to any BSS, AP-service impersonation / beacon
-#                       responses / SSID pool broadcast. This script contains none of those.
+#                       responses / SSID pool broadcast; a Bluetooth inquiry or active scan, advertising,
+#                       a connection, pairing, GATT access or echo request, and any change to the
+#                       controller beyond a passive scan's parameters and its enable and disable.
+#                       This script contains none of those.
 # ---------------------------------------------------------------------------------------------
 #
 # USAGE:
@@ -62,7 +73,8 @@
 #                        Unknown). With less room than the database copy needs, $CAPDIR is used for that copy.   (default /tmp)
 #   STARCHORUS_SKIP_UNCHANGED  recondb only: 1 = a cycle whose recon.db (size, mtime, journal) is the same as at
 #                        the last full pass, and in which no row can have left the window, only refreshes
-#                        "generated" in the document of that pass; 0 = always rebuild.   (default 1)
+#                        "generated" in the document of that pass; 0 = always rebuild. The Bluetooth and traffic layers are still taken every
+#                        cycle (with Bluetooth on, a skipped cycle lasts about the window).   (default 1)
 #   STARCHORUS_PIDDIR         Where pidfiles live.                           (default $OUTDIR)
 #   STARCHORUS_VENDOR         1 = add the optional "vendor" / "randomized" fields via a LOCAL,
 #                        passive MAC-prefix (OUI) file lookup; 0 = never (no post-pass:
@@ -85,8 +97,17 @@
 #                        in the same document. Refused, with no field and no error: a station, a BSSID not in this document's aps[] and
 #                        one of our own transmitters. Nothing is transmitted or looked up. Also read from the first line of
 #                        $STARCHORUS_OUTDIR/homing.target (the device writes it). Coarse: one reading per cycle.  (default: none)
-#   STARCHORUS_APCLI_RO       1 = apcli_ro() may run its three literal read-only AP-service CLI lines (see there); nothing calls it
+#   STARCHORUS_APCLI_RO       1 = apcli_ro() may run its three literal read-only list lines (see there); nothing calls it
 #                        except the pineap source, which switches it on for itself (spec §14.6). The refusal rules are self-tested.  (default 0)
+#   STARCHORUS_BLUETOOTH      1 = every cycle runs ONE passive Bluetooth LE scan window (STARCHORUS_BT_WINDOW seconds, in the background
+#                        beside the source build) and writes the top-level "bluetooth" array and center."bt_window"/"bt_hold". Needs a
+#                        controller (hci0) and the scan tools; without them it stays off with one log line. Addresses, not devices.  (default 0)
+#   STARCHORUS_BT_WINDOW      the window length in whole seconds, 5 to 15; anything else is 6 with one log line.  (default 6)
+#   STARCHORUS_TRAFFIC        1 = every cycle reads RECON CHANNELS (the fifth literal line of apcli_ro, gated on this flag alone, in the
+#                        background) into the top-level "activity" array (a share per frequency, never a count), and the recon database
+#                        path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
+#   STARCHORUS_SYSFS_BT       tests only: where the controller is looked for (default /sys/class/bluetooth), like STARCHORUS_SYSFS_NET.
+#   STARCHORUS_PROC_BT        tests only: where the Bluetooth window code reads /proc from (default /proc).
 #
 # OPTIONAL JSON FIELDS (all additive; a field is simply ABSENT when unknown, never null):
 #   AP     : "vendor" (string, from the OUI file, every source), "rate" (int, Mbit/s: airodump Speed,
@@ -103,11 +124,26 @@
 #            802.1X AKMs, "WPA2 (TKIP)"/"WPA (TKIP)" for TKIP-only; "responded_ssids" (int >= 2: how many
 #            different SSIDs this BSSID answered probes with).
 #   center : "max_age" (int, the STARCHORUS_MAX_AGE window; 0 = the whole record) and "interval" (int, seconds
-#            between rewrites), always; "own_bssids"/"own_ssids" with STARCHORUS_OWN=1.
-#   NOT filled: "packets" (the meaning of wifi_device.packets is an open device question), "first_seen"
-#            (the `time` column may be an upsert time), "width" (MHz), "phy" (a/b/g/n/ac/ax), "caps": no
+#            between rewrites), always; "own_bssids"/"own_ssids" with STARCHORUS_OWN=1; "bt_window" (int, seconds: the
+#            window this document was scanned with, 0 = no valid window this cycle) and "bt_hold" (int, seconds a record
+#            is carried after its window) together with the "bluetooth" array.
+#   station, recon.db only, STARCHORUS_TRAFFIC=1: "packets" (int >= 0: the cumulative frame counter of the rows of that MAC heard
+#            in the last 300 s; a new recon session starts a new, smaller counter, so the consumer takes a drop as a first sight).
+#   top level: "bluetooth" (array, STARCHORUS_BLUETOOTH=1: one record per ADDRESS heard in the last passive window or held for
+#            "bt_hold" seconds: addr, addr_type, rssi, reports, last_seen (the "generated" of the cycle that heard it), and when
+#            advertised company, company_name, name, connectable; at most 256, strongest first; addresses, not devices: random
+#            addresses rotate), "activity" (array,
+#            STARCHORUS_TRAFFIC=1: {"freq", "share"} per frequency from RECON CHANNELS, shares of the frames counted on all
+#            frequencies from 2400 MHz, three decimals, never a count; "channels" is not touched by it).
+#   NOT filled: "first_seen" (the `time` column may be an upsert time), "width" (MHz), "phy" (a/b/g/n/ac/ax), "caps": no
 #            passive source on the device carries them (recon.db has no such columns, tcpdump without -v
-#            prints no HT/VHT/HE IEs, airodump CSV has no width column). OPTIONAL in the front-end contract.
+#            prints no HT/VHT/HE IEs, airodump CSV has no width column). OPTIONAL in the front-end contract. "packets" is
+#            filled only by the recon.db path with STARCHORUS_TRAFFIC=1 (what the counter counts: docs/device-notes.md V-10).
+#
+# SIGNALS: INT, TERM and HUP end the process through cleanup() (exit codes 130, 143, 129), and so does the end of the script
+# (EXIT). During a Bluetooth window cleanup() sends SIGINT to the two scan processes at once and again after at most 2 s,
+# parses nothing and returns within about 2.5 s; the dead-man timers of their `timeout` wrappers and the next daemon start
+# (bt_sweep) end what is left.
 #
 # The exact monitor interface name, recon DB path, and available tools DIFFER per device.
 # This script detects and degrades; see the "NOTES / DEVICE FACTS" section at the bottom.
@@ -134,6 +170,10 @@ SURVEY=${STARCHORUS_SURVEY:-0}
 OWN=${STARCHORUS_OWN:-0}
 OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
 APCLI_RO=${STARCHORUS_APCLI_RO:-0}
+BLUETOOTH=${STARCHORUS_BLUETOOTH:-0}
+TRAFFIC=${STARCHORUS_TRAFFIC:-0}
+BT_WIN=${STARCHORUS_BT_WINDOW:-6}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
+BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
 HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}         # "aa:bb:cc:dd:ee:ff" or empty (then $OUTDIR/homing.target, if it exists)
 HOMING_PEAK=""; HOMING_POLLS=0               # peak hold across cycles (a new maximum resets, 12 quiet cycles decay it)
@@ -187,6 +227,50 @@ RQ_BAIL=""          # "-bail" while the pineap source's security lookup runs its
 RS_CFG=""           # the settings the document depends on, then (rs_cfg)
 RS_SKIPS=0          # cycles skipped since the last full pass
 SKIP_MAX=20         # skip at most this many cycles in a row, then rebuild anyway (belt and braces)
+# Bluetooth window state (bt_begin .. bt_end, run_layers). The pids are cleared by bt_begin at its start and by bt_end, and by nothing else.
+BT_SPID=""; BT_MPID=""   # the `timeout` wrappers of the scan (S) and of the monitor (M), from $! of the background launch
+BT_SKID=""; BT_MKID=""   # the tools themselves, found by command name (bt_kid); empty without /proc
+BT_ARM=""           # m / s while the wrapper of the monitor / the scan is being forked: cleanup() then takes its pid from $!
+BT_F=""             # this window's text file (the monitor writes it), BT_F.err = stderr of the scan
+BT_PF=""            # this collector's pid file, starchorus-bt-<pid>.pid: the one name that bt_begin, bt_note, bt_end, bt_busy and bt_sweep all use
+BT_TS=0             # when the scan was started (hundredths of a second, bt_now)
+BT_NOW=0            # bt_tick's answer
+BT_SLK=0            # extra allowance of the waits that must not end early: 100 while bt_tick has only the whole-second clock of `date`
+BT_VOID=""          # why the last window does not count ("" = it does), set by bt_end / bt_judge
+BT_NOTES=""         # what happened to the processes of the last window (watchdog, terminated, big)
+BT_STRAND=""        # a scan that did not end after a TERM (it may still be scanning, passively): its pid file stays for bt_sweep
+BT_BIG=0            # 1 = the text of the last window was over the parse cap (bt_parse read its first and last part only)
+BT_RC=3             # bt_begin's answer in this cycle
+BT_HELD=""          # last cycle's Bluetooth records (tab separated: the B fields, last_seen, carry); in memory, like RS_DOCV: a file would outlive a killed collector
+BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those of the cycle before: a message is logged once per episode (bt_issue)
+BT_LOGGED=" "
+BT_FRAC=1           # 0 once `sleep 0.2` has failed here (bt_nap)
+TR_PID=""           # the background RECON CHANNELS call of this cycle
+# Bluetooth constants. The times are hundredths of a second of bt_now. A test may set the variables; production never does.
+BT_HOLD=120         # seconds a record is carried after its window (center.bt_hold)
+BT_T_READY=300      # the monitor has this long to hold its socket before the scan starts
+BT_T_KID=100        # how long the tool's own pid is looked for
+BT_T_GRACE=100      # the monitor is stopped this long after the scan is gone (it has recorded the disable by then)
+BT_T_MON=200        # a monitor that was told to end has this long before TERM, and after TERM before KILL
+BT_T_INT=100        # the scan is told to end (INT) this often once it is past its deadline
+BT_T_TERM=1200      # after this long without the scan ending on INT: one TERM, never KILL
+BT_T_WRAP=200       # a wrapper that outlives its tool by this long gets TERM
+BT_MAXB=8388608     # a window's text over this many bytes: the monitor is stopped (busy air)
+# Test hooks, all empty or default in production: BT_PROC = where bt_stat reads stat files (the environment's STARCHORUS_PROC_BT, so that a collector
+# the self-test starts as a process of its own reads the same stand-in /proc), BT_FAKE = a clock the naps advance (bt_tick, bt_nap; BT_FAKE_NAP = the
+# seconds a nap really sleeps then), BT_SIGLOG / BT_SIGMSG = a log of the signals bt_sig sends and a directory that receives INT and TERM instead of
+# the processes.
+BT_PROC=${STARCHORUS_PROC_BT:-/proc}; BT_FAKE=""; BT_FAKE_NAP=""; BT_SIGLOG=""; BT_SIGMSG=""
+# The window length: whole seconds from 5 to 15, anything else is 6 (the daemon says so once at start, see the main section).
+BT_WIN_BAD=""
+case $BT_WIN in
+    ''|*[!0-9]*) BT_WIN_BAD=$BT_WIN ;;
+    *) BT_WIN_N=$BT_WIN
+       while [ "${#BT_WIN_N}" -gt 1 ] && [ "${BT_WIN_N#0}" != "$BT_WIN_N" ]; do BT_WIN_N=${BT_WIN_N#0}; done
+       if [ "$BT_WIN_N" -ge 5 ] && [ "$BT_WIN_N" -le 15 ]; then BT_WIN=$BT_WIN_N; else BT_WIN_BAD=$BT_WIN; fi ;;
+esac
+[ -z "$BT_WIN_BAD" ] || BT_WIN=6
+BT_MON_S=$((BT_WIN + 8))     # the monitor's own dead-man timer: it covers the readiness wait, the pid lookup and the scan
 
 # --------------------------------------------------------------------------- small helpers
 log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf, not echo: see find_oui_file
@@ -529,15 +613,21 @@ start_airodump() {
 # --------------------------------------------------------------------------- teardown
 # cleanup() only tidies up: a trap handler that merely returns does NOT terminate the shell (after a
 # caught SIGTERM the interrupted `sleep` returns and the loop would resume as an orphan whose pidfile
-# is gone), so the INT/TERM traps run cleanup AND exit; the EXIT trap runs cleanup alone. It clears
-# the traps first so it never re-enters itself.
+# is gone), so the INT/TERM/HUP traps run cleanup AND exit; the EXIT trap runs cleanup alone. It clears
+# the four traps first so it never re-enters itself. A Bluetooth window that is still open ends with bt_end abort (first thing, within about 2.5 s).
 # INSTANCE-SCOPED: the EXIT trap fires for every `--once` too, and a crond `--once` regularly overlaps
 # the daemon's cycle (DB copy + queries take a second or more on the device's MIPS CPU). So cleanup touches
 # ONLY what THIS process created: its own pid-stamped temp files, the loop pidfile only if it names
 # this pid, the airodump only if this instance started it -- never the daemon's half-written cycle
 # (-> source=none for an interval) or its pidfile (-> --status "not running").
 cleanup() {
-    trap - INT TERM EXIT
+    bt_last=$!
+    # a signal between the fork of a Bluetooth wrapper and the assignment of its pid finds the wrapper in $! (as ov_cleanup does in the Overview);
+    # a $! of an earlier job is harmless, since bt_is rejects a pid that is not that tool
+    if [ "$BT_ARM" = m ] && [ -z "$BT_MPID" ]; then BT_MPID=$bt_last; fi
+    if [ "$BT_ARM" = s ] && [ -z "$BT_SPID" ]; then BT_SPID=$bt_last; fi
+    trap - INT TERM HUP EXIT
+    [ -z "$BT_MPID$BT_SPID" ] || bt_end abort
     if [ "$STARTED_AIRODUMP" = "1" ] && [ -f "$AIRODUMP_PIDFILE" ]; then
         p=$(cat "$AIRODUMP_PIDFILE" 2>/dev/null)
         pid_ours "$p" airodump && kill "$p" 2>/dev/null
@@ -546,7 +636,11 @@ cleanup() {
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
     # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal, an OUI index
     # build, the pineap side files, the RAM copy of recon.db.
-    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.gen$$" 2>/dev/null
+    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" 2>/dev/null
+    # the Bluetooth window's files of this process (the pid file only when no tool is left, bt_end abort decides), the RECON CHANNELS call and its file
+    rm -f "$TMPDIR_RAM/starchorus-bt-$$.txt.out" "$TMPDIR_RAM/starchorus-bt-$$.held" "$TMPDIR_RAM/starchorus-bt-$$.new" "$TMPDIR_RAM/starchorus-bt-$$.stat" \
+          "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
+    if [ -n "$TR_PID" ]; then is_own_child "$TR_PID" && kill "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" 2>/dev/null
@@ -558,6 +652,743 @@ cleanup() {
         if have iw; then iw dev "$MONIF" del 2>/dev/null; fi
         log "removed monitor interface $MONIF"
     fi
+}
+
+# ============================================================================ BLUETOOTH: ONE PASSIVE LE SCAN WINDOW PER CYCLE (opt-in)
+# STARCHORUS_BLUETOOTH=1. STRICTLY PASSIVE: a passive LE scan sends no scan request, it only listens to the advertisements that devices broadcast
+# anyway (docs/device-notes.md V-13, SECURITY.md). bt_begin below is the ONLY place a Bluetooth tool is started, and it starts exactly two
+# commands, each under `timeout -s INT` as a dead-man timer: the monitor first, then the scan once the monitor holds its socket (so the monitor
+# decodes the scan parameters that the scan sets, which is the witness: a window counts only when they say Type: Passive, bt_parse). The window
+# runs in the background beside the source build (run_cycle); bt_end ends it, reads it and judges it; add_layers puts the records into the document.
+#
+# What a window can and cannot say. The controller's address types: most advertisers use random addresses that rotate every quarter of an hour,
+# so the records are ADDRESSES, never devices. A record's rssi is the strongest report of the one window it was last heard in, a few seconds of
+# listening. The window's text is read by a strict grammar (bt_parse) because an advertiser writes some of it: a name may contain a line feed, and
+# the text after it becomes a line of its own. A name is at most 29 bytes (a legacy advertisement holds 31, less its two header bytes), but the Apple
+# decoder of BlueZ 5.72 prints the text after a length byte without bounding it to the advertisement, so a line the air writes can run on to about 36
+# bytes. The parser therefore acts only on lines that are longer than that (headers, Event type) or counted only in a position that a forged line
+# cannot take, and a forged Address type or Address line can only drop the sender's own report.
+#
+# Processes. `$!` after `timeout ... &` is the `timeout` wrapper; the tool is its child, or the wrapper itself when that `timeout` execs (bt_kid
+# finds the tool by command name). Signals go to the TOOL's pid, by bt_sig, after bt_is has checked that the pid still runs that tool: the scan
+# gets INT (repeated, by the clock) and at most one TERM, never KILL (it ends the scan only from its INT handler, so a TERM or KILL can leave the
+# controller scanning, passively; that is logged and the owner's recovery is in device-notes V-13); the monitor holds no controller state and may be
+# escalated; a wrapper is signalled only after its tool is gone. Without /proc (the development machine) no tool pid is known and only INT goes,
+# to the wrapper. All waits are measured by the clock (bt_tick), never by counting naps: the payload ends every `sleep` of the loop each 0.5 s
+# while it stops the collector, and a killed nap only makes the poll come round again.
+
+# BT_NOW = hundredths of a second since boot, read by the shell itself from /proc/uptime (no process); without it the clock of `date` in whole
+# seconds, and where that gives nothing either, 0.2 s more than the last tick (so that no wait can last for ever). A whole-second clock can jump by a
+# full second between two readings a few milliseconds apart, so the waits that must not end early add BT_SLK to their allowance: 0 with a real clock,
+# 100 with the whole-second one (a wait then lasts its time, and up to one second more). `command date`: a test may replace `date`. BT_FAKE (a test)
+# is a clock that bt_nap moves on.
+bt_tick() {
+    if [ -n "$BT_FAKE" ]; then BT_NOW=$BT_FAKE; BT_SLK=0; return 0; fi
+    BT_SLK=0; bt_u=""
+    { read -r bt_u _ < "$BT_PROC/uptime"; } 2>/dev/null
+    case $bt_u in
+        ''|*[!0-9.]*)
+            BT_SLK=100
+            bt_d=$(command date +%s 2>/dev/null)
+            case $bt_d in ''|*[!0-9]*|0) BT_NOW=$((BT_NOW + 20)) ;; *) BT_NOW=$((bt_d * 100)) ;; esac ;;
+        *.*) bt_fr="${bt_u#*.}00"; bt_fr=${bt_fr%"${bt_fr#??}"}; BT_NOW=$((${bt_u%%.*} * 100 + ${bt_fr#0})) ;;
+        *) BT_NOW=$((bt_u * 100)) ;;
+    esac
+}
+bt_now() { bt_tick; printf '%s\n' "$BT_NOW"; }
+# One short wait between two polls: 0.2 s where `sleep 0.2` works, else 1 s (the pattern of pl_nap in the payload). A nap that was killed
+# (status 128 and up) only returns: the caller polls again, by the clock.
+bt_nap() {
+    if [ -n "$BT_FAKE" ]; then
+        BT_FAKE=$((BT_FAKE + 20)); [ -z "$BT_FAKE_NAP" ] || sleep "$BT_FAKE_NAP" 2>/dev/null
+        return 0
+    fi
+    if [ "$BT_FRAC" = 1 ]; then
+        sleep 0.2 2>/dev/null; bt_r=$?
+        if [ "$bt_r" = 0 ] || [ "$bt_r" -ge 128 ]; then return 0; fi
+        BT_FRAC=0
+    fi
+    sleep 1
+}
+# $BT_PROC/PID/stat -> BT_ST_COMM (the name field, the text between the first "(" and the last ")"), BT_ST_STATE, BT_ST_PPID, BT_ST_START (field 22).
+# 1 when there is no such file. All builtins: the file is read with `read`, the fields cut with parameter expansion.
+bt_statf() {
+    bt_sf=$1; BT_ST_COMM=""; BT_ST_STATE=""; BT_ST_PPID=""; BT_ST_START=""
+    { read -r bt_sl < "$bt_sf"; } 2>/dev/null || return 1
+    case $bt_sl in *') '*) ;; *) return 1 ;; esac
+    BT_ST_COMM=${bt_sl#*\(}; BT_ST_COMM=${BT_ST_COMM%) *}
+    bt_sr=${bt_sl##*) }
+    set -f
+    # shellcheck disable=SC2086  # the word splitting is the point
+    set -- $bt_sr
+    set +f
+    BT_ST_STATE=$1; BT_ST_PPID=$2; BT_ST_START=${20}
+    return 0
+}
+bt_stat() { bt_statf "$BT_PROC/$1/stat"; }
+# 0 while PID is alive, is no zombie and runs a program whose command name is exactly WORD. This tells a `timeout` wrapper from its tool, which a
+# command line cannot (the wrapper's names the tool too). Sets BT_ST_* for the caller (bt_busy and bt_sweep compare the start field).
+bt_is() {
+    case $1 in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$1" 2>/dev/null || return 1
+    bt_stat "$1" || return 1
+    [ "$BT_ST_STATE" != Z ] && [ "$BT_ST_STATE" != X ] && [ "$BT_ST_COMM" = "$2" ]
+}
+# 0 while PID runs and is no zombie, whatever it is (a wrapper; a child that is not waited for yet is a zombie, and kill -0 says yes to those).
+# Without /proc the state is asked of `ps` (BusyBox has none of `-p`: then the answer is "alive").
+bt_up() {
+    case $1 in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$1" 2>/dev/null || return 1
+    if bt_stat "$1"; then [ "$BT_ST_STATE" != Z ] && [ "$BT_ST_STATE" != X ]; return; fi
+    bt_z=$(ps -o state= -p "$1" 2>/dev/null)
+    case $bt_z in Z*) return 1 ;; esac
+    return 0
+}
+# WRAPPER WORD -> prints the pid of the tool: WRAPPER itself when it already runs WORD (a `timeout` that execs), else the child of WRAPPER of that
+# name (field 4 of every stat file is the parent), looked for by the clock for up to BT_T_KID. Prints nothing and returns 1 without /proc.
+bt_kid() {
+    [ -d "$BT_PROC" ] || return 1
+    bk_w=$1; bk_n=$2; bt_tick; bk_t=$BT_NOW
+    while :; do
+        if bt_is "$bk_w" "$bk_n"; then printf '%s\n' "$bk_w"; return 0; fi
+        for bk_f in "$BT_PROC"/[0-9]*/stat; do
+            bt_statf "$bk_f" || continue
+            [ "$BT_ST_PPID" = "$bk_w" ] && [ "$BT_ST_COMM" = "$bk_n" ] || continue
+            [ "$BT_ST_STATE" != Z ] && [ "$BT_ST_STATE" != X ] || continue
+            bk_p=${bk_f%/stat}; bk_p=${bk_p##*/}
+            kill -0 "$bk_p" 2>/dev/null || continue
+            printf '%s\n' "$bk_p"; return 0
+        done
+        bt_tick; [ $((BT_NOW - bk_t)) -lt $((BT_T_KID + BT_SLK)) ] || return 1
+        bt_nap
+    done
+}
+# PID (the monitor's own; may be empty): 0 once it holds a socket (a link of /proc/PID/fd that starts with socket:), or has written its first line
+# to the window file; polled by the clock for up to BT_T_READY. No socket, no scan: the window is void before anything was asked of the controller.
+bt_ready() {
+    bt_tick; br_t=$BT_NOW
+    while :; do
+        [ -s "$BT_F" ] && return 0
+        if [ -n "$1" ]; then
+            for br_f in "$BT_PROC/$1"/fd/*; do
+                case $(readlink "$br_f" 2>/dev/null) in socket:*) return 0 ;; esac
+            done
+        fi
+        bt_tick; [ $((BT_NOW - br_t)) -lt $((BT_T_READY + BT_SLK)) ] || return 1
+        bt_nap
+    done
+}
+# The one place a signal is sent to a scan process: SIG PID. The caller has checked the pid with bt_is.
+bt_sig() {
+    [ -z "$BT_SIGLOG" ] || printf '%s %s\n' "$1" "$2" >> "$BT_SIGLOG"
+    if [ -n "$BT_SIGMSG" ] && [ "$1" != KILL ]; then printf '%s\n' "$1" >> "$BT_SIGMSG/$2"; return 0; fi
+    kill -s "$1" "$2" 2>/dev/null
+}
+# The pid file of this window, $BT_PF (starchorus-bt-<pid>.pid): one line per tool, "M|S WRAPPER TOOL START" (START = field 22 of the tool's stat,
+# which a reused pid does not share; "-" where unknown). Until both tools are found it holds one marker line "P PID" (bt_begin writes it first). It
+# outlives a collector killed with -9, which is what bt_busy and bt_sweep read; both take the holder's pid from the name up to its first dot.
+bt_note() {
+    {
+        if [ -n "$BT_MPID" ]; then
+            bn_s=-; if [ -n "$BT_MKID" ] && bt_stat "$BT_MKID"; then bn_s=$BT_ST_START; fi
+            printf 'M %s %s %s\n' "$BT_MPID" "${BT_MKID:--}" "$bn_s"
+        fi
+        if [ -n "$BT_SPID" ]; then
+            bn_s=-; if [ -n "$BT_SKID" ] && bt_stat "$BT_SKID"; then bn_s=$BT_ST_START; fi
+            printf 'S %s %s %s\n' "$BT_SPID" "${BT_SKID:--}" "$bn_s"
+        fi
+    } > "$BT_PF" 2>/dev/null
+}
+# KEY MESSAGE: logged once per episode, an episode being a run of cycles that raise the same key (BT_CUR = this cycle's keys, run_cycle moves
+# them to BT_LOGGED at its end, so a key that is not raised in a cycle is forgotten and the next occurrence is logged again).
+bt_issue() {
+    case $BT_CUR in *" $1 "*) return 0 ;; esac
+    BT_CUR="$BT_CUR$1 "
+    case $BT_LOGGED in *" $1 "*) return 0 ;; esac
+    log "$2"
+}
+
+# 0 when another collector's window is live: a pid file of a live holder that is starting its window (the marker line) or whose recorded tool still
+# runs (same command name, same start).
+bt_busy() {
+    for bb_f in "$TMPDIR_RAM"/starchorus-bt-*.pid; do
+        [ -e "$bb_f" ] || continue
+        bb_h=${bb_f##*/starchorus-bt-}; bb_h=${bb_h%%.*}
+        case $bb_h in ''|*[!0-9]*|"$$") continue ;; esac
+        holder_alive "$bb_h" || continue
+        while read -r bb_k _ bb_t bb_s; do
+            case $bb_k in
+                P) return 0 ;;
+                M) bt_is "$bb_t" btmon && [ "$BT_ST_START" = "$bb_s" ] && return 0 ;;
+                S) bt_is "$bb_t" hcitool && [ "$BT_ST_START" = "$bb_s" ] && return 0 ;;
+            esac
+        done < "$bb_f"
+    done
+    return 1
+}
+
+# The ONLY place a Bluetooth tool is started (tools/passivity-check.sh: BT_FUNCS, row 'Bluetooth lines in bt_begin'). btmon first,
+# and the scan only once btmon holds its monitor socket, so btmon decodes the scan parameters the scan sets (the passivity witness,
+# bt_parse). Both under timeout -s INT as dead-man timers. HUP and QUIT are ignored for the two launches only: a terminal that closes
+# must not end hcitool past its SIGINT handler (a `timeout` that installs its own handlers, as the device's coreutils one does, starts its command with
+# the signals at default: there the measure protects nothing, and the 1-s hold of bt_end abort is what keeps an early INT off a scan that has not yet
+# installed its handler). The pid file comes first, with its marker line, and only then is the other collectors' state looked at: of two collectors that
+# start at the same moment at most one runs a window (both may stand back once). rc 0 started, 3 flag off, 4 no controller or no tool, 5 another
+# collector's window is running, 6 btmon did not get ready (nothing was asked of the controller).
+bt_begin() {
+    BT_SPID=""; BT_MPID=""; BT_SKID=""; BT_MKID=""; BT_TS=0; BT_VOID=""; BT_NOTES=""
+    [ "$BLUETOOTH" = "1" ] || return 3
+    [ -d "$BT_SYSFS/hci0" ] || return 4
+    have hcitool || return 4
+    have btmon || return 4
+    have timeout || return 4
+    BT_F="$TMPDIR_RAM/starchorus-bt-$$.txt"; BT_PF="$TMPDIR_RAM/starchorus-bt-$$.pid"
+    bt_um=$(umask); umask 077
+    printf 'P %s\n' "$$" > "$BT_PF" 2>/dev/null && : > "$BT_F" 2>/dev/null && : > "$BT_F.err" 2>/dev/null; bt_rc=$?
+    umask "$bt_um"
+    [ "$bt_rc" = 0 ] || { rm -f "$BT_F" "$BT_F.err" "$BT_PF" 2>/dev/null; return 4; }
+    if bt_busy; then rm -f "$BT_F" "$BT_F.err" "$BT_PF" 2>/dev/null; return 5; fi
+    trap '' HUP QUIT; BT_ARM=m
+    timeout -s INT "$BT_MON_S" btmon -i hci0 > "$BT_F" 2>/dev/null &
+    BT_MPID=$!; BT_ARM=""
+    trap 'cleanup; exit 129' HUP; trap - QUIT
+    BT_MKID=$(bt_kid "$BT_MPID" btmon)
+    bt_ready "$BT_MKID" || { bt_note; return 6; }
+    BT_TS=$(bt_now); trap '' HUP QUIT; BT_ARM=s
+    timeout -s INT "$BT_WIN" hcitool -i hci0 lescan --passive --duplicates > /dev/null 2> "$BT_F.err" &
+    BT_SPID=$!; BT_ARM=""
+    trap 'cleanup; exit 129' HUP; trap - QUIT
+    BT_SKID=$(bt_kid "$BT_SPID" hcitool)
+    bt_note
+    return 0
+}
+
+# [abort]: waits for the window to run its course, stops what is left, reads the text (bt_parse) and judges it (bt_judge). Only by pid, and only
+# while bt_is still says the pid runs that tool.
+#   1. Wait, by the clock, while the scan lives: at most until its own deadline plus 2 s (BT_TS + the window + 2 s). One second after the scan is
+#      gone the monitor gets INT (it has recorded the disable by then) and up to BT_T_MON more to flush and end. If the window's text grows past
+#      BT_MAXB (a runaway, far beyond any window) the monitor is stopped at once and the episode is logged. When the monitor never got ready
+#      (BT_SPID empty) only the monitor is stopped, without the second.
+#   2. The watchdog. The scan: INT about once a second until it is gone, after BT_T_TERM one TERM and a log line, NEVER KILL; a TERM that did
+#      not end it is given a second and then left (its pid file stays for bt_sweep). The monitor: INT, BT_T_MON, TERM, BT_T_MON, KILL. A wrapper
+#      that outlives its tool by BT_T_WRAP gets TERM. A window that needed the watchdog is void.
+#   3. Wait for the wrappers, parse unless the window is already void, remove the files, clear the pids.
+# abort (cleanup(), inside a signal trap): INT to both tools (to a scan younger than a second one second after its start: its handler may not be in
+# place before, and an INT before it ends the scan with the controller still scanning), a poll by the clock for up to 2 s, INT again to what is left,
+# return. No wait, no parse, no escalation: the dead-man timers and the next start's bt_sweep finish the job, and the whole trap stays within about
+# 3 s (the payload's fast stop allows 10 s). The window's text and error files are removed; the pid file stays while a tool still runs.
+bt_end() {
+    bt_t0=$(bt_now)
+    BT_VOID=""; BT_NOTES=""; BT_STRAND=""
+    if [ -z "$BT_MPID$BT_SPID" ]; then BT_VOID=none; return 0; fi
+    bt_tick
+    [ "$BT_TS" -gt 0 ] 2>/dev/null || BT_TS=$bt_t0
+    be_ab=0; [ "$1" = abort ] && be_ab=1
+    be_dl=$((BT_WIN * 100 + 200)); be_cap=$((be_dl + BT_T_TERM + 100 + BT_T_GRACE + 2 * BT_T_MON + 300 + BT_SLK))
+    be_gone=""; be_w0=""; be_si=""; be_st=""; be_sg=""; be_mi=""; be_mt=""; be_mk=""; be_bg=""; be_ck=$bt_t0; be_f1=""; be_wt=""
+    while :; do
+        bt_tick
+        be_sa=""; be_ma=""
+        if [ -n "$BT_SKID" ]; then bt_is "$BT_SKID" hcitool && be_sa=$BT_SKID; elif [ -n "$BT_SPID" ] && bt_up "$BT_SPID"; then be_sa=$BT_SPID; fi
+        if [ -n "$BT_MKID" ]; then bt_is "$BT_MKID" btmon && be_ma=$BT_MKID; elif [ -n "$BT_MPID" ] && bt_up "$BT_MPID"; then be_ma=$BT_MPID; fi
+        if [ "$be_ab" = 1 ]; then
+            # a scan younger than a second may not have installed its INT handler yet (a coreutils `timeout` starts it with INT at default): hold the first INT
+            if [ -z "$be_f1" ] && [ -n "$be_sa" ] && [ $((BT_NOW - BT_TS)) -lt 100 ]; then bt_nap; continue; fi
+            if [ -z "$be_f1" ]; then
+                be_f1=$BT_NOW
+                [ -z "$be_sa" ] || bt_sig INT "$be_sa"
+                [ -z "$be_ma" ] || bt_sig INT "$be_ma"
+            elif [ $((BT_NOW - be_f1)) -ge 200 ]; then
+                [ -z "$be_sa" ] || bt_sig INT "$be_sa"
+                [ -z "$be_ma" ] || bt_sig INT "$be_ma"
+                break
+            fi
+            [ -n "$be_sa$be_ma" ] || break
+            bt_nap; continue
+        fi
+        if [ -n "$be_ma" ] && [ -z "$be_bg" ] && [ $((BT_NOW - be_ck)) -ge 200 ]; then
+            be_ck=$BT_NOW; file_size "$BT_F"
+            if [ "${FSZ:-0}" -gt "$BT_MAXB" ] 2>/dev/null; then be_bg=1; BT_NOTES="$BT_NOTES big"; bt_sig INT "$be_ma"; be_mi=$BT_NOW; fi
+        fi
+        if [ -n "$be_sa" ] && [ $((BT_NOW - BT_TS)) -ge "$be_dl" ]; then
+            [ -n "$be_w0" ] || { be_w0=$BT_NOW; BT_NOTES="$BT_NOTES watchdog"; }
+            if [ -n "$be_st" ]; then
+                [ $((BT_NOW - be_st)) -lt 100 ] || be_sg=1
+            elif [ $((BT_NOW - be_w0)) -lt "$BT_T_TERM" ]; then
+                if [ -z "$be_si" ] || [ $((BT_NOW - be_si)) -ge "$BT_T_INT" ]; then bt_sig INT "$be_sa"; be_si=$BT_NOW; fi
+            elif [ -n "$BT_SKID" ]; then
+                bt_sig TERM "$be_sa"; be_st=$BT_NOW; BT_NOTES="$BT_NOTES terminated"
+            else
+                be_sg=1
+            fi
+        fi
+        if [ "$be_sg" = 1 ] && [ -n "$be_sa" ]; then BT_STRAND=$be_sa; be_sa=""; fi
+        if [ -z "$be_sa" ]; then
+            [ -n "$be_gone" ] || be_gone=$BT_NOW
+            be_gr=$BT_T_GRACE; [ -n "$BT_SPID" ] || be_gr=0
+            if [ -n "$be_ma" ]; then
+                if [ -z "$be_mi" ]; then
+                    if [ $((BT_NOW - be_gone)) -ge "$be_gr" ]; then bt_sig INT "$be_ma"; be_mi=$BT_NOW; fi
+                elif [ -z "$be_mt" ]; then
+                    if [ $((BT_NOW - be_mi)) -ge "$BT_T_MON" ]; then
+                        if [ -n "$BT_MKID" ]; then bt_sig TERM "$be_ma"; BT_NOTES="$BT_NOTES watchdog"; fi
+                        be_mt=$BT_NOW
+                    fi
+                elif [ -z "$be_mk" ]; then
+                    if [ $((BT_NOW - be_mt)) -ge "$BT_T_MON" ]; then
+                        if [ -n "$BT_MKID" ]; then bt_sig KILL "$be_ma"; fi
+                        be_mk=$BT_NOW
+                    fi
+                elif [ $((BT_NOW - be_mk)) -ge 100 ]; then
+                    break
+                fi
+            fi
+        fi
+        [ -n "$be_sa$be_ma" ] || break
+        [ $((BT_NOW - BT_TS)) -lt "$be_cap" ] || break
+        bt_nap
+    done
+    if [ "$be_ab" = 1 ]; then
+        rm -f "$BT_F" "$BT_F.err" 2>/dev/null
+        [ -n "$be_sa$be_ma$BT_STRAND" ] || rm -f "$BT_PF" 2>/dev/null
+        BT_SPID=""; BT_MPID=""; BT_SKID=""; BT_MKID=""
+        return 0
+    fi
+    be_scan=0; [ -z "$BT_SPID" ] || be_scan=1
+    be_wr=""; [ -n "$BT_STRAND" ] || be_wr=$BT_SPID
+    [ -n "$be_ma" ] || be_wr="$be_wr $BT_MPID"
+    be_w0=$(bt_now)
+    # shellcheck disable=SC2086  # a list of pids, some of them empty
+    while [ -n "${be_wr# }" ]; do
+        bt_tick
+        be_live=""
+        for be_w in $be_wr; do bt_up "$be_w" && be_live="$be_live $be_w"; done
+        [ -n "$be_live" ] || break
+        if [ $((BT_NOW - be_w0)) -ge "$BT_T_WRAP" ] && [ -z "$be_wt" ]; then
+            for be_w in $be_live; do bt_sig TERM "$be_w"; done
+            be_wt=1
+        fi
+        [ $((BT_NOW - be_w0)) -lt $((BT_T_WRAP + 100 + BT_SLK)) ] || break
+        bt_nap
+    done
+    # shellcheck disable=SC2086
+    for be_w in $be_wr; do bt_up "$be_w" || wait "$be_w" 2>/dev/null; done
+    case $BT_NOTES in
+        *watchdog*) BT_VOID=watchdog
+            bt_issue watchdog "Bluetooth: the scan did not end by itself and was stopped; window discarded" ;;
+    esac
+    case $BT_NOTES in
+        *terminated*) bt_issue terminated "Bluetooth: the scan did not end on SIGINT and was terminated; the controller may still be scanning (passive; see device-notes V-13)" ;;
+    esac
+    case $BT_NOTES in
+        *big*) bt_issue busy "Bluetooth: busy air, parsed the first 512 KiB and the end of the window" ;;
+    esac
+    if [ "$be_scan" = 0 ]; then BT_VOID=nomonitor
+    elif [ -n "$BT_VOID" ]; then :
+    elif grep -q failed "$BT_F.err" 2>/dev/null; then
+        BT_VOID=start
+        bt_issue start "Bluetooth: the passive scan could not start (controller down or busy, or a scan still running); no Bluetooth this cycle"
+    else
+        be_um=$(umask); umask 077; : > "$BT_F.out" 2>/dev/null; umask "$be_um"   # the addresses of a window are for this process only
+        bt_parse "$BT_F" > "$BT_F.out"; be_rc=$?
+        if [ "$be_rc" = 124 ]; then
+            BT_VOID=slow
+            bt_issue slow "Bluetooth: the window took too long to read; window discarded"
+        else
+            bt_judge "$BT_F.out"
+        fi
+    fi
+    rm -f "$BT_F" "$BT_F.err" 2>/dev/null
+    [ -n "$be_ma$BT_STRAND" ] || rm -f "$BT_PF" 2>/dev/null
+    BT_SPID=""; BT_MPID=""; BT_SKID=""; BT_MKID=""
+    return 0
+}
+
+# Daemon start, before sweep_stale_workcopies: for each pid file of a collector that is gone, INT (never TERM or KILL) to each recorded tool that
+# still runs its program with the recorded start; the file goes when nothing recorded in it lives 2 s later. So a collector killed with -9 leaves a
+# tool behind for at most its own dead-man timer while the wrapper lives, and for at most until the next daemon start when the wrapper died too.
+bt_sweep() {
+    for bs_f in "$TMPDIR_RAM"/starchorus-bt-*.pid; do
+        [ -e "$bs_f" ] || continue
+        bs_h=${bs_f##*/starchorus-bt-}; bs_h=${bs_h%%.*}
+        case $bs_h in ''|*[!0-9]*) continue ;; esac
+        holder_alive "$bs_h" && continue
+        bt_tick; bs_t0=$BT_NOW; bs_n=0
+        for bs_pass in sig wait; do
+            bs_n=0
+            while read -r bs_k _ bs_t bs_s; do
+                bs_hit=""
+                case $bs_k in
+                    M) bt_is "$bs_t" btmon && [ "$BT_ST_START" = "$bs_s" ] && bs_hit=$bs_t ;;
+                    S) bt_is "$bs_t" hcitool && [ "$BT_ST_START" = "$bs_s" ] && bs_hit=$bs_t ;;
+                esac
+                [ -n "$bs_hit" ] || continue
+                bs_n=$((bs_n + 1))
+                if [ "$bs_pass" = sig ]; then bt_sig INT "$bs_hit"; fi
+            done < "$bs_f"
+            [ "$bs_n" -gt 0 ] || break
+            if [ "$bs_pass" = sig ]; then
+                while :; do
+                    bt_tick; [ $((BT_NOW - bs_t0)) -lt $((200 + BT_SLK)) ] || break
+                    bt_nap
+                done
+            fi
+        done
+        if [ "$bs_n" = 0 ]; then rm -f "$bs_f" 2>/dev/null; fi
+    done
+}
+
+# --------------------------------------------------------------------------- reading a window: btmon text -> one record per address
+# POSIX/BusyBox awk only: no gensub, no interval expressions, no length(array); index() where a fixed string will do. Lengths are in bytes.
+# Output, one TAB line per address in the order first heard: B addr addr_type rssi reports company company_name name connectable(0|1), and a last
+# line W passive active enabled disabled scanrsp suspect bad, where passive counts only a scan-parameters block with Type: Passive that stands before
+# the first report, and bad = the extended commands and reports plus the frame numbers that did not increase (then a line F ext order follows).
+#   The witness (a window counts only when all of it holds, bt_judge): a passive parameters block before the first report, no block with Type: Active,
+#   no extended scan command and no extended advertising report (another program drives the controller), the scan enabled, strictly increasing frame
+#   numbers (#n of the headers). The headers are matched by their opcode, not by the command name: btmon cuts a name to fit the width the process
+#   prefix leaves ("LE Set Scan P.."), and prints no [hciN] tag when it was started with -i.
+#   The 29-byte rule: a name may carry a line feed, and what follows it is a line of its own; under the legacy scan the controller hands over at most
+#   31 bytes of advertising data, so a name is at most 29 bytes and none spans two real lines. It is a rule for names, not for every line the air can
+#   write: print_manufacturer_apple of BlueZ 5.72 (company 76 or 19456, type 0x01) prints the bytes after its length byte as text with no bound to
+#   the advertisement, so it reads on into the RSSI byte and stale buffer bytes, and in a multi-report event a run the advertiser controls can reach
+#   about 36 bytes. The grammar therefore acts only on lines longer than that (headers over 40 bytes, Event type at least 38) or on lines in a position
+#   a forged line cannot take (a forged Address type or Address line, 35 and 34 bytes at least, only drops its sender's own report, by the label
+#   order): Type / Scanning count only as the FIRST field line after their command header; a report is closed by RSSI, exactly once, and stays pending
+#   until the next line is a valid Event type or a header: any other field line there means a forged short RSSI closed it early, and the report is
+#   dropped (suspect). A hostile name can at most drop its own report or dress it up (a company name or a short name of its choosing, which it could
+#   advertise anyway); it cannot create a record, change another, or touch the witness. Field lines are exactly eight blanks and a label; every
+#   other line (ten-blank sub-lines, Flags, Data, TX power ...) is ignored, so the filtered and the unfiltered text give the same answer.
+#   A line "#--#" (bt_parse puts it between the first part and the last part of a big window) resets the machine; an unconfirmed report at its
+#   end, and one open at the end of the text, are dropped.
+# shellcheck disable=SC2016  # awk program text, deliberately not expanded
+AWK_BT='
+    function hdr(l,   p) {
+        HP = ""
+        if (length(l) <= 40) return 0
+        p = l
+        if (substr(p, 1, 2) != "< " && substr(p, 1, 2) != "> ") {
+            if (!match(p, /\]: [<>] HCI /)) return 0
+            p = substr(p, RSTART + 3)
+        }
+        if (p !~ /^[<>] HCI (Command|Event): /) return 0
+        if (p !~ / plen [0-9]+ +#[0-9]+( \[hci[0-9]+\])? [0-9]+\.[0-9]+$/) return 0
+        HP = p
+        return 1
+    }
+    function sep() { rs = 0; inev = 0; evnext = 0; blk = ""; first = 0; last = -1 }
+    function commit(   a, v) {
+        rs = 0
+        if (rdir || rscan || raddr == "" || rrssi == "") return
+        a = raddr
+        if (!(a in seen)) { seen[a] = 1; ord[na++] = a; mx[a] = rrssi + 0; ty[a] = rtype }
+        else if (rrssi + 0 > mx[a]) mx[a] = rrssi + 0
+        n[a]++
+        if (co[a] == "" && rco != "") { co[a] = rco; cn[a] = rcn }
+        v = (rnmc != "") ? rnmc : rnms
+        if (nm[a] == "" && v != "") nm[a] = v
+        if (rconn) cc[a] = 1
+    }
+    function dropr() { suspect++; rs = 0 }
+    function newrep(t) {
+        if (rs == 2) commit(); else if (rs == 1) suspect++
+        nrep++
+        rs = 1; st = 0; raddr = ""; rtype = ""; rrssi = ""; rco = ""; rcn = ""; rnmc = ""; rnms = ""; hc = 0; hnc = 0; hns = 0
+        rdir = (index(t, "ADV_DIRECT_IND") > 0); rscan = (index(t, "SCAN_RSP") > 0); rconn = (!rdir && index(t, "ADV_IND") > 0)
+        if (rscan) scanrsp++
+    }
+    function known(b) {
+        return (b == "Type" || b == "Scanning" || b == "Event type" || b == "Address type" || b == "Address" || b == "Company" || b == "Name (complete)" || b == "Name (short)" || b == "RSSI")
+    }
+    function clip(v, k) { gsub(/\t/, " ", v); return substr(v, 1, k) }
+    BEGIN { last = -1; na = 0; nrep = 0; rs = 0 }
+    {
+        l = $0
+        if (l == "#--#") { sep(); next }
+        if (hdr(l)) {
+            if (rs == 2) commit(); else if (rs == 1) suspect++
+            rs = 0; inev = 0; evnext = 0; blk = ""; first = 0
+            p = HP
+            t = l; sub(/^.* #/, "", t); sub(/[^0-9].*$/, "", t); f = t + 0
+            if (f <= last) order++
+            last = f
+            d = substr(p, 1, 1)
+            if (d == "<" && index(p, "(0x08|0x000b)")) { blk = "par"; first = 1 }
+            else if (d == "<" && (index(p, "(0x08|0x0041)") || index(p, "(0x08|0x0042)"))) ext++
+            else if (d == "<" && index(p, "(0x08|0x000c)")) { blk = "en"; first = 1 }
+            else if (d == ">" && index(p, "LE Meta Event (0x3e)")) evnext = 1
+            next
+        }
+        if (evnext) {
+            evnext = 0
+            if (l == "      LE Advertising Report (0x02)") { inev = 1; next }
+            if (length(l) >= 34 && index(l, "      LE Extended Advertising Report") == 1) { ext++; next }
+        }
+        if (length(l) < 9 || substr(l, 1, 8) != "        " || substr(l, 9, 1) == " ") next
+        t = substr(l, 9)
+        b = t; sub(/:.*$/, "", b)
+        if (blk != "" && first) {
+            first = 0
+            if (blk == "par") { if (t == "Type: Passive (0x00)") { if (nrep == 0) passive++ } else if (t == "Type: Active (0x01)") active++ }
+            else if (t == "Scanning: Enabled (0x01)") enabled++
+            else if (t == "Scanning: Disabled (0x00)") { if (enabled > 0) disabled++ }
+            next
+        }
+        if (!inev || !known(b)) next
+        if (b == "Event type" && length(l) >= 38 && l ~ / - [A-Z_]+ \(0x0[0-9a-f]\)$/) { newrep(t); next }
+        if (rs == 2) { dropr(); next }
+        if (rs != 1) next
+        if (b == "Address type") {
+            if (st != 0 || length(l) < 35) { dropr(); next }
+            split(t, w, " ")
+            if (w[3] != "Public" && w[3] != "Random") { dropr(); next }
+            st = 1; rtype = w[3]; next
+        }
+        if (b == "Address") {
+            if (st != 1 || length(l) < 34) { dropr(); next }
+            split(t, w, " ")
+            a = tolower(w[2])
+            if (a !~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/) { dropr(); next }
+            st = 2; raddr = a
+            if (rtype == "Public") rtype = "public"
+            else rtype = (w[3] == "(Static)") ? "random-static" : (w[3] == "(Resolvable)") ? "random-resolvable" : (w[3] == "(Non-Resolvable)") ? "random-nonresolvable" : "random"
+            next
+        }
+        if (st != 2) { dropr(); next }
+        if (b == "Company") {
+            if (hc) { dropr(); next }
+            hc = 1
+            x = substr(t, 10)
+            if (match(x, /\([0-9]+\)$/)) {
+                id = substr(x, RSTART + 1, RLENGTH - 2); v = substr(x, 1, RSTART - 1); sub(/ +$/, "", v)
+                if (id + 0 <= 65535) { rco = id + 0; rcn = (v == "not assigned") ? "" : clip(v, 48) }   # the monitor calls an unknown id "not assigned": the id stays, there is no name
+            }
+            next
+        }
+        if (b == "Name (complete)") { if (hnc) { dropr(); next } hnc = 1; rnmc = clip(substr(t, 18), 32); next }
+        if (b == "Name (short)") { if (hns) { dropr(); next } hns = 1; rnms = clip(substr(t, 15), 32); next }
+        if (b == "RSSI") {
+            if (index(t, "RSSI: invalid") == 1) { rs = 0; next }
+            if (t !~ /^RSSI: -?[0-9]+ dBm \(0x[0-9a-f][0-9a-f]\)$/) { dropr(); next }
+            split(t, w, " ")
+            if (w[2] + 0 < -127) { dropr(); next }
+            if (w[2] + 0 >= 0) { rs = 0; next }   # a non-negative reading is the "no reading" marker (127, 0): dropped like RSSI: invalid, not counted as suspect
+            rrssi = w[2] + 0; rs = 2; next
+        }
+        dropr()
+    }
+    END {
+        for (i = 0; i < na; i++) { a = ord[i]; printf "B\t%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\n", a, ty[a], mx[a], n[a], co[a], cn[a], nm[a], (cc[a] ? 1 : 0) }
+        printf "W\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", passive, active, enabled, disabled, scanrsp, suspect, ext + order
+        if (ext + order > 0) printf "F\t%d\t%d\n", ext, order
+    }
+'
+# $1 = the window's text file; stdout = the B and W lines. The first 512 KiB and the last 8 KiB of a bigger file are read (the disable block is at
+# the end; BT_BIG says so), cut down by one grep (C speed) to the lines the grammar reads, then clean_ctrl; the awk runs under `timeout 6`, so a
+# crowded hall can never hold the Wi-Fi document back for longer than that (rc 124: the caller voids the window). 512 KiB is roughly 1,200 reports.
+bt_parse() {
+    bp_k='(^|\]: )[<>] HCI |^      LE (Extended )?Advertising Report|^        (Type|Scanning|Event type|Address type|Address|Company|Name \(complete\)|Name \(short\)|RSSI): '
+    file_size "$1"; bp_n=${FSZ:-0}; BT_BIG=0
+    if [ "$bp_n" -gt 540672 ] 2>/dev/null; then BT_BIG=1; fi
+    {
+        if [ "$BT_BIG" = 1 ]; then
+            head -c 524288 "$1" | LC_ALL=C grep -E "$bp_k"
+            printf '#--#\n'
+            tail -c 8192 "$1" | sed 1d | LC_ALL=C grep -E "$bp_k"
+        else
+            LC_ALL=C grep -E "$bp_k" "$1"
+        fi
+    } 2>/dev/null | clean_ctrl | {
+        if have timeout; then LC_ALL=C timeout 6 awk "$AWK_BT"; else LC_ALL=C awk "$AWK_BT"; fi
+    }
+}
+# $1 = the output of bt_parse. 0 = the window counts (what is odd about it is logged, once per episode); 1 = it is void, BT_VOID says why.
+bt_judge() {
+    BT_VOID=""
+    bj_w=$(sed -n '/^W/p' "$1" 2>/dev/null | head -n 1)
+    bj_f=$(sed -n '/^F/p' "$1" 2>/dev/null | head -n 1)
+    IFS=$RECON_TAB read -r _ bj_pa bj_ac bj_en bj_di bj_sr bj_su bj_bd <<EOF
+$bj_w
+EOF
+    IFS=$RECON_TAB read -r _ bj_ex bj_or <<EOF
+$bj_f
+EOF
+    case $bj_pa$bj_ac$bj_en$bj_di$bj_sr$bj_su$bj_bd in
+        ''|*[!0-9]*) bj_pa=0; bj_ac=0; bj_en=0; bj_di=0; bj_sr=0; bj_su=0; bj_bd=0 ;;
+    esac
+    case ${bj_ex:-0}${bj_or:-0} in *[!0-9]*) bj_ex=0; bj_or=0 ;; esac
+    if [ "$bj_ac" != 0 ] || [ "${bj_ex:-0}" != 0 ]; then
+        BT_VOID=other
+        bt_issue other "Bluetooth: another scan was seen on this device (not ours); window discarded"
+    elif [ "${bj_or:-0}" != 0 ]; then
+        BT_VOID=order
+        bt_issue order "Bluetooth: monitor output out of order; window discarded"
+    elif [ "$bj_pa" = 0 ] || [ "$bj_en" = 0 ]; then
+        BT_VOID=nopassive
+        bt_issue nopassive "Bluetooth: the monitor did not show a passive scan; window discarded"
+    fi
+    [ -z "$BT_VOID" ] || return 1
+    case $BT_NOTES in
+        *big*) ;;
+        *) [ "$bj_di" != 0 ] || bt_issue nodisable "Bluetooth: no scan disable was seen; the controller may still be scanning (passive); see device-notes V-13" ;;
+    esac
+    [ "$bj_sr" = 0 ] || bt_issue scanrsp "Bluetooth: $bj_sr scan responses in a passive window (counted, not used)"
+    [ "$bj_su" = 0 ] || bt_issue suspect "Bluetooth: $bj_su malformed reports dropped"
+    [ "$BT_BIG" = 0 ] || bt_issue busy "Bluetooth: busy air, parsed the first 512 KiB and the end of the window"
+    return 0
+}
+
+# --------------------------------------------------------------------------- the per-cycle layers: bluetooth, activity, center.bt_window / bt_hold
+# ONE awk over the finished document (stdin), with the window's records (SC_BTP, bt_parse's lines), last cycle's records (SC_BTH, tab separated:
+# the B fields, last_seen, carry) and the RECON CHANNELS answer (SC_TRF); it inserts  "bluetooth": [...],  and  "activity": [...],  (one line each)
+# before the first line that starts  "aps": [  and ", "bt_window": N, "bt_hold": H" before the closing brace of the one-line center object, and
+# writes the records for the next cycle to SC_BTN and a status file (lines added, records, traffic ok|none|bad|off, center done) to SC_STAT.
+#   SC_BTMODE: 0 = Bluetooth off (nothing is written), 1 = a valid window (its addresses get last_seen = SC_TS, the clock of the cycle that is also the
+#   document's "generated": a record is never later than the document that holds it, though the window ends a few seconds after the cycle began),
+#   2 = a void one (the held records only; bt_window 0, so the layer runs out with its hold instead of blinking on one bad window).
+#   The hold: a record not in this window keeps its line, carry + 1, while SC_TS - hold <= last_seen <= SC_TS and carry <= 4 (a clock that went
+#   back cannot keep records alive, and the carry bounds the hold by cycles as well). Records are sorted by rssi descending, then address, and cut at
+#   256 (a heap sort: the window of a crowded hall must not cost n squared steps).
+#   The traffic answer: {"0":5,"2412":600,...}: blanks removed, ONE object, digit keys and digit values, anything else = bad; the values of the keys
+#   from 2400 are summed, each share is value / sum with three decimals, written only where it is at least 0.001, sorted by frequency; a zero sum
+#   writes nothing (none). Frames counted over a recent window, so a share, never a count.
+# shellcheck disable=SC2016  # awk program text, deliberately not expanded
+AWK_LAYERS='
+    function before(a, b) {
+        if (rr[a] != rr[b]) return (rr[a] > rr[b])
+        return (ad[a] < ad[b])
+    }
+    function sift(r, e, ix,   c, v) {
+        v = ix[r]
+        while ((c = 2 * r + 1) <= e) {
+            if (c < e && before(ix[c], ix[c + 1])) c++
+            if (before(v, ix[c])) { ix[r] = ix[c]; r = c } else break
+        }
+        ix[r] = v
+    }
+    function sortix(n, ix,   i, t) {
+        for (i = 0; i < n; i++) ix[i] = i
+        for (i = int((n - 2) / 2); i >= 0; i--) sift(i, n - 1, ix)
+        for (i = n - 1; i > 0; i--) { t = ix[0]; ix[0] = ix[i]; ix[i] = t; sift(0, i - 1, ix) }
+    }
+    function addrec(a, ty_, r_, n_, co_, cn_, nm_, cc_, ls_, ca_) {
+        ad[nrec] = a; tp[nrec] = ty_; rr[nrec] = r_ + 0; rp[nrec] = n_ + 0; cmp[nrec] = co_; cnm[nrec] = cn_; nmx[nrec] = nm_
+        cnx[nrec] = cc_ + 0; lsn[nrec] = ls_ + 0; car[nrec] = ca_ + 0; have[a] = 1; nrec++
+    }
+    BEGIN {
+        ts = ENVIRON["SC_TS"] + 0; hold = ENVIRON["SC_HOLD"] + 0; win = ENVIRON["SC_WIN"] + 0
+        mode = ENVIRON["SC_BTMODE"] + 0; trf = ENVIRON["SC_TRAFFIC"] + 0
+        nrec = 0; added = 0; cdone = 0; adone = 0; btline = ""; actline = ""; tstat = "off"; nout = 0
+        if (mode == 1) {
+            f = ENVIRON["SC_BTP"]
+            while ((getline line < f) > 0) { if (split(line, c, "\t") >= 9 && c[1] == "B") addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ts, 0) }
+            close(f)
+        }
+        if (mode != 0) {
+            f = ENVIRON["SC_BTH"]
+            while ((getline line < f) > 0) {
+                if (split(line, c, "\t") < 10 || (c[1] in have)) continue
+                if (c[9] + 0 > ts || c[9] + 0 < ts - hold || c[10] + 1 > 4) continue
+                addrec(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] + 1)
+            }
+            close(f)
+            sortix(nrec, ix)
+            nout = (nrec > 256) ? 256 : nrec
+            nf = ENVIRON["SC_BTN"]
+            o = ""
+            for (k = 0; k < nout; k++) {
+                i = ix[k]
+                o = o (k ? ", " : "") "{\"addr\": \"" jesc(ad[i]) "\", \"addr_type\": \"" jesc(tp[i]) "\", \"rssi\": " rr[i] ", \"reports\": " rp[i] ", \"last_seen\": " lsn[i]
+                if (cmp[i] != "") o = o ", \"company\": " cmp[i]
+                if (cnm[i] != "") o = o ", \"company_name\": \"" jesc(cnm[i]) "\""
+                if (nmx[i] != "") o = o ", \"name\": \"" jesc(nmx[i]) "\""
+                if (cnx[i]) o = o ", \"connectable\": true"
+                o = o "}"
+                printf "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\n", ad[i], tp[i], rr[i], rp[i], cmp[i], cnm[i], nmx[i], cnx[i], lsn[i], car[i] > nf
+            }
+            close(nf)
+            btline = "  \"bluetooth\": [" o "],"
+        }
+        if (trf == 1) {
+            tstat = "bad"; s = ""; f = ENVIRON["SC_TRF"]
+            while ((getline line < f) > 0) s = s line
+            close(f)
+            gsub(/[ \t\r]/, "", s)
+            if (s ~ /^\{.*\}$/) {
+                s = substr(s, 2, length(s) - 2)
+                tstat = (s == "") ? "bad" : "none"
+                if (s != "") {
+                    np = split(s, pc, ",")
+                    for (i = 1; i <= np; i++) {
+                        if (pc[i] !~ /^"[0-9]+":[0-9]+$/) { tstat = "bad"; break }
+                        q = index(pc[i], "\":"); kq = substr(pc[i], 2, q - 2) + 0
+                        if (kq >= 2400) { if (!(kq in fv)) fk[nfk++] = kq; fv[kq] = substr(pc[i], q + 2) + 0 }
+                    }
+                    if (tstat != "bad") {
+                        sum = 0
+                        for (i = 0; i < nfk; i++) sum += fv[fk[i]]
+                        if (sum > 0) {
+                            for (i = 1; i < nfk; i++) { v = fk[i]; j = i - 1; while (j >= 0 && fk[j] > v) { fk[j + 1] = fk[j]; j-- } fk[j + 1] = v }
+                            a = ""; na = 0
+                            for (i = 0; i < nfk; i++) { x = fv[fk[i]] / sum
+                                if (x >= 0.001) { a = a (na ? ", " : "") sprintf("{\"freq\": %d, \"share\": %.3f}", fk[i], x); na++ } }
+                            if (na > 0) { actline = "  \"activity\": [" a "],"; tstat = "ok" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    {
+        if (!cdone && mode != 0 && index($0, "  \"center\": {") == 1 && match($0, /\},?$/)) {
+            $0 = substr($0, 1, RSTART - 1) ", \"bt_window\": " win ", \"bt_hold\": " hold substr($0, RSTART); cdone = 1 }
+        if (!adone && index($0, "  \"aps\": [") == 1) {
+            if (mode != 0) { print btline; added++ }
+            if (actline != "") { print actline; added++ }
+            adone = 1 }
+        print
+    }
+    END {
+        sf = ENVIRON["SC_STAT"]
+        printf "added %d\nbt %d\ntraffic %s\ncenter %d\n", added, (mode != 0 ? nout : -1), tstat, cdone > sf
+        close(sf)
+    }
+'
+# $1 = the document (rewritten in place, or left alone when the pass failed its shape check), $2 = the Bluetooth mode (see AWK_LAYERS). Reads $ts,
+# BT_HELD, the window's parse output and the RECON CHANNELS file of this process. Returns post_keep's answer; BT_HELD_NEW = the records for the next cycle.
+add_layers() {
+    al_b="$TMPDIR_RAM/starchorus-bt-$$"
+    al_um=$(umask); umask 077; : > "$al_b.held" 2>/dev/null; : > "$al_b.new" 2>/dev/null; umask "$al_um"   # addresses: for this process only
+    if [ -n "$BT_HELD" ]; then printf '%s\n' "$BT_HELD" > "$al_b.held" 2>/dev/null; fi
+    al_w=0; [ "$2" != 1 ] || al_w=$BT_WIN
+    SC_TS=$ts SC_HOLD=$BT_HOLD SC_WIN=$al_w SC_BTMODE=$2 SC_TRAFFIC=$TRAFFIC SC_BTP="$BT_F.out" SC_BTH="$al_b.held" SC_BTN="$al_b.new" \
+        SC_TRF="$TMPDIR_RAM/starchorus-traffic-$$.json" SC_STAT="$al_b.stat" LC_ALL=C awk "$AWK_JSON_HELPERS$AWK_LAYERS" < "$1" > "$1.l" 2>/dev/null
+    post_keep "$1" l $? "$(sed -n 's/^added //p' "$al_b.stat" 2>/dev/null)"
+}
+# $1 = the document of this cycle, as it is about to be published. The Bluetooth window of the cycle is ended and judged here (bt_end), the
+# RECON CHANNELS call is waited for, add_layers runs, and the records for the next cycle are kept.
+run_layers() {
+    rl_m=0
+    if [ "$BLUETOOTH" = 1 ]; then
+        case $BT_RC in
+            0) bt_end
+               if [ -z "$BT_VOID" ]; then rl_m=1; else rl_m=2; fi ;;
+            5) bt_issue overlap "Bluetooth: another collector's window is running; this one skipped"; rl_m=2 ;;
+            6) bt_end; bt_issue monitor "Bluetooth: the monitor did not start in time; no scan this cycle"; rl_m=2 ;;
+            *) bt_issue nocontroller "Bluetooth: no controller (hci0), or a scan tool or timeout is missing; Bluetooth stays off"; BT_HELD="" ;;
+        esac
+    fi
+    if [ -n "$TR_PID" ]; then wait "$TR_PID" 2>/dev/null; TR_PID=""; fi
+    rl_b="$TMPDIR_RAM/starchorus-bt-$$"
+    if [ "$rl_m" != 0 ] || [ "$TRAFFIC" = 1 ]; then
+        if add_layers "$1" "$rl_m"; then
+            [ "$rl_m" = 0 ] || BT_HELD=$(cat "$rl_b.new" 2>/dev/null)
+        fi
+        if [ "$TRAFFIC" = 1 ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != ok ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != none ]; then
+            bt_issue traffic "Traffic: the AP service gave no usable channel list"
+        fi
+    fi
+    rm -f "$rl_b.held" "$rl_b.new" "$rl_b.stat" "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
+    [ -z "$BT_F" ] || rm -f "$BT_F.out" 2>/dev/null
 }
 
 # ============================================================================ AWK LIBRARIES
@@ -754,7 +1585,7 @@ setup_vendor() {
     if [ -z "$OUI_PATH" ]; then
         if [ "$fr" = "2" ]; then
             st="bad:$OUI_FILE"
-            [ "$VENDOR_STATE" = "$st" ] || log "warning: no usable OUI format in STARCHORUS_OUI_FILE=$OUI_FILE (expected nmap / IEEE / macchanger / manuf lines); JSON will carry no \"vendor\" field"
+            [ "$VENDOR_STATE" = "$st" ] || log "warning: no usable OUI format in STARCHORUS_OUI_FILE=$OUI_FILE (expected Nmap / IEEE / macchanger / manuf lines); JSON will carry no \"vendor\" field"
         else
             st="none"
             [ "$VENDOR_STATE" = "$st" ] || log "no OUI database found (STARCHORUS_OUI_FILE=$OUI_FILE); JSON will carry no \"vendor\" field"
@@ -1532,11 +2363,19 @@ recon_workdone() {   # the RAM copy is not needed between cycles: free it
     if [ "$QDB_RAM" = 1 ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" 2>/dev/null; fi
     QDB_RAM=0
 }
-# The RAM copies of recon.db (rule: see sweep_stale_cache_files).
+# The RAM copies of recon.db (rule: see sweep_stale_cache_files), and the files of a Bluetooth window or a RECON CHANNELS call of a collector that is
+# gone (starchorus-bt-<pid>.*, starchorus-traffic-<pid>.json; the .pid files are bt_sweep's: they say which tool to stop, and go with it).
 sweep_stale_workcopies() {
     for f in "$TMPDIR_RAM"/starchorus-recon-*.db "$TMPDIR_RAM"/starchorus-recon-*.db-wal "$TMPDIR_RAM"/starchorus-recon-*.db-shm; do
         [ -e "$f" ] || continue
         p=${f##*/starchorus-recon-}; p=${p%%.*}
+        holder_alive "$p" || rm -f "$f" 2>/dev/null
+    done
+    for f in "$TMPDIR_RAM"/starchorus-bt-* "$TMPDIR_RAM"/starchorus-traffic-*; do
+        [ -e "$f" ] || continue
+        case $f in *.pid) continue ;; esac
+        p=${f##*/starchorus-bt-}; p=${p##*/starchorus-traffic-}; p=${p%%.*}
+        case $p in ''|*[!0-9]*) continue ;; esac
         holder_alive "$p" || rm -f "$f" 2>/dev/null
     done
 }
@@ -1674,6 +2513,8 @@ AWK_RECONDB='
             if(mac=="") next
             un_mac[nun]=macfmt(mac); un_sig[nun]=sig
             un_last[nun]=(last ~ /^[0-9]+$/ && last+0>0) ? last+0 : ""
+            pkt=$4; if(pkt ~ /^[0-9]+$/){ sub(/^0+/,"",pkt); if(pkt=="") pkt="0" } else pkt=""     # the frame counter (STARCHORUS_TRAFFIC=1, CLI0), digits only
+            un_pk[nun]=pkt
             nun++
         }
         END{
@@ -1690,6 +2531,7 @@ AWK_RECONDB='
             printf "  ],\n  \"unassociated\": [\n"
             for(i=0;i<nun;i++){
                 extra=(un_last[i]!="") ? ", \"last_seen\": " un_last[i] : ""
+                if(un_pk[i]!="") extra=extra ", \"packets\": " un_pk[i]
                 if(un_mac[i] in pr) extra=extra ", \"probes\": [" pr[un_mac[i]] "]"
                 printf "%s%s\n", cl_json(jesc(un_mac[i]), numval(un_sig[i]), extra), (i<nun-1?",":"")
             }
@@ -1740,7 +2582,11 @@ build_from_recondb() {
     # would run the same scan a second time.
     RQ="PRAGMA mmap_size=134217728;"      # (its one output row, before the first marker, is dropped by recondb_pick; no mmap support: nothing happens)
     rq_add HASTIME "SELECT COUNT(*) FROM pragma_table_info('ssid') WHERE name='time'"
-    rq_add APS1 "SELECT s.bssid, $SSD, IFNULL(s.freq,''), '', IFNULL(s.channel,''), MAX(s.signal), ($ENC), IFNULL(s.hidden,0), IFNULL(t.last,''), $ENC5 FROM ssid s JOIN (SELECT bssid, MAX(time) AS last FROM ssid WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid) t ON t.bssid=s.bssid WHERE s.type IN (5,8) $AGE_S GROUP BY s.bssid"
+    # "hidden" is decided per BSSID by its NEWEST beacon row, not by the strongest row of either kind: h8 = time*2 + hidden of the newest type-8 row (the low bit is
+    # the flag), so a hidden network that also answers probes does not flip to named when a probe response is the strongest row, and a network that stops hiding
+    # reaches the document as soon as its newest beacon says so. It is the second aggregate of the derived table that already carries MAX(time): no further scan, no
+    # bare column. No type-8 row at all (h8 NULL): the row's own flag, as in 0.1. The older schemas below keep the per-row rule.
+    rq_add APS1 "SELECT s.bssid, $SSD, IFNULL(s.freq,''), '', IFNULL(s.channel,''), MAX(s.signal), ($ENC), CASE WHEN t.h8 IS NULL THEN IFNULL(s.hidden,0) ELSE t.h8 % 2 END, IFNULL(t.last,''), $ENC5 FROM ssid s JOIN (SELECT bssid, MAX(time) AS last, MAX(CASE WHEN type=8 THEN time*2 + (IFNULL(hidden,0)=1) END) AS h8 FROM ssid WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid) t ON t.bssid=s.bssid WHERE s.type IN (5,8) $AGE_S GROUP BY s.bssid"
     [ "$HAS_TIME" = 1 ] || rq_add APS2 "SELECT bssid, $SSD, IFNULL(freq,''), '', IFNULL(channel,''), MAX(signal), ($ENC), IFNULL(hidden,0), '', $ENC5 FROM ssid WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid"
     rq_add APS3 "SELECT apmac, $SSD, IFNULL(freq,''), IFNULL(band,''), '', MAX(signal), ($ENC), IFNULL(hidden,0), '', $ENC5 FROM ssid WHERE apmac IS NOT NULL AND apmac<>'' AND type IN (5,8) $AGE GROUP BY apmac"
     rq_add APS4 "SELECT bssid, $APSSD, '', '', IFNULL(channel,''), signal, encryption, 0, '', '', '', '', '' FROM aps"
@@ -1750,6 +2596,14 @@ build_from_recondb() {
 
     # --- unassociated stations: probe-request senders (type=4), best-effort. 3 cols: mac, signal,
     # last_seen ('' if unknown). Only the GROUP BY key is a bare column here, so two aggregates are safe.
+    # With STARCHORUS_TRAFFIC=1 the first alternative adds the cumulative frame counter of the rows of that MAC heard in the last 300 s (the join is the one CLI1 makes: no
+    # second scan of wifi_device; an earlier recon session's larger counter drops out after five minutes). recondb_pick keeps the first alternative of the group that
+    # returns rows, so a firmware whose wifi_device has no `packets` or `time` column falls back to CLI1 as before. Only the GROUP BY key is a bare column: the extra
+    # aggregate is safe.
+    if [ "$TRAFFIC" = "1" ]; then
+        pk_now=$1; case $pk_now in ''|*[!0-9]*) pk_now=0 ;; esac
+        rq_add CLI0 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),''), IFNULL(MAX(CASE WHEN w.time > $((pk_now - 300)) THEN w.packets END),'') FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
+    fi
     rq_add CLI1 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),'') FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
     [ "$HAS_TIME" = 1 ] || rq_add CLI2 "SELECT w.mac, MAX(s.signal), '' FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
     rq_add CLI3 "SELECT stamac, MAX(signal), '' FROM ssid WHERE type=4 AND stamac IS NOT NULL AND stamac<>'' $AGE GROUP BY stamac"
@@ -2072,16 +2926,19 @@ build_from_iwscan() {
 # The ONLY functions in which an AP-service CLI command may be written (tools/passivity-check.sh lists them in SEC6_FUNCS and greps every
 # other line of the collector, both starchorus-display.sh, payload.sh and library/** for `_pineap`, PINEAPPLE_, WIGLE_, DEAUTH, SSID_POOL,
 # GPS_GET and the firmware's other active or outward commands by name and prefix: WIFI_CONNECT, WIFI_PCAP_, OPENVPN_, WIREGUARD_ and the rest
-# of SEC6_RE there). Three LITERAL command lines (two commands, one of them also in a bounded form), no eval, no command name from a variable, no
+# of SEC6_RE there). Four LITERAL command lines (three commands, one of them also in a bounded form), no eval, no command name from a variable, no
 # argument taken from outside (the lines only carry the optional prefix `timeout 10`). `recon_aps` and `recon_devices` are the two read-only
 # lists the opt-in source STARCHORUS_SOURCE=pineap reads (verified on the device, docs/device-notes.md V-3: they leave the transmit counters of
 # every wireless interface unchanged); there is no `RECON CLIENTS` command on the device, the stations are in `RECON DEVICES`.
 # `recon_devices_recent` is the same list newest first and cut at 400 entries (the arguments are the CLI's own, from its help; checked on the
 # device in a 130 s run of the source on 14 Oct 2026, the counters unchanged). `present` runs no command at all: it only asks whether the CLI
 # exists. The former `monitor` id (listening to one BSSID, never verified on the device and called by nothing) has left the allowlist.
+# `recon_channels` is the AP service's frame count per frequency (channel activity, not devices): read-only, its transmit counters measured
+# unchanged (docs/device-notes.md V-3), gated on STARCHORUS_TRAFFIC alone: turning Traffic on does not make the other ids callable, and
+# STARCHORUS_APCLI_RO=1 does not make this one callable. The command exits 1 while it prints valid JSON, so its answer is judged by its text only.
 # rc 0 = ran, 1 = nothing to run (present), 2 = refused, 3 = flag off.
 apcli_ro() {
-    [ "$APCLI_RO" = "1" ] || return 3
+    [ "$APCLI_RO" = "1" ] || [ "$1" = recon_channels ] || return 3
     # the list calls get 10 s (they take well under one on the device): a hung AP service must not hang the cycle. A `timeout`
     # is on the device (docs/device-notes.md §2); without one the call is made as it is.
     ap_to=""; have timeout && ap_to="timeout 10"
@@ -2091,31 +2948,44 @@ apcli_ro() {
         recon_aps)     [ $# -eq 1 ] || return 2; $ap_to _pineap RECON APS format=json ;;
         recon_devices) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json ;;
         recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json sort=time sortdir=desc limit=400 ;;
+        recon_channels) [ $# -eq 1 ] || return 2; [ "$TRAFFIC" = "1" ] || return 3; $ap_to _pineap RECON CHANNELS format=json ;;
         *) return 2 ;;
     esac
 }
 # selftest support: an executable `_pineap` stub in directory $1 that appends its argv to file $2 (one line per call). With $3 and $4 it also
-# prints those files for `RECON APS format=json` and `RECON DEVICES format=json` (fixture JSON); any other argument line prints nothing.
+# prints those files for `RECON APS format=json` and `RECON DEVICES format=json` (fixture JSON), with $5 that file for `RECON CHANNELS format=json`;
+# any other argument line prints nothing. $3 = hang: a command line that never answers.
 apcli_stub() {
     mkdir -p "$1" || return 1
     {
         printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\n' "$2"
         if [ "$3" = hang ]; then printf 'exec sleep 40\n'   # a command line that never answers (the timeout test)
-        elif [ -n "$3" ]; then printf 'case "$*" in\n"RECON APS format=json") cat "%s" ;;\n"RECON DEVICES format=json"*) cat "%s" ;;\nesac\n' "$3" "$4"; fi
+        elif [ -n "$3$5" ]; then
+            printf 'case "$*" in\n'
+            [ -z "$3" ] || printf '"RECON APS format=json") cat "%s" ;;\n"RECON DEVICES format=json"*) cat "%s" ;;\n' "$3" "$4"
+            [ -z "$5" ] || printf '"RECON CHANNELS format=json") cat "%s" ;;\n' "$5"
+            printf 'esac\n'
+        fi
     } > "$1/_pineap" && chmod +x "$1/_pineap"
 }
-# The allowlist selftest ($1 = workspace): stub first in PATH; the three allowed ids produce exactly their literal lines, everything
-# else exits non-zero WITHOUT reaching the stub -- the former `monitor` id with any BSSID included.
+# The allowlist selftest ($1 = workspace): stub first in PATH; the four allowed ids that run a command (the fifth, present, only asks whether the command
+# line exists) produce exactly their literal lines, everything else exits non-zero WITHOUT reaching the stub -- the former `monitor` id with any BSSID
+# included, and each id of the lists without APCLI_RO, the channel list without Traffic.
 apcli_selftest() {
     pt="$1"; plog="$pt/apcli.log"; : > "$plog"
     apcli_stub "$pt/bin" "$plog"
-    p_path=$PATH; p_flag=$APCLI_RO
-    PATH="$pt/bin:$PATH"; APCLI_RO=1
-    apcli_ro recon_aps; apcli_ro recon_devices; apcli_ro recon_devices_recent
+    p_path=$PATH; p_flag=$APCLI_RO; p_traf=$TRAFFIC
+    PATH="$pt/bin:$PATH"; APCLI_RO=1; TRAFFIC=1
+    apcli_ro recon_aps; apcli_ro recon_devices; apcli_ro recon_devices_recent; apcli_ro recon_channels
     pl=$(cat "$plog")
     if [ "$pl" = "RECON APS format=json
 RECON DEVICES format=json
-RECON DEVICES format=json sort=time sortdir=desc limit=400" ]; then st_pass "apcli_ro: the three allowed ids (recon_aps, recon_devices, recon_devices_recent) run exactly their literal command lines"; else st_fail "apcli_ro allowed ids: [$pl]"; fi
+RECON DEVICES format=json sort=time sortdir=desc limit=400
+RECON CHANNELS format=json" ]; then st_pass "apcli_ro: the four allowed ids that run a command (recon_aps, recon_devices, recon_devices_recent, recon_channels) run exactly their literal command lines"; else st_fail "apcli_ro allowed ids: [$pl]"; fi
+    apcli_ro present; ap_pr=$?; mkdir -p "$pt/nobin"
+    # shellcheck disable=SC2123  # PATH is replaced on purpose: the command line must not be found
+    PATH="$pt/nobin"; apcli_ro present; ap_pn=$?; PATH="$pt/bin:$p_path"
+    if [ "$ap_pr/$ap_pn" = 0/1 ]; then st_pass "apcli_ro: present only asks whether the command line exists (no command run: 0 with the stub, 1 without)"; else st_fail "apcli_ro present ($ap_pr/$ap_pn)"; fi
     n0=$(wc -l < "$plog" | tr -d ' '); bad=""
     for rid in DEAUTH deauth "RECON STOP" "RECON NEW" "RECON CLIENTS" recon_clients SSID_POOL_ADD WIGLE_UPLOAD GPS_GET WIFI_CONNECT WIFI_PCAP_START OPENVPN_START WIREGUARD_START AUTOSSH_START DNSSPOOF_START INSTALL_FIRMWARE GPS_CONFIGURE FIND_CLIENT_IP "" monitor MONITOR aa:bb:cc:00:00:01; do
         apcli_ro "$rid" >/dev/null 2>&1 && bad="$bad [$rid]"
@@ -2125,15 +2995,24 @@ RECON DEVICES format=json sort=time sortdir=desc limit=400" ]; then st_pass "apc
     apcli_ro recon_devices "aa:bb:cc:00:00:01;reboot" >/dev/null 2>&1 && bad="$bad [recon_devices injection]"
     apcli_ro recon_devices_recent limit=9999 >/dev/null 2>&1 && bad="$bad [recon_devices_recent arg]"
     apcli_ro present extra >/dev/null 2>&1 && bad="$bad [present extra]"
+    apcli_ro recon_channels extra >/dev/null 2>&1; ap_rx=$?
+    [ "$ap_rx" = 2 ] || bad="$bad [recon_channels extra rc $ap_rx]"
+    apcli_ro recon_channels "aa:bb:cc:00:00:01;reboot" >/dev/null 2>&1 && bad="$bad [recon_channels injection]"
     for pm in aa:bb:cc:00:00:01 ff:ff:ff:ff:ff:ff 01:00:5e:00:00:01 "aa:bb:cc:00:00:01;reboot" 'aa:bb:cc:00:00:01 --x' ""; do
         apcli_ro monitor "$pm" >/dev/null 2>&1 && bad="$bad [monitor $pm]"
     done
     n1=$(wc -l < "$plog" | tr -d ' ')
-    if [ -z "$bad" ] && [ "$n0" = "$n1" ]; then st_pass "apcli_ro: refuses DEAUTH/RECON STOP|NEW|CLIENTS/SSID_POOL/WIGLE/GPS ids and the firmware's other outward command names (WIFI_CONNECT, OPENVPN_START, ...), monitor with any BSSID, extra arguments, injection — no stub call"; else st_fail "apcli_ro refusals:$bad (stub calls $n0 -> $n1)"; fi
-    APCLI_RO=0; apcli_ro recon_aps >/dev/null 2>&1; rc=$?
+    if [ -z "$bad" ] && [ "$n0" = "$n1" ]; then st_pass "apcli_ro: refuses DEAUTH/RECON STOP|NEW|CLIENTS/SSID_POOL/WIGLE/GPS ids and the firmware's other outward command names (WIFI_CONNECT, OPENVPN_START, ...), monitor with any BSSID, extra arguments (recon_channels extra: rc 2), injection — no stub call"; else st_fail "apcli_ro refusals:$bad (stub calls $n0 -> $n1)"; fi
+    APCLI_RO=0; TRAFFIC=0; apcli_ro recon_aps >/dev/null 2>&1; rc=$?
     n2=$(wc -l < "$plog" | tr -d ' ')
     if [ "$rc" = "3" ] && [ "$n2" = "$n1" ]; then st_pass "apcli_ro: flag off (STARCHORUS_APCLI_RO=0) -> rc 3, no call"; else st_fail "apcli_ro flag off (rc $rc, calls $n1 -> $n2)"; fi
-    PATH=$p_path; APCLI_RO=$p_flag
+    # one command, one opt-in: with only Traffic on the lists stay shut (rc 3, no call), with only APCLI_RO the channel list stays shut
+    APCLI_RO=0; TRAFFIC=1; ap_bad=""
+    for ap_id in recon_aps recon_devices recon_devices_recent present; do apcli_ro "$ap_id" >/dev/null 2>&1; [ "$?" = 3 ] || ap_bad="$ap_bad [$ap_id]"; done
+    APCLI_RO=1; TRAFFIC=0; apcli_ro recon_channels >/dev/null 2>&1; [ "$?" = 3 ] || ap_bad="$ap_bad [recon_channels without Traffic]"
+    n3=$(wc -l < "$plog" | tr -d ' ')
+    if [ -z "$ap_bad" ] && [ "$n3" = "$n2" ]; then st_pass "apcli_ro: Traffic alone opens no list command, APCLI_RO alone does not open recon_channels (rc 3, no stub call)"; else st_fail "apcli_ro gates:$ap_bad (stub calls $n2 -> $n3)"; fi
+    PATH=$p_path; APCLI_RO=$p_flag; TRAFFIC=$p_traf
 }
 
 # --------------------------------------------------------------------------- survey rows, channels[], center extras
@@ -2190,15 +3069,16 @@ center_extra() {
     printf '%s' "$x"
 }
 # A post-pass wrote the document $1 into "$1.$2" with exit status $3. Keep its output only when the pass
-# succeeded, the line count is unchanged and the last line is still "}": every post-pass only inserts fields
-# into existing lines, so anything else (e.g. a pass that died half-way yet returned 0) is dropped and the
-# document stays as it was (return 1).
+# succeeded, the line count is unchanged (or has grown by exactly $4, the number of lines the pass adds: 0 when
+# not given) and the last line is still "}": every post-pass only inserts fields into existing lines (the layers
+# pass adds whole lines, and says how many), so anything else (e.g. a pass that died half-way yet returned 0) is
+# dropped and the document stays as it was (return 1).
 post_keep() {
     # The line counts are compared as numbers and UNQUOTED: the word splitting takes off the blanks a BSD `wc` pads them with (a
     # padded number is a bad number to BusyBox's `[`), and no `tr` process is needed for it. An empty count is a failed `[`, so no.
     # shellcheck disable=SC2046
     if [ "$3" = "0" ] && [ -s "$1.$2" ] \
-       && [ $(wc -l < "$1" 2>/dev/null) -eq $(wc -l < "$1.$2" 2>/dev/null) ] 2>/dev/null && [ "$(tail -n 1 "$1.$2")" = "}" ]; then
+       && [ $(wc -l < "$1" 2>/dev/null) -eq $(($(wc -l < "$1.$2" 2>/dev/null) - ${4:-0})) ] 2>/dev/null && [ "$(tail -n 1 "$1.$2")" = "}" ]; then
         mv -f "$1.$2" "$1"; return 0
     fi
     rm -f "$1.$2" 2>/dev/null; return 1
@@ -2261,7 +3141,7 @@ write_empty() {
 # document with a homing reading must be rebuilt without it once the target goes), a setting changed, the clock went backwards, or SKIP_MAX
 # skips in a row have passed.
 rs_cfg() {   # RS_CFGNOW = what the document depends on besides recon.db: a changed setting is a rebuild
-    RS_CFGNOW="$MAX_AGE|$INTERVAL|$VENDOR|$HOPINFO|$OUTFILE|$RECON_DB|$OUI_PATH|$CENTER_LABEL"
+    RS_CFGNOW="$MAX_AGE|$INTERVAL|$VENDOR|$HOPINFO|$OUTFILE|$RECON_DB|$OUI_PATH|$CENTER_LABEL|$BLUETOOTH|$TRAFFIC"
 }
 homing_off() { [ -z "$HOMING_BSSID" ] && [ ! -e "$OUTDIR/homing.target" ]; }   # no target, no file: no process needed to know
 recon_unchanged() {   # $1 = now, RS_RAW = this cycle's sample. 0 = the document of the last full pass still stands
@@ -2284,23 +3164,34 @@ rs_keepdoc() {
     [ -n "$RS_DOCV" ] && [ -n "$RS_DOCN" ] && return 0
     RS_DOCV=""; return 1
 }
-# RS_DOCV with a new "generated" and nothing else, published over $OUTFILE. Same line count and closing brace or it is dropped (return 1).
-refresh_generated() {   # $1 = now
+# RS_DOCV with a new "generated" and nothing else, put over $2 (default $OUTFILE; run_cycle asks for its work file, so that the per-cycle layers go
+# on before anything is published). Same line count and closing brace or it is dropped (return 1).
+refresh_generated() {   # $1 = now, $2 = where the document goes
     rg_t="$OUTFILE.gen$$"
     printf '%s\n' "$RS_DOCV" | sed "s/^  \"generated\": [0-9][0-9]*,\$/  \"generated\": $1,/" > "$rg_t" 2>/dev/null
     # The line counts as in post_keep (compared as numbers, unquoted).
     # shellcheck disable=SC2046,SC2086
     if grep -q "^  \"generated\": $1,\$" "$rg_t" 2>/dev/null \
        && [ $RS_DOCN -eq $(wc -l < "$rg_t" 2>/dev/null) ] 2>/dev/null && [ "$(tail -n 1 "$rg_t")" = "}" ] \
-       && mv -f "$rg_t" "$OUTFILE" 2>/dev/null; then return 0; fi
+       && mv -f "$rg_t" "${2:-$OUTFILE}" 2>/dev/null; then return 0; fi
     rm -f "$rg_t" 2>/dev/null; return 1
 }
 
 # --------------------------------------------------------------------------- one cycle
+# In order: (1) the per-cycle layers that run beside the build start, the Bluetooth window (bt_begin, the processes run in the background from here on)
+# and the RECON CHANNELS call; (2) the source build, which on the recon.db path may be a SKIP: the document of the last full pass with a new
+# "generated" is the work file, no database copy, no query, no vendor pass; (3) on a built document only: the center extras, the homing reading, the
+# vendor fields; (4) on a full build only: keep the base for the next skip, before any layer; (5) the layers: the window ends (bt_end), the traffic
+# answer is waited for, add_layers; (6) publish, then the vendor cache merge. So a skipped cycle still carries fresh Bluetooth and activity layers.
+# With both switches off a skipped cycle publishes the same bytes as in 0.1. A skip leaves RS_DOCV as it is and RS_SKIPS keeps counting, so SKIP_MAX
+# still forces a rebuild; the conditions of a skip are today's (the survey and the own-device fields forbid one; Bluetooth and traffic do not).
 run_cycle() {
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
     tmp="$OUTFILE.tmp.$$"
-    ok=1; CENTER_DONE=0
+    ok=1; CENTER_DONE=0; rc_skip=0
+    BT_CUR=" "; BT_RC=3; TR_PID=""
+    if [ "$BLUETOOTH" = 1 ]; then bt_begin; BT_RC=$?; fi
+    if [ "$TRAFFIC" = 1 ]; then apcli_ro recon_channels 2>/dev/null > "$TMPDIR_RAM/starchorus-traffic-$$.json" & TR_PID=$!; fi
     case "$RESOLVED" in
         capture)
             if [ "$CAP_METHOD" = "airodump" ]; then
@@ -2311,9 +3202,12 @@ run_cycle() {
             ;;
         recondb)
             recon_sample "$ts"; RS_TAKEN=1      # the one look at recon.db's files this cycle: the skip test and the build use it
-            if recon_unchanged "$ts" && refresh_generated "$ts"; then RS_SKIPS=$((RS_SKIPS + 1)); RS_TAKEN=0; return 0; fi
-            RS_SIG=""
-            CX_EMBED=1; build_from_recondb "$ts" > "$tmp" 2>/dev/null || ok=0; CX_EMBED=0 ;;
+            if recon_unchanged "$ts" && refresh_generated "$ts" "$tmp"; then
+                RS_SKIPS=$((RS_SKIPS + 1)); RS_TAKEN=0; rc_skip=1
+            else
+                RS_SIG=""
+                CX_EMBED=1; build_from_recondb "$ts" > "$tmp" 2>/dev/null || ok=0; CX_EMBED=0
+            fi ;;
         pineap)
             build_from_apcli "$ts" > "$tmp" 2>/dev/null; prc=$?
             if [ "$prc" = 0 ]; then PN_FELL=0
@@ -2326,11 +3220,11 @@ run_cycle() {
         iwscan)  build_from_iwscan  "$ts" > "$tmp" 2>/dev/null || ok=0 ;;
         *)       ok=0 ;;
     esac
-    # Post-passes on a good document, none of which can fail the cycle: the center extras (max_age,
+    # Post-passes on a good, freshly built document, none of which can fail the cycle: the center extras (max_age,
     # interval, own_*), the homing reading of the ONE chosen AP, and the optional passive vendor /
     # randomized enrichment (skipped entirely with STARCHORUS_VENDOR=0; "defer": its new cache lines are
-    # merged only AFTER the JSON is published, below).
-    if [ "$ok" = "1" ] && [ -s "$tmp" ]; then
+    # merged only AFTER the JSON is published, below). A skipped cycle's document has had them all.
+    if [ "$ok" = "1" ] && [ "$rc_skip" = 0 ] && [ -s "$tmp" ]; then
         if [ "$CENTER_DONE" != 1 ]; then add_center < "$tmp" > "$tmp.c" 2>/dev/null; post_keep "$tmp" c $?; fi
         apply_homing "$tmp"
         if [ "$VENDOR" = "1" ]; then
@@ -2343,16 +3237,927 @@ run_cycle() {
     if [ "$rs_good" != 1 ]; then
         write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"
     fi
-    # remember this pass for the skip test of the next cycle: its document (a skipped cycle publishes that one) and the state it stands on.
-    # Not with a homing reading, the survey or the own-device fields (the rule above recon_unchanged).
+    # remember this pass for the skip test of the next cycle: its document (a skipped cycle publishes that one) and the state it stands on. A full build
+    # only, and before any layer. Not with a homing reading, the survey or the own-device fields (the rule above recon_unchanged).
     rs_kept=0
-    if [ "$rs_good" = 1 ] && [ "$RESOLVED" = recondb ] && [ -n "$RS_NEW" ] && [ "$SKIP_UNCHANGED" = 1 ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] \
+    if [ "$rc_skip" = 0 ] && [ "$rs_good" = 1 ] && [ "$RESOLVED" = recondb ] && [ -n "$RS_NEW" ] && [ "$SKIP_UNCHANGED" = 1 ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] \
        && homing_off && rs_keepdoc "$tmp"; then rs_kept=1; fi
+    # the layers of this cycle, on the document that is published (never on the base kept above)
+    if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ]; then run_layers "$tmp"; fi
+    BT_LOGGED=$BT_CUR
     mv -f "$tmp" "$OUTFILE"    # atomic replace
     if [ "$rs_kept" = 1 ]; then
         rs_cfg; RS_SIG=$RS_NEW; RS_TS=$ts; RS_SKIPS=0; RS_CFG=$RS_CFGNOW; RS_MIN=$RS_WMIN
     fi
     vendor_merge               # cache write AFTER publication: a lock wait costs the cache, not the view
+}
+
+# --------------------------------------------------------------------------- selftest support for the Bluetooth window (stubs only: nothing here can reach a controller)
+# A stand-in tree under $1 (bin/ cfg/ log/ sig/ proc/ ram/ sys/ in/): `timeout`, and the two scan tools as shell scripts that do nothing but
+# record themselves. The window code is run against a stand-in /proc (BT_PROC = $1/proc, one stat file per stub, in the real layout) because a
+# development machine has none, and its signals go to files (BT_SIGMSG): a shell script started in the background cannot trap SIGINT (the shell
+# ignores it for background jobs, and the scripts inherit that), so a stub that "ends on INT" reads its INT from a file instead. KILL is real.
+# Every stub writes its own $$ to log/pid.<role> (S = the scan, M = the monitor, T = the timeout stand-in), its argv to log/argv.<role>, and a stat
+# file whose state is Z once it has ended, as a real zombie shows. Modes, in cfg/ (one word per file; a missing file means "ok"):
+#   S.mode / M.mode: ok (ends on INT or TERM), ignoreint (ends on TERM only), ignoreall (ends only when killed), fail (S: prints the error the
+#                    scan prints when it cannot set its parameters, exits 1), silent (M: no output, no socket)
+#   T.mode: same (the stand-in becomes the tool, as the BusyBox applet makes its program, its watcher delivers the signal at the deadline), parent (the tool is its child;
+#           forwards what arrives for the wrapper; returns 124 after delivering its signal), noforward (parent, but a signal that arrives for the
+#           wrapper ends the wrapper and leaves the tool alone). Every signal that reaches a wrapper is written to log/wrapper.sigs.
+#   M.text: what the monitor prints (the text of a window).
+bt_tmo() {
+    printf '#!/bin/sh\nBTS=%s\n' "$1" > "$1/bin/timeout"
+    cat >> "$1/bin/timeout" <<'BTTMO'
+sig=TERM
+if [ "$1" = -s ]; then sig=$2; shift 2; fi
+n=$1; shift
+case $1 in awk) if [ "$(cat "$BTS/cfg/slow" 2>/dev/null)" = 1 ]; then exit 124; fi; exec "$@" ;; esac
+mode=$(cat "$BTS/cfg/T.mode" 2>/dev/null); [ -n "$mode" ] || mode=parent
+echo "-s $sig $n $*" >> "$BTS/log/argv.T"
+echo $$ >> "$BTS/log/pid.T"
+mkdir -p "$BTS/proc/$$"
+printf '%s (timeout) S %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n' "$$" "$PPID" "$$" > "$BTS/proc/$$/stat"
+trap 'printf "%s (timeout) Z %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n" "$$" "$PPID" "$$" > "$BTS/proc/$$/stat"' EXIT
+if [ "$mode" = same ]; then
+    p=$$
+    ( t0=$(date +%s); while kill -0 "$p" 2>/dev/null && [ $(($(date +%s) - t0)) -lt "$n" ]; do sleep 0.1 2>/dev/null || sleep 1; done
+      if kill -0 "$p" 2>/dev/null; then echo "$sig" >> "$BTS/sig/$p"; fi ) &
+    exec "$@"
+fi
+BTS_WPID=$$; export BTS_WPID
+( "$@"; echo $? > "$BTS/rc.$$" ) &
+t0=$(date +%s); sent=""
+while [ ! -e "$BTS/rc.$$" ]; do
+    tp=$(cat "$BTS/tool.$$" 2>/dev/null)
+    if [ -s "$BTS/sig/$$" ]; then
+        while read -r m; do
+            echo "$m" >> "$BTS/log/wrapper.sigs"
+            if [ "$mode" = parent ] && [ -n "$tp" ]; then echo "$m" >> "$BTS/sig/$tp"; fi
+        done < "$BTS/sig/$$"
+        : > "$BTS/sig/$$"
+        [ "$mode" = parent ] || exit 143
+    fi
+    if [ -z "$sent" ] && [ -n "$tp" ] && [ $(($(date +%s) - t0)) -ge "$n" ]; then echo "$sig" >> "$BTS/sig/$tp"; sent=1; fi
+    sleep 0.1 2>/dev/null || sleep 1
+done
+rc=$(cat "$BTS/rc.$$")
+[ -z "$sent" ] || exit 124
+exit "$rc"
+BTTMO
+    chmod +x "$1/bin/timeout"
+}
+# The two scan tools: one script body, the role (S or M) in its first lines. $1 as for bt_tmo.
+bt_stub() {
+    for bs_i in 1 2; do
+        if [ "$bs_i" = 1 ]; then bs_n=hcitool; bs_r=S; else bs_n=btmon; bs_r=M; fi
+        printf '#!/bin/sh\nBTS=%s\nROLE=%s\n' "$1" "$bs_r" > "$1/bin/$bs_n"
+        cat >> "$1/bin/$bs_n" <<'BTSTUB'
+echo "$*" >> "$BTS/log/argv.$ROLE"
+echo $$ >> "$BTS/log/pid.$ROLE"
+mode=$(cat "$BTS/cfg/$ROLE.mode" 2>/dev/null); [ -n "$mode" ] || mode=ok
+pp=${BTS_WPID:-$PPID}
+mkdir -p "$BTS/proc/$$/fd"
+case $ROLE in S) cm=hcitool ;; M) cm=btmon ;; esac
+printf '%s (%s) S %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n' "$$" "$cm" "$pp" "$$" > "$BTS/proc/$$/stat"
+echo $$ > "$BTS/tool.$pp"
+trap 'printf "%s (%s) Z %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n" "$$" "$cm" "$pp" "$$" > "$BTS/proc/$$/stat"' EXIT
+grep '^SigIgn' "/proc/$$/status" > "$BTS/log/sigign.$ROLE" 2>/dev/null
+if [ "$ROLE" = S ] && [ "$mode" = fail ]; then echo 'Set scan parameters failed: Input/output error' >&2; exit 1; fi
+if [ "$ROLE" = M ] && [ "$mode" != silent ]; then
+    ln -s 'socket:[1]' "$BTS/proc/$$/fd/3"
+    cat "$BTS/cfg/M.text" 2>/dev/null
+fi
+while :; do
+    if [ -s "$BTS/sig/$$" ]; then
+        while read -r m; do
+            case $m in
+                INT) [ "$mode" = ignoreint ] || [ "$mode" = ignoreall ] || exit 0 ;;
+                TERM) [ "$mode" = ignoreall ] || exit 0 ;;
+            esac
+        done < "$BTS/sig/$$"
+        : > "$BTS/sig/$$"
+    fi
+    sleep 0.1 2>/dev/null || sleep 1
+done
+BTSTUB
+        chmod +x "$1/bin/$bs_n"
+    done
+}
+
+# --------------------------------------------------------------------------- selftest: reading a window (bt_parse, bt_judge), text only, no process
+# $1 = the selftest workspace. The windows are written here in btmon's own shape; synthetic addresses (locally administered), placeholder names
+# ('Maker A', 'Sensor-1'), the test company id 65535. The worked example is the one of the design notes, with the [hci0] tag btmon prints when it
+# was not started with -i; the other windows have no tag and a process prefix on the host's commands, as the real text of the device has.
+bt_parse_selftest() {
+    bpt="$1/bpt"; mkdir -p "$bpt"
+    bpt_t=$RECON_TAB; bpt_n=0; bpt_at=Random
+    bpt_hdr() { bpt_n=$((bpt_n + 1)); printf '%s %s  #%s 1.%06d\n' "$1" "$2" "$bpt_n" "$bpt_n"; }
+    bpt_pre() {
+        bpt_hdr '<' 'HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7'
+        printf '        Type: Passive (0x00)\n        Interval: 10.000 msec (0x0010)\n        Window: 10.000 msec (0x0010)\n'
+        bpt_hdr '<' 'HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2'
+        printf '        Scanning: Enabled (0x01)\n        Filter duplicates: Disabled (0x00)\n'
+    }
+    bpt_post() { bpt_hdr '<' 'HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2'; printf '        Scanning: Disabled (0x00)\n        Filter duplicates: Disabled (0x00)\n'; }
+    # $1 address, $2 suffix, $3 rssi, $4 event type text, then one argument per extra field line (they come before RSSI)
+    bpt_rep() {
+        bpt_a=$1; bpt_s=$2; bpt_r=$3; bpt_e=$4; shift 4
+        bpt_hdr '>' 'HCI Event: LE Meta Event (0x3e) plen 30'
+        printf '      LE Advertising Report (0x02)\n        Num reports: 1\n        Event type: %s\n        Address type: %s (0x01)\n        Address: %s (%s)\n        Data length: 3\n' "$bpt_e" "$bpt_at" "$bpt_a" "$bpt_s"
+        for bpt_l in "$@"; do printf '%s\n' "$bpt_l"; done
+        printf '        RSSI: %s dBm (0xc0)\n' "$bpt_r"
+    }
+    bpt_adv='Connectable undirected - ADV_IND (0x00)'
+    # bpt_run FILE: parse, judge (stderr of the judge to $bpt/log), then BPT_W = the W line, BPT_NB = the number of B lines, BPT_BL = the B lines, bpt_jr = the judge's status
+    bpt_run() {
+        BT_CUR=" "; BT_LOGGED=" "; BT_NOTES=""; BT_BIG=0
+        bt_parse "$1" > "$bpt/out"; bpt_pr=$?
+        bt_judge "$bpt/out" 2> "$bpt/log"; bpt_jr=$?
+        BPT_W=$(sed -n '/^W/p' "$bpt/out"); BPT_NB=$(grep -c '^B' "$bpt/out"); BPT_BL=$(sed -n '/^B/p' "$bpt/out")
+    }
+    bpt_f() { printf '%s\n' "$BPT_W" | cut -f"$1"; }
+
+    # 1) the worked example of the design notes -> exactly three lines
+    cat > "$bpt/we.txt" <<'BTWE'
+Bluetooth monitor ver 5.72
+= New Index: 00:00:00:00:00:00 (Primary,USB,hci0)                         [hci0] 0.651216
+< HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7              #1 [hci0] 1.204556
+        Type: Passive (0x00)
+        Interval: 10.000 msec (0x0010)
+        Window: 10.000 msec (0x0010)
+        Own address type: Public (0x00)
+        Filter policy: Accept all advertisement (0x00)
+> HCI Event: Command Complete (0x0e) plen 4                             #2 [hci0] 1.205101
+      LE Set Scan Parameters (0x08|0x000b) ncmd 1
+        Status: Success (0x00)
+< HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2                  #3 [hci0] 1.205233
+        Scanning: Enabled (0x01)
+        Filter duplicates: Disabled (0x00)
+> HCI Event: LE Meta Event (0x3e) plen 38                               #5 [hci0] 1.312004
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 42:00:00:00:00:01 (Resolvable)
+        Data length: 26
+        Flags: 0x1a
+          LE General Discoverable Mode
+        Company: Maker A (65535)
+          Data: 0102030405060708
+        RSSI: -61 dBm (0xc3)
+> HCI Event: LE Meta Event (0x3e) plen 38                               #6 [hci0] 1.417220
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 42:00:00:00:00:01 (Resolvable)
+        Data length: 26
+        Company: Maker A (65535)
+          Data: 0102030405060708
+        RSSI: -58 dBm (0xc6)
+> HCI Event: LE Meta Event (0x3e) plen 30                               #7 [hci0] 1.902118
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Non connectable undirected - ADV_NONCONN_IND (0x03)
+        Address type: Random (0x01)
+        Address: C2:00:00:00:00:02 (Static)
+        Data length: 18
+        Name (complete): Sensor-1
+        RSSI: -77 dBm (0xb3)
+> HCI Event: LE Meta Event (0x3e) plen 13                               #8 [hci0] 2.004871
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable directed - ADV_DIRECT_IND (0x01)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 0
+        RSSI: -70 dBm (0xba)
+< HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2                  #9 [hci0] 7.205002
+        Scanning: Disabled (0x00)
+        Filter duplicates: Disabled (0x00)
+BTWE
+    bpt_want=$(printf 'B\t42:00:00:00:00:01\trandom-resolvable\t-58\t2\t65535\tMaker A\t\t1\nB\tc2:00:00:00:00:02\trandom-static\t-77\t1\t\t\tSensor-1\t0\nW\t1\t0\t1\t1\t0\t0\t0\n')
+    bpt_run "$bpt/we.txt"
+    if [ "$(cat "$bpt/out")" = "$bpt_want" ] && [ "$bpt_pr" = 0 ] && [ "$bpt_jr" = 0 ] && [ ! -s "$bpt/log" ]; then st_pass "bt_parse: the worked example gives exactly the three lines (two addresses, the directed report dropped, a clean witness), and the window counts"; else st_fail "bt_parse: worked example [$(cat "$bpt/out")]"; fi
+    # the same text without the prefilter (awk alone over every line): the same answer, the grammar does not depend on what the grep removes
+    awk "$AWK_BT" "$bpt/we.txt" > "$bpt/out2"
+    if cmp -s "$bpt/out" "$bpt/out2"; then st_pass "bt_parse: the grep prefilter changes nothing (the unfiltered text gives the same lines)"; else st_fail "bt_parse: filtered and unfiltered text differ"; fi
+
+    # 3) a scan response: counted, not used; the window counts; one line in the log, none the second time round
+    { bpt_n=0; bpt_pre; bpt_rep 02:00:00:00:00:11 Resolvable -50 "$bpt_adv"; bpt_rep 02:00:00:00:00:12 Resolvable -52 'Scan response - SCAN_RSP (0x04)'; bpt_post; } > "$bpt/w3.txt"
+    bpt_run "$bpt/w3.txt"; bpt_l1=$(grep -c 'scan responses' "$bpt/log"); BT_LOGGED=$BT_CUR; bt_judge "$bpt/out" 2> "$bpt/log2"; bpt_l2=$(grep -c 'scan responses' "$bpt/log2")
+    if [ "$BPT_NB" = 1 ] && [ "$(bpt_f 6)" = 1 ] && [ "$bpt_jr" = 0 ] && [ "$bpt_l1/$bpt_l2" = 1/0 ]; then st_pass "bt_parse: a SCAN_RSP report is counted (scanrsp 1) and not used, the window counts, one anomaly line per episode"; else st_fail "bt_parse: scan response (B $BPT_NB, W [$BPT_W], log $bpt_l1/$bpt_l2)"; fi
+
+    # 4) an active scan parameters block, an extended scan parameters command: void
+    { bpt_n=0; bpt_hdr '<' 'HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7'; printf '        Type: Active (0x01)\n'
+      bpt_hdr '<' 'HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2'; printf '        Scanning: Enabled (0x01)\n'
+      bpt_rep 02:00:00:00:00:21 Resolvable -50 "$bpt_adv"; bpt_post; } > "$bpt/w4a.txt"
+    bpt_run "$bpt/w4a.txt"; bpt_va=$BT_VOID; bpt_ga=$(grep -c 'another scan was seen' "$bpt/log")
+    { bpt_n=0; bpt_pre; bpt_hdr '<' 'HCI Command: LE Set Extended Scan Parameters (0x08|0x0041) plen 8'; printf '        Own address type: Public (0x00)\n'
+      bpt_rep 02:00:00:00:00:22 Resolvable -50 "$bpt_adv"; bpt_post; } > "$bpt/w4b.txt"
+    bpt_run "$bpt/w4b.txt"; bpt_vb=$BT_VOID
+    if [ "$bpt_va/$bpt_vb/$bpt_ga" = other/other/1 ] && [ "$bpt_jr" = 1 ]; then st_pass "bt_judge: Type: Active in a parameters block, and an extended scan command, void the window ('another scan', logged)"; else st_fail "bt_judge: active/extended ($bpt_va/$bpt_vb/$bpt_ga)"; fi
+
+    # 5) no parameters block (the monitor started late), and a passive block after the first report: void, fails closed
+    { bpt_n=0; bpt_rep 02:00:00:00:00:31 Resolvable -50 "$bpt_adv"; bpt_post; } > "$bpt/w5a.txt"
+    bpt_run "$bpt/w5a.txt"; bpt_va=$BT_VOID; bpt_ga=$(grep -c 'did not show a passive scan' "$bpt/log")
+    { bpt_n=0; bpt_rep 02:00:00:00:00:32 Resolvable -50 "$bpt_adv"; bpt_pre; bpt_post; } > "$bpt/w5b.txt"
+    bpt_run "$bpt/w5b.txt"; bpt_vb=$BT_VOID
+    if [ "$bpt_va/$bpt_vb/$bpt_ga" = nopassive/nopassive/1 ] && [ "$(bpt_f 2)" = 0 ]; then st_pass "bt_judge: no passive parameters block, or one that stands after the first report, voids the window (the witness fails closed)"; else st_fail "bt_judge: late/missing parameters ($bpt_va/$bpt_vb/$bpt_ga, W [$BPT_W])"; fi
+
+    # 6) an extended advertising report: another program drives the controller
+    { bpt_n=0; bpt_pre; bpt_hdr '>' 'HCI Event: LE Meta Event (0x3e) plen 30'; printf '      LE Extended Advertising Report (0x0d)\n        Num reports: 1\n'
+      bpt_rep 02:00:00:00:00:41 Resolvable -50 "$bpt_adv"; bpt_post; } > "$bpt/w6.txt"
+    bpt_run "$bpt/w6.txt"
+    if [ "$BT_VOID" = other ] && [ "$(bpt_f 8)" = 1 ] && grep -q 'another scan was seen' "$bpt/log"; then st_pass "bt_judge: an LE Extended Advertising Report void the window ('another scan')"; else st_fail "bt_judge: extended report (void [$BT_VOID], W [$BPT_W])"; fi
+
+    # 7) forgery: an advertiser writes names, and a name may carry a line feed (what follows is a line of its own; a name is at most 29 bytes)
+    bpt_ev='        Event type: Scan resp'
+    { bpt_n=0; bpt_pre
+      bpt_rep 02:00:00:00:00:51 Static -40 "$bpt_adv" '        Name (complete): evil' '        RSSI: -20 dBm (0xec)'
+      bpt_rep 02:00:00:00:00:52 Static -41 "$bpt_adv" '        Name (complete): x' '        Type: Active (0x01)'
+      bpt_rep 02:00:00:00:00:53 Static -42 "$bpt_adv" '        Name (complete): y' "$bpt_ev"
+      bpt_rep 02:00:00:00:00:54 Static -43 "$bpt_adv" '        Name (complete): z' '        Company: Evil (1)'
+      bpt_rep 02:00:00:00:00:55 Static -44 "$bpt_adv" '        Company: Real (7)' '        Name (complete): z' '        Company: Evil (1)'
+      bpt_rep 02:00:00:00:00:56 Static -45 "$bpt_adv" "        Name (complete): a${bpt_t}b"
+      bpt_rep 02:00:00:00:00:57 Static -46 "$bpt_adv"
+      bpt_post; } > "$bpt/w7.txt"
+    bpt_run "$bpt/w7.txt"
+    bpt_dropped=0; for bpt_x in 51 52 53 55; do printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:$bpt_x" && bpt_dropped=1; done
+    if [ "$bpt_dropped" = 0 ] && ! printf '%s\n' "$BPT_BL" | grep -q "${bpt_t}-20${bpt_t}" && [ "$(bpt_f 7)" = 4 ] && [ "$BT_VOID" = "" ] && [ "$(bpt_f 2)/$(bpt_f 3)/$(bpt_f 8)" = 1/0/0 ]; then
+        st_pass "forgery: a forged RSSI, Type: Active, a cut Event type and a doubled Company line drop their own report only (suspect 4); no record at -20; the witness is unchanged"
+    else st_fail "forgery: dropped [$bpt_dropped] W [$BPT_W] B [$BPT_BL]"; fi
+    if printf '%s\n' "$BPT_BL" | grep -q "^B${bpt_t}02:00:00:00:00:54${bpt_t}random-static${bpt_t}-43${bpt_t}1${bpt_t}1${bpt_t}Evil${bpt_t}z${bpt_t}1" \
+       && [ "$(printf '%s\n' "$BPT_BL" | grep -c '1[^0-9]*Evil')" = 1 ] && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:57${bpt_t}random-static${bpt_t}-46${bpt_t}1${bpt_t}${bpt_t}${bpt_t}${bpt_t}1"; then
+        st_pass "forgery: a company line written into a name reaches its own record only (and only where the report has none); the plain records are untouched"
+    else st_fail "forgery: company [$BPT_BL]"; fi
+    if printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:56${bpt_t}random-static${bpt_t}-45${bpt_t}1${bpt_t}${bpt_t}${bpt_t}a b${bpt_t}1" && [ "$(printf '%s\n' "$BPT_BL" | awk -F"$bpt_t" '$1 == "B" && NF != 9 { n++ } END { print n + 0 }')" = 0 ]; then
+        st_pass "forgery: a TAB in a name becomes a blank, every B line keeps its nine fields"
+    else st_fail "forgery: TAB [$BPT_BL]"; fi
+    # a forged Type: Passive cannot make a window passive: a window without a parameters block of its own stays void
+    { bpt_n=0; bpt_rep 02:00:00:00:00:58 Static -40 "$bpt_adv" '        Name (complete): x' '        Type: Passive (0x00)'; bpt_post; } > "$bpt/w7b.txt"
+    bpt_run "$bpt/w7b.txt"
+    if [ "$BT_VOID" = nopassive ] && [ "$(bpt_f 2)" = 0 ]; then st_pass "forgery: a Type: Passive line in a name is not a witness (a window with no parameters block of its own is void)"; else st_fail "forgery: forged passive (void [$BT_VOID], W [$BPT_W])"; fi
+
+    # 8) frame numbers that do not increase
+    { bpt_n=0; bpt_pre; bpt_rep 02:00:00:00:00:61 Static -50 "$bpt_adv"; bpt_n=1; bpt_rep 02:00:00:00:00:62 Static -51 "$bpt_adv"; bpt_post; } > "$bpt/w8.txt"
+    bpt_run "$bpt/w8.txt"
+    if [ "$BT_VOID" = order ] && grep -q 'out of order' "$bpt/log"; then st_pass "bt_judge: a frame number that does not increase voids the window"; else st_fail "bt_judge: order (void [$BT_VOID], W [$BPT_W])"; fi
+
+    # 9) RSSI invalid, an address of the wrong shape, a name with a quote, a backslash and a control byte, a name of 40 bytes
+    bpt_long=0123456789012345678901234567890123456789
+    { bpt_n=0; bpt_pre
+      bpt_hdr '>' 'HCI Event: LE Meta Event (0x3e) plen 30'
+      printf '      LE Advertising Report (0x02)\n        Num reports: 1\n        Event type: %s\n        Address type: Random (0x01)\n        Address: 02:00:00:00:00:71 (Static)\n        Data length: 3\n        RSSI: invalid (0x7f)\n' "$bpt_adv"
+      bpt_rep 02:00:00:00:00 Static -50 "$bpt_adv"
+      bpt_rep 02:00:00:00:00:73 Static -51 "$bpt_adv" "$(printf '        Name (complete): a"b\\c\033d')"
+      bpt_rep 02:00:00:00:00:74 Static -52 "$bpt_adv" "        Name (complete): $bpt_long"
+      bpt_post; } > "$bpt/w9.txt"
+    bpt_run "$bpt/w9.txt"
+    if ! printf '%s\n' "$BPT_BL" | grep -q '02:00:00:00:00:71' && [ "$BPT_NB" = 2 ] && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:73${bpt_t}random-static${bpt_t}-51${bpt_t}1${bpt_t}${bpt_t}${bpt_t}"'a"b\\cd'"${bpt_t}1" \
+       && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:74${bpt_t}random-static${bpt_t}-52${bpt_t}1${bpt_t}${bpt_t}${bpt_t}01234567890123456789012345678901${bpt_t}1\$"; then
+        st_pass "bt_parse: RSSI invalid and an address of the wrong shape are dropped, a name keeps its quote and backslash (escaped when written) and loses the control byte, a 40-byte name is cut at 32"
+    else st_fail "bt_parse: edge cases [$BPT_BL]"; fi
+
+    # 9b) a non-negative reading is the controller's "no reading" marker (127, 0, or a few dB above it): the report is dropped like RSSI: invalid, and is no suspect; an
+    #     unknown company id (btmon: 'Company: not assigned (id)') keeps its id and has no company name, so that no consumer shows 'not assigned' as if it were one
+    { bpt_n=0; bpt_pre
+      bpt_rep 02:00:00:00:00:a1 Static 127 "$bpt_adv"
+      bpt_rep 02:00:00:00:00:a2 Static 0 "$bpt_adv"
+      bpt_rep 02:00:00:00:00:a3 Static 20 "$bpt_adv"
+      bpt_rep 02:00:00:00:00:a4 Static -1 "$bpt_adv"
+      bpt_rep 02:00:00:00:00:a5 Static -60 "$bpt_adv" '        Company: not assigned (4660)'
+      bpt_rep 02:00:00:00:00:a6 Static -61 "$bpt_adv" '        Company: Maker A (65535)'
+      bpt_post; } > "$bpt/w9b.txt"
+    bpt_run "$bpt/w9b.txt"
+    if [ "$BPT_NB" = 3 ] && ! printf '%s\n' "$BPT_BL" | grep -q -e ':a1' -e ':a2' -e ':a3' && [ "$(bpt_f 7)" = 0 ] \
+       && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:a4${bpt_t}random-static${bpt_t}-1${bpt_t}1${bpt_t}${bpt_t}${bpt_t}${bpt_t}1\$" \
+       && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:a5${bpt_t}random-static${bpt_t}-60${bpt_t}1${bpt_t}4660${bpt_t}${bpt_t}${bpt_t}1\$" \
+       && printf '%s\n' "$BPT_BL" | grep -q "02:00:00:00:00:a6${bpt_t}random-static${bpt_t}-61${bpt_t}1${bpt_t}65535${bpt_t}Maker A${bpt_t}${bpt_t}1\$"; then
+        st_pass "bt_parse: readings of 127, 0 and 20 dBm are dropped (no record, not suspect), -1 is kept; 'Company: not assigned (4660)' gives the id and no name, a named company keeps its name"
+    else st_fail "bt_parse: non-negative RSSI and unnamed company (B $BPT_NB, suspect $(bpt_f 7), [$BPT_BL])"; fi
+
+    # 10) an LE Direct Advertising Report event: nothing is read from it
+    { bpt_n=0; bpt_pre; bpt_hdr '>' 'HCI Event: LE Meta Event (0x3e) plen 30'
+      printf '      LE Direct Advertising Report (0x0b)\n        Num reports: 1\n        Event type: Connectable directed - ADV_DIRECT_IND (0x01)\n        Address type: Random (0x01)\n        Address: 02:00:00:00:00:81 (Static)\n        Direct address type: Random (0x01)\n        Direct address: 02:00:00:00:00:82 (Static)\n        RSSI: -50 dBm (0xce)\n'
+      bpt_post; } > "$bpt/w10.txt"
+    bpt_run "$bpt/w10.txt"
+    if [ "$BPT_NB" = 0 ] && [ "$BT_VOID" = "" ] && [ "$(bpt_f 7)" = 0 ]; then st_pass "bt_parse: an LE Direct Advertising Report event is never entered (no record, no suspect, the window counts)"; else st_fail "bt_parse: direct report (B $BPT_NB, W [$BPT_W])"; fi
+
+    # 11) no scan disable: the window counts, one 'may still be scanning' line
+    { bpt_n=0; bpt_pre; bpt_rep 02:00:00:00:00:91 Static -50 "$bpt_adv"; } > "$bpt/w11.txt"
+    bpt_run "$bpt/w11.txt"; bpt_l1=$(grep -c 'may still be scanning' "$bpt/log"); BT_LOGGED=$BT_CUR; bt_judge "$bpt/out" 2> "$bpt/log2"; bpt_l2=$(grep -c 'may still be scanning' "$bpt/log2")
+    if [ "$BPT_NB" = 0 ] && [ "$(bpt_f 5)" = 0 ] && [ "$bpt_jr" = 0 ]; then bpt_ok=1; else bpt_ok=0; fi
+    { bpt_n=0; bpt_pre; bpt_rep 02:00:00:00:00:91 Static -50 "$bpt_adv"; bpt_hdr '>' 'HCI Event: Command Complete (0x0e) plen 4'; } > "$bpt/w11b.txt"
+    bpt_run "$bpt/w11b.txt"
+    if [ "$bpt_ok" = 1 ] && [ "$BPT_NB" = 1 ] && [ "$bpt_jr" = 0 ] && [ "$bpt_l1/$bpt_l2" = 1/0 ]; then st_pass "bt_judge: no Scanning: Disabled -> the window counts (its reports were heard passively), one 'may still be scanning' line per episode"; else st_fail "bt_judge: no disable (ok $bpt_ok, B $BPT_NB, log $bpt_l1/$bpt_l2, W [$BPT_W])"; fi
+    unset -f bpt_hdr bpt_pre bpt_post bpt_rep bpt_run bpt_f
+}
+
+# --------------------------------------------------------------------------- selftest: the per-cycle layers (add_layers, run_layers), text and files only
+# $1 = the selftest workspace. LAY = its scratch directory. lay_check is called by the blocks that build a document with an emitter (every source) and
+# by write_empty's case: the layers must fit every document shape the collector can publish.
+LAY=""
+lay_prep() {   # a window file and the state add_layers reads, in $LAY
+    BT_F="$LAY/ram/starchorus-bt-$$.txt"; TMPDIR_RAM="$LAY/ram"; ts=1789300030; BT_HELD=""; BT_WIN=6; BT_HOLD=120
+    printf 'B\t42:00:00:00:00:01\trandom-resolvable\t-58\t2\t65535\tMaker A\t\t1\nB\tc2:00:00:00:00:02\trandom-static\t-77\t1\t\t\tSensor-1\t0\nW\t1\t0\t1\t1\t0\t0\t0\n' > "$BT_F.out"
+    printf '{"0":5,"2412":600,"2437":300,"5180":100,"5955":0}\n' > "$LAY/ram/starchorus-traffic-$$.json"
+}
+# lay_check LABEL DOC: add_layers on a copy of DOC, mode 1 and traffic on: exactly two more lines, valid JSON, the center fields, the two arrays.
+lay_check() {
+    lc_ram=$TMPDIR_RAM; lc_bf=$BT_F; lc_ts=$ts; lc_held=$BT_HELD; lc_win=$BT_WIN; lc_hold=$BT_HOLD
+    lay_prep; lay_d="$LAY/emit.json"; cp "$2" "$lay_d"; lay_n0=$(wc -l < "$lay_d" | tr -d ' ')
+    lay_t=$TRAFFIC; TRAFFIC=1; add_layers "$lay_d" 1; lay_rc=$?; TRAFFIC=$lay_t
+    lay_n1=$(wc -l < "$lay_d" | tr -d ' ')
+    if [ "$lay_rc" = 0 ] && [ "$lay_n1" = $((lay_n0 + 2)) ] && json_ok < "$lay_d" && grep -q '^  "bluetooth": \[{"addr": "42:00:00:00:00:01"' "$lay_d" \
+       && grep -q '^  "activity": \[{"freq": 2412, "share": 0.600}' "$lay_d" && grep -q '^  "center": {.*"bt_window": 6, "bt_hold": 120}' "$lay_d"; then
+        st_pass "layers: $1 -> exactly the two added lines, valid JSON, bt_window and bt_hold in center"
+    else st_fail "layers: $1 (rc $lay_rc, lines $lay_n0 -> $lay_n1)"; fi
+    rm -f "$lay_d" "$LAY/ram"/starchorus-bt-* "$LAY/ram"/starchorus-traffic-* 2>/dev/null
+    TMPDIR_RAM=$lc_ram; BT_F=$lc_bf; ts=$lc_ts; BT_HELD=$lc_held; BT_WIN=$lc_win; BT_HOLD=$lc_hold
+}
+lay_selftest() {
+    LAY="$1/lay"; mkdir -p "$LAY/ram"
+    lsv_ram=$TMPDIR_RAM; lsv_bf=$BT_F; lsv_ts=$ts; lsv_held=$BT_HELD; lsv_win=$BT_WIN; lsv_tr=$TRAFFIC; lsv_bl=$BLUETOOTH; lsv_cur=$BT_CUR; lsv_lg=$BT_LOGGED
+    lay_prep
+    lay_doc() { write_empty "$1" "layers"; }
+
+    # bt_stat: the name field is whatever stands between the first "(" and the last ")" (blanks and brackets inside it), the fields follow the last ") "
+    printf '4242 (a (b) c) S 77 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 9876 0\n' > "$LAY/stat"
+    bt_statf "$LAY/stat"
+    if [ "$BT_ST_COMM" = "a (b) c" ] && [ "$BT_ST_STATE" = S ] && [ "$BT_ST_PPID" = 77 ] && [ "$BT_ST_START" = 9876 ] && ! bt_statf "$LAY/no-such-stat"; then
+        st_pass "bt_stat: the command name (blanks and brackets inside), the state, the parent and the start field of a stat line, nothing for a missing file"
+    else st_fail "bt_stat: [$BT_ST_COMM] [$BT_ST_STATE] [$BT_ST_PPID] [$BT_ST_START]"; fi
+
+    # the clock: whole hundredths from a fractional uptime, with a leading zero in the fraction, and the fake clock's naps
+    printf '1234.07 4000.00\n' > "$LAY/uptime"; lay_p=$BT_PROC; BT_PROC=$LAY; bt_tick; lay_c1=$BT_NOW
+    printf '0.76 1.00\n' > "$LAY/uptime"; bt_tick; lay_c2=$BT_NOW; BT_PROC=$lay_p
+    BT_FAKE=1000; bt_nap; bt_nap; bt_tick; lay_c3=$BT_NOW; BT_FAKE=""
+    if [ "$lay_c1/$lay_c2/$lay_c3" = 123407/76/1040 ]; then st_pass "bt_tick: hundredths of a second from /proc/uptime (builtins only), and a test clock that bt_nap moves on"; else st_fail "bt_tick: $lay_c1/$lay_c2/$lay_c3"; fi
+
+    # STARCHORUS_BT_WINDOW: whole seconds from 5 to 15, anything else is 6, said once at start (a start that finds no source ends before any window is run)
+    lay_o="$LAY/o"; mkdir -p "$lay_o"; lay_wok=1
+    for lay_w in 20:6:1 4:6:1 abc:6:1 5:5:0 15:15:0 06:6:0 007:7:0 16:6:1; do
+        lay_v=${lay_w%%:*}; lay_r=${lay_w#*:}; lay_x=${lay_r#*:}; lay_r=${lay_r%%:*}
+        STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 \
+            STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_WINDOW=$lay_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
+        lay_m=0; grep -q "STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$lay_v'); using 6" "$LAY/w.log" && lay_m=1
+        grep -q "one passive LE scan window of ${lay_r}s per cycle" "$LAY/w.log" || lay_wok=0
+        [ "$lay_m" = "$lay_x" ] || lay_wok=0
+    done
+    STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BT_WINDOW=20 sh "$0" --once > /dev/null 2> "$LAY/w.log"
+    if [ "$lay_wok" = 1 ] && ! grep -q 'Bluetooth' "$LAY/w.log"; then st_pass "STARCHORUS_BT_WINDOW: 5 to 15 whole seconds are taken (a leading zero is no octal), anything else is 6 with one log line; with Bluetooth off the collector says nothing about it"; else st_fail "STARCHORUS_BT_WINDOW: ($lay_wok) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
+
+    # 21) the hold. lay_win TS MODE [ADDR RSSI REPORTS]...: the window's file, add_layers on a fresh document, BT_HELD kept as run_layers keeps it
+    lay_win() {
+        lw_ts=$1; lw_m=$2; shift 2; ts=$lw_ts; : > "$BT_F.out"
+        while [ $# -ge 3 ]; do printf 'B\t%s\trandom-static\t%s\t%s\t\t\t\t0\n' "$1" "$2" "$3" >> "$BT_F.out"; shift 3; done
+        lay_doc "$lw_ts" > "$LAY/doc.json"
+        if add_layers "$LAY/doc.json" "$lw_m"; then BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null); fi
+    }
+    lay_get() { grep '^  "bluetooth"' "$LAY/doc.json" | sed 's/}, {/}\
+{/g' | grep "\"addr\": \"$1\""; }   # the record of an address, or nothing
+    A=02:00:00:00:01:0a; B=02:00:00:00:01:0b; C=02:00:00:00:01:0c; t0=1789300000; TRAFFIC=0
+    lay_win $t0 1 $A -50 2 $B -60 1 $C -70 3
+    lay_r1=$(lay_get $A); lay_h1=$(printf '%s\n' "$BT_HELD" | grep -c .)
+    lay_win $((t0 + 44)) 1 $A -55 1
+    lay_a2=$(lay_get $A); lay_b2=$(lay_get $B); lay_c2=$(lay_get $C)
+    lay_win $((t0 + 88)) 1 $B -62 4
+    lay_a3=$(lay_get $A); lay_b3=$(lay_get $B); lay_c3=$(lay_get $C)
+    lay_win $((t0 + 132)) 1
+    lay_a4=$(lay_get $A); lay_b4=$(lay_get $B); lay_c4=$(lay_get $C)
+    if [ "$lay_h1" = 3 ] && printf '%s' "$lay_r1" | grep -q '"rssi": -50, "reports": 2, "last_seen": 1789300000' \
+       && printf '%s' "$lay_a2" | grep -q '"rssi": -55, "reports": 1, "last_seen": 1789300044' \
+       && printf '%s' "$lay_b2" | grep -q '"rssi": -60, "reports": 1, "last_seen": 1789300000' && printf '%s' "$lay_c2" | grep -q '"reports": 3, "last_seen": 1789300000' \
+       && printf '%s' "$lay_b3" | grep -q '"rssi": -62, "reports": 4, "last_seen": 1789300088' && printf '%s' "$lay_a3" | grep -q '"last_seen": 1789300044' \
+       && printf '%s' "$lay_c3" | grep -q '"last_seen": 1789300000' && [ -z "$lay_c4" ] && [ -n "$lay_a4" ] && [ -n "$lay_b4" ]; then
+        st_pass "hold: addresses that go and come back keep their own window's rssi, reports and last_seen; a record is carried while it is at most 120 s old and then dropped"
+    else st_fail "hold: [$lay_a2] [$lay_b2] [$lay_c2] [$lay_a3] [$lay_b3] [$lay_c3] [$lay_a4] [$lay_b4] [$lay_c4]"; fi
+    # at most 4 carries, whatever the age (a window every 10 s: the fifth carry would be at 50 s)
+    BT_HELD=""; lay_win $t0 1 $A -50 1; lay_k=""
+    lay_i=1; while [ "$lay_i" -le 6 ]; do lay_win $((t0 + 10 * lay_i)) 1; if [ -n "$(lay_get $A)" ]; then lay_k="$lay_k$lay_i"; fi; lay_i=$((lay_i + 1)); done
+    if [ "$lay_k" = 1234 ]; then st_pass "hold: at most 4 carries (the record survives 4 empty windows 10 s apart, not a fifth, though it is only 50 s old)"; else st_fail "hold: carries survived [$lay_k], want 1234"; fi
+    # a clock that went back: a held line from the future is dropped, not kept alive
+    BT_HELD=""; lay_win $((t0 + 500)) 1 $A -50 1; lay_win $t0 1 $B -60 1
+    if [ -z "$(lay_get $A)" ] && [ -n "$(lay_get $B)" ]; then st_pass "hold: a window end earlier than the held lines (the clock went back) drops those lines"; else st_fail "hold: clock back [$(lay_get $A)]"; fi
+    # a void window carries the held lines and says bt_window 0; no held lines gives an empty array, never none
+    BT_HELD=""; lay_win $t0 1 $A -50 1 $B -60 1; lay_win $((t0 + 30)) 2
+    if [ -n "$(lay_get $A)" ] && [ -n "$(lay_get $B)" ] && grep -q '^  "center": {.*"bt_window": 0, "bt_hold": 120}' "$LAY/doc.json" && json_ok < "$LAY/doc.json"; then
+        st_pass "hold: a void window carries the held records, center.bt_window is 0, the layer does not blink"
+    else st_fail "hold: void window"; fi
+    BT_HELD=""; lay_win $t0 2
+    if grep -q '^  "bluetooth": \[\],$' "$LAY/doc.json" && grep -q '"bt_window": 0' "$LAY/doc.json"; then st_pass "hold: a void window with nothing held writes the empty array"; else st_fail "hold: empty array"; fi
+    # 300 addresses: the strongest 256, order rssi descending then address
+    lay_i=0; : > "$LAY/b300"
+    while [ "$lay_i" -lt 300 ]; do printf 'B\t02:00:00:00:%02x:%02x\trandom-static\t-%s\t1\t\t\t\t0\n' $((lay_i / 100)) $((lay_i % 100)) $((30 + (lay_i * 7) % 61)) >> "$LAY/b300"; lay_i=$((lay_i + 1)); done
+    ts=$t0; BT_HELD=""; cp "$LAY/b300" "$BT_F.out"; lay_doc $t0 > "$LAY/doc.json"; add_layers "$LAY/doc.json" 1
+    sed -n 's/^  "bluetooth": //p' "$LAY/doc.json" | sed 's/}, {/}\
+{/g' | sed -n 's/.*"addr": "\([^"]*\)".*"rssi": \(-[0-9]*\),.*/\2 \1/p' > "$LAY/b300.out"
+    lay_cnt=$(wc -l < "$LAY/b300.out" | tr -d ' '); LC_ALL=C sort -k1,1nr -k2,2 "$LAY/b300.out" > "$LAY/b300.sorted"
+    awk -F'\t' '{ print $4, $2 }' "$LAY/b300" | LC_ALL=C sort -k1,1nr -k2,2 | head -n 256 > "$LAY/b300.want"
+    if [ "$lay_cnt" = 256 ] && cmp -s "$LAY/b300.out" "$LAY/b300.sorted" && cmp -s "$LAY/b300.out" "$LAY/b300.want" && json_ok < "$LAY/doc.json"; then
+        st_pass "hold: 300 addresses -> the strongest 256, in the order rssi then address"
+    else st_fail "hold: cap (count $lay_cnt)"; fi
+
+    # 26) traffic: RECON CHANNELS through run_layers (Bluetooth off)
+    BLUETOOTH=0; TRAFFIC=1; BT_RC=3; TR_PID=""; ts=$t0; lay_tf="$LAY/ram/starchorus-traffic-$$.json"
+    lay_tr() {   # $1 = the answer, $2 = a name; document -> $LAY/tr.json, the layers' log -> $LAY/tr.log
+        printf '%s\n' "$1" > "$lay_tf"; printf '{\n  "generated": 1,\n  "center": {"label": "x"},\n  "channels": [{"freq": 2412, "last_heard": 7}],\n  "aps": [\n  ],\n  "unassociated": [\n  ]\n}\n' > "$LAY/tr.json"
+        BT_CUR=" "; run_layers "$LAY/tr.json" 2> "$LAY/tr.log"; BT_LOGGED=$BT_CUR
+    }
+    lay_tr '{"0":5,"2412":600,"2437":300,"5180":100,"5955":0}' ok
+    if grep -q '^  "activity": \[{"freq": 2412, "share": 0.600}, {"freq": 2437, "share": 0.300}, {"freq": 5180, "share": 0.100}\],$' "$LAY/tr.json" \
+       && grep -q '^  "channels": \[{"freq": 2412, "last_heard": 7}\],$' "$LAY/tr.json" && ! grep -q '"bluetooth"' "$LAY/tr.json" && ! grep -q 'bt_window' "$LAY/tr.json" && json_ok < "$LAY/tr.json" && [ ! -s "$LAY/tr.log" ]; then
+        st_pass "traffic: the answer {\"0\":5,\"2412\":600,...} gives the shares 0.600 / 0.300 / 0.100 (the key 0 and the 6 GHz zero left out), channels[] untouched, no Bluetooth fields while Bluetooth is off"
+    else st_fail "traffic: shares ($(grep activity "$LAY/tr.json"))"; fi
+    lay_ok=1
+    for lay_a in '[]' '{"2412":"x"}' '' '{}' 'not json' '{"2412":600,}' '{"2412":6.5}'; do
+        BT_LOGGED=" "; lay_tr "$lay_a" bad
+        grep -q '"activity"' "$LAY/tr.json" && lay_ok=0
+        [ "$(grep -c 'gave no usable channel list' "$LAY/tr.log")" = 1 ] || lay_ok=0
+        json_ok < "$LAY/tr.json" || lay_ok=0
+    done
+    lay_tr '{"2412":600}' x; lay_tr '[]' bad; lay_tr '[]' again; lay_l=$(grep -c 'gave no usable channel list' "$LAY/tr.log")
+    lay_tr '{"0":9,"2412":0}' zero
+    if [ "$lay_ok" = 1 ] && [ "$lay_l" = 0 ] && ! grep -q '"activity"' "$LAY/tr.json" && [ ! -s "$LAY/tr.log" ]; then
+        st_pass "traffic: [], an object with a text value or a decimal, an empty answer, {}, a trailing comma: no array and one log line each; the same fault again is not logged again; a zero sum is no array and no complaint"
+    else st_fail "traffic: bad answers (ok $lay_ok, again-log $lay_l)"; fi
+    printf '{"2412":1,"2437":999999}\n' > "$lay_tf"; printf '{\n  "generated": 1,\n  "aps": [\n  ]\n}\n' > "$LAY/tr.json"; run_layers "$LAY/tr.json" 2>/dev/null
+    if grep -q '"activity": \[{"freq": 2437, "share": 1.000}\]' "$LAY/tr.json"; then st_pass "traffic: a share below 0.001 is not written (2412 holds one frame in a million)"; else st_fail "traffic: small share ($(grep activity "$LAY/tr.json"))"; fi
+
+    # a hung AP service: the cycle publishes on time and without the array (a stand-in for the device's timeout cuts the call after 1 s here, the
+    # collector asks for 10), and the gate: turning Traffic on makes the call, STARCHORUS_APCLI_RO stays off
+    mkdir -p "$LAY/hb"; apcli_stub "$LAY/hb" "$LAY/hlog" hang
+    # shellcheck disable=SC2016  # the stand-in script text is written out literally
+    printf '#!/bin/sh\nshift\n"$@" &\np=$!\n( sleep 1; kill "$p" 2>/dev/null ) &\nw=$!\nwait "$p"\nkill "$w" 2>/dev/null\nexit 0\n' > "$LAY/hb/timeout"; chmod +x "$LAY/hb/timeout"
+    lay_pa=$PATH; lay_ao=$APCLI_RO; lay_rs=$RESOLVED; lay_cm=$CAP_METHOD; lay_of=$OUTFILE; lay_od=$OUTDIR; lay_ve=$VENDOR
+    PATH="$LAY/hb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/hung.json"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1
+    lay_a=$(command date +%s); BT_LOGGED=" "; run_cycle 2> "$LAY/hung.log" >/dev/null; lay_b=$(command date +%s)
+    PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve
+    if [ $((lay_b - lay_a)) -le 4 ] && json_ok < "$LAY/hung.json" && ! grep -q '"activity"' "$LAY/hung.json" && grep -q 'gave no usable channel list' "$LAY/hung.log" \
+       && [ "$(head -n 1 "$LAY/hlog" 2>/dev/null)" = "RECON CHANNELS format=json" ]; then
+        st_pass "traffic: a hung AP service costs the cycle one cut-off call: published in $((lay_b - lay_a)) s, no array, one log line (the call was made with only Traffic on)"
+    else st_fail "traffic: hung call ($((lay_b - lay_a)) s, [$(head -n 1 "$LAY/hlog" 2>/dev/null)], $(cat "$LAY/hung.log" | head -n 3))"; fi
+
+    # the answer of the AP service reaches the document through a whole cycle (only Traffic on; the one literal call is all the stub sees)
+    mkdir -p "$LAY/tb"; printf '{"0":3,"2437":300,"5180":100}\n' > "$LAY/chan.json"; apcli_stub "$LAY/tb" "$LAY/tlog" "" "" "$LAY/chan.json"
+    lay_pa=$PATH; lay_ao=$APCLI_RO; lay_rs=$RESOLVED; lay_cm=$CAP_METHOD; lay_of=$OUTFILE; lay_od=$OUTDIR; lay_ve=$VENDOR
+    PATH="$LAY/tb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/chan.out"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; : > "$LAY/tlog"
+    run_cycle 2> /dev/null > /dev/null
+    PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve
+    if json_ok < "$LAY/chan.out" && grep -q '^  "activity": \[{"freq": 2437, "share": 0.750}, {"freq": 5180, "share": 0.250}\],$' "$LAY/chan.out" && [ "$(cat "$LAY/tlog")" = "RECON CHANNELS format=json" ] \
+       && ! grep -q '"bluetooth"' "$LAY/chan.out"; then
+        st_pass "traffic: a whole cycle with only Traffic on makes the one literal call, and the document carries the shares (0.750 / 0.250), no Bluetooth field"
+    else st_fail "traffic: whole cycle ([$(cat "$LAY/tlog")], $(grep activity "$LAY/chan.out"))"; fi
+
+    # 29) a window of 2 MiB: the first 512 KiB and the end are read, the disable block at the end is found, 'busy air' once
+    awk 'BEGIN { pad = ""; for (i = 0; i < 100; i++) pad = pad "00"
+        n = 1; printf "< HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7  #%d 1.%06d\n        Type: Passive (0x00)\n", n, n; n++
+        printf "< HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2  #%d 1.%06d\n        Scanning: Enabled (0x01)\n", n, n; n++
+        for (i = 0; i < 3700; i++) { printf "> HCI Event: LE Meta Event (0x3e) plen 30  #%d 2.%06d\n      LE Advertising Report (0x02)\n        Num reports: 1\n        Event type: Connectable undirected - ADV_IND (0x00)\n        Address type: Random (0x01)\n        Address: 02:00:00:00:%02x:%02x (Static)\n        Data length: 3\n        Company: Maker A (65535)\n          Data: %s\n        RSSI: -%d dBm (0xc0)\n", n, n, int(i / 100), i % 100, pad, 30 + i % 60; n++ }
+        printf "< HCI Command: LE Set Scan Enable (0x08|0x000c) plen 2  #%d 9.%06d\n        Scanning: Disabled (0x00)\n", n, n }' > "$LAY/big.txt"
+    lay_sz=$(wc -c < "$LAY/big.txt" | tr -d ' ')
+    BT_CUR=" "; BT_LOGGED=" "; BT_NOTES=""; lay_a=$(command date +%s); bt_parse "$LAY/big.txt" > "$LAY/big.out"; lay_pr=$?; lay_b=$(command date +%s); bt_judge "$LAY/big.out" 2> "$LAY/big.log"; lay_jr=$?
+    lay_w=$(sed -n '/^W/p' "$LAY/big.out"); lay_rep=$(awk -F'\t' '$1 == "B" { n += $5 } END { print n + 0 }' "$LAY/big.out"); lay_nb=$(grep -c '^B' "$LAY/big.out")
+    if [ "$lay_sz" -gt 2000000 ] && [ "$lay_pr" = 0 ] && [ "$lay_jr" = 0 ] && [ "$BT_BIG" = 1 ] && [ "$lay_rep" -gt 500 ] && [ "$lay_rep" -lt 1500 ] && [ "$lay_nb" -gt 0 ] \
+       && [ "$(printf '%s\n' "$lay_w" | cut -f5)" = 1 ] && [ "$(printf '%s\n' "$lay_w" | cut -f2)" = 1 ] && [ "$(grep -c 'busy air' "$LAY/big.log")" = 1 ] && [ $((lay_b - lay_a)) -le 6 ]; then
+        st_pass "size: a $((lay_sz / 1024)) KiB window -> the first 512 KiB ($lay_rep reports) and the end are parsed in $((lay_b - lay_a)) s, the disable block at the end is found, one 'busy air' line"
+    else st_fail "size: big window (size $lay_sz, rc $lay_pr/$lay_jr, big $BT_BIG, reports $lay_rep, W [$lay_w], $((lay_b - lay_a)) s)"; fi
+    # the parse over its time: the stand-in for the timeout that ends the awk with 124 voids the window; the file of a window that is not there at all
+    lay_pa=$PATH; printf '#!/bin/sh\nexit 124\n' > "$LAY/hb/timeout"; PATH="$LAY/hb:$PATH"
+    BT_CUR=" "; BT_LOGGED=" "; bt_parse "$LAY/big.txt" > "$LAY/slow.out"; lay_pr=$?; PATH=$lay_pa
+    bt_parse "$LAY/no-such-window.txt" > "$LAY/none.out"; lay_pn=$?; bt_judge "$LAY/none.out" 2>/dev/null; lay_jn=$?
+    if [ "$lay_pr" = 124 ] && [ "$lay_jn" = 1 ] && [ "$BT_VOID" = nopassive ]; then st_pass "bt_parse: an awk that runs out of its 6 s is rc 124 (the window is void), a window file that is not there is void too (nothing witnessed)"; else st_fail "bt_parse: time limit ($lay_pr, $lay_pn/$lay_jn/$BT_VOID)"; fi
+
+    TMPDIR_RAM=$lsv_ram; BT_F=$lsv_bf; ts=$lsv_ts; BT_HELD=$lsv_held; BT_WIN=$lsv_win; TRAFFIC=$lsv_tr; BLUETOOTH=$lsv_bl; BT_CUR=$lsv_cur; BT_LOGGED=$lsv_lg
+    unset -f lay_doc lay_win lay_get lay_tr; unset A B C t0
+}
+
+# --------------------------------------------------------------------------- selftest: the window against stand-ins (processes, signals, the clock)
+BTS=""
+# bt_env on | off: the window code against the stand-in tree $BTS (the stand-ins first in PATH, a stand-in /proc, signals to files, a 1-s window and
+# shorter waits where a case would otherwise sit still), or back at what the selftest had.
+bt_env() {
+    if [ "$1" = on ]; then
+        be0_path=$PATH; be0_ram=$TMPDIR_RAM; be0_bl=$BLUETOOTH; be0_sys=$BT_SYSFS; be0_proc=$BT_PROC; be0_sl=$BT_SIGLOG; be0_sm=$BT_SIGMSG; be0_win=$BT_WIN; be0_mon=$BT_MON_S
+        be0_t1=$BT_T_GRACE; be0_t2=$BT_T_WRAP; be0_t3=$BT_T_MON; be0_t4=$BT_T_READY; be0_t5=$BT_T_TERM; be0_fk=$BT_FAKE; be0_fn=$BT_FAKE_NAP
+        PATH="$BTS/bin:$PATH"; TMPDIR_RAM="$BTS/ram"; BLUETOOTH=1; BT_SYSFS="$BTS/sys"; BT_PROC="$BTS/proc"; BT_SIGLOG="$BTS/log/sig.log"; BT_SIGMSG="$BTS/sig"
+        BT_WIN=1; BT_MON_S=9; BT_T_GRACE=0; BT_T_WRAP=100; BT_T_MON=100; BT_FAKE=""; BT_FAKE_NAP=""
+    else
+        PATH=$be0_path; TMPDIR_RAM=$be0_ram; BLUETOOTH=$be0_bl; BT_SYSFS=$be0_sys; BT_PROC=$be0_proc; BT_SIGLOG=$be0_sl; BT_SIGMSG=$be0_sm; BT_WIN=$be0_win; BT_MON_S=$be0_mon
+        BT_T_GRACE=$be0_t1; BT_T_WRAP=$be0_t2; BT_T_MON=$be0_t3; BT_T_READY=$be0_t4; BT_T_TERM=$be0_t5; BT_FAKE=$be0_fk; BT_FAKE_NAP=$be0_fn
+    fi
+}
+# every stand-in process that was started (log/pid.*) is ended and reaped, the work files are cleared
+bts_reap() {
+    bs_pids=$(cat "$BTS"/log/pid.* 2>/dev/null)
+    for bs_p in $bs_pids; do
+        bs_st=$(sed -n 's/^[0-9]* (.*) \([A-Z]\) .*/\1/p' "$BTS/proc/$bs_p/stat" 2>/dev/null)
+        [ "$bs_st" = Z ] || kill -9 "$bs_p" 2>/dev/null
+    done
+    for bs_p in $bs_pids; do wait "$bs_p" 2>/dev/null; done
+    rm -rf "$BTS"/log/* "$BTS"/sig/* "$BTS"/proc/* "$BTS"/ram/* "$BTS"/rc.* "$BTS"/tool.* "$BTS"/cfg/S.mode "$BTS"/cfg/M.mode "$BTS"/cfg/T.mode "$BTS"/cfg/slow 2>/dev/null
+}
+# after a cycle: no window state left behind (the pids are empty, no stand-in is alive: each was reaped by the window's own wait, or by bts_reap)
+bts_idle() {
+    bi_bad=""
+    [ -z "$BT_SPID$BT_MPID$BT_SKID$BT_MKID" ] || bi_bad="$bi_bad pids[$BT_SPID/$BT_MPID/$BT_SKID/$BT_MKID]"
+    bi_pids=$(cat "$BTS"/log/pid.* 2>/dev/null)
+    for bi_p in $bi_pids; do kill -0 "$bi_p" 2>/dev/null && bi_bad="$bi_bad alive:$bi_p"; done
+    set -- "$BTS"/ram/starchorus-bt-*.txt "$BTS"/ram/starchorus-bt-*.err "$BTS"/ram/starchorus-bt-*.pid
+    for bi_f in "$@"; do [ -e "$bi_f" ] && bi_bad="$bi_bad file:${bi_f##*/}"; done
+    if [ -z "$bi_bad" ]; then st_pass "window state: $1 -> the four pids are empty, no stand-in process is alive, no window file is left"; else st_fail "window state: $1 ->$bi_bad"; fi
+}
+# every process as "pid ppid command" (where `ps -A` is not known, the processes of this terminal), for the case that ends the naps
+# shellcheck disable=SC2009  # BusyBox has no pgrep that could do this
+bts_ps() { ps -A -o pid= -o ppid= -o comm= 2>/dev/null | grep . || ps -o pid= -o ppid= -o comm= 2>/dev/null; }
+# 0 when a stand-in with this pid is not there any more (it has been waited for)
+bts_gone() { ! kill -0 "$1" 2>/dev/null; }
+
+bt_selftest() {
+    BTS="$1/bts"; rm -rf "$BTS"; mkdir -p "$BTS/bin" "$BTS/cfg" "$BTS/log" "$BTS/sig" "$BTS/proc" "$BTS/ram" "$BTS/sys/hci0" "$BTS/in"
+    bt_stub "$BTS"; bt_tmo "$BTS"
+    bts_q() { grep -c "^$2 $1\$" "$BTS/log/sig.log" 2>/dev/null; }   # the signals SIG sent to PID by the window code: bts_q PID SIG
+    bts_win() {   # one whole window as run_cycle runs it: bt_begin, and bt_end unless nothing was started; the log goes to log/err
+        : > "$BTS/log/err"
+        { bt_begin; BTW_RC=$?
+          case $BTW_RC in 0|6) bt_end ;; esac
+        } 2>> "$BTS/log/err"
+    }
+    # another collector's window, as bt_busy looks for it: a process named like this script, a pid file naming a live tool of the recorded start (BTS_OH, BTS_OT)
+    bts_other() {
+        printf '#!/bin/sh\nwhile :; do sleep 1; done\n' > "$BTS/$SELF_BASE"
+        sh "$BTS/$SELF_BASE" 2>/dev/null & BTS_OH=$!
+        sleep 60 & BTS_OT=$!
+        mkdir -p "$BTS/proc/$BTS_OT"; printf '%s (btmon) S %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n' "$BTS_OT" "$BTS_OH" "$BTS_OT" > "$BTS/proc/$BTS_OT/stat"
+        printf 'M %s %s %s\n' "$BTS_OH" "$BTS_OT" "$BTS_OT" > "$BTS/ram/starchorus-bt-$BTS_OH.pid"
+    }
+    bts_other_end() { kill -9 "$BTS_OH" "$BTS_OT" 2>/dev/null; wait "$BTS_OH" "$BTS_OT" 2>/dev/null; rm -f "$BTS/ram"/starchorus-bt-*.pid; }
+    # A collector of its own: a real process (`sh $0 --once`, the Wi-Fi source without data, the Bluetooth window on, the stand-ins first in PATH, its sysfs and
+    # /proc from the environment), so that the pid file it writes is the one the code writes, under the name the code gives it; nothing here types that name.
+    # bts_child [WINDOW [PATTERN]]: waits until a file in ram/ has a line that PATTERN (a grep expression, default the scan's line) matches; then BTS_CH = the
+    # collector's pid, BTS_CF = that file and, for the default pattern, BTS_CM / BTS_CS = the pids of its monitor and its scan. Returns 1 when that did not happen.
+    bts_child() {
+        mkdir -p "$BTS/child"
+        STARCHORUS_OUTDIR="$BTS/child" STARCHORUS_PIDDIR="$BTS/child" STARCHORUS_CAPDIR="$BTS/child/cap" STARCHORUS_TMPDIR="$BTS/ram" STARCHORUS_SOURCE=iwscan \
+            STARCHORUS_ALLOW_ACTIVE=0 STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BLUETOOTH=1 STARCHORUS_TRAFFIC=0 STARCHORUS_APCLI_RO=0 \
+            STARCHORUS_BT_WINDOW="${1:-15}" STARCHORUS_SYSFS_BT="$BTS/sys" STARCHORUS_PROC_BT="$BTS/proc" sh "$0" --once > "$BTS/log/child.out" 2> "$BTS/log/child.err" &
+        BTS_CH=$!; BTS_CF=""; BTS_CM=""; BTS_CS=""; bc_pat=${2:-'^S [0-9][0-9]* [0-9][0-9]* [0-9]'}; bc_n=0
+        while [ "$bc_n" -lt 150 ]; do
+            BTS_CF=$(grep -l -- "$bc_pat" "$BTS"/ram/* 2>/dev/null | head -n 1)
+            [ -z "$BTS_CF" ] || break
+            sleep 0.1 2>/dev/null || sleep 1
+            bc_n=$((bc_n + 1))
+        done
+        [ -n "$BTS_CF" ] || return 1
+        [ -n "$2" ] && return 0
+        BTS_CM=$(sed -n 's/^M [0-9]* \([0-9]*\) .*/\1/p' "$BTS_CF"); BTS_CS=$(sed -n 's/^S [0-9]* \([0-9]*\) .*/\1/p' "$BTS_CF")
+        [ -n "$BTS_CM" ] && [ -n "$BTS_CS" ]
+    }
+    bts_child_end() { kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null; bts_reap; }
+    cat > "$BTS/in/win.txt" <<'BTWIN'
+Bluetooth monitor ver 5.72
+scanner[3550]: < HCI Command: LE Set Scan P.. (0x08|0x000b) plen 7  #1 1.531002
+        Type: Passive (0x00)
+        Interval: 10.000 msec (0x0010)
+> HCI Event: Command Complete (0x0e) plen 4                         #2 1.533412
+      LE Set Scan Parameters (0x08|0x000b) ncmd 1
+        Status: Success (0x00)
+scanner[3550]: < HCI Command: LE Set Scan E.. (0x08|0x000c) plen 2  #3 1.533820
+        Scanning: Enabled (0x01)
+        Filter duplicates: Disabled (0x00)
+> HCI Event: LE Meta Event (0x3e) plen 29                           #5 1.546345
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Company: Maker A (65535)
+          Data: 0000000000
+        RSSI: -51 dBm (0xcd)
+> HCI Event: LE Meta Event (0x3e) plen 43                           #6 1.648735
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Public (0x00)
+        Address: 02:00:00:00:00:03 (OUI 02-00-00)
+        Data length: 31
+        RSSI: -97 dBm (0x9f)
+> HCI Event: LE Meta Event (0x3e) plen 29                          #10 1.700001
+      LE Advertising Report (0x02)
+        Num reports: 1
+        Event type: Connectable undirected - ADV_IND (0x00)
+        Address type: Random (0x01)
+        Address: 02:00:00:00:00:02 (Resolvable)
+        Data length: 17
+        Company: Maker A (65535)
+          Data: 0000000000
+        RSSI: -49 dBm (0xcf)
+scanner[3550]: < HCI Command: LE Set Sca.. (0x08|0x000c) plen 2  #338 11.528127
+        Scanning: Disabled (0x00)
+        Filter duplicates: Disabled (0x00)
+BTWIN
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"
+    bt_env on
+    # the stand-ins must be what the names resolve to: first in PATH, and nothing else in their directory
+    bts_ok=1; bts_nb=0
+    case $PATH in "$BTS/bin:"*) ;; *) bts_ok=0 ;; esac
+    for bts_f in "$BTS"/bin/*; do bts_nb=$((bts_nb + 1)); [ "$(command -v "${bts_f##*/}")" = "$bts_f" ] || bts_ok=0; done
+    if [ "$bts_ok" = 1 ] && [ "$bts_nb" = 3 ]; then st_pass "window stand-ins: the two scan tools and the dead-man stand-in are what the names resolve to (a case that set PATH wrongly must not scan)"; else st_fail "window stand-ins: PATH does not put the stand-ins first [$bts_nb files]"; bt_env off; return 1; fi
+
+    # 12) argv: exactly the two lines, each under the stand-in with -s INT, default window (6 s, the monitor's dead-man timer 14 s); flag off and no controller: no call
+    BT_WIN=6; BT_MON_S=14; : > "$BTS/log/err"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"
+    bt_begin 2>> "$BTS/log/err"; bts_rc=$?
+    sleep 1
+    bts_mp=$(tail -n 1 "$BTS/log/pid.M" 2>/dev/null); bts_sp=$(tail -n 1 "$BTS/log/pid.S" 2>/dev/null)
+    bts_a1=$(cat "$BTS/log/argv.M" 2>/dev/null); bts_a2=$(cat "$BTS/log/argv.S" 2>/dev/null)
+    bts_a3=$(sed -n 1p "$BTS/log/argv.T" 2>/dev/null); bts_a4=$(sed -n 2p "$BTS/log/argv.T" 2>/dev/null); bts_a5=$(wc -l < "$BTS/log/argv.T" | tr -d ' ')
+    bts_w1="-s INT 14 btmon -i hci0"; bts_w2="-s INT 6 hcitool -i hci0 lescan --passive --duplicates"
+    if [ "$bts_rc" = 0 ] && [ "$bts_a1" = "-i hci0" ] && [ "$bts_a2" = "-i hci0 lescan --passive --duplicates" ] && [ "$bts_a3" = "$bts_w1" ] && [ "$bts_a4" = "$bts_w2" ] && [ "$bts_a5" = 2 ]; then
+        st_pass "bt_begin: runs exactly the monitor pinned to hci0 and the passive scan pinned to hci0 with --duplicates, each under the dead-man stand-in with -s INT and its time of 14 s and 6 s, the monitor first"
+    else st_fail "bt_begin: argv rc $bts_rc [$bts_a1] [$bts_a2] [$bts_a3] [$bts_a4]"; fi
+    # 13) terminal signals: HUP and QUIT are ignored for the two launches only (the stand-in tools inherit them; no /proc here: nothing to read)
+    if [ -r /proc/self/status ] && [ -s "$BTS/log/sigign.S" ]; then
+        bts_ig=1
+        for bts_x in S M; do
+            bts_h=$(sed -n 's/^SigIgn:[[:space:]]*//p' "$BTS/log/sigign.$bts_x"); bts_lo=${bts_h#"${bts_h%??}"}
+            [ $((0x$bts_lo & 5)) = 5 ] || bts_ig=0
+        done
+        if [ "$bts_ig" = 1 ]; then st_pass "bt_begin: the two tools start with HUP and QUIT ignored (SigIgn), so a closing terminal cannot end the scan past its INT handler"; else st_fail "bt_begin: SigIgn lines [$(cat "$BTS"/log/sigign.* 2>/dev/null)]"; fi
+    else log "  SKIP: bt_begin SigIgn check needs /proc (this is not Linux)"; fi
+    # the pid file: one line per tool, wrapper, tool and start (the stand-in /proc gives the start field)
+    bts_pf=$(cat "$BT_PF" 2>/dev/null)
+    case $bts_pf in "M "*"$bts_mp $bts_mp"*) bts_pfm=1 ;; *) bts_pfm=0 ;; esac
+    if [ "$bts_pfm" = 1 ] && [ "$(printf '%s\n' "$bts_pf" | wc -l | tr -d ' ')" = 2 ] && printf '%s\n' "$bts_pf" | grep -q "^S [0-9]* $bts_sp $bts_sp\$"; then st_pass "bt_note: the pid file has one line per tool (wrapper, tool pid, start)"; else st_fail "bt_note: [$bts_pf]"; fi
+    # 18) abort: INT to both tools at once and again after at most 2 s, back within 3 s, no parse, the pid file kept while a tool lives (the scan ignores INT)
+    : > "$BTS/log/sig.log"; bts_t0=$(date +%s); bt_end abort 2>> "$BTS/log/err"; bts_t1=$(date +%s)
+    if [ $((bts_t1 - bts_t0)) -le 3 ] && [ "$(bts_q "$bts_mp" INT)" -ge 1 ] && [ "$(bts_q "$bts_sp" INT)" -ge 1 ] && [ ! -e "$BT_F" ] && [ ! -e "$BT_F.err" ] \
+       && [ -z "$BT_SPID$BT_MPID$BT_SKID$BT_MKID" ]; then
+        bts_ab=1
+    else bts_ab=0; fi
+    bts_wp=$(cat "$BTS/log/pid.T" 2>/dev/null)
+    bts_bad=""; for bts_x in $bts_wp; do grep -q "^[A-Z]* $bts_x\$" "$BTS/log/sig.log" 2>/dev/null && bts_bad=1; done
+    # the monitor (ok) ended on the first INT; the scan stand-in here only ignores the message, so this checks the 2-s repeat only for it
+    bts_q2=$(bts_q "$bts_sp" INT)
+    bt_up "$bts_mp" && bts_ml=1 || bts_ml=0
+    bts_pidkept=0; [ -e "$BT_PF" ] && bts_pidkept=1
+    if [ "$bts_ab" = 1 ] && [ "$bts_q2" = 2 ] && [ -z "$bts_bad" ] && [ ! -e "$BT_F.out" ]; then
+        st_pass "bt_end abort: INT to both tool pids at once and once more after 2 s (the scan ignores it: 2 INT), back in $((bts_t1 - bts_t0)) s, no parse, files cleared, no signal to a wrapper"
+    else st_fail "bt_end abort [$((bts_t1 - bts_t0)) s, INT scan $bts_q2, tools alive monitor $bts_ml, ab $bts_ab, wrapper signalled $bts_bad]"; fi
+    if [ "$bts_pidkept" = 1 ]; then st_pass "bt_end abort: the pid file stays while a tool still lives (bt_sweep needs it)"; else st_fail "bt_end abort: pid file gone while the scan lives"; fi
+    bts_reap; BT_WIN=1; BT_MON_S=9
+    # abort hold: a scan younger than a second gets its first INT one second after its start (a coreutils `timeout` starts it with INT at default, and an INT before
+    # its handler is in place would end it with the scan on); an older one at once. The clock is the test clock (the naps move it), both tools ignore INT, so the
+    # abort runs its two rounds: the first INT, 2 s later the second.
+    for bts_age in 0 500; do
+        bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"; printf 'ignoreint\n' > "$BTS/cfg/M.mode"; printf 'parent\n' > "$BTS/cfg/T.mode"
+        BT_WIN=6; BT_MON_S=14; : > "$BTS/log/sig.log"; bt_begin 2>/dev/null
+        BT_FAKE=$((BT_TS + bts_age)); bt_end abort 2>/dev/null; bts_el=$((BT_FAKE - BT_TS - bts_age)); BT_FAKE=""
+        bts_ni=$(bts_q "$(tail -n 1 "$BTS/log/pid.S")" INT)
+        if [ "$bts_age" = 0 ]; then bts_el_0=$bts_el; bts_ni_0=$bts_ni; else bts_el_500=$bts_el; bts_ni_500=$bts_ni; fi
+    done
+    bts_reap; BT_WIN=1; BT_MON_S=9; rm -f "$BTS/cfg/M.mode"
+    if [ "$bts_el_0" -ge 290 ] && [ "$bts_el_500" -le 240 ] && [ "$bts_ni_0" = 2 ] && [ "$bts_ni_500" = 2 ]; then
+        st_pass "bt_end abort: the first INT to a scan younger than a second waits for its first second ($bts_el_0 hundredths of the test clock in all, against $bts_el_500 for an older scan), both rounds are sent"
+    else st_fail "bt_end abort: hold (young scan $bts_el_0, old scan $bts_el_500 hundredths; INT to the scan $bts_ni_0/$bts_ni_500)"; fi
+    # a signal between the fork of a wrapper and the assignment of its pid: cleanup() takes it from $!
+    sleep 30 & bts_sl=$!
+    BT_ARM=s; BT_SPID=""; BT_MPID=""; BT_F="$BTS/ram/starchorus-bt-$$.txt"; BT_PF="$BTS/ram/starchorus-bt-$$.pid"; : > "$BTS/log/sig.log"
+    cleanup 2>/dev/null
+    if [ "$(bts_q "$bts_sl" INT)" -ge 1 ] && [ -z "$BT_SPID$BT_MPID" ]; then st_pass "cleanup: a wrapper forked just before a signal is found in \$! and told to end (INT), the pids are cleared"; else st_fail "cleanup: fork race ([$(cat "$BTS/log/sig.log")] arm [$BT_ARM] spid [$BT_SPID])"; fi
+    BT_ARM=""; kill -9 "$bts_sl" 2>/dev/null; wait "$bts_sl" 2>/dev/null
+    bts_reap
+
+    # 2) the real text of the device (10 s of passive scan, addresses and names masked): the counts it was recorded with
+    bts_fx="$(dirname "$0")/tests/fixtures/btmon-window.txt"
+    if [ -r "$bts_fx" ]; then
+        bt_parse "$bts_fx" > "$BTS/fx.out"; bts_pr=$?; BT_CUR=" "; BT_LOGGED=" "; BT_NOTES=""; bt_judge "$BTS/fx.out" 2> "$BTS/fx.log"; bts_jr=$?
+        bts_t=$RECON_TAB
+        bts_rep=$(awk -F"$bts_t" '$1 == "B" { n += $5 } END { print n + 0 }' "$BTS/fx.out")
+        bts_adr=$(grep -c '^B' "$BTS/fx.out")
+        bts_co=$(awk -F"$bts_t" '$1 == "B" && $6 != "" { n += $5 } END { print n + 0 }' "$BTS/fx.out")
+        bts_ty=$(awk -F"$bts_t" '$1 == "B" { t[$3]++ } END { printf "%d/%d/%d", t["public"], t["random-static"], t["random-resolvable"] }' "$BTS/fx.out")
+        bts_cn=$(awk -F"$bts_t" '$1 == "B" && $9 == 1' "$BTS/fx.out" | wc -l | tr -d ' ')
+        # independently, from the file with grep and one awk of another shape: reports, RSSI lines, Company lines, distinct addresses, address types, and the maximum per address
+        bts_i1=$(grep -c '^        Event type: ' "$bts_fx"); bts_i2=$(grep -c '^        RSSI: ' "$bts_fx"); bts_i3=$(grep -c '^        Company: ' "$bts_fx")
+        bts_i4=$(grep '^        Address: ' "$bts_fx" | tr 'A-F' 'a-f' | awk '{ print $2 }' | sort -u | wc -l | tr -d ' ')
+        bts_i5=$(grep -c '^        Address type: Random' "$bts_fx"); bts_i6=$(grep -c '^        Address type: Public' "$bts_fx")
+        awk '/^        Address: /{ a = tolower($2) } /^        RSSI: /{ r = $2 + 0; n[a]++; if (!(a in m) || r > m[a]) m[a] = r } END { for (a in n) printf "%s %d %d\n", a, m[a], n[a] }' "$bts_fx" | LC_ALL=C sort > "$BTS/fx.indep"
+        awk -F"$bts_t" '$1 == "B" { printf "%s %d %d\n", $2, $4, $5 }' "$BTS/fx.out" | LC_ALL=C sort > "$BTS/fx.mine"
+        if [ "$bts_pr" = 0 ] && [ "$bts_jr" = 0 ] && [ ! -s "$BTS/fx.log" ] && [ "$bts_rep/$bts_i1/$bts_i2" = 333/333/333 ] && [ "$bts_adr/$bts_i4" = 20/20 ] && [ "$bts_co/$bts_i3" = 329/329 ] \
+           && [ "$bts_i5/$bts_i6" = 297/36 ] && [ "$bts_ty" = 3/10/7 ] && [ "$bts_cn" = 14 ] && [ "$(sed -n '/^W/p' "$BTS/fx.out")" = "$(printf 'W\t1\t0\t1\t1\t0\t0\t0')" ] && cmp -s "$BTS/fx.indep" "$BTS/fx.mine"; then
+            st_pass "bt_parse: the real window of the device (333 reports, 333 RSSI lines, 329 Company lines, 297 random and 36 public) gives 20 addresses with their maxima and counts, a clean witness"
+        else st_fail "bt_parse: fixture (reports $bts_rep/$bts_i1/$bts_i2, addresses $bts_adr/$bts_i4, company $bts_co/$bts_i3, types $bts_ty, connectable $bts_cn, W [$(sed -n '/^W/p' "$BTS/fx.out")])"; fi
+        awk "$AWK_BT" "$bts_fx" > "$BTS/fx.out2"
+        if cmp -s "$BTS/fx.out" "$BTS/fx.out2"; then st_pass "bt_parse: the real window gives the same answer with and without the prefilter"; else st_fail "bt_parse: prefilter changes the real window's answer"; fi
+    else log "  SKIP: bt_parse on the fixture (tests/fixtures/btmon-window.txt is not next to this script)"; fi
+
+    # whole windows against the stand-ins: the two shapes of timeout stand-in that run the window to its end (it execs; it keeps the tool as a child)
+    for bts_m in same parent; do
+        bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf '%s\n' "$bts_m" > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"
+        bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s)
+        bts_mp=$(tail -n 1 "$BTS/log/pid.M" 2>/dev/null); bts_sp=$(tail -n 1 "$BTS/log/pid.S" 2>/dev/null)
+        bts_bl=$(sed -n '/^B/p' "$BT_F.out" 2>/dev/null); bts_t=$RECON_TAB
+        bts_wb=$(printf 'B\t02:00:00:00:00:02\trandom-resolvable\t-49\t2\t65535\tMaker A\t\t1\nB\t02:00:00:00:00:03\tpublic\t-97\t1\t\t\t\t1')
+        bts_all=$(cat "$BTS/log/sig.log"); bts_wsig=0; [ -s "$BTS/log/wrapper.sigs" ] && bts_wsig=1
+        if [ "$BTW_RC" = 0 ] && [ -z "$BT_VOID" ] && [ "$bts_bl" = "$bts_wb" ] && [ "$bts_all" = "INT $bts_mp" ] && [ "$bts_wsig" = 0 ] && [ -z "$BT_NOTES" ] \
+           && [ ! -e "$BT_F" ] && [ ! -e "$BT_F.err" ] && [ ! -e "$BT_PF" ] && [ ! -s "$BTS/log/err" ]; then
+            st_pass "window $bts_m: the window runs its course in $((bts_t1 - bts_t0)) s, both tools end (the scan on its own deadline, the monitor on the one INT after it), two addresses, the verdict counts, no wrapper signalled, no file left, nothing logged"
+        else st_fail "window $bts_m: rc $BTW_RC void [$BT_VOID] notes [$BT_NOTES] signals [$bts_all] wrapper-signalled $bts_wsig B [$bts_bl] log [$(cat "$BTS/log/err")]"; fi
+        bts_idle "$bts_m"
+        rm -f "$BT_F.out"
+    done
+    bts_reap
+
+    # 14) overlap: another collector's window is live, written by a real collector process (bts_child): its pid file, under the name the code gives it, is read
+    #     by bt_busy; a start field that differs (a reused pid) and a holder that is gone are no window; a start meets the live window with rc 5 and no call
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; rm -f "$BTS/cfg/S.mode" "$BTS/cfg/M.mode"
+    if bts_child; then
+        bts_c0=$(cat "$BTS/log/argv.M" "$BTS/log/argv.S" 2>/dev/null | wc -l | tr -d ' ')
+        bt_busy; bts_b1=$?
+        cp "$BTS_CF" "$BTS/in/child.pid"; sed 's/ [0-9]*$/ 1/' "$BTS/in/child.pid" > "$BTS_CF"; bt_busy; bts_b2=$?; cp "$BTS/in/child.pid" "$BTS_CF"
+        bt_begin 2>/dev/null; bts_rc=$?
+        bts_c1=$(cat "$BTS/log/argv.M" "$BTS/log/argv.S" 2>/dev/null | wc -l | tr -d ' ')
+        set -- "$BTS"/ram/starchorus-bt-$$.*; bts_own=0; [ -e "$1" ] && bts_own=1
+        : > "$BTS/log/err"; BT_RC=5; BLUETOOTH=1; printf '{\n  "generated": 1,\n  "center": {"label": "x"},\n  "aps": [\n  ]\n}\n' > "$BTS/doc.json"
+        BT_CUR=" "; BT_LOGGED=" "; run_layers "$BTS/doc.json" 2>> "$BTS/log/err"; BT_LOGGED=$BT_CUR
+        BT_CUR=" "; run_layers "$BTS/doc.json" 2>> "$BTS/log/err"; BT_LOGGED=$BT_CUR
+        bts_ln=$(grep -c "another collector's window is running" "$BTS/log/err")
+        kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null; bt_busy; bts_b3=$?
+        if [ "$bts_b1/$bts_b2/$bts_b3" = 0/1/1 ] && [ "$bts_rc" = 5 ] && [ "$bts_c0" = 2 ] && [ "$bts_c1" = 2 ] && [ "$bts_own" = 0 ] && [ "$bts_ln" = 1 ] \
+           && grep -q '"bt_window": 0' "$BTS/doc.json" && grep -q '^  "bluetooth": \[\],' "$BTS/doc.json"; then
+            st_pass "overlap: a real collector's live window (its own pid file) -> bt_busy 0, bt_begin rc 5 with no call and no file of its own left; a start field that differs, or a holder that is gone, is no window; the cycle is a void one (bt_window 0), one log line over two cycles"
+        else st_fail "overlap: busy $bts_b1/$bts_b2/$bts_b3 (want 0/1/1), rc $bts_rc, calls $bts_c0/$bts_c1 (want 2/2), own file $bts_own, log lines $bts_ln, child log [$(head -n 2 "$BTS/log/child.err" 2>/dev/null)]"; fi
+    else st_fail "overlap: the stand-in collector did not write a pid file naming both tools [$(head -n 3 "$BTS/log/child.err" 2>/dev/null)]"; fi
+    bts_child_end; BT_RC=3
+
+    # 15) the monitor does not get ready (no output, no socket): rc 6 after the wait, no scan was asked for, the monitor is stopped
+    bts_reap; printf 'silent\n' > "$BTS/cfg/M.mode"; BT_T_READY=100
+    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=300
+    if [ "$BTW_RC" = 6 ] && [ ! -e "$BTS/log/argv.S" ] && [ -e "$BTS/log/argv.M" ] && [ "$BT_VOID" = nomonitor ] && [ $((bts_t1 - bts_t0)) -le 5 ]; then
+        st_pass "bt_begin: a monitor that holds no socket and writes nothing -> rc 6, the scan is never started, the monitor is stopped, the window is void"
+    else st_fail "bt_begin: not ready (rc $BTW_RC, scan argv [$(cat "$BTS/log/argv.S" 2>/dev/null)], void [$BT_VOID], $((bts_t1 - bts_t0)) s)"; fi
+    bts_idle "monitor not ready"
+    # 16) the scan cannot start (it prints its failure and exits 1): void, one log line per episode
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'fail\n' > "$BTS/cfg/S.mode"; printf 'same\n' > "$BTS/cfg/T.mode"
+    BT_CUR=" "; BT_LOGGED=" "; bts_win; bts_v1=$BT_VOID; bts_l1=$(grep -c 'could not start' "$BTS/log/err")
+    BT_LOGGED=$BT_CUR; bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'fail\n' > "$BTS/cfg/S.mode"; printf 'same\n' > "$BTS/cfg/T.mode"
+    BT_CUR=" "; bts_win; bts_v2=$BT_VOID; bts_l2=$(grep -c 'could not start' "$BTS/log/err"); BT_LOGGED=$BT_CUR
+    if [ "$bts_v1/$bts_v2" = start/start ] && [ "$bts_l1/$bts_l2" = 1/0 ]; then st_pass "bt_end: a scan that fails to set its parameters (its stderr says so) voids the window, logged once over two cycles"; else st_fail "bt_end: scan failure (void $bts_v1/$bts_v2, log $bts_l1/$bts_l2)"; fi
+    bts_idle "scan failure"
+
+    # 17) the watchdog, in each shape of the timeout stand-in. A clock the naps move on (BT_FAKE) stands in for the seconds; the processes are real.
+    #  a) a scan that ignores INT: INT about once a second after its deadline plus 2 s, ONE TERM after the last, never KILL; no wrapper signalled while its tool lived
+    for bts_m in same parent noforward; do
+        bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf '%s\n' "$bts_m" > "$BTS/cfg/T.mode"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"; : > "$BTS/log/sig.log"
+        BT_CUR=" "; BT_LOGGED=" "; BT_T_TERM=200; BT_T_GRACE=100; BT_T_MON=200
+        { bt_begin; BTW_RC=$?; BT_FAKE=$BT_TS; BT_FAKE_NAP=0.05; bt_end; BT_FAKE=""; BT_FAKE_NAP=""; } 2> "$BTS/log/err"
+        BT_T_TERM=1200
+        bts_sp=$(tail -n 1 "$BTS/log/pid.S"); bts_mp=$(tail -n 1 "$BTS/log/pid.M"); bts_wsig=0; [ -s "$BTS/log/wrapper.sigs" ] && bts_wsig=1
+        bts_ni=$(bts_q "$bts_sp" INT); bts_nt=$(bts_q "$bts_sp" TERM); bts_nk=$(bts_q "$bts_sp" KILL)
+        if [ "$BTW_RC" = 0 ] && [ "$BT_VOID" = watchdog ] && [ "$bts_ni" -ge 2 ] && [ "$bts_nt" = 1 ] && [ "$bts_nk" = 0 ] && [ "$bts_wsig" = 0 ] \
+           && grep -q 'did not end by itself' "$BTS/log/err" && grep -q 'was terminated; the controller may still be scanning' "$BTS/log/err" && bts_gone "$bts_sp" && [ "$(bts_q "$bts_mp" INT)" = 1 ]; then
+            st_pass "watchdog $bts_m: a scan that ignores INT gets INT every second, $bts_ni of them, then one TERM and the log lines, never KILL; the window is void; the monitor ends on its one INT; no wrapper was signalled"
+        else st_fail "watchdog $bts_m: void [$BT_VOID] INT $bts_ni TERM $bts_nt KILL $bts_nk wrapper-signalled $bts_wsig log [$(cat "$BTS/log/err")]"; fi
+    done
+    #  b) a scan that ignores INT and TERM: 12 INT (one a second), one TERM at 12 s, never KILL; it is still there afterwards (the pid file stays for bt_sweep)
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'same\n' > "$BTS/cfg/T.mode"; printf 'ignoreall\n' > "$BTS/cfg/S.mode"; : > "$BTS/log/sig.log"
+    BT_CUR=" "; BT_LOGGED=" "
+    { bt_begin; BTW_RC=$?; BT_FAKE=$BT_TS; bt_end; BT_FAKE=""; } 2> "$BTS/log/err"
+    bts_sp=$(tail -n 1 "$BTS/log/pid.S"); bts_ni=$(bts_q "$bts_sp" INT); bts_nt=$(bts_q "$bts_sp" TERM); bts_nk=$(bts_q "$bts_sp" KILL)
+    bts_alive=0; kill -0 "$bts_sp" 2>/dev/null && bts_alive=1
+    if [ "$bts_ni/$bts_nt/$bts_nk" = 12/1/0 ] && [ "$bts_alive" = 1 ] && [ "$BT_VOID" = watchdog ] && [ -e "$BT_PF" ] && grep -q 'was terminated' "$BTS/log/err"; then
+        st_pass "watchdog: a scan that ignores INT and TERM: 12 INT, one TERM at 12 s, never KILL, still alive afterwards, its pid file kept for bt_sweep, both log lines"
+    else st_fail "watchdog: INT/TERM/KILL $bts_ni/$bts_nt/$bts_nk (want 12/1/0), alive $bts_alive, void [$BT_VOID], pid file [$(cd "$BTS/ram" 2>/dev/null && echo *)]"; fi
+    bts_reap
+    #  c) a monitor that ignores INT and TERM: INT, 2 s, TERM, 2 s, KILL (it holds no controller state); the scan ended on its own deadline first (real seconds)
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; printf 'ignoreall\n' > "$BTS/cfg/M.mode"; : > "$BTS/log/sig.log"
+    BT_T_GRACE=100; BT_T_MON=200; BT_CUR=" "; BT_LOGGED=" "
+    bt_begin 2> "$BTS/log/err"; bts_sp=$(tail -n 1 "$BTS/log/pid.S"); bts_mp=$(tail -n 1 "$BTS/log/pid.M"); bts_w=0
+    while kill -0 "$bts_sp" 2>/dev/null && [ "$bts_w" -lt 100 ]; do sleep 0.1 2>/dev/null || sleep 1; bts_w=$((bts_w + 1)); done
+    { BT_FAKE=$((BT_TS + 400)); bt_end; BT_FAKE=""; } 2>> "$BTS/log/err"
+    BT_T_GRACE=0; BT_T_MON=100
+    bts_ni=$(bts_q "$bts_mp" INT); bts_nt=$(bts_q "$bts_mp" TERM); bts_nk=$(bts_q "$bts_mp" KILL); bts_wsig=0; [ -s "$BTS/log/wrapper.sigs" ] && bts_wsig=1
+    if [ "$bts_ni/$bts_nt/$bts_nk" = 1/1/1 ] && [ "$BT_VOID" = watchdog ] && [ "$bts_wsig" = 0 ] && [ "$(bts_q "$bts_sp" KILL)$(bts_q "$bts_sp" TERM)" = 00 ]; then
+        st_pass "watchdog: a monitor that ignores INT and TERM gets INT, TERM, KILL in that order and is gone; the scan got nothing; no wrapper was signalled while its tool lived"
+    else st_fail "watchdog: monitor INT/TERM/KILL $bts_ni/$bts_nt/$bts_nk (want 1/1/1), void [$BT_VOID], wrapper-signalled $bts_wsig"; fi
+    bts_reap
+    #  d) without /proc (no tool pid is known): only INT, only to the wrapper, and the wait ends
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"; : > "$BTS/log/sig.log"
+    bts_pp=$BT_PROC; BT_PROC="$BTS/no-proc"; BT_T_TERM=200; BT_T_GRACE=100; BT_T_MON=200; BT_CUR=" "; BT_LOGGED=" "
+    { bt_begin; BT_FAKE=$BT_TS; BT_FAKE_NAP=0.05; bt_end; BT_FAKE=""; BT_FAKE_NAP=""; } 2> "$BTS/log/err"
+    BT_PROC=$bts_pp; BT_T_TERM=1200
+    bts_kinds=$(awk '{ print $1 }' "$BTS/log/sig.log" | sort -u | tr '\n' ' ')
+    bts_wp=$(tr '\n' ' ' < "$BTS/log/pid.T"); bts_toolsig=0; bts_sp2=$(awk '{ print $2 }' "$BTS/log/sig.log" | sort -u)
+    for bts_x in $bts_sp2; do case " $bts_wp" in *" $bts_x "*) ;; *) bts_toolsig=1 ;; esac; done
+    if [ "$bts_kinds" = "INT " ] && [ "$bts_toolsig" = 0 ] && [ -n "$bts_wp" ] && [ "$BT_VOID" = watchdog ]; then st_pass "watchdog: without /proc only INT is sent, and only to the wrappers (no tool pid is known), and the wait ends"; else st_fail "watchdog: without /proc (signals [$bts_kinds], tool signalled $bts_toolsig, void [$BT_VOID])"; fi
+    bts_reap
+
+    # 19) killed naps: a helper ends every sleep child of this shell each 0.5 s while a window runs; the deadlines still hold by the clock
+    if bts_ps | grep -q .; then
+        cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'same\n' > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"; : > "$BTS/log/naps"
+        # shellcheck disable=SC2016  # the helper's own script text
+        ( while :; do bts_ps | awk -v p="$$" '$2 == p && ($3 == "sleep" || $3 ~ /\/sleep$/) { print $1 }' | while read -r np; do kill "$np" 2>/dev/null && echo "$np" >> "$BTS/log/naps"; done; sleep 0.5; done ) 2>/dev/null &
+        bts_kp=$!
+        bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s)
+        kill -9 "$bts_kp" 2>/dev/null; wait "$bts_kp" 2>/dev/null
+        bts_nn=$(wc -l < "$BTS/log/naps" | tr -d ' ')
+        if [ "$BTW_RC" = 0 ] && [ -z "$BT_VOID" ] && [ "$bts_nn" -ge 1 ] && [ $((bts_t1 - bts_t0)) -le 12 ] && [ "$(sed -n '/^B/p' "$BT_F.out" 2>/dev/null | wc -l | tr -d ' ')" = 2 ]; then
+            st_pass "naps: with $bts_nn of its sleeps ended by a helper the window still runs its course by the clock, in $((bts_t1 - bts_t0)) s, and the verdict counts"
+        else st_fail "naps: window under a nap killer [rc $BTW_RC, void $BT_VOID, naps killed $bts_nn, $((bts_t1 - bts_t0)) s]"; fi
+        rm -f "$BT_F.out"; bts_reap
+    else log "  SKIP: killed naps (ps -o pid= -o ppid= -o comm= is not available here)"; fi
+
+    # 20) the sweep at daemon start, on real collectors killed with -9 in the middle of their window (their tools run on, their pid file stays, under the
+    #     name the code gave it): INT, never TERM or KILL, to each tool that runs with the recorded start; a start that differs is left alone; the file goes
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; rm -f "$BTS/cfg/S.mode" "$BTS/cfg/M.mode"
+    if bts_child; then
+        kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null
+        bts_up=0; bt_is "$BTS_CM" btmon && bt_is "$BTS_CS" hcitool && [ -e "$BTS_CF" ] && bts_up=1
+        : > "$BTS/log/sig.log"; bt_busy; bts_bz=$?
+        bt_sweep 2>/dev/null
+        bts_x=0; while [ "$bts_x" -lt 30 ]; do bt_up "$BTS_CM" || bt_up "$BTS_CS" || break; sleep 0.1 2>/dev/null || sleep 1; bts_x=$((bts_x + 1)); done
+        bts_gone=0; bt_up "$BTS_CM" || { bt_up "$BTS_CS" || bts_gone=1; }
+        if [ "$bts_up" = 1 ] && [ "$bts_bz" = 1 ] && [ "$bts_gone" = 1 ] && [ "$(bts_q "$BTS_CM" INT)/$(bts_q "$BTS_CS" INT)" = 1/1 ] && [ "$(grep -c -e '^TERM' -e '^KILL' "$BTS/log/sig.log")" = 0 ] \
+           && [ ! -e "$BTS_CF" ]; then
+            st_pass "bt_sweep: a collector killed with -9 during its window (pid file written by the code, tools still running) -> the next daemon start's sweep sends one INT to the monitor and one to the scan, both end, the file goes; never TERM or KILL"
+        else st_fail "bt_sweep: -9 case (tools running before $bts_up, busy $bts_bz, ended $bts_gone, signals [$(tr '\n' ' ' < "$BTS/log/sig.log")], file left $([ -e "$BTS_CF" ] && echo yes || echo no))"; fi
+    else st_fail "bt_sweep: the stand-in collector did not write a pid file naming both tools [$(head -n 3 "$BTS/log/child.err" 2>/dev/null)]"; fi
+    bts_child_end
+    # a start field that differs (a pid that was reused): that tool is left alone, the other one gets its INT, and the file goes with nothing recorded left running
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"
+    if bts_child; then
+        kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null
+        sed '/^M /s/ [0-9]*$/ 1/' "$BTS_CF" > "$BTS/in/child.pid"; cp "$BTS/in/child.pid" "$BTS_CF"; : > "$BTS/log/sig.log"
+        bt_sweep 2>/dev/null
+        bts_x=0; while [ "$bts_x" -lt 30 ]; do bt_up "$BTS_CS" || break; sleep 0.1 2>/dev/null || sleep 1; bts_x=$((bts_x + 1)); done
+        bts_gs=0; bt_up "$BTS_CS" || bts_gs=1; bts_am=0; bt_up "$BTS_CM" && bts_am=1
+        if [ "$bts_gs" = 1 ] && [ "$bts_am" = 1 ] && [ "$(bts_q "$BTS_CS" INT)/$(bts_q "$BTS_CM" INT)" = 1/0 ] && [ "$(grep -c -e '^TERM' -e '^KILL' "$BTS/log/sig.log")" = 0 ] && [ ! -e "$BTS_CF" ]; then
+            st_pass "bt_sweep: a tool whose recorded start differs is left alone (no signal), the other gets its INT, the file goes"
+        else st_fail "bt_sweep: differing start (scan gone $bts_gs, monitor alive $bts_am, signals [$(tr '\n' ' ' < "$BTS/log/sig.log")], file left $([ -e "$BTS_CF" ] && echo yes || echo no))"; fi
+    else st_fail "bt_sweep: the second stand-in collector did not write a pid file naming both tools"; fi
+    bts_child_end
+    # and the same for the scan: its recorded start differs (a reused pid), so the scan gets no signal at all (hcitool is only ever sent INT, and not to a stranger), the monitor still gets its one INT,
+    # and the file goes once nothing recorded in it lives. The check of the start is on the S line of bt_sweep as it is on the M line, and bt_busy has it on both (the overlap case).
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"
+    if bts_child; then
+        kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null
+        sed '/^S /s/ [0-9]*$/ 1/' "$BTS_CF" > "$BTS/in/child.pid"; cp "$BTS/in/child.pid" "$BTS_CF"; : > "$BTS/log/sig.log"
+        bt_sweep 2>/dev/null
+        bts_x=0; while [ "$bts_x" -lt 30 ]; do bt_up "$BTS_CM" || break; sleep 0.1 2>/dev/null || sleep 1; bts_x=$((bts_x + 1)); done
+        bts_gm=0; bt_up "$BTS_CM" || bts_gm=1; bts_as=0; bt_up "$BTS_CS" && bts_as=1
+        if [ "$bts_gm" = 1 ] && [ "$bts_as" = 1 ] && [ "$(bts_q "$BTS_CM" INT)/$(bts_q "$BTS_CS" INT)" = 1/0 ] && [ "$(bts_q "$BTS_CS" TERM)$(bts_q "$BTS_CS" KILL)" = 00 ] \
+           && [ "$(grep -c -e '^TERM' -e '^KILL' "$BTS/log/sig.log")" = 0 ] && [ ! -e "$BTS_CF" ]; then
+            st_pass "bt_sweep: a scan whose recorded start differs is left alone (no signal), the monitor gets its one INT, the file goes"
+        else st_fail "bt_sweep: differing scan start (monitor gone $bts_gm, scan alive $bts_as, signals [$(tr '\n' ' ' < "$BTS/log/sig.log")], file left $([ -e "$BTS_CF" ] && echo yes || echo no))"; fi
+    else st_fail "bt_sweep: the third stand-in collector did not write a pid file naming both tools"; fi
+    bts_child_end
+    # the marker: a collector still waiting for its monitor holds only the marker line "P PID" (its monitor says nothing and holds no socket for 3 s). A start meets it as a
+    # live window (rc 5, no call, no file of its own left: two starts at one moment cannot both run), and once that collector is gone the file is no window and the sweep removes it
+    bts_reap; printf 'silent\n' > "$BTS/cfg/M.mode"; printf 'parent\n' > "$BTS/cfg/T.mode"
+    if bts_child 15 '^P [0-9]'; then
+        bts_mk=$(cat "$BTS_CF" 2>/dev/null); bts_c0=$(cat "$BTS/log/argv.M" "$BTS/log/argv.S" 2>/dev/null | wc -l | tr -d ' ')
+        bt_busy; bts_b1=$?
+        bt_begin 2>/dev/null; bts_rc=$?
+        bts_c1=$(cat "$BTS/log/argv.M" "$BTS/log/argv.S" 2>/dev/null | wc -l | tr -d ' ')
+        set -- "$BTS"/ram/starchorus-bt-$$.*; bts_own=0; [ -e "$1" ] && bts_own=1
+        kill -9 "$BTS_CH" 2>/dev/null; wait "$BTS_CH" 2>/dev/null
+        bt_busy; bts_b2=$?; bt_sweep 2>/dev/null; bts_gone=0; [ -e "$BTS_CF" ] || bts_gone=1
+        if [ "$bts_mk" = "P $BTS_CH" ] && [ "$bts_b1/$bts_b2" = 0/1 ] && [ "$bts_rc" = 5 ] && [ "$bts_c0" = "$bts_c1" ] && [ "$bts_own" = 0 ] && [ "$bts_gone" = 1 ]; then
+            st_pass "bt_begin: a collector that has only written its marker line (\"P pid\") counts as a live window: rc 5, no call, no file left; once it is gone the file is no window and bt_sweep removes it"
+        else st_fail "bt_begin: marker case [$bts_mk] busy $bts_b1/$bts_b2 (want 0/1), rc $bts_rc, calls $bts_c0/$bts_c1, own file $bts_own, file gone after the sweep $bts_gone"; fi
+    else st_fail "bt_begin: the stand-in collector did not write its marker line [$(head -n 3 "$BTS/log/child.err" 2>/dev/null)]"; fi
+    bts_child_end; rm -f "$BTS/cfg/M.mode"
+
+    # 23) bookkeeping through a whole cycle: the capture source, with a window against the stand-ins; then the flag off must leave every Bluetooth variable and file alone
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"
+    bts_rs=$RESOLVED; bts_cm=$CAP_METHOD; bts_of=$OUTFILE; bts_ve=$VENDOR; bts_od=$OUTDIR; bts_hd=$BT_HELD
+    RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$BTS/cycle.json"; OUTDIR="$BTS"; VENDOR=0; BT_HELD=""
+    bts_t0=$(date +%s); run_cycle 2> "$BTS/log/err" >/dev/null; bts_t1=$(date +%s)
+    bts_c1=0; json_ok < "$OUTFILE" && bts_c1=1
+    bts_c2=0; grep -q '^  "bluetooth": \[{"addr": "02:00:00:00:00:02", "addr_type": "random-resolvable", "rssi": -49, "reports": 2, "last_seen": [0-9]*, "company": 65535, "company_name": "Maker A", "connectable": true}, {"addr": "02:00:00:00:00:03"' "$OUTFILE" && bts_c2=1
+    bts_c3=0; grep -q '"bt_window": 1, "bt_hold": 120' "$OUTFILE" && bts_c3=1
+    bts_c4=0; grep -q '"ssid": "HomeNet"' "$OUTFILE" && bts_c4=1
+    bts_c5=0; [ -n "$BT_HELD" ] && bts_c5=1
+    if [ "$bts_c1$bts_c2$bts_c3$bts_c4$bts_c5" = 11111 ]; then
+        st_pass "run_cycle: a capture-source cycle with a Bluetooth window, in $((bts_t1 - bts_t0)) s, publishes the Wi-Fi document with the bluetooth array, bt_window and bt_hold, and keeps the records for the next cycle"
+    else st_fail "run_cycle: capture cycle with a window (checks $bts_c1$bts_c2$bts_c3$bts_c4$bts_c5, $(grep bluetooth "$OUTFILE" | cut -c1-200), log [$(head -n 3 "$BTS/log/err")])"; fi
+    bts_idle "capture cycle"
+    bts_reap
+    BLUETOOTH=0; BT_RC=3; run_cycle 2>/dev/null >/dev/null
+    if json_ok < "$OUTFILE" && ! grep -q '"bluetooth"' "$OUTFILE" && ! grep -q 'bt_window' "$OUTFILE" && [ ! -e "$BTS/log/argv.M" ]; then st_pass "run_cycle: with Bluetooth off no tool is called and no Bluetooth field is written"; else st_fail "run_cycle: Bluetooth off still writes or calls"; fi
+    # the iwscan route without its opt-in has no data: the cycle publishes the explicit empty document, and the layer goes on that one too (another
+    # collector's window makes the cycle a void one, which costs no time; the records of the capture cycle are held for the next 120 s)
+    BLUETOOTH=1; bts_other; RESOLVED=iwscan; run_cycle 2>/dev/null >/dev/null
+    if json_ok < "$OUTFILE" && grep -q 'no data this cycle' "$OUTFILE" && grep -q '^  "bluetooth": \[{"addr": "02:00:00:00:00:02"' "$OUTFILE" && grep -q '"bt_window": 0, "bt_hold": 120' "$OUTFILE"; then
+        st_pass "run_cycle: a cycle without data (the iwscan route, not opted in) publishes the empty document with the layer on it: the held records, bt_window 0"
+    else st_fail "run_cycle: empty document with the layer, $(grep -c . "$OUTFILE") lines"; fi
+    bts_other_end; bts_idle "iwscan cycle"
+    RESOLVED=$bts_rs; CAP_METHOD=$bts_cm; OUTFILE=$bts_of; VENDOR=$bts_ve; OUTDIR=$bts_od; BT_HELD=$bts_hd
+    bts_reap
+    bt_env off
+    unset -f bts_q bts_win
 }
 
 # ============================================================================ SELF TEST
@@ -2372,6 +4177,12 @@ selftest() {
     # Verdict = the FAIL counter ST_FAILS (a deliberately unique name: a short global like `rc`
     # can be clobbered by any helper called later and silently turn a red run green).
     ST_FAILS=0; ST_PASS=0
+    # Nothing here may reach a radio or the controller, whatever the environment holds: the switches are forced off, for this process and for the collectors
+    # it starts (they read the environment), and the controller's sysfs points at nothing. A case that needs a switch sets it itself, inside its stand-in
+    # block (bt_env, the apcli stubs, a child's own environment).
+    STARCHORUS_BLUETOOTH=0; STARCHORUS_TRAFFIC=0; STARCHORUS_APCLI_RO=0; STARCHORUS_ALLOW_ACTIVE=0; STARCHORUS_SYSFS_BT=/nonexistent/starchorus-selftest-bt
+    export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT
+    BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT
     tdir=$(mktemp -d 2>/dev/null || echo /tmp/starchorus-selftest.$$)
     mkdir -p "$tdir"
     OUTDIR="$tdir"; CAPDIR="$tdir/cap"; mkdir -p "$CAPDIR"
@@ -2414,6 +4225,13 @@ CSV
     check "airodump: rate from Speed (130)" "$out" '"security": "WPA2/PSK/CCMP", "rate": 130, "clients"'
     check "airodump: rate from Speed (866)" "$out" '"rate": 866'
 
+    # ---- 1b) Bluetooth, the per-cycle layers and the traffic call: the text of a window (no process), the layers (files), a window against stand-ins
+    bt_parse_selftest "$tdir"
+    lay_selftest "$tdir"
+    printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"
+    write_empty 1710000000 "no data" > "$tdir/emit-empty.json"; lay_check "write_empty document" "$tdir/emit-empty.json"
+    bt_selftest "$tdir"
+
     # ---- 2) recon.db, running `ssid` schema --------------------------------------------------
     if have sqlite3; then
         pdb="$tdir/recon_ssid.db"
@@ -2439,6 +4257,7 @@ INSERT INTO ssid VALUES (1,4,'','1122aabbccee','',              0,   0,    -83, 
 SQL
         out=$(RECON_DB="$pdb" build_from_recondb 1710000000 2>/dev/null)
         jcheck "recon(ssid)" "$out"
+        printf '%s\n' "$out" > "$tdir/emit-recon0.json"; lay_check "recon.db document" "$tdir/emit-recon0.json"
         check "recon: source label"      "$out" '"source": "recon-db"'
         check "recon: open AP"           "$out" '"ssid": "OpenAir"'
         check "recon: Open security"     "$out" '"security": "Open"'
@@ -2816,6 +4635,85 @@ SQL
         if [ "$fs1" = 7 ] && [ -z "$fs2" ]; then st_pass "file_size: bytes from ls (a name with a blank and a star), nothing for a missing file"; else st_fail "file_size: [$fs1] [$fs2]"; fi
         unset SHIM_REAL_LS SHIM_LS
 
+        # ---- 3c2) the layers on the recon.db path: the frame counter of stations (STARCHORUS_TRAFFIC), hidden networks, and a skipped
+        #      cycle that still carries a fresh Bluetooth layer (a window against the stand-ins of bt_selftest). A database of its own, times relative to LT.
+        lt=1790000000; ldb="$tdir/recon_layers.db"
+        "$rsq" "$ldb" >/dev/null 2>&1 <<SQL
+CREATE TABLE ssid(hash INT PRIMARY KEY, wifi_device INT, scan INT, type INT, bssid TEXT, ssid BLOB,
+                  hidden INT, time INT, signal INT, freq INT, channel INT, encryption INT);
+CREATE TABLE wifi_device(hash INT PRIMARY KEY, scan INT, mac TEXT, time INT, signal INT, freq INT, packets INT);
+INSERT INTO ssid VALUES (1,0,1,8,'020000010101','Plain',0,$((lt - 100)),-50,2437,6,8);
+INSERT INTO ssid VALUES (2,0,1,8,'020000010102','Garden',1,$((lt - 90)),-55,2412,1,8);
+INSERT INTO ssid VALUES (3,0,1,8,'020000010103','Orchard',1,$((lt - 80)),-60,2412,1,8);
+INSERT INTO ssid VALUES (4,0,1,5,'020000010103','Orchard',0,$((lt - 70)),-40,2412,1,8);
+INSERT INTO ssid VALUES (5,0,1,8,'020000010104','Meadow',1,$((lt - 100)),-50,2412,1,8);
+INSERT INTO ssid VALUES (6,0,1,8,'020000010104','Meadow',0,$((lt - 60)),-52,2412,1,8);
+INSERT INTO ssid VALUES (7,0,1,8,'020000010105','',1,$((lt - 50)),-70,2412,1,8);
+INSERT INTO ssid VALUES (8,0,1,8,'020000010106','  Pad  ',1,$((lt - 40)),-71,2412,1,8);
+INSERT INTO ssid VALUES (10,501,1,4,'FFFFFFFFFFFF','Q',0,$((lt - 1000)),-60,0,0,0);
+INSERT INTO wifi_device VALUES (501,1,'020000020201',$((lt - 1000)),-60,0,9999);
+INSERT INTO ssid VALUES (11,502,2,4,'FFFFFFFFFFFF','Q',0,$((lt - 10)),-60,0,0,0);
+INSERT INTO wifi_device VALUES (502,2,'020000020201',$((lt - 10)),-60,0,40);
+INSERT INTO ssid VALUES (12,503,1,4,'FFFFFFFFFFFF','R',0,$((lt - 1000)),-70,0,0,0);
+INSERT INTO wifi_device VALUES (503,1,'020000020202',$((lt - 1000)),-70,0,777);
+INSERT INTO ssid VALUES (13,504,2,4,'FFFFFFFFFFFF','S',0,$((lt - 5)),-65,0,0,0);
+INSERT INTO wifi_device VALUES (504,2,'020000020203',$((lt - 5)),-65,0,0);
+SQL
+        RECON_DB="$ldb"; HAS_TIME=""; RDB_PATH=""; MAX_AGE=0; : > "$SHIM_LOG"
+        TRAFFIC=1; build_from_recondb $lt > "$rpt/lp1.json" 2>/dev/null; lp_c1=$(calls); TRAFFIC=0
+        build_from_recondb $lt > "$rpt/lp0.json" 2>/dev/null
+        if [ "$lp_c1" = 1 ] && json_ok < "$rpt/lp1.json" \
+           && grep -q '"mac": "02:00:00:02:02:01", "rssi": -60, "last_seen": 1789999990, "packets": 40, "probes": \["Q"\]}' "$rpt/lp1.json" \
+           && ! grep '02:00:00:02:02:02' "$rpt/lp1.json" | grep -q packets && grep -q '"mac": "02:00:00:02:02:03".*"packets": 0' "$rpt/lp1.json"; then
+            st_pass "station packets: STARCHORUS_TRAFFIC=1 takes the counter of the rows heard in the last 300 s (the newer session's 40, not the old session's 9999), none for a station not heard for five minutes, a zero counter is 0, one query batch"
+        else st_fail "station packets: [$(grep '"mac"' "$rpt/lp1.json" | head -n 4)]"; fi
+        if ! grep -q packets "$rpt/lp0.json" && json_ok < "$rpt/lp0.json"; then st_pass "station packets: with STARCHORUS_TRAFFIC=0 no station has a packets field"; else st_fail "station packets: field written with Traffic off"; fi
+        # a firmware whose wifi_device has no packets (or time) column: the CLI1 alternative claims the group, stations without the counter
+        npdb="$tdir/recon_nopk.db"
+        "$rsq" "$npdb" >/dev/null 2>&1 <<SQL
+CREATE TABLE ssid(hash INT PRIMARY KEY, wifi_device INT, scan INT, type INT, bssid TEXT, ssid BLOB, hidden INT, time INT, signal INT, freq INT, channel INT, encryption INT);
+CREATE TABLE wifi_device(hash INT PRIMARY KEY, scan INT, mac TEXT, signal INT);
+INSERT INTO ssid VALUES (1,0,1,8,'020000030101','OnlyAP',0,$((lt - 100)),-50,2437,6,8);
+INSERT INTO ssid VALUES (2,601,1,4,'FFFFFFFFFFFF','Q',0,$((lt - 10)),-60,0,0,0);
+INSERT INTO wifi_device VALUES (601,1,'020000020301',-60);
+SQL
+        RECON_DB="$npdb"; HAS_TIME=""; RDB_PATH=""; TRAFFIC=1; build_from_recondb $lt > "$rpt/lp2.json" 2>/dev/null; TRAFFIC=0
+        if grep -q '"mac": "02:00:00:02:03:01"' "$rpt/lp2.json" && ! grep -q packets "$rpt/lp2.json" && json_ok < "$rpt/lp2.json"; then st_pass "station packets: a schema without wifi_device.packets or .time -> CLI1 claims the group, the stations come without the counter"; else st_fail "station packets: schema without packets ($(grep '"mac"' "$rpt/lp2.json"))"; fi
+        # hidden networks: ssid stays "" whatever name the row holds (the 0.1 convention; on the device a hidden beacon holds zero bytes only, device-notes 4a); the NEWEST beacon decides
+        RECON_DB="$ldb"; HAS_TIME=""; RDB_PATH=""
+        lp_row() { grep "\"bssid\": \"$1\"" "$2"; }
+        if lp_row 02:00:00:01:01:02 "$rpt/lp0.json" | grep -q '"ssid": "", "channel": 1, "band": "2.4GHz", "freq": 2412, "rssi": -55, "security": "WPA2", "last_seen": 1789999910' \
+           && lp_row 02:00:00:01:01:01 "$rpt/lp0.json" | grep -q '"ssid": "Plain"' && ! grep -q -e Garden -e Orchard -e Pad -e ssid_recorded "$rpt/lp0.json"; then
+            st_pass "hidden networks: a hidden beacon row gives ssid \"\" whatever name the row holds (no other field carries it); a plain network keeps its name"
+        else st_fail "hidden networks: [$(lp_row 02:00:00:01:01:02 "$rpt/lp0.json")]"; fi
+        if lp_row 02:00:00:01:01:03 "$rpt/lp0.json" | grep -q '"ssid": "",'; then st_pass "hidden networks: a stronger probe response of the same BSSID does not make a hidden network named (the newest beacon decides)"; else st_fail "hidden networks: probe response row [$(lp_row 02:00:00:01:01:03 "$rpt/lp0.json")]"; fi
+        if lp_row 02:00:00:01:01:04 "$rpt/lp0.json" | grep -q '"ssid": "Meadow"'; then st_pass "hidden networks: a newer non-hidden beacon row of a network that hid before -> named"; else st_fail "hidden networks: network that stopped hiding [$(lp_row 02:00:00:01:01:04 "$rpt/lp0.json")]"; fi
+        if lp_row 02:00:00:01:01:05 "$rpt/lp0.json" | grep -q '"ssid": ""' && lp_row 02:00:00:01:01:06 "$rpt/lp0.json" | grep -q '"ssid": ""'; then st_pass "hidden networks: a hidden beacon with an empty name and one with a blank-padded name both give ssid \"\""; else st_fail "hidden networks: empty/padded [$(lp_row 02:00:00:01:01:05 "$rpt/lp0.json")] [$(lp_row 02:00:00:01:01:06 "$rpt/lp0.json")]"; fi
+        printf '%s\n' "$(cat "$rpt/lp1.json")" > "$rpt/lp1b.json"; lay_check "recon.db document with packets" "$rpt/lp1b.json"
+        unset -f lp_row
+        # a skipped cycle still carries a fresh Bluetooth layer: the base document is the kept one, the window is new (against the stand-ins of bt_selftest)
+        bt_env on; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"
+        RECON_DB="$kdb"; HAS_TIME=""; RDB_PATH=""; RS_SIG=""; RS_SKIPS=0; MAX_AGE=0; SKIP_MAX=20; OUTFILE="$rpt/skipbt.json"; rm -f "$OUTFILE"; BT_HELD=""; BLUETOOTH=1
+        cyc $((n0 + 1000)); k1=$(calls); cp "$OUTFILE" "$rpt/k1.json"
+        cyc $((n0 + 1030)); k2=$(calls); cp "$OUTFILE" "$rpt/k2.json"
+        lp_strip() { grep -v '"generated"' "$1" | grep -v '^  "bluetooth"' | sed 's/, "bt_window": [0-9]*, "bt_hold": [0-9]*//'; }
+        lp_strip "$rpt/k1.json" > "$rpt/k1.body"; lp_strip "$rpt/k2.json" > "$rpt/k2.body"
+        if [ "$k1/$k2" = 1/0 ] && [ "$RS_SKIPS" = 1 ] && grep -q '"generated": '$((n0 + 1030))',' "$rpt/k2.json" && cmp -s "$rpt/k1.body" "$rpt/k2.body" && json_ok < "$rpt/k2.json" \
+           && grep -q '^  "bluetooth": \[{"addr": "02:00:00:00:00:02", "addr_type": "random-resolvable", "rssi": -49, "reports": 2, "last_seen": '$((n0 + 1030))',' "$rpt/k2.json" \
+           && grep -q '"bt_window": 1, "bt_hold": 120' "$rpt/k2.json" && grep -q '"ssid": "OldAP"' "$rpt/k2.json"; then
+            st_pass "skip with layers: nothing changed in recon.db, Bluetooth on -> the sqlite3 shim sees no call, the published document has the new generated, a bluetooth line of this cycle's window, and otherwise the kept bytes"
+        else st_fail "skip with layers (calls $k1/$k2, skips $RS_SKIPS, [$(grep '^  "bluetooth"' "$rpt/k2.json" | cut -c1-160)])"; fi
+        bts_idle "skip path"
+        # 22 quiet cycles with Bluetooth on (another collector's window makes each one a void window, which costs no time): the skip counter is not reset by a skip, so SKIP_MAX trips
+        bts_reap; bts_other
+        RS_SIG=""; RS_SKIPS=0; lp_seq=""; lp_i=1
+        while [ "$lp_i" -le 22 ]; do cyc $((n0 + 1100 + 30 * lp_i)); lp_seq="$lp_seq$(calls)"; lp_i=$((lp_i + 1)); done
+        if [ "$lp_seq" = "$(printf '1%020d1' 0)" ] && grep -q '^  "bluetooth": \[' "$OUTFILE" && grep -q '"bt_window": 0' "$OUTFILE" && json_ok < "$OUTFILE"; then
+            st_pass "skip with layers: 22 quiet cycles with Bluetooth on -> a full pass, 20 skipped cycles, then SKIP_MAX forces the next full pass; every document carries the layer (void window: held records, bt_window 0)"
+        else st_fail "skip with layers: sqlite3 calls per cycle [$lp_seq]"; fi
+        bts_other_end; BLUETOOTH=0; bt_env off; unset -f lp_strip
+        TRAFFIC=0; RECON_DB="$kdb"; HAS_TIME=""; RDB_PATH=""; RS_SIG=""; MAX_AGE=0; OUTFILE="$rpt/skip.json"
+
         # ---- 3d) the opt-in source `pineap`: a stub of the AP service command line prints fixture JSON (placeholders only). The parser must carry
         #      SSIDs with any character, pick the strongest beacon/response record, keep stations apart from APs, apply the window, take the
         #      security from recon.db rarely (one sqlite3 process per lookup) and never run a command that is not one of the two listed.
@@ -2842,6 +4740,7 @@ SQL
         pnb() { PATH="$1:$p_path2"; build_from_apcli "$2" > "$ppt/o.json" 2>>"$ppt/e.log"; pnrc=$?; PATH=$p_path2; pn=$(cat "$ppt/o.json"); }
         pnb "$ppt/bin" $pt0
         if [ "$pnrc" = 0 ] && printf '%s\n' "$pn" | json_ok; then st_pass "pineap: valid JSON from RECON APS + RECON DEVICES fixtures"; else st_fail "pineap: document (rc $pnrc)"; fi
+        printf '%s\n' "$pn" > "$ppt/emit.json"; lay_check "pineap document" "$ppt/emit.json"
         if [ "$(cat "$ppt/log")" = "RECON APS format=json
 RECON DEVICES format=json" ]; then st_pass "pineap: exactly the two read-only list commands were run, once each"; else st_fail "pineap: commands [$(cat "$ppt/log")]"; fi
         check   "pineap: source label"                     "$pn" '"source": "pineap"'
@@ -2858,6 +4757,15 @@ RECON DEVICES format=json" ]; then st_pass "pineap: exactly the two read-only li
         MAX_AGE=3600; pnb "$ppt/bin" $pt0; MAX_AGE=0
         pnl=$(printf '%s\n' "$pn" | grep -c '"bssid"'); pnc=$(printf '%s\n' "$pn" | grep -c '"mac"')
         if [ "$pnl/$pnc" = 3/2 ] && ! printf '%s\n' "$pn" | grep -q 'Gone'; then st_pass "pineap: STARCHORUS_MAX_AGE applies to time (the AP and the station from 2 h ago are gone)"; else st_fail "pineap: window counts $pnl/$pnc"; fi
+        # a hidden beacon: ssid stays empty (the 0.1 convention), whatever name its record holds
+        printf '[{"mac": "AA:BB:CC:00:00:51", "freq": 2412, "signal": -50, "time": %s, "beacon": {"1": {"ssid": "Garden", "channel": 1, "freq": 2412, "signal": -50, "time": %s, "hidden": true}}},\n {"mac": "AA:BB:CC:00:00:52", "freq": 2412, "signal": -60, "time": %s, "beacon": {"2": {"ssid": "  Pad  ", "channel": 1, "freq": 2412, "signal": -60, "time": %s, "hidden": true}}},\n {"mac": "AA:BB:CC:00:00:53", "freq": 2412, "signal": -61, "time": %s, "beacon": {"3": {"ssid": "", "channel": 1, "freq": 2412, "signal": -61, "time": %s, "hidden": true}}},\n {"mac": "AA:BB:CC:00:00:54", "freq": 2412, "signal": -62, "time": %s, "beacon": {"4": {"ssid": "Open", "channel": 1, "freq": 2412, "signal": -62, "time": %s, "hidden": false}}}]\n' \
+            $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) $((pt0 - 5)) > "$ppt/aps12.json"
+        printf '[]\n' > "$ppt/dev12.json"; apcli_stub "$ppt/bin12" "$ppt/log12" "$ppt/aps12.json" "$ppt/dev12.json"
+        pnb "$ppt/bin12" $pt0; pn12=$pn
+        if [ "$(pl_of "$pn12" 'aa:bb:cc:00:00:51' | grep -c '"ssid": ""')" = 1 ] && pl_of "$pn12" 'aa:bb:cc:00:00:52' | grep -q '"ssid": ""' && pl_of "$pn12" 'aa:bb:cc:00:00:53' | grep -q '"ssid": ""' \
+           && pl_of "$pn12" 'aa:bb:cc:00:00:54' | grep -q '"ssid": "Open"' && ! printf '%s\n' "$pn12" | grep -q -e Garden -e Pad -e ssid_recorded && printf '%s\n' "$pn12" | json_ok; then
+            st_pass "pineap: a hidden beacon gives ssid \"\" whatever name its record holds (no other field carries it); a plain network keeps its name"
+        else st_fail "pineap: hidden beacon [$(pl_of "$pn12" 'aa:bb:cc:00:00:51')]"; fi
         # the same lists, pretty-printed and with the key order reversed in one object: the tokeniser does not care about layout
         sed -e 's/, "/,\
  "/g' "$ppt/aps.json" > "$ppt/aps2.json"; apcli_stub "$ppt/bin2" "$ppt/log2" "$ppt/aps2.json" "$ppt/dev.json"
@@ -2948,6 +4856,11 @@ SQL
         RESOLVED=pineap; OUTFILE="$rpt/pn.json"; OUTDIR="$rpt"; VENDOR=0; MAX_AGE=0; PSEC_T=0; PATH="$ppt/bin:$p_path2"; RECON_DB="$tdir/none-such.db"; RDB_PATH=""
         run_cycle >/dev/null 2>&1
         if json_ok < "$OUTFILE" && grep -q '"source": "pineap"' "$OUTFILE" && grep -q '"center": {"label": "This device", "max_age": 0, "interval"' "$OUTFILE"; then st_pass "pineap: run_cycle publishes it, center extras included"; else st_fail "pineap: run_cycle"; fi
+        # ... with a Bluetooth layer (another collector's window makes it a void one): the AP service's document carries the layer, nothing is left behind
+        bts_reap; bt_env on; bts_other; BLUETOOTH=1; BT_HELD=""
+        run_cycle >/dev/null 2>&1
+        if json_ok < "$OUTFILE" && grep -q '"source": "pineap"' "$OUTFILE" && grep -q '^  "bluetooth": \[\],$' "$OUTFILE" && grep -q '"bt_window": 0, "bt_hold": 120' "$OUTFILE"; then st_pass "pineap: a cycle with the Bluetooth layer on publishes the AP service's document with the layer (a void window: the empty array, bt_window 0)"; else st_fail "pineap: cycle with the Bluetooth layer"; fi
+        bts_other_end; bts_idle "pineap cycle"; BLUETOOTH=0; bt_env off
         # no usable answer (an empty list; a hung or failing command line): recon.db for that cycle, said once; then pineap again
         RECON_DB="$tdir/recon_pn.db"; RDB_PATH=""; PN_FELL=0; PATH="$ppt/bin4:$p_path2"
         run_cycle >/dev/null 2>"$ppt/err1"; run_cycle >/dev/null 2>"$ppt/err2"
@@ -2992,6 +4905,7 @@ SQL
 TXT
     out=$(parse_tcpdump_text 1710000000 < "$tdir/tcpdump.txt" 2>/dev/null)
     jcheck "tcpdump" "$out"
+    printf '%s\n' "$out" > "$tdir/emit-tcpdump.json"; lay_check "tcpdump document" "$tdir/emit-tcpdump.json"
     check "tcpdump: source label"   "$out" '"source": "tcpdump"'
     check "tcpdump: beacon AP"      "$out" '"bssid": "aa:bb:cc:00:11:22"'
     check "tcpdump: probe-resp AP"  "$out" '"bssid": "de:ad:be:ef:00:01"'
@@ -3067,10 +4981,10 @@ TXT
     if [ "$OUI_PATH" = "$tdir/oui-nmap.txt" ] && [ -n "$OUI_CACHE" ] && [ -f "$OUI_CACHE" ]; then
         st_pass "vendor: explicit STARCHORUS_OUI_FILE found, cache created"; else st_fail "vendor: setup_vendor"; fi
     out=$(vbase)
-    jcheck "vendor(nmap):" "$out"
-    check   "vendor(nmap): AP vendor after bssid (first line wins)" "$out" '"bssid": "a8:bb:cc:00:11:22", "vendor": "Acme Networks", "ssid": "AcmeNet"'
-    check   "vendor(nmap): associated client vendor"  "$out" '"mac": "10:22:33:44:55:66", "vendor": "Client Corp", "rssi": -55'
-    checkf  "vendor(nmap): quote + backslash escaped" "$out" '"vendor": "Acme \"Quoted\" \\ Corp"'
+    jcheck "vendor(Nmap):" "$out"
+    check   "vendor(Nmap): AP vendor after bssid (first line wins)" "$out" '"bssid": "a8:bb:cc:00:11:22", "vendor": "Acme Networks", "ssid": "AcmeNet"'
+    check   "vendor(Nmap): associated client vendor"  "$out" '"mac": "10:22:33:44:55:66", "vendor": "Client Corp", "rssi": -55'
+    checkf  "vendor(Nmap): quote + backslash escaped" "$out" '"vendor": "Acme \"Quoted\" \\ Corp"'
     check   "vendor: rate survives beside vendor"     "$out" '"rate": 130'
     check   "vendor: randomized client flagged"       "$out" '"mac": "9a:88:77:66:55:44", "randomized": true, "rssi": -80'
     checkno "vendor: randomized client has no vendor" "$(line_of "$out" '9a:88:77:66:55:44')" '"vendor"'
@@ -3235,7 +5149,7 @@ SQL
     printf '%s\n' 'A8BBCC=Acme Networks' '102233=Client Corp' > "$tdir/oui-weird.txt"
     if oui_format_ok "$tdir/oui-nmap.txt" && oui_format_ok "$tdir/oui-mc.txt" && oui_format_ok "$tdir/oui-ieee.txt" \
        && ! oui_format_ok "$tdir/oui-weird.txt" && ! oui_format_ok "$tdir"; then
-        st_pass "cache: format probe accepts nmap/macchanger/ieee, rejects '=' format and a directory"
+        st_pass "cache: format probe accepts Nmap/macchanger/ieee, rejects '=' format and a directory"
     else st_fail "cache: format probe"; fi
     VENDOR_STATE=""; OUI_FILE="$tdir/oui-weird.txt"; setup_vendor 2>"$tdir/log6h"
     check "cache: unusable explicit file is logged"    "$(cat "$tdir/log6h")" 'no usable OUI format'
@@ -3876,6 +5790,10 @@ setup_vendor
 
 resolve_source
 log "resolved data source: $RESOLVED  (interface: ${MONIF:-n/a}, created_mon=$CREATED_MON)"
+if [ "$BLUETOOTH" = 1 ]; then
+    [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 6"
+    log "Bluetooth: one passive LE scan window of ${BT_WIN}s per cycle (STARCHORUS_BLUETOOTH=1); addresses, not devices"
+fi
 
 if [ "$RESOLVED" = "none" ]; then
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
@@ -3893,9 +5811,11 @@ if [ "$RESOLVED" = "capture" ]; then
     [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
 fi
 
-# Signals clean up AND exit (a returning handler would otherwise resume the loop); EXIT only cleans.
+# Signals clean up AND exit (a returning handler would otherwise resume the loop); EXIT only cleans. HUP is here for a collector started from a
+# terminal that closes (a Bluetooth window's tools must not outlive it).
 trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 129' HUP
 trap cleanup EXIT
 
 if [ "$1" = "--once" ]; then
@@ -3912,6 +5832,7 @@ fi
 # other collector loop it replaces (one collector per device).
 kill_loops replace
 sweep_stale_cache_files
+bt_sweep
 sweep_stale_workcopies
 sweep_stale_tmp
 echo $$ > "$LOOP_PIDFILE"
@@ -3964,6 +5885,13 @@ done
 #      Override with STARCHORUS_OUI_FILE=<path> (e.g. a newer file on a USB stick). Parser, cache,
 #      index and lock: see VENDOR LOOKUP. The index is built once, when the daemon starts; the size and
 #      line count of the file and the CPU figures: docs/device-notes.md (V-8, §6a).
+#  10. BLUETOOTH (the brief's read-only checks of 16 Oct 2026, docs/device-notes.md V-13): BlueZ 5.72 with hcitool and btmon on the stock firmware, no
+#      rfkill; hci0 is an internal USB controller of the same combo chip as a Wi-Fi radio. `hcitool lescan --passive --duplicates` works and sends no
+#      scan request; `btmon` alone starts no scan, it only decodes what another scanner causes, so a window is the scan as starter and btmon as reader.
+#      Random addresses dominate (854 of 890 reports in 30 s) and rotate, so the records are addresses. The text of the device's btmon, a 10-s sample
+#      kept as tests/fixtures/btmon-window.txt (addresses and names masked), has no [hciN] tag, puts the sender's name in front of the host's own
+#      commands ("<name>[pid]: < HCI Command: ...") and cuts a command name that no longer fits ("LE Set Scan P.."): bt_parse reads a header by its
+#      opcode and its shape, never by its name, and takes the tag when there is one.
 #      NOT covered by --selftest (timing races, documented rather than faked): a live holder
 #      grabbing a fresh lock in the microseconds between a breaker's check and its rename
 #      (cache_break gives it back), and setup_vendor's restart racing an in-flight merge (the

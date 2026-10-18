@@ -1,0 +1,363 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device",
+  "max_age": 3600,
+  "interval": 30,
+  "bt_window": 6,
+  "bt_hold": 120
+ },
+ "source": "recon-db",
+ "bluetooth": [
+  {
+   "addr": "02:00:00:00:04:01",
+   "addr_type": "random-resolvable",
+   "rssi": -50,
+   "reports": 3,
+   "last_seen": 1789299996,
+   "company": 65535,
+   "company_name": "Maker A",
+   "connectable": true
+  },
+  {
+   "addr": "02:00:00:00:04:02",
+   "addr_type": "random-resolvable",
+   "rssi": -56,
+   "reports": 2,
+   "last_seen": 1789299996,
+   "company": 65535,
+   "company_name": "Maker A"
+  },
+  {
+   "addr": "02:00:00:00:04:03",
+   "addr_type": "random-resolvable",
+   "rssi": -58,
+   "reports": 1,
+   "last_seen": 1789299990,
+   "company": 65535,
+   "company_name": "Maker A"
+  },
+  {
+   "addr": "02:00:00:00:04:09",
+   "addr_type": "public",
+   "rssi": -63,
+   "reports": 2,
+   "last_seen": 1789299996,
+   "company": 65535,
+   "company_name": "Maker A",
+   "connectable": true
+  },
+  {
+   "addr": "02:00:00:00:04:05",
+   "addr_type": "random-nonresolvable",
+   "rssi": -66,
+   "reports": 2,
+   "last_seen": 1789299996
+  },
+  {
+   "addr": "02:00:00:00:04:04",
+   "addr_type": "random-resolvable",
+   "rssi": -72,
+   "reports": 1,
+   "last_seen": 1789299960,
+   "company": 65535,
+   "company_name": "Maker A"
+  },
+  {
+   "addr": "02:00:00:00:04:06",
+   "addr_type": "random-nonresolvable",
+   "rssi": -75,
+   "reports": 1,
+   "last_seen": 1789299996
+  },
+  {
+   "addr": "02:00:00:00:04:08",
+   "addr_type": "random-static",
+   "rssi": -77,
+   "reports": 1,
+   "last_seen": 1789299925,
+   "name": "Sensor-1"
+  },
+  {
+   "addr": "02:00:00:00:04:07",
+   "addr_type": "random-nonresolvable",
+   "rssi": -83,
+   "reports": 1,
+   "last_seen": 1789299996
+  }
+ ],
+ "activity": [
+  {
+   "freq": 2412,
+   "share": 0.28
+  },
+  {
+   "freq": 2437,
+   "share": 0.24
+  },
+  {
+   "freq": 2452,
+   "share": 0.12
+  },
+  {
+   "freq": 5180,
+   "share": 0.16
+  },
+  {
+   "freq": 5320,
+   "share": 0.06
+  },
+  {
+   "freq": 5500,
+   "share": 0.1
+  }
+ ],
+ "channels": [
+  {
+   "freq": 2412,
+   "last_heard": 1789299973
+  },
+  {
+   "freq": 5180,
+   "last_heard": 1789299965
+  }
+ ],
+ "aps": [
+  {
+   "bssid": "02:00:00:00:01:01",
+   "ssid": "HomeNet",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -44,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299996
+  },
+  {
+   "bssid": "02:00:00:00:01:02",
+   "ssid": "HomeNet",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299994
+  },
+  {
+   "bssid": "02:00:00:00:01:03",
+   "ssid": "Neighbour-A",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -58,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299991
+  },
+  {
+   "bssid": "02:00:00:00:01:04",
+   "ssid": "Cafe-Guest",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -66,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299985
+  },
+  {
+   "bssid": "02:00:00:00:01:05",
+   "ssid": "Office-5G",
+   "channel": 44,
+   "band": "5GHz",
+   "freq": 5220,
+   "rssi": -61,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299989
+  },
+  {
+   "bssid": "02:00:00:00:01:06",
+   "ssid": "",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -72,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299980
+  },
+  {
+   "bssid": "02:00:00:00:01:09",
+   "ssid": "Lab-Net",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -70,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299970
+  },
+  {
+   "bssid": "02:00:00:00:01:0a",
+   "ssid": "Guest-5G",
+   "channel": 52,
+   "band": "5GHz",
+   "freq": 5260,
+   "rssi": -74,
+   "security": "Open",
+   "clients": [],
+   "last_seen": 1789299955
+  },
+  {
+   "bssid": "02:00:00:00:01:0b",
+   "ssid": "Hub-4432",
+   "channel": 100,
+   "band": "5GHz",
+   "freq": 5500,
+   "rssi": -58,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299986
+  },
+  {
+   "bssid": "02:00:00:00:01:0c",
+   "ssid": "Legacy-Net",
+   "channel": 4,
+   "band": "2.4GHz",
+   "freq": 2427,
+   "rssi": -82,
+   "security": "WEP",
+   "clients": [],
+   "last_seen": 1789299910
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "02:00:00:00:02:01",
+   "rssi": -54,
+   "last_seen": 1789299985,
+   "vendor": "Vendor G",
+   "packets": 1520
+  },
+  {
+   "mac": "02:00:00:00:02:02",
+   "rssi": -56,
+   "last_seen": 1789299976,
+   "vendor": "Vendor H",
+   "packets": 310
+  },
+  {
+   "mac": "02:00:00:00:02:03",
+   "rssi": -58,
+   "last_seen": 1789299967,
+   "vendor": "Vendor I",
+   "packets": 48
+  },
+  {
+   "mac": "02:00:00:00:02:04",
+   "rssi": -60,
+   "last_seen": 1789299958,
+   "vendor": "Vendor J",
+   "packets": 9
+  },
+  {
+   "mac": "02:00:00:00:02:05",
+   "rssi": -62,
+   "last_seen": 1789299949,
+   "vendor": "Vendor K"
+  },
+  {
+   "mac": "02:00:00:00:02:06",
+   "rssi": -64,
+   "last_seen": 1789299940,
+   "vendor": "Vendor L"
+  },
+  {
+   "mac": "02:00:00:00:02:07",
+   "rssi": -66,
+   "last_seen": 1789299931,
+   "vendor": "Vendor M"
+  },
+  {
+   "mac": "02:00:00:00:02:08",
+   "rssi": -68,
+   "last_seen": 1789299922,
+   "vendor": "Vendor N"
+  },
+  {
+   "mac": "02:00:00:00:02:09",
+   "rssi": -70,
+   "last_seen": 1789299913,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0a",
+   "rssi": -72,
+   "last_seen": 1789299904,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0b",
+   "rssi": -74,
+   "last_seen": 1789299895,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0c",
+   "rssi": -76,
+   "last_seen": 1789299886,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0d",
+   "rssi": -78,
+   "last_seen": 1789299877,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0e",
+   "rssi": -80,
+   "last_seen": 1789299868,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:0f",
+   "rssi": -82,
+   "last_seen": 1789299859,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:10",
+   "rssi": -84,
+   "last_seen": 1789299850,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:11",
+   "rssi": -86,
+   "last_seen": 1789299841,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:12",
+   "rssi": -88,
+   "last_seen": 1789299832,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:13",
+   "rssi": -90,
+   "last_seen": 1789299823,
+   "randomized": true
+  },
+  {
+   "mac": "02:00:00:00:02:14",
+   "rssi": -92,
+   "last_seen": 1789299814,
+   "randomized": true
+  }
+ ]
+}

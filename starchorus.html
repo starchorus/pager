@@ -183,6 +183,7 @@ b { font-weight: 600; }
   --client: #dfe7fb;
   --bubble-fill: rgba(210,214,224,0.10);
   --bubble-stroke: rgba(210,214,224,0.75);
+  --bt-mark: #d77fa8;
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, "JetBrains Mono", Consolas, monospace;
   --text-transform: none;
@@ -396,6 +397,8 @@ b { font-weight: 600; }
 .btn.b24.on { background: var(--band-24); border-color: var(--band-24); }
 .btn.b5.on  { background: var(--band-5);  border-color: var(--band-5); }
 .btn.b6.on  { background: var(--band-6);  border-color: var(--band-6); }
+.btn.bbt.on { background: var(--bt-mark); border-color: var(--bt-mark); }
+@media (max-width: 374px) { #sheet-row { flex-wrap: wrap; justify-content: flex-end; } }   /* four layer buttons, Legend and the chevron need 338 px: below that the chevron (then Legend) goes to a second line */
 .btn.toggle.on { background: var(--toggle-on); border-color: var(--toggle-border); color: var(--toggle-ink); }
 .btn.forced { outline: 1px dashed var(--status-ring-neutral); }
 #cam .cam { min-width: 30px; text-align: center; }
@@ -603,6 +606,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
   <div class="cell b6"><div class="num" id="n-6" title="0">0</div><div class="lbl"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M4 .5 7 2.25v3.5L4 7.5 1 5.75v-3.5Z" fill="var(--band-6)"/></svg>6 GHz</div></div>
   <div class="cell fresh" id="n-fresh-cell" hidden><div class="num" id="n-fresh" title="0">0</div><div class="lbl">heard &lt; 1 min</div></div>
   <div class="cell record" id="n-record-cell" hidden><div class="num" id="n-record" title="0">0</div><div class="lbl">on record</div></div>
+  <div class="cell bt" id="n-bt-cell" hidden><div class="num" id="n-bt" title="">0</div><div class="lbl">BT addresses</div></div>
   <div class="cell alarm" id="n-alarm-cell" hidden><div id="n-alarm" title="0"><svg class="asw" viewBox="0 0 8 8" aria-hidden="true"><rect width="8" height="8" fill="var(--status-alarm)"/></svg><span class="num">0</span></div><div class="lbl">open/wep</div></div>
   <div class="cell groups"><div class="num" id="n-groups" title="0">0</div><div class="lbl">ESSID sets</div></div>
   <div class="cell crowd" id="n-crowd-cell" hidden><div class="num" id="n-crowd" title="">1</div><div class="lbl">crowding /5</div></div>
@@ -633,6 +637,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
     <button class="btn b24 on" data-band="2.4" aria-pressed="true" title="2.4 GHz [1]">2.4</button>
     <button class="btn b5 on" data-band="5" aria-pressed="true" title="5 GHz [2]">5</button>
     <button class="btn b6 on" data-band="6" aria-pressed="true" title="6 GHz [3]">6</button>
+    <button class="btn bbt on" data-band="bt" hidden aria-pressed="true" title="Bluetooth [4]">BT</button>
   </div>
   <div class="group" id="grp-view">
     <span class="glabel">View</span>
@@ -779,6 +784,8 @@ const CLOUD = { bandDb: 3, shiftEps: 0.01, shiftMax: 8, burstS: 2, burstCap: 150
   joinDb: 6, mergeDb: 12, coincide: 0.6, mergeShare: 0.8, mixedShare: 0.6, keepAddr: 2, keepFrac: 0.5,
   expandMs: 6000, pxBase: 5, pxGain: 1.5, px3d: [4.5, 11], listMax: 300 };
 const RANDOM_MODES = ["cloud", "show", "hide"];
+const BT = { pxBase: 4, pxGain: 1.5, px3d: [4, 10], hystDb: 3, cap: 256, drawMax: 48 }, GLOW = { rateFull: 5, min: 0.05, max: 24 };
+const BT_TYPES = ["public", "random-static", "random-resolvable", "random-nonresolvable", "random"];
 const CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1, distMax: 9, elMin: -0.15, elMax: 1.45,
   yBand: { "2.4": -0.10, "5": 0, "6": 0.10, unknown: 0 }, yJitter: 0.04, freeYSpread: 0.36, freeZJitter: 0.03,
   fibonacciAbove: 60, hexY: 0.02,
@@ -827,7 +834,7 @@ const KEYS = [
   { key: "Y", desc: "Channel view: bars · spectrum · channel-by-time waterfall", btn: "t-chan" },
   { key: "B", desc: "Baseline diff: what is new, changed or not heard now against the saved baseline (Set / Clear)", btn: "t-baseline" },
   { key: "U", desc: "Hide or show the panels: the sky alone, with a status pill that brings them back", btn: "t-panels" },
-  { key: "1 / 2 / 3", desc: "Band filter 2.4 / 5 / 6 GHz" },
+  { key: "1 / 2 / 3 / 4", desc: "Band filter 2.4 / 5 / 6 GHz · Bluetooth" },
   { key: "← → ↑ ↓", desc: "Orbit camera (3D)" },
   { key: "+ / −", desc: "Zoom (3D) · zoom around the device (2D)" },
   { key: "0", desc: "Reset camera and 2D zoom" },
@@ -942,7 +949,7 @@ THEMES.foundation = {
     textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#6f7c9c", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
   render: { clientCore: "#dfe7fb", clientRing: "band", clientShape: "disc", bubbleFill: "rgba(210,214,224,0.10)", bubbleStroke: "rgba(210,214,224,0.75)",
     nebula: "rgba(210,214,224,1)", starfield: { density: 5200, color: "#aebbe0", alpha: [0.12, 0.62], twinkleFrac: 0.15 },
-    grid: { spokes: 0, dotStepPx: 0 }, shadow: "rgba(0,0,0,0.12)", composite: "source-over", shapeFill: true, probeArc: false, deviceTie: "bezier", changeCue: "glowPulse", clientRandomizedMark: "hollow", bubbleTicks: false,
+    grid: { spokes: 0, dotStepPx: 0 }, shadow: "rgba(0,0,0,0.12)", composite: "source-over", shapeFill: true, probeArc: false, deviceTie: "bezier", changeCue: "glowPulse", clientRandomizedMark: "hollow", bubbleTicks: false, btMark: "#d77fa8",
     phosphor: { enabled: false, alpha: [0, 0, 0, 0], radiusFactor: 0 }, recvRing: { enabled: false, fromPx: 0, toPx: 0, ms: 0 }, arrivalArcs: false,
     coreMark: "sun", newPlotMark: { enabled: false, dash: [3, 3], offsetPx: 6 }, coreBeat: { enabled: true, hz: 0.8, amp: 0.07 } },   // the core beats in place (<= 1 Hz), no outward rings
   look: { clock: { p1: "#7c828c", p2: "#9aa7c4", p3: "#6f7c9c" } },
@@ -984,7 +991,7 @@ THEMES.wargames = {
     textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#808080", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
   render: { clientCore: "#e6e6dc", clientRing: "band", clientShape: "cross", bubbleFill: "rgba(0,0,0,0.60)", bubbleStroke: "#a7a7a7",
     nebula: "rgba(154,154,144,1)", starfield: { density: 0, color: "#000000", alpha: [0, 0], twinkleFrac: 0 },
-    grid: { spokes: 8, dotStepPx: 48 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: true, deviceTie: "bracket", changeCue: "bloomPulse", clientRandomizedMark: "crossX", bubbleTicks: true,
+    grid: { spokes: 8, dotStepPx: 48 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: true, deviceTie: "bracket", changeCue: "bloomPulse", clientRandomizedMark: "crossX", bubbleTicks: true, btMark: "#e87ac8",
     phosphor: { enabled: true, alpha: [0.55, 0.34, 0.16, 0], radiusFactor: 2.4 },   // the star's afterglow = freshness (T0..T3), one soft sprite per band colour and size, blitted with a per-tier alpha
     recvRing: { enabled: true, fromPx: 18.5, toPx: 10.5, ms: 300 }, arrivalArcs: true,   // a ring that CONTRACTS onto the core when a station arrives (never outward); arcs only for arrivals
     coreMark: "reticle", newPlotMark: { enabled: false, dash: [3, 3], offsetPx: 6 }, coreBeat: { enabled: false, hz: 0, amp: 0 } },
@@ -1037,7 +1044,7 @@ THEMES.whitehall = {
     textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#7d8674", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
   render: { clientCore: "#d7dad1", clientRing: "band", clientShape: "cross", bubbleFill: "rgba(10,15,11,0.60)", bubbleStroke: "#7d8674",
     nebula: "rgba(150,160,143,1)", starfield: { density: 0, color: "#000000", alpha: [0, 0], twinkleFrac: 0 },
-    grid: { spokes: 12, dotStepPx: 40 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: false, deviceTie: "bracket", changeCue: "tick", clientRandomizedMark: "crossX", bubbleTicks: false,
+    grid: { spokes: 12, dotStepPx: 40 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: false, deviceTie: "bracket", changeCue: "tick", clientRandomizedMark: "crossX", bubbleTicks: false, btMark: "#a8509a",
     phosphor: { enabled: false, alpha: [0, 0, 0, 0], radiusFactor: 0 }, recvRing: { enabled: false, fromPx: 0, toPx: 0, ms: 0 }, arrivalArcs: false,
     coreMark: "ownship", newPlotMark: { enabled: true, dash: [3, 3], offsetPx: 9 }, coreBeat: { enabled: false, hz: 0, amp: 0 } },   // an unframed ship symbol at the centre; a new plot gets its own dashed mark (not the identity channel)
   look: { clock: { p1: "#8a4a44", p2: "#a08a4a", p3: "#4a6a8f" } },   // the sector clock's three period colours: ornament, DOM dial only, never data
@@ -1094,7 +1101,7 @@ const CSS_MIRROR = [
   ["--toggle-on", "accent.toggleOn", ""], ["--toggle-ink", "accent.toggleInk", ""], ["--toggle-border", "accent.toggleBorder", ""], ["--chrome-ink", "chrome.ink", ""],
   ["--clock-p1", "look.clock.p1", ""], ["--clock-p2", "look.clock.p2", ""], ["--clock-p3", "look.clock.p3", ""],
   ["--banner-fill", "chrome.banner.fill", ""], ["--banner-ink", "chrome.banner.ink", ""], ["--banner-rule", "chrome.banner.rule", ""],
-  ["--client", "render.clientCore", ""], ["--bubble-fill", "render.bubbleFill", ""], ["--bubble-stroke", "render.bubbleStroke", ""],
+  ["--client", "render.clientCore", ""], ["--bubble-fill", "render.bubbleFill", ""], ["--bubble-stroke", "render.bubbleStroke", ""], ["--bt-mark", "render.btMark", ""],
   ["--font-ui", "font.ui", ""], ["--font-mono", "font.mono", ""], ["--text-transform", "font.transform", ""], ["--letter-spacing", "font.letterSpacing", ""],
   ["--heading-variant", "font.headingVariant", ""], ["--lamp-off", "chrome.lampStrip.off", ""],
   ["--size-label", "font.sizesPx.label", "px"], ["--size-hud", "font.sizesPx.hud", "px"], ["--size-tip", "font.sizesPx.tip", "px"],
@@ -1410,6 +1417,18 @@ function normClient(c, fallbackId) {
   return { mac, rssi, vendor, last_seen: numOrNull(c.last_seen), packets: numOrNull(c.packets), probes,
     randomized: c.randomized === true || (!vendor && ulBit(mac)) };
 }
+function normBt(r) {   // §3.1 bluetooth[]: the strongest 256, null without an array
+  if (!Array.isArray(r)) return null;
+  const m = new Map();
+  for (const b of r.slice(0, 2000)) {
+    if (!isObj(b)) continue;
+    const addr = normMac(b.addr), rssi = dbmOrNull(b.rssi), co = numOrNull(b.company);
+    if (isMac(addr) && rssi != null && !(m.has(addr) && m.get(addr).rssi >= rssi)) m.set(addr, { addr, addr_type: BT_TYPES.includes(b.addr_type) ? b.addr_type : "random", rssi, reports: numOrNull(b.reports), last_seen: numOrNull(b.last_seen),
+      company: co >= 0 && co < 65536 && co % 1 === 0 ? co : null, company_name: strOrNull(b.company_name, 48), name: strOrNull(b.name, 32), connectable: b.connectable === true });
+  }
+  return Array.from(m.values()).sort((a, b) => b.rssi - a.rssi || cmpStr(a.addr, b.addr)).slice(0, BT.cap);
+}
+const normAct = (r) => Array.isArray(r) ? r.slice(0, 69).flatMap(x => { const f = isObj(x) ? numOrNull(x.freq) : null, s = isObj(x) ? numOrNull(x.share) : null; return f > 0 && s > 0 && s <= 1 ? [{ freq: f, share: s }] : []; }) : null;   // §3.1 activity[]
 function normalizeDoc(raw) {
   if (!isObj(raw) || !Array.isArray(raw.aps)) return null;
   const strs = (v, n, m) => Array.isArray(v) ? v.filter(x => typeof x === "string").map(x => stripCtl(x, m)).filter(Boolean).slice(0, n) : null;
@@ -1423,7 +1442,7 @@ function normalizeDoc(raw) {
       interval: numOrNull(rc.interval) > 0 ? numOrNull(rc.interval) : null,
       // this device's own transmitters (interface MACs / operator file): kept in memory for the exclusion logic only; never rendered, exported or stored
       own_bssids: Array.isArray(rc.own_bssids) ? rc.own_bssids.map(normMac).filter(isMac).slice(0, 16) : [],
-      own_ssids: strs(rc.own_ssids, 32, 32) || [] },
+      own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
     // optional alerts[] {type, t, ap, n} (a collector may report "many deauth/disassoc frames heard for this AP"); counts of directed frames stay local-live (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
       if (!isObj(x) || x.type !== "deauth") return null;
@@ -1440,7 +1459,7 @@ function normalizeDoc(raw) {
       const b = numOrNull(c.busy_pct);
       return { freq: f, last_heard: numOrNull(c.last_heard), busy_pct: b == null ? null : clamp(Math.round(b), 0, 100), noise: numOrNull(c.noise) };
     }).filter(Boolean) : null,
-    aps: [], unassociated: [],
+    aps: [], unassociated: [], bluetooth: normBt(raw.bluetooth), activity: normAct(raw.activity),
   };
   if (!doc.center.label) doc.center.label = "YOU ARE HERE";
   const apMap = new Map();
@@ -1538,6 +1557,7 @@ function demoData() {
     unassociated,
   };
   doc.aps.forEach((a, i) => { a.last_seen = GEN - demoAges[i]; });
+  doc.activity = [[2412, 0.12], [2422, 0.05], [2427, 0.03], [2437, 0.3], [2452, 0.06], [2462, 0.18], [5180, 0.07], [5220, 0.09], [5500, 0.04], [5745, 0.06]].map(([freq, share]) => ({ freq, share }));
   return doc;
 }
 
@@ -1546,11 +1566,12 @@ const S = {
   aps: new Map(), clients: new Map(), groups: new Map(), hist: new Map(), bubbles: new Map(),
   devices: new Map(), deviceOf: new Map(), essClusters: new Map(), essOf: new Map(), essBySsid: new Map(), essExpand: new Map(),
   identity: new Map(), clouds: new Map(), cloudOrder: [],   // §8.8a
+  bt: new Map(), btOrder: [], btLvl: new Map(), btDoc: null, act: new Map(), actN: 0,
   ui: { theme: "foundation", view: "2d", labels: true, orbits: true, links: true, paused: false,
         agg: true, vendor: false, nebula: true, groups: true, rotate: true, spin: true, crt: true, autoLod: true, help: false,
         deviceLinks: false, essMerge: false, affinity: true, observations: false, baselineDiff: false, inventory: false,
         random: "cloud", panels: true, sheet: "peek", legendCard: false,   // §9.8: panels (saved), the sheet and its legend card (not)
-        filters: { "2.4": true, "5": true, "6": true } },
+        filters: { "2.4": true, "5": true, "6": true, bt: true } },
   queryLocked: new Set(),
   view: { blend: 0, blendT: 0 },
   cam: { az: 0, el: CFG3D.el, dist: 3, target: [0, 0, 0], azT: 0, elT: CFG3D.el, distT: 3, targetT: [0, 0, 0], tween: null, ramp: 0, idleAt: 0, zoom2d: 1 },
@@ -1566,7 +1587,7 @@ const S = {
   clock: 0, skyA: 0, dirty: true, settling: false, settlePhase: 0, settleCapped: false, relayHold: false, relayT0: 0, layoutDirty: true, fixedTime: null, moving: false,
   perf: { fps: 0, frameMs: 16.6, lod: 0, lodBase: 0, dpr: 1, dprStep: 0, dprStart: 0, down: 0, capMs: 0, lateMs: 1.4 * RENDER.budgetMs,
           slowRun: 0, fastRun: 0, ambRun: 0, bT0: 0, bN: 0, bLate: 0, bMin: Infinity, bMin2: Infinity, upT: 0, upAt: 0, upWait: 0, probe: -1, probeMs: 0, probeT: -1e9, rSeen: 0,
-          rendered: 0, rafTicks: 0, fpsAt: 0, samples: [], drawCalls: { drawImage: 0, fillRect: 0, stroke: 0, fillText: 0, shadowBlur: 0, gradient: 0, cue: 0 } },
+          rendered: 0, rafTicks: 0, fpsAt: 0, samples: [], drawCalls: { drawImage: 0, fillRect: 0, stroke: 0, fillText: 0, shadowBlur: 0, gradient: 0, cue: 0, traffic: 0 } },
   countCalls: true,
   themeErrors: 0, errors: [],
   twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
@@ -1630,7 +1651,7 @@ function newAp(id) {
     pStart: -1, pCount: 0, pState: null, pT0: 0, orbitRcap: LAYOUT.orbitMaxPx, hexA: 0, seen: false };
 }
 function newClient(mac) {
-  return { id: mac, kind: "client", mac, rssi: null, vendor: null, last_seen: null, packets: null, randomized: false,
+  return { id: mac, kind: "client", mac, rssi: null, vendor: null, last_seen: null, packets: null, randomized: false, pk: null, fps: null, gl: 0, cue: false, glow: 0,
     parent: null, free: true, band: null, homeAngle: 0, homeR: 0.5, jitterR: 0, lx: 0, lz: 0, wx: 0, wz: 0, placed: false,   // placed: wx/wz hold a position (a flag instead of null, so both stay plain number fields and the per-frame writes allocate nothing)
     orbitR: 32, orbitPhase: 0, orbitSpeed: 0, orbitTilt: 0, rank: 0, p3: [0, 0, 0], p: [0, 0, 0], jitY: hash(mac + "h"), jitZ: hash(mac + "z"),
     sx: 0, sy: 0, zc: 1, px: 0, fog: 1, lod: 0, alphaDraw: 0, basePx: 3.5, basePxMax: 5,
@@ -1669,6 +1690,13 @@ function histPushCl(seenCl, gen) {
   }
   for (const id of want) { if (!S.hist.has(id)) { if (ncl >= HIST_CL_MAX) continue; ncl++; } const cn = S.clients.get(id); histPush(cn, cn.rssi, gen); }
 }
+function pkRate(n, p, gen) {   // §3.8 frames/s over three captures; n.gl = cue level
+  const s = n.pk || (n.pk = []), l = s[s.length - 1];
+  if (gen == null || p == null || (l && (p < l[1] || gen - l[0] > Math.max(90, 2 * (S.pollIntervalS || 0) + 15)))) s.length = 0;   // restart on a fall or a gap
+  if (gen != null && p != null && !(s.length && s[s.length - 1][0] === gen)) { s.push([gen, p]); if (s.length > 3) s.shift(); }
+  const e = s[s.length - 1], r = s.length > 1 ? (e[1] - s[0][1]) / (e[0] - s[0][0]) : null, t = r == null ? 0 : Math.min(1, Math.log10(1 + r) / Math.log10(1 + GLOW.rateFull));
+  n.fps = r; n.gl = t < GLOW.min ? 0 : Math.ceil(t * 3);
+}
 // D2 event record. State (counters, per-node arrival/change/cue marks) belongs to ONE source; a source change resets it, and the
 // first capture of a source produces no arrivals or departures. A "capture" is a distinct `generated` (no `generated`: no capture,
 // no event). Arrival / departure come only from comparing consecutive captures — node.capSeq is the last capture a node was in —
@@ -1678,13 +1706,13 @@ const NEW_CAPTURES = 3, CUE_DB = 3, CUE_S = 0.9;   // "new" lasts 3 captures · 
 function eventsReset() {
   // every register below belongs to the one source (rule above)
   S.captureSeq = 0; S.ev = { lastGen: null, arrived: 0, departed: 0, newStations: 0, departedStations: 0, newInClouds: 0 };
-  S.clouds.clear(); S.cloudOrder = [];   // §8.8a
+  S.clouds.clear(); S.cloudOrder = []; S.bt.clear(); S.btOrder = []; S.btLvl.clear();   // §8.8a, §3.1
   S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;
   S.chg = new Map();
   S.obsFirst = new Map(); S.obsProbe = { firstGen: null }; S.obsWatchSeen = new Set();
   S.sky = { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] };
   S.aps.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.changedSeq = -1; n.cueSeq = -1; });
-  S.clients.forEach(n => { n.capSeq = -1; n.newSeq = -1; });
+  S.clients.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.pk = null; });
 }
 function eventsBegin(gen, newSource) {   // → true when this ingest is a new capture of the current source
   if (newSource) eventsReset();
@@ -1731,6 +1759,7 @@ function ingest(doc, opts = {}) {
   S.source = doc.source; S.note = doc.note; S.generated = doc.generated; S.centerLabel = doc.center.label;
   // the built-in demo skips normalizeDoc, hence the fallbacks
   S.hop = doc.channels || null;
+  S.act = new Map((doc.activity || []).map(x => [x.freq, x.share]));   // not S.hop: D19 and the Watchlist read that
   S.own = { bssids: new Set(doc.center.own_bssids || []), ssids: new Set(doc.center.own_ssids || []) };
   S.maxAgeS = doc.center.max_age;   // D1: the collector's age window (null = unknown)
   S.pollIntervalS = doc.center.interval && Math.min(doc.center.interval, POLL.maxIntervalS);   // D3: the announced cadence, capped (null = unknown)
@@ -1776,6 +1805,7 @@ function ingest(doc, opts = {}) {
       if (cn.target !== 1 || cn.free || cn.affinity || cn.parent !== n.id || cn.rssi !== c.rssi) changed = true;
       cn.target = 1; cn.parent = n.id; cn.free = false; cn.band = n.band; cn.rank = rank;
       cn.rssi = c.rssi; cn.vendor = c.vendor; cn.last_seen = c.last_seen; cn.packets = c.packets; cn.randomized = c.randomized;
+      if (!rp) pkRate(cn, c.packets, gen);
       cn.probes = c.probes; cn.affinity = false; cn.probeVia = null;
       const fc = freshOf(c.last_seen, gen); cn.ageS = fc.ageS; cn.freshTier = fc.tier;   // D1: the station's own last_seen, never its AP's
       cn.freshAT = ENCODING.fresh.alpha[fc.tier ?? 0]; if (cNew) cn.freshA = cn.freshAT;
@@ -1792,6 +1822,7 @@ function ingest(doc, opts = {}) {
     cn.target = 1;
     if (String(cn.probes) !== String(c.probes) || cn.vendor !== c.vendor || cn.randomized !== c.randomized) changed = true;   // vendor/randomized: the bubble's summary
     cn.rssi = c.rssi; cn.vendor = c.vendor; cn.last_seen = c.last_seen; cn.packets = c.packets; cn.randomized = c.randomized; cn.probes = c.probes;
+    if (!rp) pkRate(cn, c.packets, gen);
     const fc = freshOf(c.last_seen, gen); cn.ageS = fc.ageS; cn.freshTier = fc.tier;   // D1
     cn.freshAT = ENCODING.fresh.alpha[fc.tier ?? 0]; if (cNew) cn.freshA = cn.freshAT;
     seenCl.add(c.mac);
@@ -1800,6 +1831,8 @@ function ingest(doc, opts = {}) {
   S.aps.forEach(n => { if (!seenAp.has(n.id) && n.target !== 0) { n.target = 0; changed = true; } });
   S.clients.forEach(n => { if (!seenCl.has(n.id) && n.target !== 0) { n.target = 0; changed = true; } });
   if (rebuildClouds(gen, rp)) changed = true;   // §8.8a, before the station history
+  rebuildBt(doc, gen, rp);
+  if (!rp) { const r = []; S.clients.forEach(c => { c.cue = false; if (c.gl > 0 && c.target === 1) r.push(c); }); r.sort((a, b) => b.fps - a.fps || cmpStr(a.mac, b.mac)).slice(0, GLOW.max).forEach(c => { c.cue = true; }); }   // §3.8 the 24 highest rates carry the cue
   // history sweep: a vanished node's history goes HIST_KEEP_S of capture time after its last sample, or HIST_KEEP_INGESTS ingests when undated (no wall clock)
   if (!rp) histPushCl(seenCl, gen);   // station RSSI history
   const live = (m) => !!m && m.target !== 0;   // a series stays while a present node of EITHER kind carries its key (a MAC can be heard as both)
@@ -1834,7 +1867,7 @@ function ingest(doc, opts = {}) {
   if (cap || gen == null) obsCompute();
   regulatorStart();
   updateStats();   // ends in layoutEdges() → drawChannelBar() with the fresh S._stats/analyzer counts
-  if (S.locked && !(S.aps.has(S.locked) || S.clients.has(S.locked) || liveCloud(S.locked))) closeDetail();
+  if (S.locked && !(S.aps.has(S.locked) || S.clients.has(S.locked) || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
   else if (S.locked) openDetail(S.locked);
   S.dirty = true;
   return { aps: seenAp.size, clients: seenCl.size, free, assoc };
@@ -2347,6 +2380,7 @@ function settleLayout(maxIter) {
     }
   }
   for (const k of S.cloudOrder) { if (k.placed) shown = true; homeOfClient(k); if (!k.placed) { k.wx = k.lx; k.wz = k.lz; k.placed = true; } }   // §8.8a
+  S.bt.forEach(k => { homeOfClient(k); if (!k.placed) { k.wx = k.lx; k.wz = k.lz; k.placed = true; } });
   // stations on screen wait for the settled layout instead of following the relaxation from their homes; not when this interrupts
   // a running relaxation (relayouts faster than the settle would freeze them)
   S.relayHold = shown && S.settlePhase === 0;
@@ -2537,7 +2571,7 @@ function freeY(n, nFree) {
 }
 function p3Of(node, nFree) {
   const p = node.p3;
-  if (node.kind === "cloud") {   // §8.8a
+  if (node.kind === "cloud" || node.kind === "bt") {   // §8.8a
     const h = heldFree(node);
     p[0] = h ? node.wx : node.lx; p[1] = (node.jitY - 0.5) * CFG3D.freeYSpread; p[2] = (h ? node.wz : node.lz) + (node.jitZ - 0.5) * CFG3D.freeZJitter;
     return p;
@@ -2621,11 +2655,11 @@ function projectAll() {
     project(n, n.free ? 0.85 : 0.95, CFG3D.minPxClient, CFG3D.maxPxClient);
     if (n.target === 1 && !n.randOut && (n.bubble == null || n.bubbleBlend < 0.5)) count++;
   }
-  for (const k of S.clouds.values()) {   // §8.8a
+  for (const M of [S.clouds, S.bt]) for (const k of M.values()) {   // §8.8a
     if (!k.placed) { k.wx = k.lx; k.wz = k.lz; k.placed = true; }
-    const p3 = p3Of(k, nFree); easeSky(k, lerp(k.wx, p3[0], tS), lerp(0, p3[1], tS), lerp(k.wz, p3[2], tS), e);
-    project(k, 0.85, CLOUD.px3d[0], CLOUD.px3d[1]);
-    if (k.target === 1 && S.ui.random === "cloud") count++;
+    const p3 = p3Of(k, nFree), px3 = k.kind === "bt" ? BT.px3d : CLOUD.px3d; easeSky(k, lerp(k.wx, p3[0], tS), lerp(0, p3[1], tS), lerp(k.wz, p3[2], tS), e);
+    project(k, 0.85, px3[0], px3[1]);
+    if (k.target === 1 && btOn(k)) count++;
   }
   for (const b of S.bubbles.values()) {
     let mx = 0, my = 0, mz = 0, cnt = 0;
@@ -2650,10 +2684,10 @@ function project2D() {   // the device (world origin) is pinned to CX,CY — zoo
     if (isForced(n.id)) n.alphaDraw = n.alpha;
     if (n.target === 1 && !n.randOut && (n.bubble == null || n.bubbleBlend < 0.5)) count++;
   }
-  for (const k of S.clouds.values()) {   // §8.8a
+  for (const M of [S.clouds, S.bt]) for (const k of M.values()) {   // §8.8a
     flat(k, k.wx, k.wz, k.basePx);
     k.alphaDraw = isForced(k.id) ? k.alpha : k.alpha * 0.85;
-    if (k.target === 1 && S.ui.random === "cloud") count++;
+    if (k.target === 1 && btOn(k)) count++;
   }
   for (const b of S.bubbles.values()) { flat(b, b.cx, b.cz, b.r); b.alphaDraw = b.alpha; if (b.target === 1 || b.alpha > 0.02) count++; }
   S.nodeCount = count;
@@ -3169,7 +3203,7 @@ function timeModel(scale) {
 // Recorder: the normalised captures as held in memory (complete), at most REC_MAX or REC_BYTES (an estimate) — a memory rule, not a privacy rule; never persisted.
 const REC_MAX = 120, REC_BYTES = 8 * 1024 * 1024;
 const recEmpty = () => ({ key: null, docs: [], bytes: 0, seqNo: 0, lastGen: null });
-const docBytes = (doc) => 1500 + doc.aps.length * 420 + doc.aps.reduce((a, x) => a + x.clients.length * 140, 0) + doc.unassociated.length * 160;
+const docBytes = (doc) => 1500 + doc.aps.length * 420 + doc.aps.reduce((a, x) => a + x.clients.length * 140, 0) + doc.unassociated.length * 160 + (doc.bluetooth ? doc.bluetooth.length * 150 : 0);
 function recAppend(doc, key) {
   if (!S.rec || S.rec.key !== key) { S.rec = recEmpty(); S.rec.key = key; }
   const r = S.rec, gen = doc.generated; if (gen == null || gen === r.lastGen) return false;   // → true when a capture was recorded
@@ -3633,6 +3667,37 @@ function applyRandom() {   // the Random switch: randOut = folded into a shown c
   });
   return changed;
 }
+const btOn = (k) => k.kind === "bt" ? S.ui.filters.bt : S.ui.random === "cloud";   // key 4 for S.bt, X for S.clouds
+const btRot = (t) => t !== "public" && t !== "random-static";
+function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating = per company and ring (3 dB hysteresis)
+  const L = doc.bluetooth, W = doc.center.bt_window ?? null, hold = doc.center.bt_hold ?? 120, keep = !!L && W === 0 && !L.length, grp = new Map(), lv = new Map(), rg = LAYOUT.rings;
+  S.btDoc = L ? { window: W, hold, void: W === 0 } : null;
+  for (const b of keep ? [] : L || []) {
+    const rot = btRot(b.addr_type), p = rot && !rp ? S.btLvl.get(b.addr) : null;
+    let l = signalLevel(b.rssi);
+    if (p != null && b.rssi >= (rg[p] ?? -999) - BT.hystDb && b.rssi < (rg[p - 1] ?? 999) + BT.hystDb) l = p;
+    const key = "bt:" + (rot ? (b.company ?? "-") + ":" + l : b.addr);
+    lv.set(b.addr, l); (grp.get(key) || grp.set(key, []).get(key)).push(b);
+  }
+  if (!keep && !rp) S.btLvl = lv;
+  grp.forEach((m, key) => {
+    let k = S.bt.get(key); const s = m.reduce((x, b) => x + b.rssi, 0) / m.length;
+    if (!k) { k = newCloud(key); k.kind = "bt"; S.bt.set(key, k); }
+    m.sort((a, b) => b.rssi - a.rssi || cmpStr(a.addr, b.addr));
+    Object.assign(k, { m, n: m.length, rssi: s < 0 ? -Math.round(-s) : Math.round(s), company: m[0].company, companyName: m[0].company_name, rot: btRot(m[0].addr_type), target: 1, lastSeen: Math.max(...m.map(b => b.last_seen ?? 0)) });
+    homeOfClient(k);
+  });
+  S.bt.forEach((k, id) => {   // a void window lets marks run out by their own age
+    const fr = freshOf(k.lastSeen, gen); k.freshTier = fr.tier; k.freshAT = ENCODING.fresh.alpha[fr.tier ?? 0];
+    if (keep ? gen != null && gen - k.lastSeen > hold : !grp.has(id)) k.target = 0;
+  });
+  S.btOrder = Array.from(S.bt.values()).filter(k => k.target === 1).sort((a, b) => b.rssi - a.rssi || cmpStr(a.id, b.id)); S.btOrder.forEach((k, i) => { k.rank = i; });
+}
+function btStats() {   // §3.10 counts over the live marks
+  if (!S.btDoc) return null;
+  const v = S.btOrder, a = v.reduce((x, k) => x + k.n, 0), r = v.reduce((x, k) => x + (k.rot ? k.n : 0), 0);
+  return { addresses: a, marks: v.length, rotating: r, fixed: a - r, shown: S.ui.filters.bt ? v.filter(k => k.alphaDraw > 0.05).length : 0, window: S.btDoc.window, hold: S.btDoc.hold, void: S.btDoc.void };
+}
 function pubCloud(k) {
   return k ? { id: k.id, kind: "cloud", n: k.n, core: k.core, joined: k.joined, members: k.members.slice(), rssi: k.rssi, rssiMin: k.rssiMin, rssiMax: k.rssiMax, centre: r3(k.centre),
     first: k.first, last: k.last, bursts: k.bursts, cadenceS: k.cadenceS, rhythm: r3(k.rhythm), probes: k.probes.slice(), kept: k.kept, shown: k.target === 1 && S.ui.random === "cloud",
@@ -3852,7 +3917,7 @@ function perfTick(t) {
   if (t - p.fpsAt >= 1000) { p.fps = Math.round(p.rafTicks * 1000 / (t - p.fpsAt)); p.rafTicks = 0; p.fpsAt = t; }
 }
 function stepNodes(dt, liveDt) {
-  const a = S.anim; let moving = false;
+  const a = S.anim, stale = captureStale(); let moving = false;
   const breathing = a.breathePeriodS > 0 && liveDt > 0;
   const eIn = Math.exp(-a.fadeInK * dt), eOut = Math.exp(-a.fadeOutK * dt), e3 = Math.exp(-3 * dt);
   for (const n of S.aps.values()) {   // a Map iterator tolerates deleting the current entry, like forEach
@@ -3879,6 +3944,7 @@ function stepNodes(dt, liveDt) {
     n.alpha = easeBy(n.alpha, alphaT, alphaT > n.alpha ? eIn : eOut);
     if (n.alpha !== alphaT) moving = true;
     n.freshA = easeBy(n.freshA, n.freshAT, eIn); if (n.freshA !== n.freshAT) moving = true;
+    const gT = n.cue && !stale ? 1 : 0; n.glow = easeBy(n.glow, gT, eIn); if (n.glow !== gT) moving = true;   // §3.8 the cue fades; none when stale
     if (n.target === 0 && n.alpha < 0.02) { S.clients.delete(n.id); continue; }
     if (ap && !n.free) {
       n.orbitPhase += n.orbitSpeed * liveDt;
@@ -3896,16 +3962,16 @@ function stepNodes(dt, liveDt) {
   }
   S.moving = moving;
 }
-function stepClouds(dt) {   // §8.8a
-  if (!S.clouds.size) return;
+function stepClouds(dt) {   // §8.8a, and the §3.1 marks
+  if (!S.clouds.size && !S.bt.size) return;
   const a = S.anim, eIn = Math.exp(-a.fadeInK * dt), eOut = Math.exp(-a.fadeOutK * dt), e3 = Math.exp(-3 * dt); let moving = false;
-  for (const k of S.clouds.values()) {
-    const alphaT = k.target === 1 && S.ui.random === "cloud" ? 1 : 0;
+  for (const M of [S.clouds, S.bt]) for (const k of M.values()) {
+    const alphaT = k.target === 1 && btOn(k) ? 1 : 0;
     k.alpha = easeBy(k.alpha, alphaT, alphaT > k.alpha ? eIn : eOut); if (k.alpha !== alphaT) moving = true;
-    if (k.target === 0 && k.alpha < 0.02 && !S.replay) { S.clouds.delete(k.id); continue; }   // a replay keeps it: Back to live takes it up again
+    if (k.target === 0 && k.alpha < 0.02 && !S.replay) { S.clouds.delete(k.id); S.bt.delete(k.id); continue; }   // a replay keeps it: Back to live takes it up again
     if (!k.placed) { k.wx = k.lx; k.wz = k.lz; k.placed = true; }
     if (!heldFree(k)) { k.wx = easeBy(k.wx, k.lx, e3); k.wz = easeBy(k.wz, k.lz, e3); if (k.wx !== k.lx || k.wz !== k.lz) moving = true; }
-    k.basePx = CLOUD.pxBase + CLOUD.pxGain * rssiT(k.rssi) + (S.hover === k.id ? 0.5 : 0);
+    k.basePx = (k.kind === "bt" ? BT.pxBase + BT.pxGain * rssiT(k.rssi) + (k.n > 1 ? 1 : 0) : CLOUD.pxBase + CLOUD.pxGain * rssiT(k.rssi)) + (S.hover === k.id ? 0.5 : 0);
     k.freshA = easeBy(k.freshA, k.freshAT, eIn); if (k.freshA !== k.freshAT) moving = true;
     if (k.expandedUntil != null && k.expandedUntil <= S.clock) { k.expandedUntil = null; moving = true; }
   }
@@ -4029,6 +4095,7 @@ function colorOfKey(colorKey) {
     case "client": return THEME.render.clientCore; case "glow": case "mono": return THEME.glow.color || THEME.ink.secondary;
     case "alarm": return THEME.status.alarm; case "sel": return THEME.accent.selection;
     case "ink": return THEME.ink.primary; case "secondary": return THEME.ink.secondary; case "neutral": return THEME.status.ringNeutral; case "strong": return THEME.status.ringStrong; case "muted": return THEME.ink.muted;
+    case "bt": return THEME.render.btMark;
     case "nebula": return THEME.render.nebula;
     default: return THEME.ink.primary;
   }
@@ -4134,6 +4201,18 @@ function bakeSprite(kind, colorKey, tier, variant) {
       c.stroke();
       if (colorKey !== "client") { c.shadowColor = color; disc(tier + 2); c.strokeStyle = color; c.stroke(); }
       c.shadowBlur = 0;
+      break;
+    }
+    case "bt": {   // §3.3 triangle: filled = fixed, hollow = rotating, hd = folded
+      c.beginPath(); c.moveTo(0, -tier); c.lineTo(tier * 0.9, tier * 0.7); c.lineTo(-tier * 0.9, tier * 0.7); c.closePath();
+      c.lineWidth = 1.25; c.strokeStyle = color; c.stroke();
+      if (variant !== "h") { if (variant === "hd") disc(1.5); c.fillStyle = color; c.fill(); }
+      break;
+    }
+    case "traffic": {   // §3.8 cue level L1..L3: four ticks at 45 degrees
+      const r0 = Math.min(4, tier) + 1.5; c.strokeStyle = THEME.render.clientCore; c.lineWidth = 1; c.beginPath(); c.rotate(Math.PI / 4);
+      for (let i = 0; i < 4; i++) { c.moveTo(0, -r0); c.lineTo(0, -r0 - 0.5 - 1.5 * +variant[1]); c.rotate(Math.PI / 2); }
+      c.stroke();
       break;
     }
     case "core": {
@@ -4456,11 +4535,11 @@ function beginFrame() {
 }
 function endFrame() { ctxSky.globalAlpha = 1; ctxHud.globalAlpha = 1; curAlpha = 1; ctxSky.globalCompositeOperation = "source-over"; }
 function render() {
-  DC.drawImage = 0; DC.fillRect = 0; DC.stroke = 0; DC.fillText = 0; DC.cue = 0;
+  DC.drawImage = 0; DC.fillRect = 0; DC.stroke = 0; DC.fillText = 0; DC.cue = 0; DC.traffic = 0;
   beginFrame();
   drawBackground(); drawRings(); drawShadows(); drawNebula(); drawConstellations();
   drawGlows(); drawEdges(); drawOrbits(); drawDeviceLinks();
-  drawClients(); drawClouds(); drawBubbles(); drawStars();
+  drawClients(); drawClouds(); drawBt(); drawBubbles(); drawStars();
   drawRecvRing(); drawGhosts(); drawThreshold(); drawChangeCues(); drawFlares(); drawParticles();
   drawHud();
   endFrame();
@@ -4804,10 +4883,20 @@ function drawClients() {
       const colorKey = (c.free || c.affinity) ? "client" : (TD.bandColorKey[c.band] || "unknown");   // D8: band ring only for real association (probe orbits are derived)
       const rm = c.randomized ? THEME.render.clientRandomizedMark : null;   // D8: hollow | crossX
       const variant = kind === "clientCross" ? "L" + (c.rssi == null ? 2 : signalLevel(c.rssi)) + (rm === "crossX" ? "x" : "") : rm === "hollow" ? "rnd" : "sharp";
+      if (c.cue && c.glow > 0.02 && lod <= 1) { setAlpha(ctx, alpha * c.glow); blit(ctx, getSprite("traffic", "client", tier, "L" + c.gl), sx, sy, px); if (S.countCalls) DC.traffic++; }   // §3.8 under the station
       const s = getSprite(kind, colorKey, tier, variant);
       setAlpha(ctx, alpha * c.freshA); blit(ctx, s, sx, sy, px);
     }
     if (S.identity.size || S.rules.length) { const idn = identityOf(c.id); if (idn !== "unknown") { setAlpha(ctx, alpha); drawIdentityFrame(ctx, sx, sy, px + 4, ENCODING.identity[idn]); } }   // D7: a classified station wears the frame, like a star
+  }
+  setAlpha(ctx, 1);
+}
+function drawBt() {   // §3.3 the strongest 48 marks, up to LOD 2
+  if (!S.bt.size || S.perf.lod > 2) return;
+  const ctx = ctxSky;
+  for (const k of S.bt.values()) {
+    if (k.alphaDraw <= 0.02 || k.rank >= BT.drawMax) continue;
+    setAlpha(ctx, k.alphaDraw * k.freshA); blit(ctx, getSprite("bt", "bt", tierFor(k.px), k.rot ? (k.n > 1 ? "hd" : "h") : "f"), k.sx, k.sy, k.px);
   }
   setAlpha(ctx, 1);
 }
@@ -5263,6 +5352,7 @@ function nodeAt(mx, my, touch) {
     const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd) { bd = d; best = n; } };
     S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
     if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
+    if (S.ui.filters.bt) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
     S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; near(n, hitRadius(n, touch)); });
     S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
@@ -5273,11 +5363,12 @@ function nodeAt(mx, my, touch) {
   S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend > 0.5) return; if (n.alphaDraw >= 0.25) cands.push(n); });
   S.bubbles.forEach(b => { if ((b.target === 1 || b.alpha > 0.02) && b.alphaDraw >= 0.25) cands.push(b); });
   S.clouds.forEach(k => { if (k.target === 1 && k.alphaDraw >= 0.25) cands.push(k); });
+  S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax && k.alphaDraw >= 0.25) cands.push(k); });
   cands.sort((a, b) => a.zc - b.zc);
   for (const n of cands) { const r = hitRadius(n, touch); const dx = mx - n.sx, dy = my - n.sy; if (dx * dx + dy * dy <= r * r) return n.id; }
   return null;
 }
-function nodeById(id) { return S.aps.get(id) || S.clients.get(id) || S.bubbles.get(id) || S.clouds.get(id); }
+function nodeById(id) { return S.aps.get(id) || S.clients.get(id) || S.bubbles.get(id) || S.clouds.get(id) || S.bt.get(id); }
 function expandCloud(id) { const k = S.clouds.get(id); if (!k || k.target !== 1) return false; k.expandedUntil = S.clock + CLOUD.expandMs / 1000; S.dirty = true; return true; }
 function setHover(id) {
   if (S.hover === id) return;
@@ -5287,7 +5378,7 @@ function setHover(id) {
 }
 function select(id) {
   if (id == null) { deselect(); return null; }
-  const n = nodeById(id); if (!n) return null;
+  const n = nodeById(id); if (!n || n.kind === "bt") return null;   // no sheet for a mark in this release
   S.locked = id; S.dirty = true;
   const fc = S.aps.has(id) ? essOfFolded(id) : null; if (fc) expandEss(fc.id);   // §8.8 click a folded ESS node → expand 6 s
   if (tS >= 0.5) flyTo(n);               // 3D: turn the node to the front + dolly in; the device stays centred
@@ -5378,7 +5469,7 @@ const KEY_ACT = { t: () => toggleTheme(), v: () => { setView(S.ui.view === "3d" 
   p: () => setToggle("affinity", !S.ui.affinity), w: () => setToggle("observations", !S.ui.observations), b: () => setToggle("baselineDiff", !S.ui.baselineDiff), i: () => setToggle("inventory", !S.ui.inventory), f: () => { S.homeOpen = !S.homeOpen; if (S.homeOpen) S.dx = null; applyDrawer(); },
   q: () => setDx("air"), j: () => setDx("time"), h: () => setDx("rec"), y: () => cycleChanMode(), u: () => setPanels(!S.ui.panels),
   "[": () => cyclePinned(-1), "]": () => cyclePinned(1), x: () => cycleRandom(),
-  "1": () => toggleBand("2.4"), "2": () => toggleBand("5"), "3": () => toggleBand("6") };
+  "1": () => toggleBand("2.4"), "2": () => toggleBand("5"), "3": () => toggleBand("6"), "4": () => toggleBand("bt") };
 window.addEventListener("keydown", (e) => {
   const k = (e.key || "").toLowerCase();
   if (k === "escape") {
@@ -5430,8 +5521,9 @@ function fmtSignal(dbm) {   // D9: "-58 dBm (53 %, good)"; the level word is the
 }
 function toggleBand(b) {
   S.ui.filters[b] = !S.ui.filters[b];
-  refreshEssLeads(); applyAffinity(); S.nFreeTotal = countFreeLayout();   // a filtered AP hands its ESS lead and its probe orbiters over
   const btn = document.querySelector('[data-band="' + b + '"]'); if (btn) { btn.classList.toggle("on", S.ui.filters[b]); btn.setAttribute("aria-pressed", String(S.ui.filters[b])); }
+  if (b === "bt") { updateStats(); S.dirty = true; return; }
+  refreshEssLeads(); applyAffinity(); S.nFreeTotal = countFreeLayout();   // a filtered AP hands its ESS lead and its probe orbiters over
   S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter);
   computeGroupEdges(); securityCounts(); rebuildChannelStats(); rebuildInterference();
   updateStats(); S.dirty = true;   // updateStats() ends in layoutEdges() → drawChannelBar()
@@ -5475,7 +5567,7 @@ function setToggles(o) {
 }
 function getToggles() {   // the BTN_OF keys (in their order), then the rest
   const o = {}; for (const key of Object.keys(BTN_OF)) o[key] = S.ui[key];
-  return Object.assign(o, { autoLod: S.ui.autoLod, help: S.ui.help, panels: S.ui.panels, random: S.ui.random, theme: S.ui.theme, view: S.ui.view, bands: { "2.4": S.ui.filters["2.4"], "5": S.ui.filters["5"], "6": S.ui.filters["6"] } });
+  return Object.assign(o, { autoLod: S.ui.autoLod, help: S.ui.help, panels: S.ui.panels, random: S.ui.random, theme: S.ui.theme, view: S.ui.view, bands: { "2.4": S.ui.filters["2.4"], "5": S.ui.filters["5"], "6": S.ui.filters["6"], bt: S.ui.filters.bt } });
 }
 function updateControlsLook() {
   const tt = el("t-theme"); if (tt) { const lb = THEMES[nextTheme(S.ui.theme)].meta.label; tt.textContent = lb.charAt(0) + lb.slice(1).toLowerCase(); }
@@ -5563,6 +5655,7 @@ function exportModel() {
     const par = (!n.free && !n.affinity && n.parent && !eventSkip(S.aps.get(n.parent))) ? n.parent : null;
     const o = { mac: n.mac, vendor: n.vendor || "", band: n.band || "", rssi: n.rssi, randomized: !!n.randomized, probes: (n.probes || []).slice(), association: par, heard: heardWord(n) };
     if (clouds && n.cloud != null) o.cloud = n.cloud;
+    if (n.fps != null) o.rate = Math.round(n.fps * 10) / 10;
     return withNotes(o, n.id);
   });
   const sc = { free: 0, associated: 0 }; stations.forEach(x => { if (x.association) sc.associated++; else sc.free++; });
@@ -5571,6 +5664,10 @@ function exportModel() {
     sc.randomised = stations.filter(x => x.randomized).length; sc.in_clouds = stations.filter(x => x.cloud != null).length;
     out.clouds = S.cloudOrder.map(k => ({ id: k.id, addresses: k.n, rssi: k.rssi, rssi_min: k.rssiMin, rssi_max: k.rssiMax, first_heard: k.first, last_heard: k.last, cadence_s: k.cadenceS, bursts: k.bursts,
       probes: k.probes.slice(), estimate: (cloudMixed(k) ? "possibly one or more nearby devices changing their address" : "probably one nearby device changing its address") + "; not a device count" }));
+  }
+  if (S.btDoc) {   // §1.8
+    const { shown, void: vd, ...bc } = btStats(); out.bluetooth = []; out.bluetooth_counts = bc;
+    S.btOrder.forEach(k => k.m.forEach(({ last_seen: ls, ...r }) => out.bluetooth.push({ ...r, heard: heardWord({ freshTier: freshOf(ls, S.generated).tier }), mark: k.id })));
   }
   return out;
 }
@@ -5868,6 +5965,8 @@ function updateStats() {
   const fc = el("n-fresh-cell"), rc = el("n-record-cell");
   if (fc) { fc.hidden = dated === 0; el("n-fresh").textContent = String(fresh.t0); el("n-fresh").title = ENCODING.fresh.words.map((w, i) => w + " " + fresh["t" + i]).join(" · ") + " · " + ENCODING.fresh.undated + " " + fresh.undated; }
   if (rc) { rc.hidden = dated === 0 || !reach[3]; el("n-record").textContent = String(fresh.t3); el("n-record").title = String(fresh.t3); }
+  const bc = el("n-bt-cell"), bs = btStats();   // §3.4 addresses, kept while the filter hides the marks; a dash when a void window left nothing
+  if (bc) { bc.hidden = !bs; if (bs) { const n = el("n-bt"); n.textContent = bs.void && !bs.addresses ? "–" : bs.addresses >= BT.cap ? BT.cap + "+" : String(bs.addresses); n.title = bs.void ? "no valid scan this cycle; showing what was heard before" : bs.addresses + " addresses heard in the last " + bs.hold / 60 + " min, in " + bs.marks + " marks · LE, passive scan"; } }
   S._stats = { apsTotal, aps, free, assoc, clients, bands, bandsT, alarms, groups: ng, probing, bandUnknown, fresh, freshVis, freshCl, freshVisCl, randomized, randomisedFree: rndFree, clouds: nClouds, inClouds, randomHidden: hiddenRnd };
   if (cc && apsTotal > 0) el("n-crowd").title = skyTitle();
   updateLegendCounts();
@@ -5942,6 +6041,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" data-kind="client-assoc">' + clientSwatch("--band-24") + '<span>associated</span></div>');
   rows.push('<div class="legrow" id="leg-random" data-kind="client-random" hidden>' + clientSwatch(null, true) + '<span>randomised MAC<span class="lsub" id="leg-random-cl"></span></span><span class="cnt"></span></div>');   // D8: only while such a client is present
   rows.push('<div class="legrow" data-kind="bubble">' + svgSwatch("circle", "--bubble-fill", "--bubble-stroke", 1) + '<span>n clients (bubble)</span></div>');
+  rows.push('<div class="legrow" id="leg-bt" data-kind="bt" hidden>' + swFrame('<path d="M6 1.5 10.6 10.2H1.4Z" fill="var(--bt-mark)" stroke="var(--bt-mark)" stroke-width="1.25"/>') + '<span>Bluetooth LE (passive scan)<br><span class="lsub" id="leg-bt-sub"></span></span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div><h4>Security</h4>');
   for (const sec of Object.keys(ENCODING.security)) {
     const e = ENCODING.security[sec];
@@ -5955,6 +6055,8 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" id="leg-fresh-u" data-kind="fresh-undated" hidden>' + freshSwatch(ENCODING.fresh.alpha[0]) + '<span>' + esc(ENCODING.fresh.undated) + '</span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div>');
   rows.push('<div class="legrow note" data-kind="hidden">' + ringSwatch(ENCODING.hidden, "--status-hidden", 5.5) + '<span>hidden SSID</span></div>');
+  rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
+  rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');
   rows.push(block("derived"));
   rows.push(derivedRow("leg-nebula", "nebula", "channel overlap (derived, width unknown → 20 MHz)"));
@@ -5995,6 +6097,10 @@ function legendVisibility() {   // D10: a mark's row exists exactly while that m
   const anyDerived = ["nebula", "groups", "devices", "merge", "probes", "arc", "crowding", "deviation", "ghost"].some(k => { const e = el("leg-" + k); return e && !e.hidden; });
   vis("leg-block-derived", anyDerived);
   vis("leg-block-look", S.ui.view === "3d");
+  const bo = S.ui.filters.bt && S.btOrder.length > 0 && S.perf.lod < 3, txt = (id, t) => { const e = el(id); if (e) e.textContent = t; };
+  const bb = document.querySelector('[data-band="bt"]'); if (bb) bb.hidden = !S.btDoc;
+  vis("leg-bt", bo); vis("leg-activity", S.actN > 0); vis("leg-cue", !captureStale() && S.clientOrder.some(c => c.cue));
+  txt("leg-geometry", "rings = received signal (dBm), not range · " + (bo ? "Bluetooth and Wi-Fi share the rings, not the scale · " : "") + "direction is not measured");
 }
 function updateLegendCounts() {
   const s = S._stats || { bands: { "2.4": 0, "5": 0, "6": 0 }, bandUnknown: 0 };
@@ -6003,6 +6109,8 @@ function updateLegendCounts() {
   const cntRow = (id, n, show) => { const r = el(id); if (r) { r.hidden = !show; r.querySelector(".cnt").textContent = String(n); } };   // a counted row, shown while its mark can be drawn
   const nr = s.randomized || 0, nu = s.bandUnknown || 0;
   cntRow("leg-random", nr, nr !== 0); cntRow("leg-band-unknown", nu, nu !== 0);
+  const bs = btStats(), lb = el("leg-bt");
+  if (lb) { lb.querySelector(".cnt").textContent = String(bs ? bs.addresses : 0); el("leg-bt-sub").textContent = bs ? "addresses heard in the last " + bs.hold / 60 + " min" + (bs.window ? " (" + bs.window + "-s scans)" : "") + " · filled = fixed address · one hollow mark = rotating addresses of one company in one ring · key 4, not X" : ""; }
   const lc = el("leg-random-cl"), kc = s.clouds || 0; if (lc) lc.textContent = kc ? " · " + (s.inClouds || 0) + " in " + kc + (kc === 1 ? " cloud" : " clouds") : "";
   for (const k of Object.keys(ENCODING.security)) cntRow("leg-" + k, S.security[k], S.security[k] > 0);   // D10: a security class without an AP has no mark on the canvas
   // D1: the freshness rows exist exactly while a dated node (AP or station) is drawn; a tier the collector window cannot
@@ -6049,10 +6157,14 @@ function probeWords(list, max) {   // a station's probes in one wording: wildcar
   return (list.length === 1 ? "named probe: " : "named probes: ") + l.join(", ");
 }
 function probeCell(list) { return esc(probeWords(list)) + (list && list.length ? ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>' : ""); }
+function btTip(k) {   // §3.5 the tooltip line (plain text)
+  return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen));
+}
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid
   let html = "";
-  if (n.kind === "cloud") {   // §8.8a
+  if (n.kind === "bt") html = '<div class="ssid">' + esc(btTip(n)) + "</div>";
+  else if (n.kind === "cloud") {   // §8.8a
     html += '<div class="ssid">random cloud</div><div class="sub">' + esc(n.n + " randomised addresses" + (n.cadenceS != null && !cloudMixed(n) ? " · " + cadText(n.cadenceS) : "")) + '</div><div class="grid">';
     html += kv("Signal", esc(fmtSignal(n.rssi) + " · range " + n.rssiMin + " to " + n.rssiMax + " dBm")) + kv("Heard", esc(heardWord(n)));
     html += kv("Probes", esc(probeWords(n.probes)));
@@ -6220,6 +6332,7 @@ function openDetail(id) {
     body += row("Signal", esc(fmtSignal(n.rssi)));
     body += row("Orbit", clientOrbitText(n));
     body += row("Probes", probeCell(n.probes));
+    if (n.packets != null) body += row("Frames heard", esc(n.fps != null ? "about " + n.fps.toFixed(1) + "/s over the last " + Math.round(n.pk[n.pk.length - 1][0] - n.pk[0][0]) + " s" : "— (one capture so far)"));   // §3.8
     body += localRows(false);
   }
   body += "</table>";
@@ -6404,7 +6517,7 @@ function drawChannelBar() {   // §8.2 three small multiples (2.4 | 5 | 6), shar
   const box = el("chanbar"), cv = el("chan"); if (!box || !cv) return;
   const total = S._stats ? S._stats.apsTotal : 0;
   box.hidden = !(total > 0) || edgeState.chan === "collapsed";
-  if (box.hidden || !box.clientWidth) return;
+  if (box.hidden || !box.clientWidth) { if (S.actN) { S.actN = 0; legendVisibility(); } return; }
   const cssW = box.clientWidth - (phoneOn ? 0 : 20), cssH = 66; cv.style.width = cssW + "px"; cv.style.height = cssH + "px";   // less the padding (none in the sheet)
   const d = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   cv.width = Math.floor(cssW * d); cv.height = Math.floor(cssH * d);
@@ -6414,6 +6527,7 @@ function drawChannelBar() {   // §8.2 three small multiples (2.4 | 5 | 6), shar
   const gap = 16, segW = (cssW - gap * 2) / 3, top = 12, botY = cssH - 12;
   let unknownN = 0; S.aps.forEach(n => { if (n.target === 1 && (n.band === "unknown" || n.channel == null)) unknownN++; });
   ctx.textBaseline = "alphabetic";
+  let aMax = 0, nw = 0; if (S.act.size && S.chanMode === "bars") for (const b of bands) analyzer.channels[b].forEach((e, ch) => { aMax = Math.max(aMax, S.act.get(freqFromChannel(ch, b)) || 0); });   // §3.7 one scale for all bands
   const devSet = new Set(S.sky.dev.map(d => d.band + "/" + d.channel));   // D11: derived deviation marks (dashed cap), the same in every theme
   for (let bi = 0; bi < 3; bi++) {
     const band = bands[bi], m = analyzer.channels[band], x0 = bi * (segW + gap);
@@ -6435,14 +6549,21 @@ function drawChannelBar() {   // §8.2 three small multiples (2.4 | 5 | 6), shar
       ctx.fillStyle = hovered ? THEME.ink.primary : bandColorOf(band);
       const r = Math.min(THEME.chart.barRadiusPx, bw / 2, h);
       ctx.beginPath(); ctx.moveTo(bx, by + h); ctx.lineTo(bx, by + r); ctx.quadraticCurveTo(bx, by, bx + r, by); ctx.lineTo(bx + bw - r, by); ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r); ctx.lineTo(bx + bw, by + h); ctx.closePath(); ctx.fill();
+      if (aMax > 0) nw += drawActivity(ctx, bx + bw / 2, botY, top, S.act.get(freqFromChannel(ch, band)), aMax);
       if (devSet.has(band + "/" + ch)) { ctx.strokeStyle = THEME.ink.secondary; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(bx - 1, by - 3.5); ctx.lineTo(bx + bw + 1, by - 3.5); ctx.stroke(); ctx.setLineDash([]); }
       if (ch === peakCh) { ctx.fillStyle = THEME.ink.secondary; ctx.font = "400 8px " + THEME.font.ui; ctx.textAlign = "center"; ctx.fillText(String(ch), bx + bw / 2, botY + 9); }
     }
   }
+  if (S.actN !== nw) { S.actN = nw; legendVisibility(); }
   const tt = el("chan-tip");
   if (chanHover && tt) { const txt = hoverChannelText(chanHover.band, chanHover.ch); if (txt) { tt.textContent = txt; tt.style.display = "block"; } else tt.style.display = "none"; }
   else if (tt) tt.style.display = "none";
   box.title = (S.chanMode === "spectrum" ? "Spectrum: each access point as a bracket over its width at its signal; tint = DFS channels; dot = strongest; tick = peak hold" : S.chanMode === "waterfall" ? "Waterfall: channel by time from the recording; brighter = stronger" : "APs per channel") + " · widths assumed 20 MHz where unknown" + (unknownN ? " · ? band: " + unknownN : "") + (S.sky.dev.length ? " · dashed cap = outside the usual range for this sky (derived)" : "");
+}
+function drawActivity(ctx, x, botY, top, share, aMax) {   // §3.7 whisker: share / aMax of the bar, 2 px at least
+  if (!(share > 0)) return 0;
+  const h = Math.max(2, (botY - top) * share / aMax);
+  ctx.globalAlpha = 0.85; ctx.fillStyle = THEME.ink.primary; ctx.fillRect(x - 1.5, botY - h, 3, h); ctx.globalAlpha = 1; return 1;
 }
 function spectrumX(band, f, x0, segW) { const b = BAND_HZ[band]; return x0 + (f - b[0]) / (b[1] - b[0]) * segW; }
 function drawSpectrumBand(ctx, band, x0, segW, top, botY, devSet) {   // every AP as a bracket over its span at its signal; DFS tint, max signal, peak hold, D11 deviation cap (theme tokens only)
@@ -6848,6 +6969,7 @@ function renderSourceTruth() {   // D4: every claim site; re-run on theme switch
   if (mastMotto) mastMotto.textContent = copyFor("motto");
   const la = el("leg-arc"), las = la && la.querySelector("span"); if (las) las.textContent = copyFor("legArc");
   const lr = el("leg-rx"); if (lr) lr.textContent = copyFor("legRx");
+  legendVisibility();
   const b = bannerLines(); el("classbar-top").textContent = b[0]; el("classbar-bot").textContent = b[1];
   const it = el("intro-text"); if (it && !introRunning && it.textContent) it.textContent = logonLines().join("\n");
 }
@@ -6981,7 +7103,7 @@ function pubNode(n) {
     phyEstimate: phyEstimate(n), pmf: pmfDerived(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt,
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: null, bubbleBlend: 0, pinned: S.pinned.has(n.id) };
   return { id: n.id, kind: "client", mac: n.mac, rssi: n.rssi, vendor: n.vendor, randomized: n.randomized, last_seen: n.last_seen, ageS: n.ageS, freshTier: n.freshTier, isNew: isNewAp(n),
-    packets: n.packets, parent: n.parent, free: n.free, affinity: !!n.affinity, probeVia: n.probeVia || null, probes: n.probes ? n.probes.slice() : null, band: n.band, basePxMax: r3(n.basePxMax),
+    packets: n.packets, fps: n.fps == null ? null : r3(n.fps), glow: n.cue ? n.gl : 0, parent: n.parent, free: n.free, affinity: !!n.affinity, probeVia: n.probeVia || null, probes: n.probes ? n.probes.slice() : null, band: n.band, basePxMax: r3(n.basePxMax),
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: n.bubble, bubbleBlend: r3(n.bubbleBlend), pinned: S.pinned.has(n.id), cloud: n.cloud || null, randOut: !!n.randOut };
 }
 function nodeVisible(n) { return n.target === 1 && n.alphaDraw > 0.05 && (n.kind !== "ap" || (S.ui.filters[n.band] !== false && !isEssFolded(n.id))); }
@@ -6995,6 +7117,7 @@ function statsObj() {
   let vis = 0; S.clients.forEach(n => { if (n.target === 1 && n.alphaDraw > 0.05 && (n.bubble == null || n.bubbleBlend < 0.5)) vis++; });
   let visK = 0; S.clouds.forEach(k => { if (k.target === 1 && k.alphaDraw > 0.05) visK++; });
   let hidden = 0; S.aps.forEach(n => { if (n.target === 1 && n.hidden) hidden++; });
+  const gl = [0, 0, 0], stale = captureStale(); S.clients.forEach(c => { if (c.cue && c.target === 1 && !stale && c.gl > 0) gl[c.gl - 1]++; });
   return { aps: st.aps, apsTotal: st.apsTotal, clients: st.clients, clientsTotal: st.clients, free: st.free, assoc: st.assoc,
     randomised: st.randomized || 0, randomisedFree: st.randomisedFree || 0, clouds: st.clouds || 0, inClouds: st.inClouds || 0, visibleClouds: visK, randomMode: S.ui.random, randomHidden: st.randomHidden || 0,   // §8.8a
     groups: st.groups, bubbles: S.bubbles.size, visibleClients: vis, visibleAps: st.aps, alarms: st.alarms, hidden, revealed: S.revealed,
@@ -7011,7 +7134,8 @@ function statsObj() {
     storageFailed: storageState.failed, introShown: introSeen(), paused: S.ui.paused,
     devices: deviceClusterCount(), essMerged: essMergedCount(), affinity: st.probing || 0, identities: identityCounts(),
     library: { rules: S.rules.length, notes: S.notes.size }, chanMode: S.chanMode, coreBeat: r3(coreBeatScale()), threshold: S.threshold, recording: S.rec ? S.rec.docs.length : 0, replay: !!S.replay, drawer: S.dx,   // counts and modes only
-    inventory: { rows: S.ui.inventory ? invApRows().rows.length : null, filter: Object.assign({}, S.inv.filter) } };
+    inventory: { rows: S.ui.inventory ? invApRows().rows.length : null, filter: Object.assign({}, S.inv.filter) },
+    bluetooth: btStats(), glow: { stations: gl[0] + gl[1] + gl[2], max: GLOW.max, levels: gl }, activity: { channels: S.act.size, max: r3(Math.max(0, ...S.act.values())) } };   // §3.10
 }
 function legendRowsObj() {   // each #legend .legrow → kind, visibility, count, every painted colour + the token it reads, ring styles
   const mirror = new Map(CSS_MIRROR.map(m => [m[0], m[1]]));
@@ -7079,6 +7203,7 @@ const CONTRAST_PAIRS = [
   ["status.hidden", "surface.base", 3, "canvas: hidden-SSID ring"],
   ["render.bubbleStroke", "surface.base", 3, "canvas: bubble outline"],
   ["accent.selection", "surface.base", 3, "canvas: selection ring"],
+  ["render.btMark", "surface.base", 3, "canvas: Bluetooth mark"],
   ["accent.focusRing", "surface.panelFill", 3, "DOM: keyboard focus outline"],
   ["ink.onFill", "ink.primary", 4.5, "DOM: active-scan chip"],
   ["accent.toggleInk", "accent.toggleOn", 4.5, "DOM: .btn.toggle.on label (D12)"],
@@ -7191,7 +7316,7 @@ window.STARCHORUS = Object.freeze({
     if (filter === "bubble") S.bubbles.forEach(b => out.push({ id: b.id, kind: "bubble", sx: r3(b.sx), sy: r3(b.sy), px: r3(b.px), zc: r3(b.zc), alphaDraw: r3(b.alpha), visible: true, bubble: null, vendor: null, width: null, rssi: null }));
     return out;
   }),
-  nodeScreen: (id) => guard(() => { const n = S.aps.get(id) || S.clients.get(id) || S.clouds.get(id); if (n) return { sx: r3(n.sx), sy: r3(n.sy), px: r3(n.px), zc: r3(n.zc), fog: r3(n.fog), visible: nodeVisible(n) }; const b = S.bubbles.get(id); if (b) return { sx: r3(b.sx), sy: r3(b.sy), px: r3(b.px), zc: r3(b.zc), fog: r3(b.fog), visible: b.alpha > 0.05 }; return null; }),
+  nodeScreen: (id) => guard(() => { const n = S.aps.get(id) || S.clients.get(id) || S.clouds.get(id) || S.bt.get(id); if (n) return { sx: r3(n.sx), sy: r3(n.sy), px: r3(n.px), zc: r3(n.zc), fog: r3(n.fog), visible: nodeVisible(n) }; const b = S.bubbles.get(id); if (b) return { sx: r3(b.sx), sy: r3(b.sy), px: r3(b.px), zc: r3(b.zc), fog: r3(b.fog), visible: b.alpha > 0.05 }; return null; }),
   clouds: () => guard(() => S.cloudOrder.map(pubCloud)),   // §8.8a
   expandCloud: (id) => guard(() => expandCloud(id)),
   bubbles: () => guard(() => { const out = []; S.bubbles.forEach(b => out.push({ id: b.id, n: b.n, sx: r3(b.sx), sy: r3(b.sy), r: r3(b.r), expanded: b.expandedUntil != null && b.expandedUntil > S.clock, members: b.members.slice() })); return out; }),
@@ -7260,7 +7385,7 @@ window.STARCHORUS = Object.freeze({
     S.clientOrder.forEach(n => { n.orbitPhase = NaN; });
     settleLayout(maxIter);
     S.clients.forEach(n => { if (n.free) { n.wx = n.lx; n.wz = n.lz; n.placed = true; } });
-    S.clouds.forEach(k => { k.wx = k.lx; k.wz = k.lz; k.placed = true; });
+    S.clouds.forEach(k => { k.wx = k.lx; k.wz = k.lz; k.placed = true; }); S.bt.forEach(k => { k.wx = k.lx; k.wz = k.lz; k.placed = true; });
     S.aps.forEach(n => { n.angle = n.angleT; n.radius = n.radiusT; n.wx = Math.cos(n.angle) * n.radius; n.wz = Math.sin(n.angle) * n.radius; });
     S.clients.forEach(n => {
       if (n.free) return;

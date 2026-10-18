@@ -51,6 +51,11 @@
 #                 it (the stand-in is that subshell's child) => "nopending:term" red; a TERM that no trap turns into an exit =>
 #                 "nopending:term:dash" red (bash runs an EXIT trap for a signal, dash does not); the temp directory not removed =>
 #                 "tmpdir" red.
+# The Traffic and Bluetooth rows (radio pair): sections 5, 15, 16 and 18 carry the two new rows in every list of the Settings (and the
+#                 CLI keys), section 15b flips, locks and applies them, section 21 walks the eight screens of the Overview. NEGATIVE PROBES: the 'Traffic' row left out of pl_settings
+#                 => the Settings rows, 15b and the web-page row red (rows, locked, staysoff ...), nothing else; pl_applykeys without 'traffic bluetooth' =>
+#                 only 15b red (a:restarted, a:value, a:spin, b:flipback: leaving Settings restarts nothing); RIGHT from Stations going to Air in the
+#                 Overview => the Overview row red (list, views, keys, reading, walk, walkcursor, btblock ...).
 # NOT PROVEN:     nothing on the device: the real UI commands, PROMPT_QR's argument order and exit status, the visible line width, BusyBox ash
 #                 (dash, if present, as a second POSIX shell for the headless start), /proc (the stand-ins answer through `ps`, a
 #                 fake uptime and a fake net/tcp). docs/device-notes.md §7 records what the device itself settled (M1 to M7, measured
@@ -449,6 +454,7 @@ for pui_sh in $PUI_SH; do
   pui_is "$pui_sh:started" pui_col
   pui_is "$pui_sh:env" [ "$(pui_env STARCHORUS_MAX_AGE)/$(pui_env STARCHORUS_INTERVAL)/$(pui_env STARCHORUS_PORT)/$(pui_env STARCHORUS_OUTDIR)" = "3600/30/8199/$PUI_D" ]
   pui_is "$pui_sh:flags" [ "$(pui_env STARCHORUS_VENDOR)/$(pui_env STARCHORUS_OWN)/$(pui_env STARCHORUS_SURVEY)" = 1/0/0 ]
+  pui_is "$pui_sh:btflags" [ "$(pui_env STARCHORUS_BLUETOOTH)/$(pui_env STARCHORUS_TRAFFIC)" = 0/0 ]   # both off by default, and exported as 0
   pui_is "$pui_sh:overview" [ ! -e "$PUI_D/display.calls" ]
   pui_is "$pui_sh:nofile" [ ! -e "$PUI_D/settings.conf" ]
   pui_is "$pui_sh:marker" [ -s "$PUI_T/started" ]
@@ -494,15 +500,16 @@ rowif "payload ui: hostile file -> defaults, CRLF read, no key outside the list,
 
 # ---- 5 · CLI: every key round-trips through set/get; refusals exit 2 and leave the file byte-identical; reset
 PUI_BAD=""; pui_new
-for pui_kv in window=600 interval=60 port=8300 vendor=off survey=on page=off window=0 window=86400; do
+for pui_kv in window=600 interval=60 port=8300 vendor=off survey=on page=off bluetooth=on traffic=on window=0 window=86400; do
   pui_run "$PUI_HL" sh "$PUI_PL" set "${pui_kv%%=*}" "${pui_kv#*=}"
   pui_is "set:$pui_kv" [ "$PUI_RC" = 0 ]
   pui_is "get:$pui_kv" [ "$(pui_get "${pui_kv%%=*}")" = "${pui_kv#*=} file" ]
 done
-pui_is sparse [ "$(wc -l < "$PUI_D/settings.conf" | tr -d ' ')" = 6 ]
+pui_is sparse [ "$(wc -l < "$PUI_D/settings.conf" | tr -d ' ')" = 8 ]
 cp "$PUI_D/settings.conf" "$PUI_T/before.conf"
 for pui_bad in "port 1471" "port 80" "port 70000" "allow_active 1" "foo 1" "source iwscan" "window abc" "window 59" "window 86401" \
-  "interval 4" "interval 3601" "vendor yes" "window 0600" "STARCHORUS_ALLOW_ACTIVE 1" "port" "own on" "collector off" "dashboard off"; do
+  "interval 4" "interval 3601" "vendor yes" "window 0600" "STARCHORUS_ALLOW_ACTIVE 1" "port" "own on" "collector off" "dashboard off" \
+  "bluetooth yes" "bluetooth 1" "bluetooth" "traffic ON" "traffic true" "bt_window 6" "recorded_names 0"; do
   # shellcheck disable=SC2086   # the key and value are split on purpose
   pui_run "$PUI_HL" sh "$PUI_PL" set $pui_bad
   pui_is "refuse:$pui_bad" [ "$PUI_RC" = 2 ]
@@ -515,8 +522,8 @@ pui_is nocol pui_nocol
 pui_run "$PUI_HL" sh "$PUI_PL" reset
 pui_is reset [ "$PUI_RC" = 0 ]
 pui_is resetfile [ ! -e "$PUI_D/settings.conf" ]
-pui_is default [ "$(pui_get port)/$(pui_get window)/$(pui_get vendor)/$(pui_get page)" = "8199 default/3600 default/on default/on default" ]
-rowif "payload ui: CLI set/get/reset, refusals (own/collector/dashboard too) exit 2, file untouched, no .tmp (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+pui_is default [ "$(pui_get port)/$(pui_get window)/$(pui_get vendor)/$(pui_get page)/$(pui_get bluetooth)/$(pui_get traffic)" = "8199 default/3600 default/on default/on default/off default/off default" ]
+rowif "payload ui: CLI set/get/reset (bluetooth and traffic too), refusals (own/collector/dashboard, a Bluetooth value that is not on or off) exit 2, file untouched, no .tmp (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 6 · a failing grep during a set (it cannot read the old file) does not truncate settings.conf: rc 1, byte-identical
 PUI_BAD=""; pui_new "port=8300" "window=600" "interval=45" "vendor=off"
@@ -611,7 +618,11 @@ pui_run "$PUI_HL" sh "$PUI_PL" status
 pui_is skewcli [ "$(grep -c "installed starchorus-display.sh is $PUI_VER (contract 1), this payload is $PUI_VER (contract $PUI_CON); run tools/install.sh" "$PUI_T/out")" = 1 ]
 # all three scripts carry the contract number, and the same one
 pui_is contractnum [ -n "$PUI_CON" ]
-pui_is contract [ "$PUI_CON/$PUI_CON" = "$(pui_hc starchorus-collect.sh)/$(pui_hc starchorus-display.sh)" ]
+pui_is contract [ "$PUI_CON/$PUI_CON/$PUI_CON" = "$(pui_hc starchorus-collect.sh)/$(pui_hc starchorus-display.sh)/$(pui_hc library/user/reconnaissance/starchorus/starchorus-display.sh)" ]
+# a collector of the previous contract (what a payload of this build meets when only the payload was replaced): the dialogue, once
+pui_new; printf '# Version: %s\n# Contract: %s\n' "$PUI_VER" "$((PUI_CON - 1))" >> "$PUI_D/starchorus-collect.sh"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewprev [ "$(pui_x ERROR_DIALOG "$PUI_SKD")/$(pui_x LOG red 'Installed files differ from the payload.')/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
 rowif "payload ui: launch: L1 first, STOPPED/Start, B silent; E1, E12 exit 1; version and contract skew reported once (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 11 · Start (no question): spinner, marker, the collector at nice 19, E3 without a server program, the Overview as a
@@ -775,19 +786,83 @@ pui_ans "=Settings" "=Vendor Names: ON" "=Vendor Names: OFF" "=Channel Load: OFF
   "!2" "=Show Last: 1 h" "=All (may be slow)" "=Port: 8199" "=1471" "=Port: 8199" "=8300" "r:2:Port: 8300" "!2"
 pui_run_ui "$PUI_UIP" sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
-pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
-pui_is flipcursor [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: OFF' 'Channel Load: OFF' 'Port: 8199' 'Reset to Defaults' 'Vendor Names: OFF')" = 1 ]
+pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is flipcursor [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Vendor Names: OFF')" = 1 ]
 pui_is l8a [ "$(pui_x LOG 'Vendor names: device makers.')" = 1 ]
 pui_is l8bc [ "$(pui_x LOG 'Channel load: busy time per')/$(pui_x LOG 'channel, in Air quality.')" = 1/1 ]
 pui_is custom [ "$(pui_x LIST_PICKER 'Refresh: 45 s' '10 s' '30 s' '1 min' '2 min' '10 s')" = 1 ]
 pui_is window [ "$(pui_x LIST_PICKER 'Show Last: 1 h' '2 min' '10 min' '1 h' '6 h' 'All (may be slow)' '1 h')" = 2 ]
 pui_is e7 [ "$(pui_x NUMBER_PICKER Port 8199)/$(pui_x ERROR_DIALOG 'Use 1024 to 65535, not 1471.')" = 2/1 ]
-pui_is last [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 1 min' 'Show Last: All' 'Vendor Names: ON' 'Channel Load: ON' 'Port: 8300' 'Reset to Defaults' 'Port: 8300')" = 1 ]
+pui_is last [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 1 min' 'Show Last: All' 'Vendor Names: ON' 'Channel Load: ON' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Port: 8300')" = 1 ]
 pui_is file [ "$(LC_ALL=C sort "$PUI_D/settings.conf" | tr '\n' ' ')" = "interval=60 port=8300 survey=on vendor=on window=0 " ]
 pui_is noapply [ "$(pui_logc '^START_SPINNER')/$(pui_logc 'Settings applied')" = 0/0 ]
 pui_is back [ "$(pui_x "$PUI_STOP" Settings)" = 1 ]
 pui_is nocol pui_nocol
 rowif "payload ui: Settings rows, flips in place, L8, sub-lists with cursor and custom value, Port/E7, Back changes nothing (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+
+# ---- 15b · the two rows after Channel Load, 'Traffic' and 'Bluetooth' (both off by default, both collector keys): they flip in place with one
+#             press and the cursor stays on the row; switching on logs L8d / L8e, one line each, exactly as the specification words them, and
+#             switching off logs nothing; the file holds the key; a key the environment sets reads '(locked)' and P1 names its variable;
+#             leaving Settings while RUNNING restarts the collector alone, once, with both new values (marker kept), and a change flipped
+#             back applies nothing; the collector gets 0 and 0 by default and 1 once switched on
+PUI_BAD=""; pui_new
+pui_ans "=Settings" "=Traffic: OFF" "=Bluetooth: OFF" "=Traffic: ON" "=Bluetooth: ON" "=Traffic: OFF" "!2" "!2"
+pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is rc [ "$PUI_RC" = 0 ]
+pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is traffic_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Traffic: ON')" = 2 ]   # after the first and after the last flip
+pui_is bluetooth_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: ON' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: ON')" = 1 ]
+pui_is traffic_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: ON' 'Port: 8199' 'Reset to Defaults' 'Traffic: OFF')" = 1 ]
+pui_is bluetooth_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: OFF')" = 1 ]
+pui_is l8d [ "$(pui_x LOG 'Traffic: channel activity and frame rates.')" = 2 ]
+pui_is l8e [ "$(pui_x LOG 'Bluetooth: passive LE scan, 6 s per refresh.')" = 1 ]
+# L8e names the window the collector will use: STARCHORUS_BT_WINDOW as the collector reads it (9; 07 is 7; 4, 16 and text are 6)
+for pui_w in 9:9 07:7 4:6 16:6 abc:6; do
+  pui_new; pui_ans "=Settings" "=Bluetooth: OFF" "!2" "!2"
+  pui_run_ui "$PUI_UIP" STARCHORUS_BT_WINDOW="${pui_w%%:*}" sh "$PUI_PL"
+  pui_is "l8e_${pui_w%%:*}" [ "$(pui_x LOG "Bluetooth: passive LE scan, ${pui_w#*:} s per refresh.")" = 1 ]
+done
+pui_new; pui_ans "=Settings" "=Traffic: OFF" "=Bluetooth: OFF" "=Traffic: ON" "=Bluetooth: ON" "=Traffic: OFF" "!2" "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is file [ "$(LC_ALL=C sort "$PUI_D/settings.conf" | tr '\n' ' ')" = "bluetooth=off traffic=on " ]
+pui_is noapply [ "$(pui_logc '^START_SPINNER')/$(pui_logc 'Settings applied')" = 0/0 ]
+pui_is nocol pui_nocol
+# locked: STARCHORUS_TRAFFIC / STARCHORUS_BLUETOOTH in the environment (a 0 counts as set, like every other key): the row shows the value and
+# (locked), a press shows P1 naming the variable and writes nothing
+pui_new
+pui_ans "=Settings" "=Traffic: ON (locked)" "=Bluetooth: OFF (locked)" "!2" "!2"
+pui_run_ui "$PUI_UIP" STARCHORUS_TRAFFIC=1 STARCHORUS_BLUETOOTH=0 sh "$PUI_PL"
+pui_is lockedrows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON (locked)' 'Bluetooth: OFF (locked)' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is p1t [ "$(pui_x PROMPT 'Set by STARCHORUS_TRAFFIC.\nUnset it to change it here.')" = 1 ]
+pui_is p1b [ "$(pui_x PROMPT 'Set by STARCHORUS_BLUETOOTH.\nUnset it to change it here.')" = 1 ]
+pui_is lockedfile [ ! -e "$PUI_D/settings.conf" ]
+pui_is locknoflip [ "$(pui_logc '^LOG	Traffic: channel')/$(pui_logc '^LOG	Bluetooth: passive')" = 0/0 ]
+pui_is lockedcol pui_nocol
+# apply on leaving while RUNNING: both flipped in one visit = one restart of the collector alone, both switched on in it, marker kept;
+# a change flipped back in a second visit applies nothing
+pui_new
+pui_ans "=Start" "=Settings" "=Traffic: OFF" "=Bluetooth: OFF" "!2" "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+PUI_CP=$(sed -n 1p "$PUI_D/col.starts" 2>/dev/null); PUI_MK=$(cat "$PUI_T/started" 2>/dev/null)
+pui_is a:rc [ "$PUI_RC" = 0 ]
+pui_is a:restarted [ "$(wc -l < "$PUI_D/col.starts" | tr -d ' ')" = 2 ]
+pui_is a:oldgone pui_gone "${PUI_CP:-0}"
+pui_is a:up pui_up
+pui_is a:value [ "$(pui_env STARCHORUS_BLUETOOTH)/$(pui_env STARCHORUS_TRAFFIC)" = 1/1 ]
+pui_is a:spin [ "$(pui_x START_SPINNER Applying)/$(pui_x LOG blue 'Settings applied.')" = 1/1 ]
+pui_is a:noquestion [ "$(pui_logc '^CONFIRMATION_DIALOG')" = 0 ]
+PUI_CP=$(pui_cpid)
+pui_ans "=Settings" "=Bluetooth: ON" "=Bluetooth: OFF" "!2" "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is b:flipback [ "$(pui_logc '^START_SPINNER')/$(pui_logc 'Settings applied')/$(wc -l < "$PUI_D/col.starts" | tr -d ' ')" = 0/0/2 ]
+pui_is b:samepid [ "$(pui_cpid)" = "$PUI_CP" ]
+pui_is b:markerkept [ "${PUI_MK:-none}" = "$(cat "$PUI_T/started" 2>/dev/null)" ]
+# the CLI: `set bluetooth on` reaches the collector at the next start, as 1
+pui_run "$PUI_HL" sh "$PUI_PL" stop
+pui_new; pui_run "$PUI_HL" sh "$PUI_PL" set bluetooth on
+pui_is cli:set [ "$PUI_RC/$(pui_get bluetooth)/$(pui_get traffic)" = "0/on file/off default" ]
+pui_run "$PUI_HL" sh "$PUI_PL"
+pui_is cli:started pui_col
+pui_is cli:env [ "$(pui_env STARCHORUS_BLUETOOTH)/$(pui_env STARCHORUS_TRAFFIC)" = 1/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" stop
+rowif "payload ui: Traffic and Bluetooth rows after Channel Load flip in place, L8d/L8e, lock with P1, restart the collector once on leaving, set bluetooth on (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 16 · locked rows: a key the environment sets reads "(locked)", A shows P1 naming that variable and writes nothing,
 #            the cursor stays; the longest locked label fits 28 characters; Reset asks (C1): No keeps everything and the
@@ -796,12 +871,12 @@ PUI_BAD=""; pui_new "port=8300" "vendor=off"
 pui_ans "=Settings" "=Refresh: 45 s (locked)" "=Reset to Defaults" "!1" "=Reset to Defaults" "=1" "!2" "!2"
 pui_run_ui "$PUI_UIP" STARCHORUS_INTERVAL=45 STARCHORUS_MAX_AGE=86399 sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
-pui_is locked [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Port: 8300' 'Reset to Defaults' 'Refresh: 45 s (locked)')" = 1 ]
+pui_is locked [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Refresh: 45 s (locked)')" = 1 ]
 pui_is p1 [ "$(pui_x PROMPT 'Set by STARCHORUS_INTERVAL.\nUnset it to change it here.')" = 1 ]
 pui_is nosub [ "$(pui_logc '^LIST_PICKER	Refresh: ')" = 0 ]
 pui_is c1 [ "$(pui_x CONFIRMATION_DIALOG 'Reset all settings?')" = 2 ]
-pui_is nokeeps [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Port: 8300' 'Reset to Defaults' 'Reset to Defaults')" = 1 ]
-pui_is reset [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: ON' 'Channel Load: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is nokeeps [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Reset to Defaults')" = 1 ]
+pui_is reset [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
 pui_is file [ ! -e "$PUI_D/settings.conf" ]
 rowif "payload ui: locked rows show P1 and write nothing; Reset asks, No keeps, Yes resets with the cursor on row 1 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
@@ -845,7 +920,7 @@ pui_is srv [ "$(pui_srv 18601)" = 1 ]
 pui_tcp 18601
 pui_ans "=Settings" "=Web Page: ON" "=Web Page: OFF" "!2" "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
 pui_is e4 [ "$(pui_x ERROR_DIALOG "$PUI_E4")" = 1 ]
-pui_is staysoff [ "$(pui_x LIST_PICKER Settings 'Web Page: OFF' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Port: 18601' 'Reset to Defaults' 'Web Page: OFF')" = 2 ]
+pui_is staysoff [ "$(pui_x LIST_PICKER Settings 'Web Page: OFF' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 18601' 'Reset to Defaults' 'Web Page: OFF')" = 2 ]
 pui_is filef [ "$(sed -n 's/^page=//p' "$PUI_D/settings.conf")" = off ]
 pui_is srvoff [ "$(pui_srv 18601)" = 0 ]
 # Start with the port still taken: E4 after Start (collecting goes on), RUNNING offers "Start Web Page", which fails the same way
@@ -949,7 +1024,7 @@ rowif "payload ui: no jq: no Overview row, E11 at Start; a leftover page server 
 #            waiter through its traps. The first LOG line is blue Overview (it follows the first arm, so the stand-in's own
 #            WAIT_FOR_INPUT line may come first), then the screen; each screen ends with
 #            `Last scan HH:MM:SS (N s ago)` (the red `No new scan for N min.` instead when it is old) and `A: Refresh   B: Back`, the
-#            summary also with the page's address; B on a screen opens the list of seven (the default is the screen B came from), B
+#            summary also with the page's address; B on a screen opens the list of eight (the default is the screen B came from), B
 #            there ends the Overview with exit 0; no own menu; `Reading...` before a screen that runs jq; anything else than the known
 #            keys is a strike when its wait ended within a second of the arm, three strikes in a row end it (a slow answer is only
 #            waited out and resets the count); SINCE newer than the capture -> "Waiting for the first scan."; the payload gone before
@@ -963,14 +1038,14 @@ PUI_BAD=""; pui_new
 PUI_OVP="$PUI_T/ui:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys:$PUI_T/ovx"
 PUI_OVS="$PUI_T/ui:$PUI_T/bin:$PUI_T/jqs:$PUI_T/sys:$PUI_T/ovx"     # the same with the jq that takes two seconds to read a capture
 PUI_OVPATH=""
-PUI_HUB="Overview${PUI_TAB}Summary${PUI_TAB}Strongest Networks${PUI_TAB}Bands & Security${PUI_TAB}Devices & Merges${PUI_TAB}Probe Requests${PUI_TAB}Stations${PUI_TAB}Air Quality"
+PUI_HUB="Overview${PUI_TAB}Summary${PUI_TAB}Strongest Networks${PUI_TAB}Bands & Security${PUI_TAB}Devices & Merges${PUI_TAB}Probe Requests${PUI_TAB}Stations${PUI_TAB}Bluetooth${PUI_TAB}Air Quality"
 # the real display, in a clean environment whose TMPDIR is ours (the temp directory of the Overview is then ours to look at and to sweep)
 pui_ovrun() { rm -f "$PUI_T/wait.pids" "$PUI_T/jq.waits" "$PUI_T/jq.mode" "$PUI_T/jq.starts" "$PUI_T/jq.started" "$PUI_T/jq.killed"; pui_run_ui "${PUI_OVPATH:-$PUI_OVP}" TMPDIR="$PUI_T/tmp" "$@"; }
 pui_lt() { awk -F'\t' -v t="$1" '$1 == "LOG" && $NF == t { n++ } END { print n + 0 }' "$PUI_T/case.log"; }       # LOG lines whose text is exactly $1, any colour
 pui_lre() { awk -F'\t' -v re="$1" '$1 == "LOG" && $NF ~ re { n++ } END { print n + 0 }' "$PUI_T/case.log"; }   # LOG lines whose text matches the ERE $1, any colour
 pui_tok() {   # pui_tok -> the visible steps of the last run as letters, repeated Reading... lines counted once:
-  # O heading Overview, R Reading..., S/C/Q the summary's / Stations' / Air Quality's block heading, L Last scan, N red No new scan,
-  # F key line, U Web page, G Waiting, P the list of seven. No letter for a WAIT_FOR_INPUT: its call comes from a background child
+  # O heading Overview, R Reading..., S/C/B/Q the summary's / Stations' / Bluetooth's / Air Quality's block heading, L Last scan, N red No new scan,
+  # F key line, U Web page, G Waiting, P the list of eight. No letter for a WAIT_FOR_INPUT: its call comes from a background child
   # that is armed before the draw, so its line may fall anywhere among the draw's lines (the count is pui_x WAIT_FOR_INPUT)
   awk -F'\t' '
     function emit(t) { if (t == "R" && last == "R") return; out = out (out == "" ? "" : " ") t; last = t }
@@ -981,6 +1056,7 @@ pui_tok() {   # pui_tok -> the visible steps of the last run as letters, repeate
       else if (t == "Reading...") emit("R")
       else if (c == "blue" && index(t, "Starchorus  ~") == 1) emit("S")
       else if (c == "blue" && index(t, "Stations (GEN ") == 1) emit("C")
+      else if (c == "blue" && index(t, "Bluetooth LE (GEN ") == 1) emit("B")
       else if (c == "blue" && index(t, "Air quality (GEN ") == 1) emit("Q")
       else if (c == "red" && index(t, "No new scan for ") == 1) emit("N")
       else if (index(t, "Last scan ") == 1) emit("L")
@@ -1004,13 +1080,32 @@ pui_ans "q=B" "=Stations" "=A" "=RIGHT" "=LEFT" "=B" "!3"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_PAGE_URL=172.16.52.1:8199 sh "$PUI_DS"
 pui_is rc [ "$PUI_RC/$(pui_used)/$(pui_nw)" = 0/7/5 ]
 pui_is first [ "$(awk -F'\t' '$1 == "LOG" { print; exit }' "$PUI_T/case.log")" = "LOG${PUI_TAB}blue${PUI_TAB}Overview" ]
-pui_is list [ "$(pui_x LIST_PICKER Overview Summary 'Strongest Networks' 'Bands & Security' 'Devices & Merges' 'Probe Requests' Stations 'Air Quality' Summary)/$(pui_x LIST_PICKER Overview Summary 'Strongest Networks' 'Bands & Security' 'Devices & Merges' 'Probe Requests' Stations 'Air Quality' Stations)" = 1/1 ]
+pui_is list [ "$(pui_x LIST_PICKER Overview Summary 'Strongest Networks' 'Bands & Security' 'Devices & Merges' 'Probe Requests' Stations Bluetooth 'Air Quality' Summary)/$(pui_x LIST_PICKER Overview Summary 'Strongest Networks' 'Bands & Security' 'Devices & Merges' 'Probe Requests' Stations Bluetooth 'Air Quality' Stations)" = 1/1 ]
 pui_is footer [ "$(pui_lt 'A: Refresh   B: Back')/$(pui_lt 'Web page: 172.16.52.1:8199')" = 5/1 ]
-pui_is views [ "$(pui_logc '^LOG	blue	Starchorus  ~')/$(pui_logc '^LOG	blue	Stations (GEN ')/$(pui_logc '^LOG	blue	Air quality (GEN ')/$(pui_logc 'B: back\|A: screens\|B: menu')" = 1/3/1/0 ]
+pui_is views [ "$(pui_logc '^LOG	blue	Starchorus  ~')/$(pui_logc '^LOG	blue	Stations (GEN ')/$(pui_logc '^LOG	blue	Bluetooth LE (GEN ')/$(pui_logc 'B: back\|A: screens\|B: menu')" = 1/3/1/0 ]   # RIGHT from Stations is Bluetooth
 pui_is stale [ "$(pui_logc '^LOG	red	No new scan for [0-9]* [a-z]*\.$')/$(pui_lre '^Last scan ')" = 5/0 ]
-pui_is keys [ "$(pui_tok)" = "O R S N F U P R C N F C N F R Q N F C N F P" ]
-pui_is reading [ "$(awk -F'\t' '$1 == "LOG" { t = $NF; if (index(t, "Starchorus  ~") == 1 || index(t, "Stations (GEN ") == 1 || index(t, "Air quality (GEN ") == 1) printf "%s%d", (n++ ? " " : ""), (prev == "Reading..."); prev = t } END { print "" }' "$PUI_T/case.log")" = "1 1 0 1 0" ]
+pui_is keys [ "$(pui_tok)" = "O R S N F U P R C N F C N F R B N F C N F P" ]
+pui_is reading [ "$(awk -F'\t' '$1 == "LOG" { t = $NF; if (index(t, "Starchorus  ~") == 1 || index(t, "Stations (GEN ") == 1 || index(t, "Bluetooth LE (GEN ") == 1) printf "%s%d", (n++ ? " " : ""), (prev == "Reading..."); prev = t } END { print "" }' "$PUI_T/case.log")" = "1 1 0 1 0" ]
 pui_is nomenu [ "$(grep -ci 'dashboard\|bye\|Collector\|Exit' "$PUI_T/case.log")/$(pui_logc '^LIST_PICKER')/$(pui_logc "^LIST_PICKER${PUI_TAB}$PUI_HUB${PUI_TAB}")/$(awk -F'\t' '$1 ~ /^(NUMBER_PICKER|CONFIRMATION_DIALOG|ERROR_DIALOG|PROMPT|PROMPT_QR|START_SPINNER|STOP_SPINNER)$/ { n++ } END { print n + 0 }' "$PUI_T/case.log")" = 0/2/2/0 ]
+# the eight screens, on a capture that has Bluetooth (the radio-pair fixture): the Bluetooth screen sits between Stations and Air
+# Quality: eight RIGHT presses from the summary are top, bands, devices, probes, stations, Bluetooth, air, summary; the summary and, after LEFT,
+# air come again from the cache (no `Reading...`), and B opens the list with the cursor on air. The Bluetooth block is drawn whole: heading, count line, at most 12 lines with the frame, none over 40 columns
+PUI_NOFIX=
+if [ -s "$F/radio-pair.json" ]; then
+pui_ans "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=LEFT" "=B" "!3"
+pui_ovrun STARCHORUS_JSON="$F/radio-pair.json" sh "$PUI_DS"
+PUI_BB=$(awk -F'\t' '$1 == "LOG" { t = $NF; if (index(t, "Bluetooth LE (GEN ") == 1) f = 1; if (f) { n++; if (length(t) > 40) w++ }
+  if (f && t == "A: Refresh   B: Back") { print n + 0 "/" w + 0; exit } }' "$PUI_T/case.log")
+PUI_BN=${PUI_BB%/*}
+pui_is walk [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/11/10/O R S N F R N F R N F R N F R N F R C N F R B N F R Q N F S N F Q N F P" ]
+pui_is walkcursor [ "$(pui_x LIST_PICKER Overview Summary 'Strongest Networks' 'Bands & Security' 'Devices & Merges' 'Probe Requests' Stations Bluetooth 'Air Quality' 'Air Quality')" = 1 ]
+pui_is btblock [ "${PUI_BB#*/}/$((${PUI_BN:-0} >= 5 && ${PUI_BN:-0} <= 12))" = 0/1 ]
+pui_is btfigures [ "$(pui_lt '9 addresses (7 rotating, 2 fixed)')/$(pui_logc '^LOG	blue	Bluetooth LE (GEN [0-9]*)  rx only$')" = 1/1 ]
+else PUI_NOFIX=1; fi   # tests/fixtures/radio-pair.json comes with the page track: until then these four are NOT COVERED (below), and the parity drop-in is red for its absence
+# a capture without the array: the two lines, the setting is off (or the collector older)
+pui_ans "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=RIGHT" "=B" "!3"
+pui_ovrun STARCHORUS_JSON="$F/field-probes.json" sh "$PUI_DS"
+pui_is btoff [ "$PUI_RC/$(pui_lt 'No Bluetooth in this scan.')/$(pui_lt 'Turn it on in Settings > Bluetooth.')/$(pui_lt 'Strongest by company (last 2 min):')" = 0/1/1/0 ]
 # a capture that is fresh: the age line, not the red one (the time is the capture's, in UTC)
 PUI_G=$(date +%s); PUI_GT=$(jq -n -r --argjson g "$PUI_G" '$g | strftime("%H:%M:%S")')
 jq --argjson g "$PUI_G" '.generated = $g' "$F/field-probes.json" > "$PUI_T/fresh.json"
@@ -1117,7 +1212,8 @@ PUI_UIW='WAIT_FOR_INPUT|LIST_PICKER|NUMBER_PICKER|CONFIRMATION_DIALOG|ERROR_DIAL
 pui_is notimeout [ "$(sed -e '/^[[:space:]]*#/d' -e 's/[[:space:]]#.*//' "$PUI_DS" "$R/library/user/reconnaissance/starchorus/starchorus-display.sh" | grep -cE "(^|[^A-Za-z_])timeout[^|;&]*($PUI_UIW)([^A-Za-z_]|\$)")/$(cat "$PUI_T/timeout.log" 2>/dev/null | awk -F'\t' -v w="^($PUI_UIW)\$" '$2 ~ w { n++ } END { print n + 0 }')" = 0/0 ]
 # the settle rule is gone from both copies, comments included (nothing is buffered, so there is nothing to settle)
 pui_is nosettlecode [ "$(cat "$PUI_DS" "$R/library/user/reconnaissance/starchorus/starchorus-display.sh" | grep -c 'SETTLE')" = 0 ]
-rowif "payload ui: Overview contract: first line, one footer, hub of seven, A/B/Left/Right, Up/Down nothing, key wait armed before the draw, no settle rule, strikes, red stale line, waiting, no timeout, no waiter or temp dir left behind, orphan, payload stdout free after a TERM, E11 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+rowif "payload ui: Overview contract: first line, one footer, hub of eight (Bluetooth between Stations and Air Quality), the Bluetooth screen, A/B/Left/Right, Up/Down nothing, key wait armed before the draw, no settle rule, strikes, red stale line, waiting, no timeout, no waiter or temp dir left behind, orphan, payload stdout free after a TERM, E11 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+[ -z "$PUI_NOFIX" ] || notcov "payload ui: the eight screens walked on radio-pair, the Bluetooth screen whole (needs tests/fixtures/radio-pair.json)"
 
 # ---- 22 · bind: set/get/reset like port; refusals (0.0.0.0 included: every interface is spelt `all`); the environment
 #           beats the file, an invalid environment value falls back to the file (never to all) with a note

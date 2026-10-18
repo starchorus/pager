@@ -11,7 +11,7 @@
 # Display script: LOG of both starchorus-display.sh copies (--once, EVERY screen x every fixture) plus every "…"
 # literal of the scripts (menu, spinner and dialog texts that --once never prints). The screen list is read
 # from each script (its screen_NAME() functions), not typed here: a typed list would silently miss a screen added
-# later (the display script has 7 screens). Vacuity guard: screens that produced output == screens defined, and render()
+# later (the display script has 8 screens). Vacuity guard: screens that produced output == screens defined, and render()
 # dispatches every one of them (`--once NAME` for a name render() does not know silently prints the summary instead).
 # A screen counts as covered only if its output is non-empty on at least one fixture and (other than summary itself) differs
 # from the summary's output on at least one fixture: counting loop passes proves nothing, a screen that returned early at

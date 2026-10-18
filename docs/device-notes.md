@@ -3,13 +3,15 @@
 The device is the Hak5 WiFi Pineapple Pager (a trademark of Hak5 LLC; Starchorus is not
 affiliated with Hak5). This is the developer reference for the facts **verified on the device** on which the collector, the Overview and the
 payload rest. The details come from a read-only session on the device and from its unpacked
-firmware image. Anything not yet verified on the device is marked as open (§2a, §5a, §5b, §7 and the list at the end of §6a);
+firmware image. Anything not yet verified on the device is marked as open (§2a, §2b, §5a, §5b, §7 and the list at the end of §6a);
 `tools/device-probe.sh` answers these questions in a read-only session, as far as that is possible
 without transmitting and without changing state.
 
 > **Hard rule: strictly passive.** Starchorus only receives. It reads the device's recon database
-> read-only, reads (opt-in) the AP service's read-only recon lists, or receives in monitor mode. It **never** transmits: no deauth/disassoc, no rogue or
-> evil AP, no injection, no association, no active function of the AP service, no jamming.
+> read-only, reads (opt-in) the AP service's read-only recon lists, listens (opt-in) to Bluetooth LE advertisements with a passive
+> scan, or receives in monitor mode. It **never** transmits: no deauth/disassoc, no rogue or
+> evil AP, no injection, no association, no active function of the AP service, no Bluetooth inquiry, active scan, advertising or
+> connection, no jamming.
 > `iw scan` sends probe requests and therefore counts as **active**; the collector uses it only with
 > an explicit opt-in (`STARCHORUS_ALLOW_ACTIVE=1`). Everything in this document describes reading or
 > receiving paths.
@@ -45,7 +47,7 @@ therefore runs **without** `opkg` and **without** internet access on the device.
 | `iw` | present | interface detection; `iw scan` only with opt-in (active) |
 | `iwinfo` | present | interface introspection |
 | `jq` | present, **without regex** | every Overview filter; built without Oniguruma, see §2a |
-| `timeout` | present; not measured which implementation it is (GNU coreutils or the BusyBox applet) | bounds the Overview's `jq` (`timeout 20`, where `timeout` exists) and nothing else of the Overview's: never a key wait, never any other UI command, because killing the client of a UI command might leave its request pending in the UI service (M7 in §7 saw no such effect, on weak evidence) and the Overview needs no `timeout` for its work; the Overview ends a `jq` that a key has cut short together with the processes `timeout` started for it, because which implementation this is, and so whether it passes a signal on, is not known; `tools/device-probe.sh` reports which one it is (`timeout.kind`) |
+| `timeout` | present: `/usr/libexec/timeout-coreutils` (GNU coreutils; measured 17 October 2026, A2 in §2b). It forks: the command is its child with a pid of its own, and a TERM sent to `timeout` ends the child (a hand run of `timeout -s INT 10 hcitool lescan --passive --duplicates` on 16 October 2026 had ended with exit status 124, which a `timeout` that executes its program in its own process cannot return). Whether it passes INT on is still open. GNU `timeout` installs handlers of its own for INT, QUIT, HUP and TERM (the coreutils source; not measured here), so its command starts with those four signals at default whatever the caller had ignored: the collector's `trap '' HUP QUIT` around the two launches does not reach the tools on the device, and a SIGINT that reaches `hcitool` before it has installed its own handler ends it. The Bluetooth window therefore notes the pid of the tool itself, signals only the tool, and holds the first SIGINT of an abort back for a scan younger than a second | bounds the Overview's `jq` (`timeout 20`, where `timeout` exists), the collector's Bluetooth tools (§2b) and the AP service calls, and nothing else of the Overview's: never a key wait, never any other UI command, because killing the client of a UI command might leave its request pending in the UI service (M7 in §7 saw no such effect, on weak evidence) and the Overview needs no `timeout` for its work; the Overview ends a `jq` that a key has cut short together with the processes `timeout` started for it, because whether it passes INT on is not known; `tools/device-probe.sh` reports which implementation it is (`timeout.kind`) |
 | `nice`, `setsid` | present (BusyBox) | the payload starts the collector (detached with `setsid`), the page server and the Overview at nice 19 |
 | `nc` | present | **GNU netcat 0.7.1** (not BusyBox nc); carries the page server `starchorus-serve.sh`; offers `-s ADDRESS` (local address, §8) |
 | `cksum` | missing | `ash: cksum: not found`, exit 127 (seen 11 October 2026, and in the installer runs of 14 and 15 October). `tools/install.sh` therefore verifies by reading all six files back with `scp` and comparing them with `cmp`, and reports that as a pass: a missing applet is a fact about the device, not a warning |
@@ -165,6 +167,132 @@ Three safeguards hold the rule:
 
 ---
 
+### 2b. Bluetooth (V-13)
+
+Read-only observations of the evening of 16 October 2026 and of the morning of 17 October 2026 (06:00 to 06:10), from the person at the device:
+nothing was transmitted, and only counts left the device (the fixture of A1 is masked). They settle
+what the device offers; they do **not** show that a window of the collector is passive (that is read back from the controller's own
+traffic each cycle, and the device checks for it are listed at the end of this section).
+
+| Topic | Value |
+|---|---|
+| BlueZ | 5.72, complete on the stock firmware: `hcitool`, `btmon`, `hciconfig`, `bluetoothctl`, `btmgmt`, `bluetoothd`, `gatttool`, `l2ping`. There is no `rfkill`. `bluetoothd` runs |
+| Controller | `hci0`, **internal USB** on the SoC's EHCI (`btusb`, USB id `0e8d:7961`, 'Wireless_Device', MediaTek), HCI and LMP 5.2, UP RUNNING, link mode PERIPHERAL ACCEPT, class 0 |
+| Shared chip | the controller is the **same combo chip as a Wi-Fi radio**, so Bluetooth and 2.4 GHz Wi-Fi share hardware: `wlan1mon` (`mt7921u`) sits on USB device 1-1.2, the device `hci0` is on (A15, measured 17 October 2026) |
+| `hcitool lescan` | this build has `--passive`, `--duplicates`, `--privacy`, `--acceptlist` and `--discovery` |
+
+**The passive route.**
+
+- `hcitool lescan --passive --duplicates` works. A passive scan sends no scan requests. In the hand run the HCI transmit counter
+  rose by 20 bytes in 3 commands (scan parameters, enable, disable: from the host to the controller, which is not radio
+  transmission). `timeout -s INT` stopped it cleanly; afterwards `hciconfig` showed UP RUNNING with no scan flag, and no process was left.
+  `hciconfig` has no LE scan state, so that last observation is no evidence that the scan ended (A3: the collector looks for the
+  `Scanning: Disabled` block in `btmon`'s text instead).
+- Plain `hcitool lescan` (without `--passive`) is an **active** scan and is forbidden here, as are classic inquiry (`hcitool scan`,
+  `inq`), connections (`cc`, `lecc`, `l2ping`, `gatttool`), advertising (`leadv`), `bluetoothctl scan on` and `btmgmt`. The static check
+  goes further than these verbs and denies every tool of the stack by name (`docs/architecture.md` §14.6).
+- `btmon` alone starts no scan: it only decodes the HCI traffic that another scanner causes. The passive route is therefore
+  `hcitool lescan --passive --duplicates` as the starter and `btmon` (text) as the reader. `btmon` gives, per advertising report, the
+  event type (`ADV_IND` and the others), the address type (public or random, resolvable or not where it can be decoded), the address,
+  the data length, the flags, the company id (`Company:`), service UUIDs, a name when the advertisement carries one, and the **RSSI**.
+  `hcitool lescan`'s own output carries addresses only, no RSSI.
+
+**What a window gives** (30 s on the owner's desk): 924 `hcitool` lines and 890 `btmon` advertising reports, all with an RSSI, 878
+with a company id, none with a name, 20 distinct addresses; 854 reports used a random address and 36 a public one; no extended
+advertising reports. Random addresses dominate (96 % of the reports), and resolvable private addresses rotate about every 15 minutes
+on phones, so Bluetooth 'devices' are mostly clouds in the sense of the page's random-address clouds, and a device count would
+mislead. The company id (manufacturer data) is the most stable visible attribute; it names who registered the data format, not
+necessarily who made the device. Names are rare under a passive scan.
+
+**Measured on 17 October 2026** (06:00 to 06:10, counts only; the assumptions are those of the table below):
+
+- **A1, the text of `btmon -i hci0`.** The headers read `> HCI Event: LE Meta Event (0x3e) plen 29   #5 1.546345`: there is no `[hci0]` tag. A
+  command line is prefixed by the process and its name is cut short (`hcitool[3550]: < HCI Command: LE Set Scan E.. (0x08|0x000c) plen 2`),
+  so the witness keys on the parameter lines (`Type: Passive (0x00)`, `Scanning: Enabled (0x01)`, `Scanning: Disabled`), never on the command name.
+  `Scanning: Enabled` (line 20 of the masked fixture) comes before the first report (line 26). The hex `Data:` lines reach 66 characters. In a 10-s window
+  the event types were `ADV_IND` 233, `ADV_NONCONN_IND` 59 and `ADV_SCAN_IND` 41, no `SCAN_RSP`, no extended report; address types Random 297 and Public 36, of
+  the random ones Resolvable 256 and Static 41. Still open: how long `btmon` takes from exec to its monitor socket (the head start), and that `hcitool` accepts `-i hci0`.
+- **A2.** `timeout` is `/usr/libexec/timeout-coreutils` (see §2): the command is its child, a TERM to `timeout` ends the child. Whether INT is forwarded is open.
+- **A5.** Three `RECON CHANNELS` calls one second apart summed to 2424, 2064 and 2146 (2412 MHz: 1765, 1532, 1588): a sliding window, not a read that consumes
+  what it returns.
+- **A8.** The per-station `packets` deltas per 30 s over ten copies of the database (36 MACs, 271 changed rows): median 8 frames, 90th percentile 118,
+  95th 138, maximum 169, so the 95th percentile is about 4.6 frames per second. The page's `GLOW.rateFull` is therefore 5 frames per second (it was 10 until
+  this was measured).
+- **A9.** 60 s of `btmon` without a scan of ours showed 0 host HCI commands, 0 events and 0 reports: `bluetoothd` runs no scan of its own, and the witness sees only ours.
+- **A10, read in BlueZ 5.72 `monitor/packet.c`.** `print_eir` prints an advertised name with `memcpy(name, data, data_len)` and
+  `print_field("Name (complete): %s", name)` (likewise `Name (short)`), with no sanitising: a line feed inside a name splits the printed line and a NUL ends it early. Only the hex
+  dump (`isprint(...) ? buf[i] : '.'`) sanitises. A name is at most 29 bytes (31 of payload less two). It is not the only text the air writes:
+  `print_manufacturer_apple` (company 76 or 19456, type 0x01) prints the bytes after its length byte with `snprintf(identifier, 99, "%s", data + 1)` and no bound to the
+  advertisement, so it reads on into the RSSI byte and stale buffer bytes, and in a multi-report event a run the advertiser controls can reach about 36 bytes. So the
+  rule is not 'no line the air writes is longer than 29 bytes'. The lines the parser acts on stay out of reach: the headers are over 40 bytes and `Event type` is at
+  least 38; a forged `Address type` or `Address` line (35 and 34 bytes at least) can only drop the report of its own sender, by the order of the labels. The real
+  10-s window had `Num reports: 1` only, so a multi-report event has not been seen. Not done: decoding a crafted btsnoop file offline.
+- **A11.** The five busiest MACs show steady deltas (for example 112, 89, 105, 115, 147, 142, 118, 122, 107): no alternation between 0 and double, so the firmware updates
+  `packets` steadily and nothing aliases with a 30-s capture.
+- **A12.** In five minutes of passive scan: 30 addresses, 6,004 reports (20 per second). The strongest report of each address: one in the −30s, two in the −40s, six in the −50s,
+  eight in the −60s, five in the −70s, one in the −80s, one in the −90s, two below −100 and four with a non-negative reading, which is the invalid-RSSI marker and is
+  dropped (the parser drops every report of 0 dBm or more). About nine in ten addresses are heard above −90 dBm. The scan's text held one `Scanning: Disabled` after
+  the `Enabled`, and no process was left.
+- **A15.** `wlan1mon` and `hci0` are on the same USB device, 1-1.2.
+- **A16.** There is no `od` on the device, so a btsnoop fallback that decodes with `od` is out.
+
+**Cost and coexistence.**
+
+- CPU (ticks of 10 ms on the one core): `hcitool lescan` 10 ticks per 30 s (0.3 % of the core); `btmon` text decoding 169 ticks per 30 s
+  (5.6 %); `btmon --write` (binary btsnoop) 176 ticks per 60 s, the file 108,100 bytes for 60 s.
+- Coexistence, rx packets per second on `wlan1mon`. 30-s windows: 95 without a scan, 89 with the scan and `btmon`, 72 without again.
+  60-s windows, about 20:45: 35 off, 31 with `hcitool` only, 27 off, 57 with `hcitool` and `btmon --write`, 62 off. The traffic of the
+  surroundings moved by more (27 to 62 rx/s with no scan) than any effect of the scan, so there was no loss to see; the measurement
+  cannot show that there is none either. It was taken on `wlan1mon`, which is the interface that shares the USB device with `hci0` (A15,
+  17 October 2026), so it watched the right radio; its weakness is the drift of the surroundings, not the interface. The devbench's
+  coexistence row (§6a) is the answer to give; the layer stays off by default until it exists.
+
+**What the collector does** (the design, `docs/architecture.md` §14.6 and `SECURITY.md`; none of it has run on the device yet).
+It is opt-in (`STARCHORUS_BLUETOOTH=1`, or Settings > Bluetooth). Each cycle it starts `btmon -i hci0` and, once `btmon` holds its
+monitor socket, `hcitool -i hci0 lescan --passive --duplicates`, for a window of 6 s (`STARCHORUS_BT_WINDOW`, 5 to 15), each under
+`timeout -s INT` as a dead-man timer and each tracked by two pids (the `timeout` wrapper and the tool). It ends the tools with SIGINT:
+`hcitool` gets SIGINT repeatedly for at most 12 s and then at most one SIGTERM, never SIGKILL (it ends the scan only from its SIGINT
+handler); `btmon` may be escalated. A stop in the middle of a window sends the first SIGINT to a scan younger than a second one second after its start, and a
+collector killed with SIGKILL leaves its tools to their dead-man timers and to the next daemon start's sweep (SIGINT only). It calls no `hciconfig`, `btmgmt` or `bluetoothctl` and never changes the controller's state. A
+window counts only when `btmon`'s text shows the collector's own `LE Set Scan Parameters` block with `Type: Passive (0x00)` before the
+first report, the scan enabled, no `Type: Active` block, no extended scan command or report, and frame numbers that increase. A
+missing `Scanning: Disabled` block is logged ('no scan disable was seen; the controller may still be scanning (passive); see
+device-notes V-13'). Records are held for 120 s after their window.
+
+**A scan left running.** If an `hcitool` dies between enabling the scan and its SIGINT handler (the device's `timeout` starts it with INT at default, so an INT
+in that moment kills it), or has to be terminated, the controller may go on scanning (A4: not to be provoked on purpose). The collector shows it by the missing disable block and by the next window
+failing to set its scan parameters; it logs both once per episode and points here. It never tries to recover the controller itself
+(Starchorus never changes the controller's state). Recovery is the owner's: a reboot is the plain answer, and a controller reset by hand is another that has not been
+tried here.
+
+**Assumptions and the device check that settles each** (all read-only, run by the person at the device with approval per command;
+only counts leave the device, apart from the masked fixture of A1):
+
+| # | Assumption | Check | Status |
+|---|---|---|---|
+| A1 | `btmon` 5.72 prints the strings, header shape, indentation and field order the parser and the witness read (`Type: Passive (0x00)`, `Scanning: Enabled`/`Disabled`, `Event type: … - ADV_IND (0x00)`, `Address type:`, `Address: XX… (Resolvable)`, `Company: <name> (<id>)`, `RSSI: -61 dBm (0xc3)`); both tools accept `-i hci0`; how long `btmon` takes from exec to its monitor socket; whether it writes each packet to its file at once; the event-type histogram of a window (are scan responses reported?) | one window by hand into a RAM file; `grep -c` of each string and event type; the head start timed; the masked fixture of the collector's selftest comes from it | measured 17 October 2026 (shape, prefix, histogram); **open**: the head start, `-i hci0` on `hcitool` |
+| A2 | the device's `timeout` stays the parent of its command, and whether it forwards INT and TERM | `timeout 30 sleep 60 & p=$!`; `/proc/$p/cmdline` and the command name of `$p`'s child; `kill -TERM $p`; does the `sleep` survive? Then `kill` the `sleep` if it did. `tools/device-probe.sh` reports `timeout.kind` | measured 17 October 2026 (coreutils, parent, TERM ends the child); **open**: INT |
+| A3 | `hcitool` turns the scan off on SIGINT and `btmon` flushes its file on SIGINT | the window's file ends with an `LE Set Scan Enable` block with `Scanning: Disabled` after the `Enabled` one; `hciconfig` shows no LE scan state, so it is no evidence here | **open** (the five-minute hand scan's text had one `Disabled` after the `Enabled`; the collector's own window has not run) |
+| A4 | a TERMed or KILLed `hcitool` leaves the controller scanning, and the next `lescan` fails to set its parameters | not to be provoked on purpose; the missing disable and the next window's failure show it | **open** |
+| A5 | the `"0"` key of `RECON CHANNELS` holds frames of no known channel, the counts cover 20 to 30 s, and a call does not consume them | two calls one second apart | measured 17 October 2026 (a sliding window, nothing consumed); **open**: what the `"0"` key holds |
+| A8 | per-station rates are mostly under 10 frames/s | the distribution of 30-s deltas of `packets` | measured 17 October 2026: 95th percentile about 4.6/s |
+| A9 | `bluetoothd` runs no LE scan of its own that would make `lescan` fail or the witness void | 60 s of `btmon` without a scan of ours: no `LE Set Scan Enable` from the host | measured 17 October 2026: none |
+| A10 | what the air can write into `btmon`'s text, and that names are not filtered | read `monitor/packet.c` of the BlueZ 5.72 source; decode a crafted btsnoop file offline with `btmon -r` | read 17 October 2026 (see above: names unsanitised; the Apple decoder is unbounded); **open**: the offline decode |
+| A11 | the firmware updates `packets` steadily | ten captures' counters of a few busy MACs | measured 17 October 2026: steady |
+| A12 | most advertisers are heard above −90 dBm | the distribution of per-address maximum RSSI over five minutes, as counts per 10-dB bin | measured 17 October 2026: about nine in ten |
+| A13 | when a network stops hiding, its newest type-8 row says so | one BSSID that stopped hiding: its type-8 rows before and after | **none seen**: 34 hidden BSSIDs have more than one beacon row, none has a newest row with `hidden = 0` (the collector still decides from the newest beacon row; on this data that changes nothing) |
+| A15 | which Wi-Fi radio shares the combo chip with `hci0` | `readlink -f /sys/class/net/wlan*/device` against `readlink -f /sys/class/bluetooth/hci0/device`; `tools/device-probe.sh` section 9 makes the comparison from sysfs alone | measured 17 October 2026: `wlan1mon`, USB device 1-1.2 |
+| A16 | the fallback route, `btmon --write` plus a decode with `od` and `awk`, is cheaper than text if ever needed | `command -v od` | measured 17 October 2026: no `od`; the fallback is out |
+
+`tools/device-probe.sh` answers V-13 from files only (section 9): the entries of `/sys/class/bluetooth`, the USB descriptors of
+`hci0`'s parent, whether each `wlan*` interface sits on the same USB device (A15), which BlueZ tools exist (`command -v`, nothing is run),
+the count and the plain names of the BlueZ-looking files in `/usr/bin` and `/usr/libexec/bluetooth`, and counts of processes named
+`bluetoothd`, `hcitool` and `btmon`. It calls no Bluetooth tool, `hciconfig` included, and starts no scan. Every further name it finds goes
+into `BT_WORDS` of `tools/passivity-check.sh`. What a window shows (the scan parameters, the event types, the head start) it cannot
+say; the devbench rows in §6a do.
+
+---
+
 ## 3. Interfaces and passivity
 
 Confirmed on the device with `iw dev`:
@@ -238,6 +366,26 @@ wifi_device(hash, scan, mac, time, signal, freq, packets)
   named in probe responses (`type = 5`), as a number only and only from two upwards.
 - `channel` is a column of its own; `band` is preferably derived from `freq` (which includes
   6 GHz), otherwise from `channel`.
+- **Frame counters** (`wifi_device`, read 16 October 2026): one row per device per recon session. `packets` is cumulative and
+  **monotonic** within a session (a 30-s difference: 23 rows up, none down, no row at zero; the largest value seen 1,296,575). `time`
+  is the last-seen time in epoch seconds and is updated live (24 s behind the clock when it was read). `scan(id, uuid, time, name)`
+  has one row per boot (22 sessions), `time` in epoch seconds. A difference of `packets` per MAC is therefore sound within a session,
+  and a new session starts new rows with small counts. Over ten copies (17 October 2026, A8) the deltas per 30 s of 271 changed rows had a median of 8
+  frames, a 90th percentile of 118, a 95th of 138 and a maximum of 169 (about 4.6 frames per second at the 95th percentile, which is where the page's cue scale
+  ends), and the five busiest MACs changed steadily (A11), with no alternation between 0 and double. What the counter counts (frames heard from that MAC, or something else) is
+  still open (V-10, A6).
+- **Hidden networks carry no name on record** (re-measured 17 October 2026 with `hex()`; the reading of 16 October was wrong). An SQL
+  comparison of the BLOB column with the text '' had made every hidden row look as if it held a name. Compared by bytes, all 313 beacon
+  rows (type 8) with `hidden = 1`, 152 BSSIDs, hold zero bytes only: 311 are empty, one is 21 NUL bytes and one is 10 (the beacon's
+  zero-filled SSID element). A7: none of the 152 hidden BSSIDs has a type-5 row. A14: none of the 313 rows has printable text, and no row
+  of any type carries a name for a hidden BSSID. The data therefore holds no name for a hidden network: `ssid` stays `""` as in 0.1, and
+  the 0.1 behaviour (a hidden network shows no name) loses nothing. The collector's name-on-record rule, the `ssid_recorded` field, the
+  `STARCHORUS_RECORDED_NAMES` switch, the page's dimmed label and every row and document line for them were therefore dropped on 17 October 2026.
+  A13: 34 hidden BSSIDs have more than one beacon row and none has a newest row with `hidden = 0`, so no network that stopped hiding has been
+  seen; the collector still takes `hidden` from the newest beacon row of a BSSID, not from its strongest row of either kind (a rule that changes
+  nothing observable on this data).
+- **Wildcard probes are not stored.** Of 27,097 type-4 rows none had an empty SSID: the firmware keeps no wildcard probe, so a 'broadcast
+  probe' cannot be derived and the wording stays 'named probe' / 'no named probe heard'.
 
 ### 4b. Schema with `apmac`/`stamac` and `band` (from the firmware image)
 
@@ -268,7 +416,7 @@ the APs' `clients[]` stay empty; real assignments come only from the `capture` s
 
 The database stores MAC/BSSID in **upper case without colons**; the collector normalises to lower
 case with colons. `ssid` is a **BLOB** and is read with `CAST(ssid AS TEXT)`; embedded tabs and line
-breaks become spaces. `hidden = 1` or an empty SSID means a hidden network and yields `"ssid": ""`.
+breaks become spaces. `hidden = 1` or an empty SSID means a hidden network and yields `"ssid": ""` (§4a: the rows of a hidden network hold no name).
 
 ---
 
@@ -342,7 +490,7 @@ Everything that depends on device behaviour not yet verified sits behind a switc
 | Is `time` in `ssid` a first-seen time or an update time (upsert)? | `sqlite3 -readonly <copy> "SELECT bssid, time FROM ssid WHERE type=8 LIMIT 5"`, twice, 30 s apart | `STARCHORUS_HOPINFO`, freshness, `first_seen` (stays unwritten) | V-1 |
 | Is `freq` the receive frequency? | compare `channel` and `freq` of the same rows | band from `freq` | V-2 |
 | Does the driver provide `iw dev wlan1mon survey dump` (noise, active/busy time)? | `iw dev wlan1mon survey dump` (read-only) | `STARCHORUS_SURVEY` | V-5 |
-| What does `wifi_device.packets` count? | read the counter twice, cross-check against `tcpdump -c` | `ap.packets` (stays unwritten) | V-10 |
+| What does `wifi_device.packets` count? | read the counter twice, cross-check against `tcpdump -c` for one busy MAC (A6: the difference over 30 s against the frames `tcpdump` sees for that transmitter address). Monotonic within a session is observed (§4a); what it counts is open | `ap.packets` (stays unwritten); the station `packets` of the opt-in Traffic switch | V-10 |
 | Format and fields of the recon output of the AP service command line (`apcli_ro` `recon_aps`/`recon_devices`) | **done 14 October 2026**, see V-3 below (the unverified `monitor` id has left the allowlist) | `apcli_ro`, `STARCHORUS_SOURCE=pineap` | V-3 |
 | Do the `tx_packets` of `wlan1mon`/`wlan2mon` stay the same before and after every `apcli_ro` command? | **done** for all three lines, `RECON APS`, `RECON DEVICES` and its bounded form (and the commands below) | every `apcli_ro` id | V-3 |
 | Are the interface MACs the BSSIDs the device itself transmits? | `cat /sys/class/net/*/address` against the beacons in the database | `STARCHORUS_OWN` | V-9 |
@@ -361,7 +509,8 @@ others, `RECON APS {format=json}`, `RECON DEVICES {format=json} {sort=field} {by
   `RECON DEVICES format=json` and `RECON CHANNELS format=json` (all stayed 0), and, in a second round, after
   `RECON PING`, `RECON SEARCH` with `format=json`, `RECON DEVICES format=json sort=time sortdir=desc limit=50` and
   `RECON DEVICES format=json pagesize=100 page=1`. Only `eth0`/`br-lan` moved, by 2:
-  the SSH session. Starchorus uses only the plain `format=json` lists (and, opt-in, the bounded form below).
+  the SSH session. Starchorus uses only the plain `format=json` lists (and, opt-in, the bounded form below and `RECON CHANNELS format=json`
+  for the Traffic switch).
 - **Exit codes.** `RECON COUNT *` exits non-zero with the count as the exit code and prints, for example,
   `35 access point devices in recon`; `RECON CHANNELS` exits 1 but prints valid JSON. The collector therefore
   never judges the lists by their exit status, only by whether the output is a complete JSON array.
@@ -388,10 +537,23 @@ RECON DEVICES format=json  -> an array of the same shape: the APs plus the stati
                               carry mostly `probe` records = the SSIDs they probe for
 <rec> = { "ssid": "<text>", "ssidlen": <n>, "channel": <n>, "freq": <MHz>, "signal": <dBm>, "count": <n>,
           "time": <unix s>, "hidden": <bool> }                                 # "hidden" in beacon records only
-RECON CHANNELS format=json -> { "<MHz>": <count>, ... }                        # a count per frequency; not used
+RECON CHANNELS format=json -> { "0": <n>, "<MHz>": <n>, ... }                  # 69 keys; used by the opt-in Traffic switch as activity, see below
 ```
 
 One AP can have several beacon or response records (one per SSID). The `<hash>` keys are numeric strings.
+
+**`RECON CHANNELS`: activity, not devices** (read 16 October 2026). The answer is `{"0":0,"2412":566,"2417":111,…}`: 69 keys, the
+centre frequency in MHz plus a `"0"` key, and 11 of them are 6 GHz frequencies (all 0 while that band is off); one call takes 0.21 s. The
+numbers are **not devices**: at the same moment the recon database had 19 devices on 2412 MHz in the last hour, 318 in six hours, 4,779 in
+the session and 7 access points there, while the JSON said 566 to 655 and changed with every call. The sum over all keys was 1,100 to 1,400
+while `wlan1mon` received 35 to 60 packets per second. The best fit is **packets per channel over a recent window of roughly 20 to 30
+seconds**, which is relative channel activity as the firmware's own recon graph shows it. Starchorus therefore takes it only as a
+relative share (each frequency's count over the sum of the keys at 2400 MHz and above, the `"0"` key left out; assumption A5) in its own
+`activity` array, says 'activity' and never 'devices', and never writes it into `channels[]`. The unit is a best fit, not a fact. A5, measured 17 October 2026: three calls one second apart summed to 2424, 2064 and 2146 (2412 MHz: 1765, 1532, 1588), a
+sliding window and not a read that consumes the counts. Still open: what the `"0"` key holds (frames of no known channel?) and that the window is 20 to 30 s.
+The single-call passivity check above covers `RECON CHANNELS format=json`; its **extension** is still to run before `SECURITY.md` gets
+its dated sentence: the collector's call every cycle for 10 minutes, with the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and
+`wlan1mon` before and after, and the two calls one second apart.
 The `pineap` source (`STARCHORUS_SOURCE=pineap`, opt-in) is built on exactly this: APs from `RECON APS` (the
 name from the strongest, then newest, beacon or probe-response record; a hidden beacon gives an empty name;
 `time` becomes `last_seen`), stations from the `RECON DEVICES` entries that are not APs (their `probe`
@@ -419,8 +581,8 @@ transmit counters of `wlan0`, `wlan0mon` and `wlan1mon` unchanged). It is the de
 every device of the session, is parsed device by device: it grows with the size of the list (about 2,100 devices that day, §6a).
 
 At the end, `tools/device-probe.sh` reports each open verification as `V-<id> <name>: OBSERVED …` or
-`NOT-OBSERVABLE …`. Beyond the table it covers V-6 (6 GHz reception) and V-11 (multi-BSSID profiles,
-which the database may under-record). V-12, the five jq building blocks (§2a), was answered on the device by the Overview's self-test on 14 and 15 October 2026. V-3, V-4
+`NOT-OBSERVABLE …`. Beyond the table it covers V-6 (6 GHz reception), V-11 (multi-BSSID profiles,
+which the database may under-record) and V-13 (the Bluetooth controller and tools, from sysfs and file names alone, §2b). V-12, the five jq building blocks (§2a), was answered on the device by the Overview's self-test on 14 and 15 October 2026. V-3, V-4
 (a radio-locking examine command, not used by Starchorus), V-7 (the device's deauth reporter) and
 V-11 remain `NOT-OBSERVABLE` there: they would need a command that a read-only run does not call (V-3 was
 done by hand, see above).
@@ -570,6 +732,25 @@ time itself was measured, above): the number of `sqlite3` processes per cycle (a
 `collect.log` after a change of scenery (is the cache growing, and if not, which reason is named); and an end-to-end
 `STARCHORUS_SOURCE=pineap sh starchorus-collect.sh --once` by hand (the daemon of the harness has run it under BusyBox `awk`).
 
+**The radio pair on the device: what is open.** The opt-in Bluetooth window and the opt-in Traffic read (`docs/architecture.md` §14.6) have
+**not** been measured as part of the collector. What exists are the hand measurements of §2b (the costs of the two tools alone) and the
+per-step costs above; an estimate built from them puts the Bluetooth window above the share of the core that was hoped for, which is the
+first reason the switch is off by default. In a crowded hall the parse is held to a size and a time limit, so the cycle can lengthen but the
+Wi-Fi document is never held back by it. The rows below replace the estimate (the benchmark harness on the device, owner-run, one
+approval per command; the order matters: the reads that settle the design, A1, A2, A10 and A15 of §2b, were taken on 17 October 2026 (what is left of them: the
+head start of `btmon` and `-i` on `hcitool` in A1, INT forwarding in A2, the offline decode of A10), and the 10-minute traffic repetition comes before the sentence on `RECON CHANNELS` in `SECURITY.md` is dated; the two-call test of A5 is done):
+
+| Row | Procedure | Pass |
+|---|---|---|
+| Bluetooth, `btmon` part | the collector daemon with the payload's defaults, 20 min in alternating 10-min halves with `STARCHORUS_BLUETOOTH=0` and `1`; ticks of `btmon` and `hcitool` per cycle, a 6-s window measured directly (no scaling) | at most 50 ticks per cycle |
+| Bluetooth, parse and layers part | the same; ticks of `grep`, the parse and the per-cycle layer pass per cycle | at most 80 ticks per cycle |
+| Bluetooth, whole | the collector's process tree | at most 130 ticks per cycle (about 3 % at 44 s); above it, a 5-s window |
+| crowded hall | a synthetic 1.5-MB window (the masked fixture repeated with counter-derived addresses) replayed through the parser on the device | wall time at most 6 s; the ticks are recorded |
+| traffic | the same alternation with `STARCHORUS_TRAFFIC=0` and `1` | at most 20 ticks per cycle |
+| coexistence | on the interface that shares the chip with `hci0` (A15), plus the management link (ping latency from the owner's side, the `wlan0mgmt` counters): 30 pairs of 20 s on and 20 s off; the mean of the within-pair differences of rx frames per second, overall and per band (2.4 GHz against 5 GHz, from the activity shares or `iw survey` busy time) | the difference and the smallest difference these pairs can detect are written into §2b; the default stays off |
+| V-13 passivity | one window by the collector; the window's `btmon` text counted for `Type: Passive (0x00)` before the first report, `Scanning: Enabled`, `Scanning: Disabled` after it, and every event type (counts only; no address leaves the device) | 1, 1, 1; the event-type histogram is recorded; no `hcitool` or `btmon` process is left |
+| V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |
+
 ---
 
 ## 7. No web server, and how the display works
@@ -662,9 +843,9 @@ treats a non-zero exit after more than 0.6 s as leaving it, and shows the PROMPT
 that is absent or returns at once); whether three message lines fit under its code; whether Down on the last row of a list wraps; and whether the middle dot `·` of the Overview's lines shows on the
 device's font.
 
-The Overview `starchorus-display.sh` is the on-device view: seven screens from `starchorus.json`
+The Overview `starchorus-display.sh` is the on-device view: eight screens from `starchorus.json`
 (the summary, strongest networks, bands and security, devices and merges, probe requests,
-stations, air quality) as LOG lines. The payload runs it as a child process at nice 19 and hands it
+stations, Bluetooth, air quality) as LOG lines. The payload runs it as a child process at nice 19 and hands it
 the time of the last Start, so it never shows a capture from before it ('Waiting for the first
 scan.'). It has no menu of its own, and starting and stopping belong to the payload. Before it draws a
 screen it starts one `WAIT_FOR_INPUT` in the background, with no time limit, and it collects the
@@ -694,7 +875,7 @@ written (the file system is full) is reported as 'Overview could not read a key.
 empty answers. Nothing redraws by itself, and no UI command is ever put under `timeout`; only its own
 `jq` is (`timeout 20`, where `timeout` exists: a read that takes longer ends as 'This scan took over
 20 s to read.', and 'Try Settings > Show Last: 1 h.' follows). The keys: A draws the screen again; B
-goes up one level (a screen, then the `LIST_PICKER` 'Overview' with its seven rows, then exit 0 to the
+goes up one level (a screen, then the `LIST_PICKER` 'Overview' with its eight rows, then exit 0 to the
 payload's menu); Left and Right step through the screens, round the ends; Up and Down are ignored (a
 new wait is started at once, nothing is drawn, unless the draw they came in was cut: then the screen
 is drawn again); BACK and Escape count as B and a lower-case a or b as the capital; any other answer is
@@ -727,7 +908,7 @@ the draw) rests on M1 to M3.
 | M3 | Does a `WAIT_FOR_INPUT` started in the background receive a key while the foreground writes `LOG` lines? | Yes. DOWN arrived 3.2 s after the first of six lines that the foreground wrote, one a second. | This is what allows the wait to be started before the draw. |
 | M4 | Does `LIST_PICKER` restore the console behind it? | Yes. The three marker lines written before a list were still on the console after it closed. | The list of screens opens from a screen without losing it. The log only grows, so a screen drawn again sits below the one before. |
 | M5 | Is the second press of a quick double press kept? | Not established. Test 7 asked for A twice in quick succession; the first wait returned RIGHT, not A, and the next wait, started at once, saw no key within 2 s, so it cannot be told whether a second press was made at all. | Nothing rests on it. The Overview takes a press that falls where no wait is open as lost (M1), and the next wait is started as soon as a key has been taken, which takes a fraction of a second. |
-| M6 | How many characters fit on one console line? | At least 40: a line of forty digits stayed on one line. The stock theme's files say 50. | Nothing depends on it: a draw taller than the screen scrolls, as the log always does. Whether a longer line wraps or is cut was not measured. |
+| M6 | How many characters fit on one console line? | At least 40: a line of forty digits stayed on one line. The stock theme's files say 50. **To be run (owner check, per command; it was to come before the Bluetooth figure went on the summary line, and the figure is on it already, so it is overdue):** a line of 50 digits, then a line holding the middle dot `·`. | Nothing depends on it: a draw taller than the screen scrolls, as the log always does. Whether a longer line wraps or is cut was not measured. The summary's APs line with the figure (`APs 12   ·   2.4:5  5:6  6:1  BT 23`) is 45 characters at the worst (three-digit counts, '256+'); if fewer than 45 stay on one line, the figure leaves the summary and the hub row of the Bluetooth screen reads 'Bluetooth (23)'; that fallback is not written (it is a change of both copies of the Overview that waits for this check). **Until M6 has passed, nothing switches the Bluetooth setting on by default**: it stays off in the payload and the collector, and the release pass does not change that, because a summary line that wraps or is cut on the Pager would show on every start. Every new line of the Bluetooth screen and of the Bands bars is at most 40 characters, ASCII separators only. |
 | M7 | After a `timeout`-killed `WAIT_FOR_INPUT`, does the next call still return the next press? Do Up and Down reach a waiting payload? | No stale waiter was seen: the next call returned the next press (1.1 s and 3.8 s after it was opened in the two runs, then 0.5 s and 2.1 s for the one after), but the evidence is weak, because the owner's presses were not timed against the kill. UP and DOWN reached a waiting payload (tests 3 and 4), and so did RIGHT; LEFT was not seen (test 9, meant for it, returned A twice). | No UI command is put under `timeout`, here or anywhere in the project: M7 is too weak to rely on. Up and Down are ignored: a new wait is started, nothing is drawn, no strike. |
 
 **Not measured.** Whether Up and Down also scroll the console while a wait is open (only the returned key was

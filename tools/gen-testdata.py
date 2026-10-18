@@ -12,6 +12,8 @@ Produces a document in the stable JSON contract written by starchorus-collect.sh
 Optional, additive fields (only when asked for): "vendor" (per AP / client),
 and with --extras "rate", "last_seen", "width", "phy" (APs) and "last_seen",
 "randomized" (clients). --legacy emits exactly the base contract, nothing else.
+--radio is the hand-built fixture of the 0.2 radio pair (bluetooth[], activity[], station "packets",
+a hidden network without a name); see build_radio_doc().
 --source iw-scan-ACTIVE mirrors the collector's ACTIVE opt-in scan (STARCHORUS_ALLOW_ACTIVE=1):
 APs only, no clients, its security words, no extras. --validate also checks "source"
 and the source-specific shape (none / iw-scan-ACTIVE) and rejects unknown keys.
@@ -564,6 +566,60 @@ def build_clouds_doc(generated, center):
             "aps": aps, "unassociated": un}
 
 
+# --------------------------------------------------------------------------- radio-pair fixture (0.2: Bluetooth, activity, traffic)
+# Hand-built, synthetic (locally administered addresses 02:00:00:00:NN:NN, placeholder names, the Bluetooth SIG's test company id 65535; P9).
+# DOCUMENTED GROUND TRUTH (tools/regress.d/radio-pair.sh pins it, R3's parity rows read it):
+#
+#   access points .................... 10 (02:00:00:00:01:01 .. 06 and 09 .. 0c; 01:0b is the 5 GHz ch 100 one the kept-apart row baselines)
+#   hidden without a name ............ 02:00:00:00:01:06 (ssid "")
+#   stations ......................... 20 free (02:00:00:00:02:01 .. 14), 4 of them with "packets" (02:00:00:00:02:01 .. 04: 1520, 310, 48, 9)
+#   channels[] ....................... last_heard on 2412 and 5180 only
+#   activity[] ....................... 2412 .280 · 2437 .240 · 5180 .160 · 5500 .100 · 2452 .120 · 5320 .060 (sorted by freq); 2452 and 5320 have no AP
+#   bluetooth[] ...................... 9 addresses in 6 marks (strongest first): 02:00:00:00:04:01 -50, :02 -56, :03 -58 (Maker A, rotating, ring 1: ONE mark of 3),
+#                                      :09 -63 (Maker A, public: its own mark), :05 -66 (no company, rotating, ring 2) and :06 -75 (same: ONE mark of 2),
+#                                      :04 -72 (Maker A, rotating, ring 2: its own mark), :08 -77 (random-static, name "Sensor-1": its own mark, 75 s old),
+#                                      :07 -83 (no company, rotating, ring 3: its own mark); 7 rotating, 2 fixed
+#   center ........................... bt_window 6, bt_hold 120, max_age 3600, interval 30
+def build_radio_doc(generated, center):
+    g = generated
+    ap = lambda n, ssid, band, ch, rssi, sec, age, **o: fixed_ap("02:00:00:00:01:%02x" % n, ssid, band, ch, rssi, sec, last_seen=g - age, **o)
+    aps = [ap(1, "HomeNet", "2.4GHz", 1, -44, "WPA2", 4), ap(2, "HomeNet", "5GHz", 36, -48, "WPA2", 6),
+           ap(3, "Neighbour-A", "2.4GHz", 6, -58, "WPA2", 9), ap(4, "Cafe-Guest", "2.4GHz", 11, -66, "Open", 15),
+           ap(5, "Office-5G", "5GHz", 44, -61, "WPA3", 11), ap(6, "", "2.4GHz", 6, -72, "WPA2", 20),
+           ap(9, "Lab-Net", "2.4GHz", 1, -70, "WPA2", 30), ap(10, "Guest-5G", "5GHz", 52, -74, "Open", 45),
+           ap(11, "Hub-4432", "5GHz", 100, -58, "WPA3", 14), ap(12, "Legacy-Net", "2.4GHz", 4, -82, "WEP", 90)]
+    un = []
+    for i in range(1, 21):
+        o = {"mac": "02:00:00:00:02:%02x" % i, "rssi": -52 - 2 * i, "last_seen": g - (6 + 9 * i)}
+        if i <= 8:
+            o["vendor"] = "Vendor %s" % "GHIJKLMN"[i - 1]
+        else:
+            o["randomized"] = True
+        if i <= 4:
+            o["packets"] = (1520, 310, 48, 9)[i - 1]
+        un.append(o)
+    def bt(n, t, rssi, reps, age, maker=False, name=None, connectable=False):   # the key order of spec 1.2; optional keys only when set
+        o = {"addr": "02:00:00:00:04:%02x" % n, "addr_type": t, "rssi": rssi, "reports": reps, "last_seen": g - age}
+        if maker:
+            o.update(company=65535, company_name="Maker A")
+        if name:
+            o["name"] = name
+        if connectable:
+            o["connectable"] = True
+        return o
+
+    bluetooth = [bt(1, "random-resolvable", -50, 3, 4, True, connectable=True), bt(2, "random-resolvable", -56, 2, 4, True),
+                 bt(3, "random-resolvable", -58, 1, 10, True), bt(9, "public", -63, 2, 4, True, connectable=True),
+                 bt(5, "random-nonresolvable", -66, 2, 4), bt(4, "random-resolvable", -72, 1, 40, True),
+                 bt(6, "random-nonresolvable", -75, 1, 4), bt(8, "random-static", -77, 1, 75, name="Sensor-1"),
+                 bt(7, "random-nonresolvable", -83, 1, 4)]
+    activity = [{"freq": f, "share": s} for f, s in ((2412, 0.28), (2437, 0.24), (2452, 0.12), (5180, 0.16), (5320, 0.06), (5500, 0.1))]
+    activity.sort(key=lambda x: x["freq"])
+    channels = [{"freq": 2412, "last_heard": g - 27}, {"freq": 5180, "last_heard": g - 35}]
+    return {"generated": g, "center": {"label": center, "max_age": 3600, "interval": 30, "bt_window": 6, "bt_hold": 120}, "source": "recon-db",
+            "bluetooth": bluetooth, "activity": activity, "channels": channels, "aps": aps, "unassociated": un}
+
+
 # --------------------------------------------------------------------------- random-clouds scenes beyond one device (spec §8.8a)
 # Four scenes for the rule's weak points, all synthetic (locally administered addresses, nothing real): they are generated when a row of
 # tools/regress.d/clouds.sh needs them, not stored. A tiny integer generator (no random module) keeps them identical on every machine.
@@ -669,13 +725,77 @@ def build_clouds_mix_doc(kind, generated, center):
 
 # --------------------------------------------------------------------------- contract check
 REQUIRED_TOP = ("generated", "center", "source", "aps", "unassociated")
-OPT_TOP = {"note", "channels"}            # additive optional top-level keys the collector emits (channels[] = hop info)
-OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids"}
+OPT_TOP = {"note", "channels", "bluetooth", "activity"}   # additive optional top-level keys the collector emits (channels[] = hop info; bluetooth[] and activity[] are the radio pair, contract 3)
+OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids", "bt_window", "bt_hold"}
 AP_KEYS = ("bssid", "ssid", "channel", "band", "freq", "rssi", "security", "clients")
 # akm/cipher/auth/responded_ssids exist on APs only (never on a station, P1); packets is accepted when a source reports it
 OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth", "responded_ssids", "packets"}
-OPT_CL = {"vendor", "last_seen", "randomized", "probes"}
+OPT_CL = {"vendor", "last_seen", "randomized", "probes", "packets"}
+BT_TYPES = ("public", "random-static", "random-resolvable", "random-nonresolvable", "random")   # bluetooth[].addr_type
+BT_KEYS = ("addr", "addr_type", "rssi", "reports", "last_seen")                                 # always written
+OPT_BT = {"company", "company_name", "name", "connectable"}                                      # written only when the advertisement has them
 IWSCAN_OPT_AP = {"vendor"}    # build_from_iwscan() emits no rate/last_seen/width/phy
+
+
+def validate_bluetooth(bt):
+    """bluetooth[] (spec 1.2): at most 256 records, strongest first (rssi descending, then addr); problems as a list."""
+    if not isinstance(bt, list):
+        return ["bluetooth must be an array"]
+    p, seen = [], set()
+    if len(bt) > 256:
+        p.append("bluetooth: more than 256 records")
+    for i, b in enumerate(bt):
+        w = "bluetooth[%d]" % i
+        if not isinstance(b, dict):
+            p.append(w + ": not an object")
+            continue
+        p += ["%s: missing %r" % (w, k) for k in BT_KEYS if k not in b]
+        extra = set(b) - set(BT_KEYS) - OPT_BT
+        if extra:
+            p.append("%s: unknown keys %s" % (w, sorted(extra)))
+        a = b.get("addr")
+        if not (isinstance(a, str) and re.fullmatch(r"[0-9a-f]{2}(:[0-9a-f]{2}){5}", a)):
+            p.append(w + ": addr must be a lower-case xx:xx:xx:xx:xx:xx string")
+        elif a in seen:
+            p.append(w + ": duplicate addr")
+        seen.add(a)
+        if b.get("addr_type") not in BT_TYPES:
+            p.append("%s: addr_type must be one of %s" % (w, ", ".join(BT_TYPES)))
+        for k in ("rssi", "last_seen"):
+            if k in b and not (isinstance(b[k], int) and not isinstance(b[k], bool)):
+                p.append("%s: %s must be an integer" % (w, k))
+        if "reports" in b and not (isinstance(b["reports"], int) and not isinstance(b["reports"], bool) and b["reports"] >= 1):
+            p.append(w + ": reports must be an integer >= 1")
+        if "company" in b and not (isinstance(b["company"], int) and not isinstance(b["company"], bool) and 0 <= b["company"] <= 65535):
+            p.append(w + ": company must be an integer 0..65535")
+        for k, n in (("company_name", 48), ("name", 32)):
+            if k in b and not (isinstance(b[k], str) and 0 < len(b[k]) <= n):
+                p.append("%s: %s must be a non-empty string of <= %d characters" % (w, k, n))
+        if "connectable" in b and b["connectable"] is not True:
+            p.append(w + ": connectable is written only when true")
+    order = [(-b["rssi"], b["addr"]) for b in bt if isinstance(b, dict) and isinstance(b.get("rssi"), int) and isinstance(b.get("addr"), str)]
+    if order != sorted(order):
+        p.append("bluetooth must be sorted strongest first (rssi descending, then addr)")
+    return p
+
+
+def validate_activity(act):
+    """activity[] (spec 1.3): {freq, share} sorted by freq, 0 < share <= 1, never more than 69, shares of one capture summing to at most 1."""
+    if not isinstance(act, list):
+        return ["activity must be an array"]
+    p = []
+    if len(act) > 69:
+        p.append("activity: more than 69 entries")
+    for i, e in enumerate(act):
+        if not (isinstance(e, dict) and set(e) == {"freq", "share"} and isinstance(e["freq"], int) and not isinstance(e["freq"], bool) and e["freq"] >= 2400
+                and isinstance(e["share"], (int, float)) and not isinstance(e["share"], bool) and 0 < e["share"] <= 1):
+            p.append("activity[%d]: needs an integer freq >= 2400 MHz and a share in (0, 1]" % i)
+    freqs = [e["freq"] for e in act if isinstance(e, dict) and isinstance(e.get("freq"), int)]
+    if freqs != sorted(set(freqs)):
+        p.append("activity must be sorted by freq without duplicates")
+    if sum(e["share"] for e in act if isinstance(e, dict) and isinstance(e.get("share"), (int, float))) > 1.0001:
+        p.append("activity shares sum to more than 1")
+    return p
 
 
 def validate(doc, legacy=False):
@@ -704,6 +824,15 @@ def validate(doc, legacy=False):
     if "own_ssids" in c and not (isinstance(c["own_ssids"], list) and len(c["own_ssids"]) <= 32
                                  and all(isinstance(x, str) and len(x) <= 32 for x in c["own_ssids"])):
         p.append("center.own_ssids must be <= 32 strings of <= 32 chars")
+    for k in ("bt_window", "bt_hold"):
+        if k in c and not (isinstance(c[k], int) and not isinstance(c[k], bool) and c[k] >= 0):
+            p.append("center.%s must be a non-negative integer" % k)
+    if ("bt_window" in c or "bt_hold" in c) and not ("bluetooth" in doc and "bt_window" in c and "bt_hold" in c):
+        p.append("center.bt_window and center.bt_hold go together with a bluetooth array")
+    if "bluetooth" in doc:
+        p += validate_bluetooth(doc["bluetooth"])
+    if "activity" in doc:
+        p += validate_activity(doc["activity"])
     if "channels" in doc:
         if not isinstance(doc["channels"], list):
             p.append("channels must be an array")
@@ -741,6 +870,8 @@ def validate(doc, legacy=False):
             p.append("%s: unknown client keys %s" % (where, sorted(extra)))
         if legacy and set(c) - {"mac", "rssi"}:
             p.append("%s: legacy must not carry optional keys" % where)
+        if "packets" in c and not (isinstance(c["packets"], int) and not isinstance(c["packets"], bool) and c["packets"] >= 0):
+            p.append("%s: packets must be an integer >= 0" % where)
 
     for i, ap in enumerate(doc["aps"]):
         w = "aps[%d]" % i
@@ -810,6 +941,8 @@ def main(argv=None):
                     help="the security-suite fixture (one AP per security class with akm/cipher/auth, responder, channels[], center extras)")
     ap.add_argument("--aged", action="store_true",
                     help="the D1 freshness fixture (14 APs and 5 stations at hand-picked last_seen ages, see build_aged_doc)")
+    ap.add_argument("--radio", action="store_true",
+                    help="the radio-pair fixture (radio-pair.json: bluetooth[], activity[], station packets, a hidden network without a name; see build_radio_doc())")
     ap.add_argument("--devices", action="store_true",
                     help="emit the hand-built logical AP grouping fixture (devices.json, spec §8.8); see build_devices_doc()")
     ap.add_argument("--clouds", nargs="?", const="one", choices=("one", "two", "crowd", "strays", "wide", "dense", "drift", "same", "three", "long", "pair", "wander"),
@@ -861,6 +994,8 @@ def main(argv=None):
         doc = build_aged_doc(args.generated, args.center)
     elif args.devices:
         doc = build_devices_doc(args.generated, args.center)
+    elif args.radio:
+        doc = build_radio_doc(args.generated, args.center)
     elif args.clouds == "one":
         doc = build_clouds_doc(args.generated, args.center)
     elif args.clouds:

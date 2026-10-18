@@ -67,8 +67,8 @@ def page_fields(page):
     try:
         text = open(page, encoding="utf-8").read()
     except OSError:
-        return {"top": {}, "ap": {}, "client": {}}
-    nd, nc = fn_body(text, "normalizeDoc"), fn_body(text, "normClient")
+        return {"top": {}, "ap": {}, "client": {}, "bt": {}}
+    nd, nc, nb = fn_body(text, "normalizeDoc"), fn_body(text, "normClient"), fn_body(text, "normBt")
 
     def scan(body, var):
         out = {}
@@ -76,13 +76,13 @@ def page_fields(page):
             hint = "any"
             if re.search(r"numOrNull\(\s*%s\.%s\s*\)" % (var, f), body):
                 hint = "num"
-            elif re.search(r"stripCtl\(\s*%s\.%s\b" % (var, f), body) or re.search(r'typeof %s\.%s === "string"' % (var, f), body):
+            elif re.search(r"(stripCtl|strOrNull)\(\s*%s\.%s\b" % (var, f), body) or re.search(r'typeof %s\.%s === "string"' % (var, f), body):
                 hint = "str"
             elif re.search(r"Array\.isArray\(\s*%s\.%s\s*\)" % (var, f), body):
                 hint = "list"
             out[f] = hint
         return out
-    return {"top": scan(nd, "raw"), "ap": scan(nd, "a"), "client": scan(nc, "c")}
+    return {"top": scan(nd, "raw"), "ap": scan(nd, "a"), "client": scan(nc, "c"), "bt": scan(nb, "b")}
 
 
 def kind_of(v):
@@ -121,18 +121,23 @@ class Fixtures:
             "top": seq(gen.REQUIRED_TOP) + seq(gen.OPT_TOP),
             "ap": seq(gen.AP_KEYS) + seq(gen.OPT_AP) + seq(gen.IWSCAN_OPT_AP),
             "client": list(cl),
+            "bt": list(gen.BT_KEYS) + seq(gen.OPT_BT),
         }
-        for k in ("top", "ap", "client"):   # the viewer reads more than the contract lists (caps, packets ...): add what it reads
+        for k in ("top", "ap", "client", "bt"):   # the viewer reads more than the contract lists (caps, packets ...): add what it reads
             for f in pf.get(k, {}):
                 if f not in self.fields[k]:
                     self.fields[k].append(f)
         self.fields["ap"] = [f for f in dict.fromkeys(self.fields["ap"])]
-        self.hint = {k: dict(pf.get(k, {})) for k in ("top", "ap", "client")}
+        self.hint = {k: dict(pf.get(k, {})) for k in ("top", "ap", "client", "bt")}
 
     def elements(self, doc, kind):
         """[(path, element)] of a document; path is a tuple of keys/indices."""
         out = []
-        if kind == "ap":
+        if kind == "bt":
+            for i, b in enumerate(doc.get("bluetooth") if isinstance(doc.get("bluetooth"), list) else []):
+                if isinstance(b, dict):
+                    out.append((("bluetooth", i), b))
+        elif kind == "ap":
             for i, a in enumerate(doc.get("aps", [])):
                 if isinstance(a, dict):
                     out.append((("aps", i), a))
@@ -188,6 +193,9 @@ def slim(doc, path):
             head["clients"] = cl[:3]
         d["aps"] = [head] + aps[:3]
         d["unassociated"] = un[:3]
+    elif path and path[0] == "bluetooth":
+        bt = d["bluetooth"]; bt.insert(0, bt.pop(path[1])); d["bluetooth"] = bt[:3]
+        d["aps"], d["unassociated"] = aps[:4], un[:3]
     elif path and path[0] == "unassociated":
         un.insert(0, un.pop(path[1]))
         d["aps"], d["unassociated"] = aps[:4], un[:3]
@@ -196,6 +204,8 @@ def slim(doc, path):
     for a in d["aps"]:
         if isinstance(a.get("clients"), list):
             a["clients"] = a["clients"][:3]
+    if isinstance(d.get("bluetooth"), list):
+        d["bluetooth"] = d["bluetooth"][:3]
     return d
 
 
@@ -220,8 +230,9 @@ def setp(doc, path, field, val):
 
 def build(fx, seed, canary, nbig):
     b = Bundle(seed)
+    radio = next((d for _, fn, d in fx.docs if fn == "radio-pair.json"), None)
     hostile = HOSTILE + ["$(touch %s)" % canary, "`touch %s`" % canary, "\";touch %s;\"" % canary]
-    for kind in ("top", "ap", "client", "unassoc"):
+    for kind in ("top", "ap", "client", "unassoc", "bt"):
         fields = fx.fields["client" if kind == "unassoc" else kind]
         hints = fx.hint["client" if kind == "unassoc" else kind]
         for f in fields:
@@ -241,7 +252,7 @@ def build(fx, seed, canary, nbig):
                 present, orig = True, e[f]
             def fresh():   # a slim copy in which the element that carries FIELD is the first of its list
                 d = slim(doc0, path)
-                return d, {"top": (), "ap": ("aps", 0), "client": ("aps", 0, "clients", 0), "unassoc": ("unassociated", 0)}[kind]
+                return d, {"top": (), "ap": ("aps", 0), "client": ("aps", 0, "clients", 0), "unassoc": ("unassociated", 0), "bt": ("bluetooth", 0)}[kind]
             label = "%s.%s" % (kind, f)
             hint = hints.get(f, "any")
             if present:
@@ -281,6 +292,10 @@ def build(fx, seed, canary, nbig):
             d = copy.deepcopy(d); ci = next(a for a in d["aps"] if a.get("clients")); ci["clients"] = [junk] + ci["clients"]; b.add(3, "3:clients.prepend=%s" % jn, d)
         d = slim(base, ()); d["unassociated"] = [junk] + d["unassociated"]; b.add(3, "3:unassociated.prepend=%s" % jn, d)
         d = slim(base, ()); d["unassociated"] = [junk, junk]; b.add(3, "3:unassociated=[j,j]=%s" % jn, d)
+        if radio is not None:
+            d = slim(radio, ()); d["bluetooth"][0] = junk; b.add(3, "3:bluetooth[0]=%s" % jn, d)
+            d = slim(radio, ()); d["bluetooth"] = [junk] + d["bluetooth"]; b.add(3, "3:bluetooth.prepend=%s" % jn, d)
+            d = slim(radio, ()); d["activity"][0] = junk; b.add(3, "3:activity[0]=%s" % jn, d)
     # class 5: prototype names, duplicates, JSON keys
     for pn in PROTO_NAMES:
         for fld, path in (("bssid", ("aps", 0)), ("ssid", ("aps", 0))):
@@ -303,6 +318,10 @@ def build(fx, seed, canary, nbig):
     d = slim(base, ())
     if d["unassociated"]:
         d["unassociated"][0]["mac"] = d["aps"][0]["bssid"]; b.add(5, "5:unassoc-mac=ap-bssid", d)
+    if radio is not None:
+        for pn in PROTO_NAMES:
+            d = slim(radio, ()); d["bluetooth"][0]["addr"] = pn; b.add(5, "5:bluetooth.addr=%s" % pn, d)
+        d = slim(radio, ()); d["bluetooth"].append(copy.deepcopy(d["bluetooth"][0])); b.add(5, "5:dup-bluetooth-addr", d)
     for js in ('{"__proto__":{"polluted":1}}', '{"constructor":{"prototype":{"polluted":1}}}'):
         d = slim(base, ()); d.update(json.loads(js)); b.add(5, "5:key:top:%s" % js[:24], d)
         d = slim(base, ()); d["aps"][0].update(json.loads(js)); b.add(5, "5:key:ap:%s" % js[:24], d)
@@ -327,6 +346,10 @@ def build(fx, seed, canary, nbig):
         for e in d["aps"]:
             e["caps"] = [hs]
         d["source"] = "airodump-csv"
+        if radio is not None:   # the text a Bluetooth advertiser writes: a name and a company name
+            d["bluetooth"] = [dict(addr="02:00:00:00:f6:%02x" % i, addr_type="random-resolvable", rssi=-50 - i, reports=1, last_seen=1789299990,
+                                   company=65535, company_name=hs if i == 0 else hs[:48], name=hs if i == 0 else hs[:32]) for i in range(3)]
+            d["center"]["bt_window"], d["center"]["bt_hold"] = 6, 120
         b.add(6, "6:all-text:h%d" % hi, d, anchor=True)
     # "none" source: the note is a sink of #source-desc
     dn = fx.donor("top", "note")

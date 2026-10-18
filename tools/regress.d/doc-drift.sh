@@ -128,3 +128,43 @@ DRF_HC=$(grep -cE '^  ssh root@\$HOST \$\(shq "\$CMD_(STATUS|STOP)"\)$' tools/in
 DRF_HOK=0
 [ -n "$DRF_PD" ] && [ "$DRF_PDN" = 1 ] && [ "$DRF_LT" = "$DRF_PD" ] && [ "$DRF_PO/$DRF_HS/$DRF_HP/$DRF_HC" = 1/1/1/2 ] && [ "$DRF_SL" -ge 2 ] && [ "$DRF_SO" = "$DRF_SL" ] && DRF_HOK=1
 rowif "install hints carry STARCHORUS_OUTDIR=$DRF_PD (dry run $DRF_HS/$DRF_HP, source $DRF_SO/$DRF_SL, closing $DRF_HC/2, LOOT $DRF_LT, payload OUTDIR $DRF_PO, DIR lines $DRF_PDN)" [ "$DRF_HOK" = 1 ]
+
+# ---- 0.2, the radio pair: what the user-facing documents say of it is in the page. A feature word that the page does not have may not be documented
+# (the review of the integration found a counter, a count tag, three cue idioms, a name fade, CSV rows and a SITREP line described that were never in the
+# code). DOC is an ERE searched in README, CHANGELOG, SECURITY, INSTALL and the two package READMEs; PAGE is the ERE that proves the feature in
+# starchorus.html (empty: the page never has it, the documents may not say it at all). The architecture's 'Not in 0.2.0' list names the cut features
+# on purpose and is not read. The row bites: a file that holds every claim, read against a page that has nothing, flags every one.
+DRF_DOCS="README.md CHANGELOG.md SECURITY.md INSTALL.md library/user/reconnaissance/starchorus/README.md packaging/hak5/README.md"
+DRF_PAGE=starchorus.html
+drf_claims() {   # drf_claims FILES... (the page read is $DRF_PAGE): "N<TAB>[label] [label]..." = the number of claims checked, and the ones of those files that the page does not back
+  _dc_out=""; _dc_n=0
+  while IFS="$(printf '\t')" read -r _dc_l _dc_d _dc_p; do
+    [ -n "$_dc_l" ] || continue
+    _dc_n=$((_dc_n + 1))
+    # shellcheck disable=SC2068  # the file list is a word list on purpose
+    [ "$(cat $@ 2>/dev/null | grep -ciE -- "$_dc_d")" != 0 ] || continue
+    if [ -n "$_dc_p" ] && grep -qE -- "$_dc_p" "$DRF_PAGE"; then continue; fi
+    _dc_out="$_dc_out [$_dc_l]"
+  done <<'DRFCLAIMS'
+counter	BT addresses	id="n-bt-cell"
+count tag	[0-9n] · BT	
+halo and bloom	a halo, a bloom|halo, bloom	"halo"
+CSV Bluetooth	kind `bluetooth`|bt_mark|bluetooth. rows in the CSV	bt_mark
+name fade	name of a hidden network (now )?fades in|ring dissolves when it stops hiding	revealAt[^;]{0,80}fadeInMs
+detail sheet of a mark	detail (sheet|panel) of a (Bluetooth )?mark|Bluetooth detail sheet	
+SITREP line	SITREP[^.]{0,80}Bluetooth|Bluetooth[^.]{0,80}SITREP	Bluetooth LE: [^"]{0,40}addresses heard
+bt()	`bt\(\)`	\bbt: \(
+names on record	ssid_recorded|names? on record|RECORDED_NAMES	
+Air drawer activity	Air drawer[^.]{0,80}activity	Activity \(relative
+whisker title	whisker: share	
+DRFCLAIMS
+  printf '%s\t%s\n' "$_dc_n" "$_dc_out"
+}
+# shellcheck disable=SC2086  # DRF_DOCS is a word list on purpose
+DRF_CL=$(drf_claims $DRF_DOCS); DRF_CN=${DRF_CL%%"$(printf '\t')"*}; DRF_CM=${DRF_CL#*"$(printf '\t')"}
+# shellcheck disable=SC2016  # the sentences are text, with backticks of their own
+printf '%s\n' 'the counter BT addresses' "a cell with n · BT" 'a halo, a bloom or ticks' 'a row of kind `bluetooth`' 'the name of a hidden network now fades in' 'the detail sheet of a mark' \
+  'a SITREP line for Bluetooth' 'the `bt()` function' 'the name is ssid_recorded' 'the Air drawer has an activity line' 'whisker: share of frames' > "out/$P-drf-claims.txt"
+: > "out/$P-drf-nopage.html"; DRF_PAGE="out/$P-drf-nopage.html"; DRF_BT=$(drf_claims "out/$P-drf-claims.txt"); DRF_PAGE=starchorus.html; DRF_BM=${DRF_BT#*"$(printf '\t')"}; DRF_BK=$(printf '%s' "$DRF_BM" | grep -o '\[' | wc -l | tr -d ' ')
+DRF_RK=0; [ -z "$DRF_CM" ] && [ "$DRF_BK" = "$DRF_CN" ] && [ "$DRF_CN" -ge 11 ] && DRF_RK=1
+rowif "doc drift: the $DRF_CN radio-pair claims in README, CHANGELOG, SECURITY, INSTALL and the package READMEs are backed by the page (unbacked:${DRF_CM:- none}); the row bites (a file with every claim, read against an empty page, flags $DRF_BK of $DRF_CN)" [ "$DRF_RK" = 1 ]

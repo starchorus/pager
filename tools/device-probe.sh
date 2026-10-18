@@ -23,8 +23,15 @@
 #     --selftest (and the display script's --selftest when that script has the flag). Their TMPDIR, all STARCHORUS_*DIR
 #     variables and a template-less mktemp are pinned into the private directory. By the selftest source they
 #     only feed synthetic data (databases built inside that directory) to the collector's parsers, and a run
-#     with tripwires on a dev machine saw no capture, scan, network or package tool called. It can take minutes on
+#     with tripwires on a dev machine saw no capture, scan, network, package or Bluetooth tool called. It can take minutes on
 #     the MIPS CPU: skip it with STARCHORUS_PROBE_SKIP_SELFTEST=1.
+#   * Bluetooth (V-13, section 9) is read from files alone: /sys/class/bluetooth (the entries named hci0, hci1 ...), the `device` link of
+#     hci0 and the descriptors idVendor, idProduct, manufacturer and product of its parent USB device (never `serial`), the `device`
+#     links of /sys/class/net/wlan* (does the Wi-Fi radio share that parent?), `command -v` for the names of the BlueZ tools (a presence
+#     test, nothing is run), /proc/*/comm (counts of processes named bluetoothd, hcitool and btmon) and the names and the count of the
+#     files in /usr/bin and /usr/libexec/bluetooth that look like BlueZ. It calls NO Bluetooth tool, hciconfig included, starts no
+#     scan, changes no controller state. What a passive window shows (the scan parameters, the event types) it cannot say: that
+#     is the devbench's job, with the collector's own window.
 #   * Privacy (rule P9: the pasted output ends up in the repo): everything that comes out of recon.db is a count,
 #     a column name, a numeric range or a distribution -- never an SSID, BSSID, MAC, client identifier or per-
 #     device row. File and directory NAMES are the one other place where a device can leak (an SSID or a BSSID
@@ -879,6 +886,101 @@ MKTEMP_WRAP
     flush
 }
 
+# ============================================================================================ 9. bluetooth
+# V-13. Names are printed only when they are plain file names of the BlueZ kind (a prefix list, at most 32 characters, letters, digits and . _ -);
+# any other name is only counted. The device path is printed component by component with the same character rule.
+BTP_RE='^(bt|hci|l2|rf|sdp|gatt|obex|bluetooth|bluez|mesh|rctest|avinfo|isotest|ciptool|bccmd|bdaddr|hid2hci|mpris|hex2hcd|scotest)'
+btp_name() {   # btp_name NAME -> success when NAME is printable as a BlueZ-looking file name
+    case $1 in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac
+    [ "${#1}" -le 32 ] || return 1
+    printf '%s' "$1" | grep -Eq "$BTP_RE"
+}
+btp_path() {   # btp_path ABSPATH -> the path without the test-root prefix; a component outside [A-Za-z0-9._:@,+-] or over 40 characters shows as <withheld>
+    printf '%s' "${1#"$RF"}" | tr '\n\r' '??' | awk -F/ '{ out = ""
+        for (i = 1; i <= NF; i++) { c = $i; if (c == "") continue
+            out = out "/" ((c ~ /^[A-Za-z0-9._:@,+-]+$/ && length(c) <= 40) ? c : "<withheld>") }
+        print (out == "" ? "/" : out) }'
+}
+btp_read() {   # btp_read FILE -> the first line of a sysfs attribute, printable ASCII, 40 characters at most
+    head -n 1 "$1" 2>/dev/null < /dev/null | clean | cut -c1-40
+}
+sect_bluetooth() {
+    heading 9 "bluetooth (sysfs, /proc and file names only; no Bluetooth tool is run, hciconfig included, and nothing is scanned)"
+    BTS=$RF/sys/class/bluetooth
+    V13_HCI="no /sys/class/bluetooth"; V13_USB=""; V13_NET=""
+    if [ -d "$BTS" ]; then
+        _n=0; _names=""
+        for _e in "$BTS"/*; do
+            [ -e "$_e" ] || continue
+            _n=$((_n + 1)); _b=${_e##*/}
+            case $_b in hci[0-9]|hci[0-9][0-9]) _names="$_names $_b" ;; esac
+        done
+        kv bluetooth.entries "$_n in /sys/class/bluetooth; controllers:${_names:- none}"
+        if [ -e "$BTS/hci0" ]; then
+            _dev=$(readlink -f "$BTS/hci0/device" 2>/dev/null) || _dev=""
+            if [ -n "$_dev" ]; then kv hci0.device_path "$(btp_path "$_dev")"; else kv hci0.device_path "not resolvable"; fi
+            _drv=$(readlink "$BTS/hci0/device/driver" 2>/dev/null) || _drv=""; _drv=${_drv##*/}
+            _par=${_dev%/*}
+            _vid=$(btp_read "$_par/idVendor"); _pid=$(btp_read "$_par/idProduct")
+            _mf=$(btp_read "$_par/manufacturer"); _pr=$(btp_read "$_par/product")
+            kv hci0.driver "${_drv:-not readable}"
+            kv hci0.usb "idVendor=${_vid:-n/a} idProduct=${_pid:-n/a} manufacturer=${_mf:-n/a} product=${_pr:-n/a}"
+            case $_dev in */usb*) _isusb=yes ;; *) _isusb=no ;; esac
+            V13_HCI="hci0 present, driver ${_drv:-unreadable}, USB $_isusb, id ${_vid:-n/a}:${_pid:-n/a}"
+            V13_USB=$_par
+        else
+            V13_HCI="/sys/class/bluetooth has no hci0 (entries: $_n)"
+        fi
+    else
+        kv bluetooth.sysfs "absent ($BTS)"
+    fi
+    # A15: which Wi-Fi radio shares the combo chip? Compare the parent of each wlan interface's device with the parent of hci0's.
+    _shared=""; _other=""
+    if [ -n "$V13_USB" ]; then
+        for _w in "$RF"/sys/class/net/wlan*; do
+            [ -e "$_w" ] || continue
+            _wn=${_w##*/}; case $_wn in *[!A-Za-z0-9_]*) continue ;; esac
+            _wd=$(readlink -f "$_w/device" 2>/dev/null) || _wd=""
+            [ -n "$_wd" ] || continue
+            if [ "${_wd%/*}" = "$V13_USB" ]; then _shared="$_shared $_wn"; else _other="$_other $_wn"; fi
+        done
+        kv net.shares_usb_parent_with_hci0 "${_shared:- none}"
+        kv net.other_parent "${_other:- none}"
+        V13_NET="interfaces on the same USB device as hci0:${_shared:- none}; others:${_other:- none}"
+    else
+        V13_NET="not compared (no hci0 device path)"
+    fi
+    # the BlueZ tools by name: a presence test (command -v), nothing is run
+    _tp=""
+    for _t in hcitool btmon hciconfig bluetoothctl btmgmt bluetoothd gatttool l2ping rfkill; do
+        if have "$_t"; then _tp="$_tp $_t=present"; else _tp="$_tp $_t=absent"; fi
+    done
+    kv bluez.tools "$_tp"
+    # the files that look like BlueZ in the two places docs/device-notes.md §2b names: the names (plain ones only) and the count
+    _fl=""
+    for _d in /usr/bin /usr/libexec/bluetooth; do
+        _c=0; _lst=""; _o=0
+        for _f in "$RF$_d"/*; do
+            [ -e "$_f" ] || continue
+            _b=${_f##*/}
+            if btp_name "$_b"; then _c=$((_c + 1)); _lst="$_lst $_b"; else _o=$((_o + 1)); fi
+        done
+        kv "bluez.files$_d" "count=$_c names:${_lst:- none}; other files not counted here: $_o"
+        _fl="$_fl $_d=$_c"
+    done
+    # processes by name, counts only (never a command line)
+    _pb=0; _ph=0; _pm=0
+    for _cf in "$RF"/proc/[0-9]*/comm; do
+        [ -r "$_cf" ] || continue
+        read -r _cn < "$_cf" 2>/dev/null || continue
+        case $_cn in bluetoothd) _pb=$((_pb + 1)) ;; hcitool) _ph=$((_ph + 1)) ;; btmon) _pm=$((_pm + 1)) ;; esac
+    done
+    kv bluez.processes "bluetoothd=$_pb hcitool=$_ph btmon=$_pm (by /proc/PID/comm; a window of the collector leaves none of the last two)"
+    # one summary line is cut at 400 characters by flush: what a window shows (passive parameters, event types, costs) is said in the header, not here
+    vset 13 "OBSERVED $V13_HCI; $V13_NET; BlueZ-like files:$_fl; processes bluetoothd=$_pb hcitool=$_ph btmon=$_pm (files only: no window was run)"
+    flush
+}
+
 # ============================================================================================ summary
 vname() {
     case $1 in
@@ -894,6 +996,7 @@ vname() {
         10) echo wifi-device-packets-meaning ;;
         11) echo multi-bssid-undercount ;;
         12) echo jq-endswith-until-index-slicing-tostring ;;
+        13) echo bluetooth-controller-and-tools ;;
     esac
 }
 
@@ -914,10 +1017,11 @@ main() {
     sect_cands
     sect_platform
     sect_starchorus
+    sect_bluetooth
     flush
     printf '\n== summary ==\n'
     _i=1
-    while [ "$_i" -le 12 ]; do
+    while [ "$_i" -le 13 ]; do
         say "V-$_i $(vname "$_i"): $(cat "$T/v.$_i" 2>/dev/null || echo 'NOT-OBSERVABLE the section that answers it did not run')"
         _i=$((_i + 1))
     done

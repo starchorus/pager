@@ -1,7 +1,7 @@
 # Security and passivity
 
-Starchorus is a strictly passive, receive-only Wi-Fi observation tool; it never transmits. It only
-listens to radio. The tool contains no function that transmits or interferes; this property is the
+Starchorus is a strictly passive, receive-only Wi-Fi observation tool (and, opt-in, a passive Bluetooth LE
+listener); it never transmits. It only listens to radio. The tool contains no function that transmits or interferes; this property is the
 core of the design, not a matter of configuration. This document records what Starchorus reads,
 what it stores and what it outputs, names the single active exception (and why it is off by
 default), and describes responsible use that respects privacy.
@@ -19,6 +19,8 @@ network, sends no frames and changes no one else's radio state.
 | **Reading the recon database** | The preferred path on the device. The SQLite database that the device's recon service fills passively is **copied** before reading and opened only with `sqlite3 -readonly`, so that capture is never locked. The working copy lives in RAM (`STARCHORUS_TMPDIR`, default `/tmp`, a tmpfs on the device) and is deleted after each cycle. With too little room there, or if the copy fails, it is made in `STARCHORUS_CAPDIR` instead (flash; it stays there until a later copy fits in RAM), and as a last resort the live file is read in place, still read-only. It holds other people's MAC addresses and SSIDs, and on the default path it is not written to flash. The collector also keeps the document of its last full pass in its memory (not in a file), which a skipped cycle republishes with a new `generated`. |
 | **Receiving in monitor mode** | Listening with `tcpdump` (or `airodump-ng`, if installed) on a monitor interface: receive only, no injection. |
 | **Tuning the receiver to a channel** | Only in order to listen; nothing is sent. |
+| **Bluetooth LE, passive scan** | Opt-in: `STARCHORUS_BLUETOOTH=1`, or Settings > Bluetooth; off by default. For 6 s per cycle the collector runs `hcitool -i hci0 lescan --passive --duplicates` and reads what the controller hands the host with `btmon -i hci0`. By the Bluetooth specification a passive scan sends no scan request: the controller only listens for advertisements that devices broadcast anyway. In a hand run on the device on 16 October 2026 the HCI transmit counter rose by 20 bytes in 3 commands (scan parameters, enable, disable), all passing from the host to the controller inside the device; they are not radio transmissions, and they change nothing in the controller's configuration beyond the passive scan's own parameters and its enable and disable. A window counts only when `btmon` shows the collector's own scan parameters with `Type: Passive` before the first report; that is what was asked of the controller (this project measures the host side; an observation of the air would need a separate sniffer). The scan is ended with SIGINT (a SIGTERM is the last resort and is logged, see [docs/device-notes.md](docs/device-notes.md) §2b, V-13); `hcitool` is never sent SIGKILL. A collector that is stopped sends the first SIGINT to a scan younger than a second one second after its start, because a scan that has not yet installed its handler would die of it with the controller still scanning (passively); a collector that was killed with SIGKILL leaves its tools to their own dead-man timers and to the next start's sweep, which sends SIGINT only. Nothing else of the Bluetooth stack is called. The collector has not run this window on the Pager yet: the device checks that remain are listed in device-notes §2b and §6a. |
+| **Channel activity** | Opt-in: `STARCHORUS_TRAFFIC=1`, or Settings > Traffic; off by default. `_pineap RECON CHANNELS format=json`, a fixed line of `apcli_ro`, reads the AP service's frame count per frequency. It was checked on the device (`docs/device-notes.md` V-3, 14 October 2026): the transmit counters of `wlan0`, `wlan0mon` and `wlan1mon` stayed the same around single calls. The repetition that matches how the collector uses it, one call every cycle for ten minutes with the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` taken before and after, is still to be run; this row is to be completed with its date when it has. |
 
 The collector creates its own monitor interface only if none exists (`STARCHORUS_CREATE_MON=1`,
 the default), and then only on an adapter that is not the management radio; on exit it removes
@@ -38,7 +40,7 @@ defaults to **off**.
 | Recon database, column `time` | a further read-only query of the same copy: last time heard per frequency into `channels[]` | off (`STARCHORUS_HOPINFO=1`) | no |
 | Recon database, probe responses | number of distinct SSIDs with which a BSSID has answered probes (`responded_ssids`, only from 2 upwards); a number, not a list of SSIDs | always on the database path | no |
 | Homing AP | reads `STARCHORUS_HOMING_BSSID` or the first line of `$STARCHORUS_OUTDIR/homing.target` and adds a `homing` object built from that AP's row in the same document (section 4) | no AP | no |
-| `apcli_ro` | the only place where a command of the AP service's command line may appear: **exactly** three fixed command lines, literal in the code, no `eval`, no command name taken from a variable and no argument taken from outside (the lines only carry the optional prefix `timeout 10`). They are two read-only commands: `RECON APS format=json` and `RECON DEVICES format=json` (the recon lists as JSON), the second one also in the CLI's own bounded form `sort=time sortdir=desc limit=400` (newest first; this is the form `STARCHORUS_SOURCE=pineap` runs by default, `STARCHORUS_PINEAP_CALLS=full` runs the two plain lists). The plain lists were checked on the device (docs/device-notes.md, V-3): the transmit counters of every wireless interface (`wlan0`, `wlan0mon`, `wlan1mon`) were the same before and after each call. The bounded form (`limit=400`) was checked the same way in a 130 s run of the source on 14 October 2026 (the forms `limit=50` and `pagesize=100 page=1` earlier): the counters were unchanged. The calls run under `timeout 10` where a `timeout` command exists. Listening to a single BSSID, never verified on the device and called by nothing, is no longer in the list. The self-test calls the function with a stub and shows that deauth, stopping and restarting recon, `RECON CLIENTS` (which does not exist), SSID pool commands, uploads, GPS, listening to a BSSID, extra arguments and injection attempts are refused **without** a call. | off (`STARCHORUS_APCLI_RO=1`); `STARCHORUS_SOURCE=pineap` switches `apcli_ro` on for itself | no (read-only commands) |
+| `apcli_ro` | the only place where a command of the AP service's command line may appear: **exactly** four fixed command lines, literal in the code, no `eval`, no command name taken from a variable and no argument taken from outside (the lines only carry the optional prefix `timeout 10`). They are three read-only commands: `RECON APS format=json` and `RECON DEVICES format=json` (the recon lists as JSON), the second one also in the CLI's own bounded form `sort=time sortdir=desc limit=400` (newest first; this is the form `STARCHORUS_SOURCE=pineap` runs by default, `STARCHORUS_PINEAP_CALLS=full` runs the two plain lists), and `RECON CHANNELS format=json` (the frame count per frequency, the row above), which runs only with `STARCHORUS_TRAFFIC=1`: its id is gated on that switch alone, so Traffic does not make the recon lists callable and `STARCHORUS_APCLI_RO=1` does not make it callable. The plain lists were checked on the device (docs/device-notes.md, V-3): the transmit counters of every wireless interface (`wlan0`, `wlan0mon`, `wlan1mon`) were the same before and after each call. The bounded form (`limit=400`) was checked the same way in a 130 s run of the source on 14 October 2026 (the forms `limit=50` and `pagesize=100 page=1` earlier): the counters were unchanged. The calls run under `timeout 10` where a `timeout` command exists. Listening to a single BSSID, never verified on the device and called by nothing, is no longer in the list. The self-test calls the function with a stub and shows that deauth, stopping and restarting recon, `RECON CLIENTS` (which does not exist), SSID pool commands, uploads, GPS, listening to a BSSID, extra arguments and injection attempts are refused **without** a call. | off (`STARCHORUS_APCLI_RO=1`); `STARCHORUS_SOURCE=pineap` switches `apcli_ro` on for itself; the channel line needs `STARCHORUS_TRAFFIC=1` only | no (read-only commands) |
 | Source `pineap` (experimental) | `STARCHORUS_SOURCE=pineap` builds `starchorus.json` from these lists instead of from the database (opt-in only; `auto` never chooses it, and recon.db stays the default). When the AP service gives no usable answer, that cycle is built from the database. Its only extra read is the database path already described: the security of each access point, which the lists do not carry, from one query at most once a minute while an access point is new to the cache (every 10 minutes for those the database does not know). The labels are kept in a small cache in RAM, `$STARCHORUS_TMPDIR/starchorus-sec.txt`: the BSSIDs of nearby access points with their security. The collector does not delete it when it exits; it goes with a reboot, or delete it by hand. The lists of BSSIDs that a lookup is made from (`starchorus-pineap-<pid>.*`) are deleted at the end of each cycle. If `STARCHORUS_TMPDIR` is not a writable directory no lookup is made and every access point reads `Unknown`. Nothing else is run. | off (`STARCHORUS_SOURCE=pineap`) | no |
 | `center.max_age`, `center.interval`, `akm`/`cipher`/`auth` | pure **output** fields in `starchorus.json`, computed from existing values | always | no |
 
@@ -62,6 +64,7 @@ local file writes; nothing is sent.
 | Association with other people's networks | not present |
 | Active functions of the AP service, broadcasting the SSID pool | not present |
 | Jamming / interference transmission | not present |
+| Bluetooth inquiry or active scan (no scan request), advertising, connection, pairing, GATT access or echo request, and any change to the controller's configuration beyond a passive scan's parameters and its enable and disable | not present |
 
 There is no switch and no environment variable that enables any of these functions; they are not
 implemented. Nor is the receiver ever held on a channel or BSSID: the homing value is one value per
@@ -82,13 +85,45 @@ configuration (no rules, no services) and controls neither LED nor buzzer.
   `WIREGUARD_`, `AUTOSSH_`, `DNSSPOOF_` and `PINEAPPLE_`.
 - `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1`; no transmitting tool is called, and the
   check denies the Bluetooth verbs that transmit by name (`hcitool` with `scan`, `inq`, `cc`, `lecc`,
-  `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` beyond `-a`),
-  not every Bluetooth command; the one `hcitool` call it lets through is the literal
-  `hcitool lescan --passive`, which only listens.
+  `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` beyond `-a`) as
+  a second line of defence. The list of transmitting tools names, wherever they stand in a code line (a log text too), `aireplay-ng`, `mdk3`, `mdk4`,
+  `hostapd`, `hostapd_cli`, `airbase-ng`, `hcxdumptool`, `wpa_supplicant`, `wpa_cli`, `nmcli`, `iwlist`, `iwconfig`, `airmon-ng`, `besside-ng`, `reaver`, `bully`,
+  `nmap`, `hping3`, `arping`, `mausezahn`, `tcpreplay` and `bettercap`, each with a sample in the mutation probe. Three lines of the collector must name one of them
+  and are pinned byte for byte, each once, with their file and function: the two lines of the last resort of `create_monitor` (when `iw phy ... interface add` fails
+  and `STARCHORUS_CREATE_MON` is on, its default, the collector makes its monitor interface with `airmon-ng start`; that changes an interface and sends nothing, and it has been so
+  since 0.1) and the path of the OUI file that comes with Nmap, which is read and never run. An edited, a copied and a vanished pinned line are red.
+- The Bluetooth stack is denied **by tool**, not by verb. Every program and path of BlueZ that this project knows of
+  (`hcitool`, `btmon`, `hciconfig`, `bluetoothctl`, `btmgmt`, `bluetoothd`, `gatttool`, `l2ping`, `l2test`, `rctest`,
+  `sdptool`, `rfcomm`, `btgatt-client`, the other BlueZ programs, the bus tools `dbus-send`, `busctl` and `gdbus` and the service name
+  `org.bluez`, which is the D-Bus route to a discovery, and the rest of `BT_WORDS` in `tools/passivity-check.sh`) may stand only
+  inside the functions of `BT_FUNCS` (`bt_begin`, `bt_end`, `bt_busy`, `bt_sweep`, `bt_stub`, `bt_selftest`), in code, in a string or in
+  a log text, whatever the verb or the option order: `hciconfig` with any argument, `bluetoothctl scan le`, `advertise`, `connect` or `pair`,
+  `sdptool`, `rfcomm`, `btgatt-client` and the others are red everywhere else. A name is read after the quotes and backslashes of its line
+  are removed and adjacent string literals are joined, so `hc''itool`, `hc\itool` and an awk `"hci" "tool"` are `hcitool`. In `bt_begin` every
+  line that holds one of these words or `timeout` must be one of seven enumerated lines, the two literals of the permitted path above once
+  each; in the other functions a tool word may stand only as the last argument of the identity checks `bt_is` and `bt_kid`; inside
+  those functions no command wrapper (`eval`, `sh -c`, `env`, `exec`, `source`, `time` and the rest), no command word that is a variable,
+  a `$( )` or backtick expansion or a glob and, outside `bt_begin`, no `timeout` may appear, and the test code starts no tool. A name that is only
+  built when a line runs is looked for twice: inside those functions by that rule, and in every shell file of the scope by two rows of their own. The first
+  lists each simple command whose command word holds an expansion (`$name`, `${...}`, `$( )` or a backtick expression, quoted or not, also behind
+  `exec`, `env`, `nice`, `timeout N` and the other wrapper words, after `NAME=value` and after a redirection). The few lines that stand today (the `nice`
+  prefix of the launchers, the fixture builder of the collector's self-test, the Overview's `screen_$1` dispatch, the page server's `$NC` and `$HANDLER`,
+  the stop call, and the four `$ap_to` lines of `apcli_ro`) are pinned byte for byte with the function they stand in, so a new one, a changed one and a
+  missing one are red. The second is red for a command word that holds an unquoted glob character (`/usr/bin/hc?tool`, `/usr/bin/hci[t]ool`, `/usr/sbin/i[w]`;
+  `[` and `[[` themselves, the test, are not such a word), for `find` with `-exec`, `-execdir`, `-ok` or `-okdir`, for an `xargs` whose command is its own replacement
+  string (`xargs -I{} {}`: stdin then names the command) or is missing, and for any `alias` definition; nothing of that kind stands in the scope today, so its list of pins is
+  empty. A glob in a for-list, in a case pattern or as an argument is no command word and is not read. **What the checks do not read:** a glob that is only handed
+  on as an argument (`ln -s /usr/bin/hc?tool x` and then `x ...`, `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`,
+  `. file`) and a name made by a function the script defines. For those the static check says nothing and the guarantee rests on review; the run-time witness reads back what
+  was asked of the controller during the collector's own scan window only, so it cannot vouch for a scan that something else started outside one. The tool names
+  themselves are still red outside the allowlist, wherever they stand in the text. The five `_pineap` lines of `apcli_ro` are pinned byte for byte, each once. Read-only reads of `/sys/class/bluetooth` are the one exception to 'by tool', since sysfs holds no tool.
+  The list of names is what is known of BlueZ, the programs that the project had not named yet included (`mpris-proxy`, `hex2hcd`, `obexctl`, `bluetooth-player`, `btinfo`,
+  `scotest`, `hcieventmask`); the device's own file listing (`tools/device-probe.sh`, V-13) has not been taken yet, and every name it adds becomes one more alternative.
 - Every `sqlite3` call outside the self-test carries `-readonly`.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
 
-`tools/passivity-mutate.sh` shows that each of these checks can turn red, and the regression run
+`tools/passivity-mutate.sh` shows that each of these checks can turn red (it plants one violation for every alternative of the
+tool and wrapper lists), and the regression run
 also watches the requests of the running page in the browser (see
 [tools/README.md](tools/README.md)).
 
@@ -184,6 +219,10 @@ Likewise held only in memory, and discarded when the source changes:
 Random clouds are computed in the browser, and on the Pager's own screen by the Overview, from the
 capture already present, so nothing new leaves the device.
 
+The Bluetooth marks, the memory of which signal ring each address was last drawn in, and the stations' frame rates are held only in
+memory too (no storage key): a Bluetooth address is display and export only, with no baseline, identity, note or event, and a rotating
+address is never linked to another across a rotation.
+
 The observations are derived notes in neutral language, without judgement. A note appears only once
 it has held for two captures in a row, and never for the device's own transmitters or for phone
 hotspots. The number of stations that have searched for a confirmed SSID is shown only in bands
@@ -204,6 +243,8 @@ data.
   received) as well as aliases and tags.
 - Addresses the page groups into a cloud carry the cloud's id in JSON and in a trailing CSV column; the cloud entry holds counts,
   signal range, times and probed network names, all received, and is marked as an estimate.
+- With a Bluetooth capture the JSON export holds the `bluetooth` addresses (an array, with `bluetooth_counts`), each with its signal, company,
+  advertised name and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column.
 - It contains none of the device's own transmitters, no probable phone hotspots (not even as a
   station's link; only their number) and no note texts.
 - Every format carries the footer 'Starchorus · passive observation · not a government system · no

@@ -189,7 +189,7 @@ rowif "page size $PHN_SZ bytes ≤ $PHN_MAXB" [ "$PHN_SZ" -le "$PHN_MAXB" ]
 PHN_K=$(awk '/^const KEYS = \[/,/^\];/' "$H" | grep -o 'key: "[^"]*"' | sed 's/key: "\(.*\)"/\1/' | tr '\n' ' ')
 PHN_KB=$(awk '/^const KEYS = \[/,/^\];/' "$H" | grep -cE 'key: "F",.*btn: "t-home"|key: "U",.*btn: "t-panels"|key: "\?",.*btn: "t-help"')
 PHN_KA=$(grep -c '^  q: () => setDx("air"), .*u: () => setPanels(!S.ui.panels),$' "$H")
-rowif "keys: the old list plus U after B and X after A, F and ? bound to #t-home and #t-help ($PHN_KB/3), KEY_ACT.u ($PHN_KA)" [ "$PHN_K/$PHN_KB/$PHN_KA" = "T V R S C Space L O K A X E N G D M P W I F Q J H Y B U 1 / 2 / 3 ← → ↑ ↓ + / − 0 [ / ] Esc ? /3/1" ]
+rowif "keys: the old list plus U after B and X after A, F and ? bound to #t-home and #t-help ($PHN_KB/3), KEY_ACT.u ($PHN_KA)" [ "$PHN_K/$PHN_KB/$PHN_KA" = "T V R S C Space L O K A X E N G D M P W I F Q J H Y B U 1 / 2 / 3 / 4 ← → ↑ ↓ + / − 0 [ / ] Esc ? /3/1" ]
 PHN_TF=0; for PHN_FN in phoneLayout skyBox phDetailDetent applyPhone; do PHN_N=$(awk -v FN="$PHN_FN" '$0 ~ ("^function " FN "\\(") , /^}/' "$H" | grep -cE 'THEME|[^A-Za-z]TD\.|[^A-Za-z]TK[^A-Za-z]'); PHN_TF=$((PHN_TF + PHN_N)); done
 PHN_FC=$(grep -cE '^function (phoneLayout|skyBox|phDetailDetent|applyPhone)\(' "$H")
 rowif "phone pass theme-free: phoneLayout, skyBox, phDetailDetent, applyPhone ($PHN_FC functions, token reads $PHN_TF)" [ "$PHN_FC/$PHN_TF" = 4/0 ]
@@ -276,3 +276,26 @@ PHN_V=$(evalv "out/$P-phn-zoom.json" 1)
 PHN_W='{"clamp":[0.5,4],"steps":"0.8,0.64,0.512,0.5,0.5,0.625,1,0.8,1","scale":true,"rings":[true,true,true],"counters":true,"labels":[true,true],"errors":0}'
 rowif "2D zoom out (1440x900, 1200 stations): clamped to 0.5 and 4, buttons and keys step it by 1.25 and reset to 1, stars at half their distance, the -60 dBm ring at half its radius and gone from the old one, every bubble counter and the same star names" [ "$PHN_V" = "$PHN_W" ]
 [ "$PHN_V" = "$PHN_W" ] || { echo "    got:  ${PHN_V:-no-value}"; echo "    want: $PHN_W"; }
+
+# ---- 0.2, the radio pair: the fourth band button (BT) in the sheet's Layers row, on tests/fixtures/radio-pair.json. At 375x812 all four are in the bar, 44 px or more,
+# clear of one another and of the screen edges, with no sideways scroll, in the three themes. Four layer buttons, Legend and the chevron need 338 px: below 375 px
+# the sheet row wraps (the chevron, at 320 px also Legend, on a second line), so the layer can be switched off on a 360 px and a 320 px phone too
+PHN_EVR='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(1800);const R=(e)=>e.getBoundingClientRect(),vis=(e)=>e.offsetParent!==null||getComputedStyle(e).position==="fixed";
+const res=[];
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await sleep(500);STARCHORUS.frame();
+ const b=[...document.querySelectorAll("#grp-bands .btn")],lead=[...document.querySelectorAll("#sheet-row .btn")].filter(vis),all=b.concat(lead.filter(x=>!b.includes(x)));
+ const r=all.filter(vis).map(e=>R(e)),ov=r.some((x,i)=>r.some((y,j)=>j>i&&x.left<y.right-0.5&&y.left<x.right-0.5&&x.top<y.bottom-0.5&&y.top<x.bottom-0.5)),inside=r.every(x=>x.left>=-0.5&&x.right<=innerWidth+0.5);
+ res.push([t,b.length,b.filter(e=>vis(e)).length,Math.min(...r.map(x=>Math.round(Math.min(x.width,x.height)))),ov,inside,document.documentElement.scrollWidth===innerWidth,document.querySelector("[data-band=bt]").getBoundingClientRect().width>0].join("/"));}
+o.res=res;o.phone=STARCHORUS.phone().on;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio320" --width 320 --height 568 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio360" --width 360 --height 800 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+PHN_V=$(evalv "out/$P-phn-radio.json" 1); PHN_V3=$(evalv "out/$P-phn-radio320.json" 1); PHN_V6=$(evalv "out/$P-phn-radio360.json" 1)
+PHN_W='{"res":["foundation/4/4/44/false/true/true/true","wargames/4/4/44/false/true/true/true","whitehall/4/4/44/false/true/true/true"],"phone":true,"errors":0}'
+PHN_W3=$PHN_W
+rowif "phone 375x812 (radio pair, 3 themes): four band buttons in the bar, 44 px or more, no overlap, inside the screen, no sideways scroll" [ "$PHN_V" = "$PHN_W" ]
+[ "$PHN_V" = "$PHN_W" ] || { echo "    got:  ${PHN_V:-no-value}"; echo "    want: $PHN_W"; }
+rowif "phone 320x568 (radio pair, 3 themes): the sheet row wraps, all four band buttons stay (BT included), Legend and the chevron stay, 44 px or more, no overlap, inside the screen, no sideways scroll" [ "$PHN_V3" = "$PHN_W3" ]
+[ "$PHN_V3" = "$PHN_W3" ] || { echo "    got:  ${PHN_V3:-no-value}"; echo "    want: $PHN_W3"; }
+rowif "phone 360x800 (radio pair, 3 themes): the same: four band buttons, Legend and the chevron, 44 px or more, no overlap, inside the screen, no sideways scroll" [ "$PHN_V6" = "$PHN_W" ]
+[ "$PHN_V6" = "$PHN_W" ] || { echo "    got:  ${PHN_V6:-no-value}"; echo "    want: $PHN_W"; }

@@ -3,7 +3,7 @@
 # Author: Starchorus
 # Description: Strictly passive, receive-only Wi-Fi observation tool; visualises the radio environment and never transmits.
 # Version: 0.1.1
-# Contract: 2
+# Contract: 3
 # Category: reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -13,9 +13,9 @@
 # the device's running recon engine read-only and writes starchorus.json -- access points as stars, clients as orbiting
 # satellites. It NEVER transmits: no deauthentication, no access point of its own, no injection, no association, no
 # active features. It does not change the device LED. On the device it also opens the Overview
-# (starchorus-display.sh) with seven screens: a summary (AP/client counts, band split, freshness, crowding), the
-# strongest networks, bands & security, logical devices/merged SSIDs, probe requests, stations and air quality
-# (channel crowding).
+# (starchorus-display.sh) with eight screens: a summary (AP/client counts, band split, freshness, crowding), the
+# strongest networks, bands & security, logical devices/merged SSIDs, probe requests, stations, Bluetooth (the addresses
+# heard, by company) and air quality (channel crowding).
 #
 # INTERFACE: on the device (no arguments, LIST_PICKER present, STARCHORUS_PAYLOAD_PLAIN not 1) a menu whose title shows the
 #   state, worked out afresh at every draw: "Starchorus: Stopped" (Start | Settings) or "Starchorus: Running" (Overview |
@@ -33,9 +33,13 @@
 # Precedence: environment, then file, then default. Keys (menu and CLI share one validator and one writer):
 #   window 0|60-86400 (STARCHORUS_MAX_AGE), interval 5-3600 (STARCHORUS_INTERVAL), port 1024-65535 but not 1471
 #   (STARCHORUS_PORT), bind auto|all|IPv4 address (STARCHORUS_BIND; CLI only, no menu entry), vendor/survey on|off
-#   (STARCHORUS_VENDOR/_SURVEY 1|0), page on|off (STARCHORUS_PAGE 1|0, read by this payload only). Three switches are
-#   environment only, with no key and no menu row: STARCHORUS_OWN (own interface MACs), STARCHORUS_DASHBOARD (0 = the
-#   Overview does not open after Start) and STARCHORUS_COLLECTOR (0 = no collector; the menu then refuses to run). No key
+#   (STARCHORUS_VENDOR/_SURVEY 1|0), traffic/bluetooth on|off (STARCHORUS_TRAFFIC/_BLUETOOTH 1|0: the channel activity the
+#   AP service reports and the frame counts of stations; the passive Bluetooth LE scan; both off by default, both read by the
+#   collector only), page on|off (STARCHORUS_PAGE 1|0, read by this payload only). Three switches are environment only, with
+#   no key and no menu row: STARCHORUS_OWN (own interface MACs), STARCHORUS_DASHBOARD (0 = the
+#   Overview does not open after Start) and STARCHORUS_COLLECTOR (0 = no collector; the menu then refuses to run). One more
+#   belongs to the collector and is passed through untouched, like STARCHORUS_OWN: STARCHORUS_BT_WINDOW (the length of the
+#   Bluetooth window). No key
 #   reaches the collector's opt-in transmitting source: it stays an environment-only switch of the collector, passed
 #   through untouched.
 #
@@ -105,6 +109,8 @@ PL_ENV=""
 [ -z "${STARCHORUS_BIND:+x}" ] || PL_ENV="$PL_ENV bind"
 [ -z "${STARCHORUS_VENDOR:+x}" ] || PL_ENV="$PL_ENV vendor"
 [ -z "${STARCHORUS_SURVEY:+x}" ] || PL_ENV="$PL_ENV survey"
+[ -z "${STARCHORUS_BLUETOOTH:+x}" ] || PL_ENV="$PL_ENV bluetooth"
+[ -z "${STARCHORUS_TRAFFIC:+x}" ] || PL_ENV="$PL_ENV traffic"
 [ -z "${STARCHORUS_PAGE:+x}" ] || PL_ENV="$PL_ENV page"
 STARCHORUS_PORT=${STARCHORUS_PORT:-8199}
 STARCHORUS_BIND=${STARCHORUS_BIND:-auto}                  # payload only: the page server's address (see BIND above)
@@ -115,11 +121,13 @@ export STARCHORUS_INTERVAL="${STARCHORUS_INTERVAL:-30}"   # seconds between two 
 export STARCHORUS_VENDOR="${STARCHORUS_VENDOR:-1}"        # 1 = local vendor lookup (collector default)
 export STARCHORUS_OWN="${STARCHORUS_OWN:-0}"              # 1 = own interface MACs from sysfs (read-only); environment only
 export STARCHORUS_SURVEY="${STARCHORUS_SURVEY:-0}"        # 1 = channel busy time from the survey dump (read-only)
+export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-0}"  # 1 = the passive Bluetooth LE scan window every cycle (off by default)
+export STARCHORUS_TRAFFIC="${STARCHORUS_TRAFFIC:-0}"      # 1 = channel activity and station frame counts (off by default)
 STARCHORUS_COLLECTOR=${STARCHORUS_COLLECTOR:-1}           # payload only, environment only: start the collector
 STARCHORUS_PAGE=${STARCHORUS_PAGE:-1}                     # payload only: serve the page
 STARCHORUS_DASHBOARD=${STARCHORUS_DASHBOARD:-1}           # payload only, environment only: open the Overview after Start (menu)
 
-PL_KEYS="window interval port bind vendor survey page"
+PL_KEYS="window interval port bind vendor survey page bluetooth traffic"
 PL_FILE=""                     # keys that the settings file set with a valid value
 PL_CR=$(printf '\r')
 PL_PROC=${STARCHORUS_PROC:-/proc}                         # tests only (see TESTS ONLY above)
@@ -146,7 +154,7 @@ pl_valid() {
                 *)        [ "$2" -ge 1024 ] && [ "$2" -le 65535 ] && [ "$2" != 1471 ] ;;
             esac ;;
         bind) case $2 in auto|all) return 0 ;; 0.0.0.0) return 1 ;; esac; pl_ipv4 "$2" ;;   # every interface only as `all`
-        vendor|survey|page) [ "$2" = on ] || [ "$2" = off ] ;;
+        vendor|survey|page|bluetooth|traffic) [ "$2" = on ] || [ "$2" = off ] ;;
         *) return 1 ;;
     esac
 }
@@ -161,6 +169,8 @@ pl_assign() {
         vendor)    STARCHORUS_VENDOR=$(pl_bit "$2") ;;
         survey)    STARCHORUS_SURVEY=$(pl_bit "$2") ;;
         page)      STARCHORUS_PAGE=$(pl_bit "$2") ;;
+        bluetooth) STARCHORUS_BLUETOOTH=$(pl_bit "$2") ;;
+        traffic)   STARCHORUS_TRAFFIC=$(pl_bit "$2") ;;
     esac
 }
 
@@ -174,6 +184,8 @@ pl_value() {
         vendor)    pl_onoff "$STARCHORUS_VENDOR" ;;
         survey)    pl_onoff "$STARCHORUS_SURVEY" ;;
         page)      pl_onoff "$STARCHORUS_PAGE" ;;
+        bluetooth) pl_onoff "$STARCHORUS_BLUETOOTH" ;;
+        traffic)   pl_onoff "$STARCHORUS_TRAFFIC" ;;
     esac
 }
 
@@ -188,7 +200,7 @@ pl_snapshot() {
 # Parse the settings file (never source it): KEY=VALUE lines, CR stripped, a fixed key list, every value validated,
 # the last valid line of a key wins; everything else is skipped. A key the environment sets is left alone. A leading
 # UTF-8 BOM on the first line is stripped, and a file far larger than a real settings file is ignored (a single
-# multi-MB line can stall the shell's read loop under bash 3.2; a real file has at most seven short lines).
+# multi-MB line can stall the shell's read loop under bash 3.2; a real file has at most nine short lines).
 PL_BOM=$(printf '\357\273\277')
 pl_load() {
     [ -f "$SETTINGS" ] || return 0
@@ -439,6 +451,12 @@ pl_kids() {
 pl_kill_sleeps() { for pl_sk in $(pl_kids "$1"); do kill "$pl_sk" 2>/dev/null; done; }
 
 pl_nap() { if sleep 0.5 2>/dev/null; then PL_NAP=5; else sleep 1; PL_NAP=10; fi; }   # PL_NAP = tenths of a second slept
+# the Bluetooth window in seconds the collector will use: STARCHORUS_BT_WINDOW as it reads it (whole seconds 5 to 15, a leading zero is no octal), else 6
+pl_btwin() {
+    pl_w=${STARCHORUS_BT_WINDOW:-6}
+    case $pl_w in ''|*[!0-9]*) pl_w=6 ;; *) while [ "${#pl_w}" -gt 1 ] && [ "${pl_w#0}" != "$pl_w" ]; do pl_w=${pl_w#0}; done; if [ "$pl_w" -lt 5 ] || [ "$pl_w" -gt 15 ]; then pl_w=6; fi ;; esac
+    printf '%s' "$pl_w"
+}
 
 # pl_fast_stop all|collector -> 2.8 steps 2 to 5 (the Stop sequence above); all = also our page servers, collector = the
 # collector alone. Both pids are read before --stop deletes the pidfiles. 0 = gone (or nothing of ours ran), 1 = still
@@ -887,7 +905,8 @@ pl_web_flow() {
 # ---- Settings (2.5)
 pl_envvar() {   # pl_envvar KEY -> the environment variable behind a settings key
     case $1 in window) echo STARCHORUS_MAX_AGE ;; interval) echo STARCHORUS_INTERVAL ;; port) echo STARCHORUS_PORT ;;
-        vendor) echo STARCHORUS_VENDOR ;; survey) echo STARCHORUS_SURVEY ;; page) echo STARCHORUS_PAGE ;; esac
+        vendor) echo STARCHORUS_VENDOR ;; survey) echo STARCHORUS_SURVEY ;; page) echo STARCHORUS_PAGE ;;
+        bluetooth) echo STARCHORUS_BLUETOOTH ;; traffic) echo STARCHORUS_TRAFFIC ;; esac
 }
 pl_lock() { pl_has "$PL_ENV" "$1" && printf ' (locked)'; return 0; }                # " (locked)" when the environment sets KEY
 pl_sw() { if [ "$(pl_value "$1")" = on ]; then echo ON; else echo OFF; fi; }      # R1: an ON/OFF value flips with one press
@@ -896,7 +915,7 @@ pl_save() {     # pl_save KEY VALUE -> saved (0), or E9 and nothing changed (1)
     ui_err "Could not save the setting."                                            # E9
     return 1
 }
-pl_applykeys() { for pl_k in interval window vendor survey port; do printf '%s=%s ' "$pl_k" "$(pl_value "$pl_k")"; done; }
+pl_applykeys() { for pl_k in interval window vendor survey traffic bluetooth port; do printf '%s=%s ' "$pl_k" "$(pl_value "$pl_k")"; done; }
 
 pl_set_page() {   # Web Page: while RUNNING the flip applies at once; while STOPPED it only saves
     if [ "$STARCHORUS_PAGE" = 1 ]; then
@@ -940,6 +959,8 @@ pl_settings() {
             "Show Last: $(pl_wlab "$STARCHORUS_MAX_AGE")$(pl_lock window)" \
             "Vendor Names: $(pl_sw vendor)$(pl_lock vendor)" \
             "Channel Load: $(pl_sw survey)$(pl_lock survey)" \
+            "Traffic: $(pl_sw traffic)$(pl_lock traffic)" \
+            "Bluetooth: $(pl_sw bluetooth)$(pl_lock bluetooth)" \
             "Port: $STARCHORUS_PORT$(pl_lock port)" \
             "Reset to Defaults") || break
         case $pl_c in
@@ -948,6 +969,8 @@ pl_settings() {
             "Show Last: "*)    pl_scur="Show Last:"; pl_k=window ;;
             "Vendor Names: "*) pl_scur="Vendor Names:"; pl_k=vendor ;;
             "Channel Load: "*) pl_scur="Channel Load:"; pl_k=survey ;;
+            "Traffic: "*)      pl_scur="Traffic:"; pl_k=traffic ;;
+            "Bluetooth: "*)    pl_scur="Bluetooth:"; pl_k=bluetooth ;;
             "Port: "*)         pl_scur="Port:"; pl_k=port ;;
             *)                 pl_scur="Reset to Defaults"; pl_k=reset ;;
         esac
@@ -962,6 +985,10 @@ pl_settings() {
                       elif pl_save vendor on; then ui_log "Vendor names: device makers."; fi ;;            # L8a
             survey)   if [ "$STARCHORUS_SURVEY" = 1 ]; then pl_save survey off
                       elif pl_save survey on; then ui_log "Channel load: busy time per"; ui_log "channel, in Air quality."; fi ;;   # L8b, L8c
+            traffic)  if [ "$STARCHORUS_TRAFFIC" = 1 ]; then pl_save traffic off
+                      elif pl_save traffic on; then ui_log "Traffic: channel activity and frame rates."; fi ;;   # L8d
+            bluetooth) if [ "$STARCHORUS_BLUETOOTH" = 1 ]; then pl_save bluetooth off
+                       elif pl_save bluetooth on; then ui_log "Bluetooth: passive LE scan, $(pl_btwin) s per refresh."; fi ;;   # L8e (the window the collector will use)
             port)     if pl_n=$(ui_num Port "$STARCHORUS_PORT"); then
                           if ! pl_valid port "$pl_n"; then ui_err "Use 1024 to 65535, not 1471."               # E7
                           elif [ "$pl_n" != "$STARCHORUS_PORT" ]; then pl_save port "$pl_n"; fi

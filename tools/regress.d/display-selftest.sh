@@ -53,8 +53,10 @@
 #                one draw, three waits, no list); a known key in between starts the count again, and so does an answer that took 1 s or more
 #                (a slow UI is waited out, however often: no quitting to the menu by itself; 99 hundredths count, 100 do not); BACK, Escape and a
 #                lower-case b are B and a lower-case a is A, so none of them is a strike; the same words padded with spaces, a tab and a CR are the same keys. S12 updown: UP and DOWN cause no draw, no exit and no strike. S13 leftright: RIGHT and LEFT step
-#                through summary, top, bands, devices, probes, clients, air and wrap (summary <-> air); B opens the list "Overview" with its
-#                seven rows in order and the cursor on the screen B came from; a row picked is drawn, an unknown label leaves.
+#                through summary, top, bands, devices, probes, clients, bluetooth, air and wrap (summary <-> air); B opens the list "Overview"
+#                with its eight rows in order and the cursor on the screen B came from; a row picked is drawn, an unknown label leaves; the
+#                Bluetooth screen of a capture that has Bluetooth is drawn whole (heading, the figures, the strongest companies, the frame),
+#                at most 12 lines of at most 40 columns.
 # S14 notimeout : no code line of either copy puts `timeout` before WAIT_FOR_INPUT, and exactly one code line calls it (a killed UI command
 #                can leave a waiter in the UI daemon that swallows the next press); a detector self-check keeps the row from going green blind.
 # S15 armed     : the wait is open BEFORE the draw is (measured on the device, 16 October 2026: a press made while no wait is open is lost, and B
@@ -65,7 +67,9 @@
 #                again), also under a `timeout` that does not pass a signal on (the children of the `timeout` are ended first).
 # S16 frame     : every draw ends with `Last scan HH:MM:SS (N s ago)` (UTC, from `generated`) and `A: Refresh   B: Back`, the summary also with
 #                the page's address; older than three intervals the red `No new scan for N min.` takes the place of the time; with no capture
-#                since Start: the waiting line, the keys, no time, and one program run however often the screen is drawn (D5).
+#                since Start: the waiting line, the keys, no time, and one program run however often the screen is drawn (D5). The Bluetooth screen of
+#                radio-pair (fresh `generated`) ends with the same Last scan line and the keys, twelve lines at most: that line is the specification's
+#                'Last scan' of that screen (it dates the capture, not a scan window of its own; `--once` prints a screen without the frame).
 # S17 nopending: no waiter is left behind by a way out that is not a signal: B out of the list, three strikes, the payload gone after a key
 #                (a stand-in kills the fake payload while it answers) and gone before the first arm. The stand-in writes its pid to a file and
 #                kill -0 must fail for each; one pid per wait, so the row cannot pass on a run that never waited; and no Overview run of
@@ -79,6 +83,16 @@
 #                another parent ends the Overview before it arms or draws; a stat file without a number there does not.
 # S20 keyerr    : a key file that cannot be written: an error dialog at the start (a read-only temp dir), a named failure later (the key file
 #                made read-only while the waiter runs), exit 1 in both, and not three empty answers; the temp dir is removed.
+# The radio pair (Bluetooth screen, activity bars): S1 and S2 carry the new helper checks and the end-to-end checks of screen_bluetooth and screen_bands
+#                (so an edit of btlist, btco, bar8 or actbar, or one that lets a record of the wrong type through, is red there), S5 names them so they cannot
+#                be dropped, S9 counts one jq for the new screen, S13 walks eight screens and draws the Bluetooth screen of radio-pair whole.
+#                NEGATIVE PROBES (a copy of the display script in each case): RIGHT from Stations going to Air (the new screen skipped) => S13 red, nothing else;
+#                fixed addresses counted as random-static only => S1 and S2 red (the count line of screen_bluetooth); the bar's cells inverted => S1 and S2
+#                red (bar8, actbar, screen_bands); the cap of company lines `bt_max=7` raised to 12 in both copies => S1, S2 and S5 red, nothing else (the four checks
+#                'the cap on eleven companies' of the selftest: a capture of fourteen records in eleven companies, drawn plain, under a void window, under the ACTIVE claim
+#                and under both, must show 7, 6, 6 and 5 company lines and ten lines at most; the jq slice of seven keeps the plain draw at seven, so it is the void draw that
+#                shows seven where six are wanted; S5 names the four, so a dropped check is red as well); the parity drop-in holds the same cap against the
+#                page's rules on its own documents (bt-many, bt-many-void, bt-many-active, bt-many-av).
 # S1-S3, S6 and S7 run under sh and, when installed, dash as well (the device's shell is BusyBox ash, dash is the
 # nearest thing a dev machine has; bash, which is what sh often is, runs its EXIT trap on SIGTERM by itself, dash
 # does not, so S7 only means something for the TERM trap of the script under dash). S4, the bulk sweep, uses sh.
@@ -235,12 +249,16 @@ case $DST_V1 in *"without ONIGURUMA"*) DST_W1=ok ;; *) DST_W1=missing ;; esac
 case $DST_V3 in *"endswith is broken"*) DST_W3=ok ;; *) DST_W3=missing ;; esac
 DST_MISS=""
 for DST_B in endswith until index "string slice" tostring ascii_downcase ascii_upcase rtrimstr ltrimstr contains \
-             startswith split/1 group_by sort_by unique add select "syntax // (alternative operator)" 'syntax '"\uXXXX escapes"; do
+             startswith split/1 group_by sort_by unique add select "syntax // (alternative operator)" 'syntax '"\uXXXX escapes" \
+             "add over strings"; do
   case $DST_B in "syntax "*) DST_PFX="PASS: jq $DST_B" ;; *) DST_PFX="PASS: jq builtin $DST_B" ;; esac
   grep -qF "$DST_PFX" "$DST_D/s1-root-sh.out" || DST_MISS="$DST_MISS [$DST_B]"
 done
 for DST_B in bandnorm secupper isopenwep sectag jq_healthy "screen_summary: band counters" "screen_summary: band counts" \
-             "screen_summary: open/WEP"; do
+             "screen_summary: open/WEP" btlist btco bar8 actbar "screen_summary: the Bluetooth figure" "screen_bands: a band" \
+             "screen_bluetooth: addresses" "screen_bluetooth: the strongest company" "screen_bluetooth: the cap on eleven companies, plain:" \
+             "screen_bluetooth: the cap on eleven companies, a void window:" "screen_bluetooth: the cap on eleven companies, the ACTIVE claim:" \
+             "screen_bluetooth: the cap on eleven companies, a void window under the ACTIVE claim:"; do
   grep -qF "PASS: $DST_B" "$DST_D/s1-root-sh.out" || DST_MISS="$DST_MISS [$DST_B]"
 done
 if [ "$DST_C1/$DST_C2/$DST_V2/$DST_W1" = 5/0/true/ok ] && [ "$DST_C3/$DST_C4/$DST_V4/$DST_W3" = 5/0/true/ok ] && [ -z "$DST_MISS" ]; then
@@ -531,12 +549,12 @@ dst_alive() {   # dst_alive FILE: how many of the pids listed in FILE (one per l
 }
 dst_cnt() { grep -cxF "$1" "$2"; }   # dst_cnt LINE FILE: how many lines of FILE are exactly LINE
 dst_ui() { grep -c "^$1" "$DST_D/$2.ui"; }   # dst_ui WORD TAG: how many UI calls of that kind (WAIT, PICKER) the run made
-dst_views() {   # dst_views FILE: the screens drawn, in order, one letter each: s summary, t top, b bands, d devices, p probes, c clients, a air
+dst_views() {   # dst_views FILE: the screens drawn, in order, one letter each: s summary, t top, b bands, d devices, p probes, c clients, l Bluetooth LE, a air
   sed -n -e 's/^LOG\[blue\] Starchorus  ~  .*/s/p' -e 's/^LOG\[blue\] Strongest networks (GEN .*/t/p' -e 's/^LOG\[blue\] Bands & security (GEN .*/b/p' \
          -e 's/^LOG\[blue\] Logical grouping (GEN .*/d/p' -e 's/^LOG\[blue\] Probe requests (GEN .*/p/p' -e 's/^LOG\[blue\] Stations (GEN .*/c/p' \
-         -e 's/^LOG\[blue\] Air quality (GEN .*/a/p' "$1" | tr -d '\n'
+         -e 's/^LOG\[blue\] Bluetooth LE (GEN .*/l/p' -e 's/^LOG\[blue\] Air quality (GEN .*/a/p' "$1" | tr -d '\n'
 }
-DST_HUB="PICKER|Overview|Summary|Strongest Networks|Bands & Security|Devices & Merges|Probe Requests|Stations|Air Quality"
+DST_HUB="PICKER|Overview|Summary|Strongest Networks|Bands & Security|Devices & Merges|Probe Requests|Stations|Bluetooth|Air Quality"
 
 # ---- S9: one jq process per screen render, none while the capture is unchanged; keys, not a timer, drive the Overview
 # (a) --once: summary / top / bands = the probe + the program, every other screen = the program. (b) the Overview: A four times, the capture
@@ -548,7 +566,7 @@ for DST_E in $DST_COPIES; do
   DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X9=$((DST_X9 + 1)); DST_T9="$DST_D/s9-$DST_G"
   # (a) --once: summary / top / bands = the probe + the program, every other screen = the program
   DST_W9=""
-  for DST_S in summary top bands devices probes clients air; do
+  for DST_S in summary top bands devices probes clients bluetooth air; do
     : > "$DST_T9.jq"
     PATH="$DST_D/cnt:$PATH" STARCHORUS_JQ_COUNT="$DST_T9.jq" STARCHORUS_REAL_JQ="$DST_JQ" STARCHORUS_DISPLAY_PLAIN=1 \
       sh "$DST_C" --once "$DST_S" "$F/many-clients.json" > /dev/null 2>&1
@@ -693,32 +711,68 @@ done
 if [ "$DST_S12" = "$DST_X12" ]; then row "display updown: UP and DOWN cause no draw, no exit and no strike; the next A still draws ($DST_X12 copies)" PASS
 else row "display updown: $DST_S12/$DST_X12 copies as expected" FAIL; DST_KEEP=1; fi
 
-# ---- S13 leftright: RIGHT steps to the next screen in the order of the list (summary, top, bands, devices, probes, clients, air), LEFT to the
-# previous, both wrap round (summary <-> air); B opens the list with the cursor on the screen B came from (the default is the last row of
-# the call), a row picked is drawn, a label that is not offered leaves
+# ---- S13 leftright: RIGHT steps to the next screen in the order of the list (summary, top, bands, devices, probes, clients, bluetooth, air), LEFT to
+# the previous, both wrap round (summary <-> air); B opens the list with the cursor on the screen B came from (the default is the last row of
+# the call), a row picked is drawn, a label that is not offered leaves. S13b, the next row: the Bluetooth screen of a capture that has Bluetooth
+# (the radio-pair fixture) is drawn whole: at most 12 lines (the heading, the figures, up to seven companies and the frame's two) of at most 40
+# columns, the count line the fixture's (9 addresses, 7 rotating, 2 fixed), the companies' counts adding up to the 9, the keys line last.
 DST_S13=0; DST_X13=0
 for DST_E in $DST_COPIES; do
   DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X13=$((DST_X13 + 1)); DST_L13=""
-  # LEFT from the summary = air; RIGHT x8 = summary (the wrap), top, bands, devices, probes, clients, air, summary (the wrap again); LEFT x7 = air,
-  # clients, probes, devices, bands, top, summary; B opens the list
-  dst_ov "s13a-$DST_G" "$DST_C" "LEFT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT LEFT LEFT LEFT LEFT LEFT LEFT LEFT B"
+  # LEFT from the summary = air; RIGHT x9 = summary (the wrap), top, bands, devices, probes, clients, bluetooth, air, summary (the wrap again);
+  # LEFT x8 = air, bluetooth, clients, probes, devices, bands, top, summary; B opens the list
+  dst_ov "s13a-$DST_G" "$DST_C" "LEFT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT LEFT LEFT LEFT LEFT LEFT LEFT LEFT LEFT B"
   DST_A=$(dst_views "$DST_D/s13a-$DST_G.out"); DST_AW=$(dst_ui WAIT "s13a-$DST_G"); DST_AP=$(dst_ui PICKER "s13a-$DST_G")
-  if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP" != 0/sastbdpcasacpdbts/17/1 ]; then
-    DST_L13="$DST_L13 walk: rc $DST_RC, screens '$DST_A' (want sastbdpcasacpdbts), $DST_AW waits (want 17), $DST_AP lists (want 1);"
+  if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP" != 0/sastbdpclasalcpdbts/19/1 ]; then
+    DST_L13="$DST_L13 walk: rc $DST_RC, screens '$DST_A' (want sastbdpclasalcpdbts), $DST_AW waits (want 19), $DST_AP lists (want 1);"
   fi
   printf '%s\n' Stations "Not A Row" > "$DST_D/s13b-$DST_G.pk"; rm -f "$DST_D/s13b-$DST_G.pn"
   dst_ov "s13b-$DST_G" "$DST_C" "B B" STARCHORUS_PICKS="$DST_D/s13b-$DST_G.pk" STARCHORUS_PICKS_N="$DST_D/s13b-$DST_G.pn"
   DST_A=$(dst_views "$DST_D/s13b-$DST_G.out"); DST_PL=$(grep '^PICKER' "$DST_D/s13b-$DST_G.ui")
   DST_P1=$(printf '%s\n' "$DST_PL" | sed -n 1p); DST_P2=$(printf '%s\n' "$DST_PL" | sed -n 2p)
-  # the list: its title and seven rows in this order and spelling, the cursor (the last argument) on Summary for the first B, on Stations (the
+  # the list: its title and eight rows in this order and spelling, the cursor (the last argument) on Summary for the first B, on Stations (the
   # screen just picked) for the second; the answer to the second is a label that is not offered: leave
   if [ "$DST_RC/$DST_A/$DST_P1/$DST_P2" != "0/sc/$DST_HUB|Summary/$DST_HUB|Stations" ]; then
     DST_L13="$DST_L13 list: rc $DST_RC, screens '$DST_A' (want sc), first call [$DST_P1], second [$DST_P2] (want $DST_HUB|Summary and ...|Stations);"
   fi
+  # the new row of the list: Bluetooth is a row, picking it draws that screen, and B there offers the list with the cursor on it
+  printf '%s\n' Bluetooth "Not A Row" > "$DST_D/s13c-$DST_G.pk"; rm -f "$DST_D/s13c-$DST_G.pn"
+  dst_ov "s13c-$DST_G" "$DST_C" "B B" STARCHORUS_PICKS="$DST_D/s13c-$DST_G.pk" STARCHORUS_PICKS_N="$DST_D/s13c-$DST_G.pn"
+  DST_A=$(dst_views "$DST_D/s13c-$DST_G.out"); DST_PL=$(grep '^PICKER' "$DST_D/s13c-$DST_G.ui")
+  DST_P2=$(printf '%s\n' "$DST_PL" | sed -n 2p)
+  if [ "$DST_RC/$DST_A/$DST_P2" != "0/sl/$DST_HUB|Bluetooth" ]; then
+    DST_L13="$DST_L13 bluetooth row: rc $DST_RC, screens '$DST_A' (want sl), second call [$DST_P2] (want ...|Bluetooth);"
+  fi
   if [ -z "$DST_L13" ]; then DST_S13=$((DST_S13 + 1)); else echo "    leftright, $DST_G copy:$DST_L13"; fi
 done
-if [ "$DST_S13" = "$DST_X13" ]; then row "display leftright: LEFT/RIGHT step through the seven screens and wrap (summary <-> air); B opens the list on the screen it came from ($DST_X13 copies)" PASS
+if [ "$DST_S13" = "$DST_X13" ]; then row "display leftright: LEFT/RIGHT step through the eight screens and wrap (summary <-> air); B opens the list on the screen it came from, Bluetooth is a row ($DST_X13 copies)" PASS
 else row "display leftright: $DST_S13/$DST_X13 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S13b: the Bluetooth screen of radio-pair, drawn by the Overview itself (six RIGHT from the summary), whole. NOT COVERED while the fixture is
+# not there yet (tests/fixtures/radio-pair.json comes with the page track; the parity drop-in has the row that is red for its absence).
+if [ ! -s "$F/radio-pair.json" ]; then notcov "display bluetooth screen of radio-pair, drawn by the Overview (needs tests/fixtures/radio-pair.json)"
+else
+  DST_S13B=0; DST_X13B=0
+  for DST_E in $DST_COPIES; do
+    DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X13B=$((DST_X13B + 1)); DST_L13=""
+    DST_OVSRC="$F/radio-pair.json"
+    dst_ov "s13d-$DST_G" "$DST_C" "RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT B"
+    DST_OVSRC=
+    DST_A=$(dst_views "$DST_D/s13d-$DST_G.out")
+    DST_BL=$(awk '/^LOG\[blue\] Bluetooth LE \(GEN /{ f = 1 } f { print } f && /^LOG A: Refresh   B: Back$/ { exit }' "$DST_D/s13d-$DST_G.out" | sed 's/^LOG\(\[[a-z]*\]\)\{0,1\} //')
+    DST_BN=$(printf '%s\n' "$DST_BL" | grep -c .)
+    DST_BW=$(printf '%s\n' "$DST_BL" | LC_ALL=C awk 'length($0) > 40' | grep -c .)
+    DST_BS=$(printf '%s\n' "$DST_BL" | sed -n 's/^ -\{0,1\}[0-9]* dBm  .*  (\([0-9]*\))$/\1/p' | awk '{ t += $1 } END { print t + 0 }')
+    DST_BC=$(printf '%s\n' "$DST_BL" | grep -cx '9 addresses (7 rotating, 2 fixed)')
+    DST_BK=$(printf '%s\n' "$DST_BL" | tail -n 1)
+    if [ "$DST_RC/$DST_A/$DST_BC/$DST_BS/$DST_BW/$DST_BK" != '0/stbdpcl/1/9/0/A: Refresh   B: Back' ] || [ "$DST_BN" -gt 12 ] || [ "$DST_BN" -lt 5 ]; then
+      DST_L13="$DST_L13 radio-pair: rc $DST_RC, screens '$DST_A' (want stbdpcl), count line x$DST_BC (want 1), companies add up to $DST_BS (want 9), $DST_BW lines over 40 columns (want 0), last line '$DST_BK', $DST_BN lines (5 to 12);"
+    fi
+    if [ -z "$DST_L13" ]; then DST_S13B=$((DST_S13B + 1)); else echo "    bluetooth screen, $DST_G copy:$DST_L13"; fi
+  done
+  if [ "$DST_S13B" = "$DST_X13B" ]; then row "display bluetooth screen of radio-pair is whole: heading, 9 addresses (7 rotating, 2 fixed), companies adding up to 9, the frame, 12 lines of 40 columns at most ($DST_X13B copies)" PASS
+  else row "display bluetooth screen of radio-pair: $DST_S13B/$DST_X13B copies as expected" FAIL; DST_KEEP=1; fi
+fi
 
 # ---- S14 notimeout: no code line of either copy puts `timeout` before WAIT_FOR_INPUT (nor anywhere on a line that holds it), and exactly one code line
 # calls it; S9 showed the same at run time (the only commands under the stand-in timeout were jq). A UI command killed by timeout can leave a waiter in
@@ -804,6 +858,19 @@ for DST_E in $DST_COPIES; do
   if [ "$DST_RC/$DST_LS/$DST_AOK/$DST_WP/$DST_KL/$DST_TAIL" != "0/2/1/1/2/LOG A: Refresh   B: Back|LOG Web page: 172.16.52.1:8199|" ]; then
     DST_L16="$DST_L16 fresh: rc $DST_RC, Last scan lines $DST_LS (want 2 with $DST_EXP), age '$DST_AGE' (want 42 to 120), Web page $DST_WP (want 1), key lines $DST_KL (want 2), after the first [$DST_TAIL];"
   fi
+  # the Bluetooth screen is a draw like the others (six RIGHT from the summary): its block ends with the same Last scan line, then the keys, twelve lines at most in all. The line
+  # is the frame's, the time of `generated` and not of a scan of the Bluetooth window of its own (the specification's 'Last scan' of that screen is this line).
+  if [ -s "$F/radio-pair.json" ]; then
+    jq -c --argjson g "$DST_GEN16" '.generated = $g' "$F/radio-pair.json" > "$DST_D/s16-$DST_G.bt"
+    DST_OVSRC="$DST_D/s16-$DST_G.bt"; dst_ov "s16d-$DST_G" "$DST_C" "RIGHT RIGHT RIGHT RIGHT RIGHT RIGHT B"; DST_OVSRC=
+    DST_O="$DST_D/s16d-$DST_G.out"
+    DST_BLK=$(awk '/^LOG\[blue\] Bluetooth LE \(GEN /{ f = 1 } f { print } f && /^LOG A: Refresh   B: Back$/ { exit }' "$DST_O")
+    DST_BN=$(printf '%s\n' "$DST_BLK" | grep -c .); DST_BTL=$(printf '%s\n' "$DST_BLK" | tail -n 2 | sed -n 1p)
+    case $DST_BTL in "LOG Last scan $DST_EXP ("*" s ago)") DST_BTOK=1 ;; *) DST_BTOK=0 ;; esac
+    if [ "$DST_RC/$DST_BTOK" != 0/1 ] || [ "$DST_BN" -gt 12 ]; then
+      DST_L16="$DST_L16 bluetooth: rc $DST_RC, the line before the keys is '$DST_BTL' (want Last scan $DST_EXP and the age), $DST_BN lines (12 at most);"
+    fi
+  fi
   # a stale capture: the red line instead (400 s = 6 min, 8000 s = 2 h); no Last scan line
   for DST_Z in "400:6 min" "8000:2 h"; do
     DST_ZS=${DST_Z%%:*}; DST_ZW=${DST_Z#*:}
@@ -826,7 +893,7 @@ for DST_E in $DST_COPIES; do
   fi
   if [ -z "$DST_L16" ]; then DST_S16=$((DST_S16 + 1)); else echo "    frame, $DST_G copy:$DST_L16"; fi
 done
-if [ "$DST_S16" = "$DST_X16" ]; then row "display frame: Last scan HH:MM:SS (N s ago), A: Refresh   B: Back, Web page on the summary only; red No new scan when old; waiting costs one jq ($DST_X16 copies)" PASS
+if [ "$DST_S16" = "$DST_X16" ]; then row "display frame: Last scan HH:MM:SS (N s ago), A: Refresh   B: Back, Web page on the summary only, the Bluetooth screen ends with the same Last scan line; red No new scan when old; waiting costs one jq ($DST_X16 copies)" PASS
 else row "display frame: $DST_S16/$DST_X16 copies as expected" FAIL; DST_KEEP=1; fi
 
 # ---- S17 nopending: no waiter is left behind by a way out that is not a signal. The stand-in writes its pid to a file (one line per wait) and kill -0

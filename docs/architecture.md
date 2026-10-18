@@ -8,7 +8,7 @@ lists (§2.7 query parameters, §9.6 keys, §10 API) are checked against the cod
 **Strictly passive.** The page sends nothing except `fetch("starchorus.json?_=…", {cache:"no-store"})` in the same
 directory. No radar sweep (it would suggest active scanning), no third-party requests, no external
 font link; the typeface is embedded (section 00). The collector only reads (monitor interface, recon database
-read-only, local OUI files) and writes `starchorus.json` and its cache to `$CAPDIR`. The only marked
+read-only, local OUI files and, opt-in, a passive Bluetooth LE scan) and writes `starchorus.json` and its cache to `$CAPDIR`. The only marked
 exception is the opt-in scan `STARCHORUS_ALLOW_ACTIVE=1` (`source: "iw-scan-ACTIVE"`, §14.2).
 
 **Data on the device.** The device's recon database delivers `aps[].clients` **empty**; all stations
@@ -21,8 +21,10 @@ security, clients:[{mac, rssi}]}], unassociated:[{mac, rssi}]}`. New fields are 
 `starchorus.json` without them runs unchanged. Read optionally: per AP `vendor`, `randomized`, `rate`,
 `last_seen`, `width`, `phy`, `caps`, `beacons`, `packets`, `akm[]`, `cipher{group, pairwise[]}`, `auth[]`,
 `responded_ssids`; per station `vendor`, `randomized`, `last_seen`, `packets`, `probes[]`; `center.max_age`,
-`center.interval`, `center.own_bssids`, `center.own_ssids`; top-level `channels[{freq, last_heard, busy_pct, noise}]`,
-`alerts[]`, `homing`. The collector emits a field **only when a value is present** (never `null`). `own_*` stay
+`center.interval`, `center.own_bssids`, `center.own_ssids`, `center.bt_window` and `center.bt_hold`; top-level `channels[{freq, last_heard, busy_pct, noise}]`,
+`alerts[]`, `homing`, and, from the opt-in switches, `bluetooth[{addr, addr_type, rssi, reports, last_seen, company, company_name, name,
+connectable}]` (passive LE scan: addresses, never devices) and `activity[{freq, share}]` (a relative share of the frames the device heard per
+frequency, never a count; kept apart from `channels[]` so that nothing a 0.1 page reads as 'visited' can grow). The collector emits a field **only when a value is present** (never `null`). `own_*` stay
 in memory only and are never displayed or exported. The collector's field list is in its header comment,
 the device facts in `docs/device-notes.md`.
 
@@ -53,7 +55,7 @@ no closures in loops.
 | Motion | Auto-orbit 0.05 rad/s (126 s per revolution) | 0.12 rad/s (52 s), travelling dots 0.35 edges/s |
 | Attention | Gold only for the alarm; selection in the brightest neutral (pearl), the shape distinguishes | Red only for the alarm; selection in the brightest neutral |
 | Depth | Bokeh (soft sprites distant/faint), lens flare on 1–2 stars | Alpha/size only, the wireframe stays sharp |
-| Reduced motion | No rotation, no breathing, no particle drift, easings ≈ snap | No rotation, no flicker/blinking, no travelling dots, no logon |
+| Reduced motion | No rotation, no breathing, no particle drift; position, camera and blend easings snap, opacity fades stay | No rotation, no flicker/blinking, no travelling dots, no logon |
 
 Whitehall (the third theme) follows the same principles with its own token values (§7.1a).
 
@@ -337,6 +339,9 @@ The contract stands; all rules are tolerant, no path throws.
 | `caps` | Array or string (split at `,`) → array of strings (max 12), otherwise `null` |
 | `randomized` | `=== true` → true; otherwise U/L bit heuristic, only if there is no `vendor` |
 | `clients[]` | Missing/not an array → `[]`; `mac` missing → `"<bssid>:c<j>"`; `unassociated[].mac` missing → `"free"+j`; `mac` normalised like `bssid` |
+| `bluetooth` | Optional array (opt-in `STARCHORUS_BLUETOOTH=1`; absent = off, or no controller or tool). At most 256 entries: `addr` normalised like a station MAC and kept only when it is one; `addr_type` one of `public`, `random-static`, `random-resolvable`, `random-nonresolvable`, `random` (anything else is `random`); `rssi` clamped like a station's (an entry without one is skipped); `reports` and `last_seen` numbers; `company` an integer 0…65535; `company_name` string, max 48; `name` control characters removed, max 32; `connectable` only when `=== true`. A duplicate address keeps the stronger entry. A document without the array has none for the page (no button, counter or legend row). `center.bt_window` (seconds; `0` = no valid window this cycle, the array then holds only carried records) and `center.bt_hold` (seconds a record is carried after its window) are kept as numbers. Text from the air (`name`, `company_name`) is handled like an SSID: escaped on display |
+| `activity` | Optional array of `{freq, share}` (opt-in `STARCHORUS_TRAFFIC=1`): entries with a numeric `freq` and `0 < share ≤ 1`, at most 69. A share of the frames heard on listed frequencies, never a count. It never feeds `channels[]`, the hop information, the baseline ghosts or the Watchlist's 'not heard now' |
+| `packets` of a station | Cumulative frame counter of that MAC's rows heard in the last 300 s (opt-in Traffic, recon database source), absolute; the page derives a rate from consecutive captures (nothing on first sight, nothing after a drop, which is a new recon session). Access points get none |
 | Duplicates | Same `bssid` twice → **merge**: `rssi = max`, `clients` united (by `mac`), missing fields from the later entry, non-empty `ssid` wins; same `mac` both associated **and** free → associated wins; same `mac` under two APs → the first AP wins |
 
 A document without optional fields shows '—'; the U/L bit heuristic for `randomized` still applies. PHY appears only
@@ -547,7 +552,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "motion": {"autoRotateRadPerS": 0.05, "breathePeriodMs": 6000, "breatheAmp": 0.06, "fadeInMs": 900, "fadeOutMs": 1400, "cameraEaseMs": 1200, "cameraEasing": "easeInOutCubic", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "coalesce", "logonCharMs": [28, 58]},
   "depth": {"bokeh": {"enabled": true, "farSoftness": 2.4, "nearSoftness": 1}, "lensFlare": {"enabled": true, "maxStars": 2, "lengthFactor": 6, "alpha": 0.18}},
   "chart": {"lineWidthPx": 2, "lineJoin": "round", "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "gridStyle": "solid", "gridWidthPx": 1, "barMaxPx": 24, "barRadiusPx": 4, "barGapPx": 2, "labelPolicy": "endpoint", "tooltip": true, "crosshair": true, "legend": "auto", "hitTargetPx": 24, "textToken": "ink.secondary", "axisTextToken": "ink.muted", "axisNumeric": "tabular", "deemphasis": "#6f7c9c", "sparklinePoints": 60, "refetchHoldAlpha": 0.6},
-  "render": {"clientCore": "#dfe7fb", "clientRing": "band", "clientShape": "disc", "bubbleFill": "rgba(210,214,224,0.10)", "bubbleStroke": "rgba(210,214,224,0.75)", "nebula": "rgba(210,214,224,1)", "starfield": {"density": 5200, "color": "#aebbe0", "alpha": [0.12, 0.62], "twinkleFrac": 0.15}, "grid": {"spokes": 0, "dotStepPx": 0}, "shadow": "rgba(0,0,0,0.12)", "composite": "source-over", "shapeFill": true, "probeArc": false, "deviceTie": "bezier", "changeCue": "glowPulse", "clientRandomizedMark": "hollow", "bubbleTicks": false, "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "sun", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": true, "hz": 0.8, "amp": 0.07}},
+  "render": {"clientCore": "#dfe7fb", "clientRing": "band", "clientShape": "disc", "bubbleFill": "rgba(210,214,224,0.10)", "bubbleStroke": "rgba(210,214,224,0.75)", "nebula": "rgba(210,214,224,1)", "starfield": {"density": 5200, "color": "#aebbe0", "alpha": [0.12, 0.62], "twinkleFrac": 0.15}, "grid": {"spokes": 0, "dotStepPx": 0}, "shadow": "rgba(0,0,0,0.12)", "composite": "source-over", "shapeFill": true, "probeArc": false, "deviceTie": "bezier", "changeCue": "glowPulse", "clientRandomizedMark": "hollow", "bubbleTicks": false, "btMark": "#d77fa8", "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "sun", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": true, "hz": 0.8, "amp": 0.07}},
   "look": {"clock": {"p1": "#7c828c", "p2": "#9aa7c4", "p3": "#6f7c9c"}},
   "chrome": {"ink": "#e9e4d8", "bezel": {"color": "rgba(0,0,0,0)", "widthPx": 0, "gapPx": 0, "bracketPx": 0}, "banner": {"show": false, "fill": "rgba(0,0,0,0)", "ink": "#e9e4d8", "rule": "rgba(0,0,0,0)"}, "badge": {"show": false}, "crowdSign": {"show": false}, "lamps": {"show": false, "count": 8}, "clock": {"show": false}, "tote": {"show": false}, "compendium": {"show": true}, "vault": {"show": true}, "lampStrip": {"max": 0, "off": "#3d3d3d"}, "plaqueTip": {"show": false}, "caption": {"show": true}}
 }
@@ -572,7 +577,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "motion": {"autoRotateRadPerS": 0.12, "breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 250, "fadeOutMs": 400, "cameraEaseMs": 600, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0.35, "edgeTravelDotPx": 1.5, "cursorBlinkMs": 530, "introStyle": "typed", "logonCharMs": [28, 58]},
   "depth": {"bokeh": {"enabled": false, "farSoftness": 1, "nearSoftness": 1}, "lensFlare": {"enabled": false, "maxStars": 0, "lengthFactor": 0, "alpha": 0}},
   "chart": {"lineWidthPx": 2, "lineJoin": "round", "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "gridStyle": "solid", "gridWidthPx": 1, "barMaxPx": 24, "barRadiusPx": 4, "barGapPx": 2, "labelPolicy": "endpoint", "tooltip": true, "crosshair": true, "legend": "auto", "hitTargetPx": 24, "textToken": "ink.secondary", "axisTextToken": "ink.muted", "axisNumeric": "tabular", "deemphasis": "#808080", "sparklinePoints": 60, "refetchHoldAlpha": 0.6},
-  "render": {"clientCore": "#e6e6dc", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(0,0,0,0.60)", "bubbleStroke": "#a7a7a7", "nebula": "rgba(154,154,144,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 8, "dotStepPx": 48}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": true, "deviceTie": "bracket", "changeCue": "bloomPulse", "clientRandomizedMark": "crossX", "bubbleTicks": true, "phosphor": {"enabled": true, "alpha": [0.55, 0.34, 0.16, 0], "radiusFactor": 2.4}, "recvRing": {"enabled": true, "fromPx": 18.5, "toPx": 10.5, "ms": 300}, "arrivalArcs": true, "coreMark": "reticle", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
+  "render": {"clientCore": "#e6e6dc", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(0,0,0,0.60)", "bubbleStroke": "#a7a7a7", "nebula": "rgba(154,154,144,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 8, "dotStepPx": 48}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": true, "deviceTie": "bracket", "changeCue": "bloomPulse", "clientRandomizedMark": "crossX", "bubbleTicks": true, "btMark": "#e87ac8", "phosphor": {"enabled": true, "alpha": [0.55, 0.34, 0.16, 0], "radiusFactor": 2.4}, "recvRing": {"enabled": true, "fromPx": 18.5, "toPx": 10.5, "ms": 300}, "arrivalArcs": true, "coreMark": "reticle", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
   "look": {"clock": {"p1": "#808080", "p2": "#a7a7a7", "p3": "#8b8b80"}},
   "chrome": {"ink": "#e6e6dc", "bezel": {"color": "#287878", "widthPx": 1, "gapPx": 0, "bracketPx": 10}, "banner": {"show": false, "fill": "rgba(0,0,0,0)", "ink": "#e6e6dc", "rule": "rgba(0,0,0,0)"}, "badge": {"show": true}, "crowdSign": {"show": true}, "lamps": {"show": true, "count": 8}, "clock": {"show": false}, "tote": {"show": false}, "compendium": {"show": false}, "vault": {"show": false}, "lampStrip": {"max": 48, "off": "#3d3d3d"}, "plaqueTip": {"show": false}, "caption": {"show": false}}
 }
@@ -597,7 +602,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "motion": {"autoRotateRadPerS": 0.06, "breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 300, "fadeOutMs": 500, "cameraEaseMs": 800, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "typed", "logonCharMs": [37.5, 37.5]},
   "depth": {"bokeh": {"enabled": false, "farSoftness": 1, "nearSoftness": 1}, "lensFlare": {"enabled": false, "maxStars": 0, "lengthFactor": 0, "alpha": 0}},
   "chart": {"lineWidthPx": 2, "lineJoin": "round", "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "gridStyle": "solid", "gridWidthPx": 1, "barMaxPx": 24, "barRadiusPx": 0, "barGapPx": 2, "labelPolicy": "endpoint", "tooltip": true, "crosshair": true, "legend": "auto", "hitTargetPx": 24, "textToken": "ink.secondary", "axisTextToken": "ink.muted", "axisNumeric": "tabular", "deemphasis": "#7d8674", "sparklinePoints": 60, "refetchHoldAlpha": 0.6},
-  "render": {"clientCore": "#d7dad1", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(10,15,11,0.60)", "bubbleStroke": "#7d8674", "nebula": "rgba(150,160,143,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 12, "dotStepPx": 40}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": false, "deviceTie": "bracket", "changeCue": "tick", "clientRandomizedMark": "crossX", "bubbleTicks": false, "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "ownship", "newPlotMark": {"enabled": true, "dash": [3, 3], "offsetPx": 9}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
+  "render": {"clientCore": "#d7dad1", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(10,15,11,0.60)", "bubbleStroke": "#7d8674", "nebula": "rgba(150,160,143,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 12, "dotStepPx": 40}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": false, "deviceTie": "bracket", "changeCue": "tick", "clientRandomizedMark": "crossX", "bubbleTicks": false, "btMark": "#a8509a", "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "ownship", "newPlotMark": {"enabled": true, "dash": [3, 3], "offsetPx": 9}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
   "look": {"clock": {"p1": "#8a4a44", "p2": "#a08a4a", "p3": "#4a6a8f"}},
   "chrome": {"ink": "#d7dad1", "bezel": {"color": "rgba(0,0,0,0)", "widthPx": 0, "gapPx": 0, "bracketPx": 0}, "banner": {"show": true, "fill": "#0c130d", "ink": "#d7dad1", "rule": "#7a1414"}, "badge": {"show": false}, "crowdSign": {"show": false}, "lamps": {"show": false, "count": 8}, "clock": {"show": true}, "tote": {"show": true}, "compendium": {"show": false}, "vault": {"show": false}, "lampStrip": {"max": 0, "off": "#3d3d3d"}, "plaqueTip": {"show": true}, "caption": {"show": false}}
 }
@@ -1301,6 +1306,7 @@ checked as in §3.8 (`tools/spec-sync.py --check`); what is deliberately left ou
 | `status.hidden` | `surface.base` | ≥ 3 | canvas: hidden-SSID ring | 4.83 | 5.32 | 5.10 |
 | `render.bubbleStroke` | `surface.base` | ≥ 3 | canvas: bubble outline | 7.89 | 8.73 | 5.10 |
 | `accent.selection` | `surface.base` | ≥ 3 | canvas: selection ring | 15.88 | 16.72 | 17.64 |
+| `render.btMark` | `surface.base` | ≥ 3 | canvas: Bluetooth mark | 7.18 | 8.05 | 3.94 |
 | `accent.focusRing` | `surface.panelFill` | ≥ 3 | DOM: keyboard focus outline | 15.58 | 16.72 | 17.78 |
 | `ink.onFill` | `ink.primary` | ≥ 4.5 | DOM: active-scan chip | 16.27 | 16.72 | 13.66 |
 | `accent.toggleInk` | `accent.toggleOn` | ≥ 4.5 | DOM: .btn.toggle.on label (D12) | 15.88 | 5.19 | 13.66 |
@@ -1543,9 +1549,9 @@ ingest/filter) → legend: per class a ring swatch + glyph + label + count; a cl
 
 `hidden = ssid === ""`: no label, outer dashed ring `[4,4]` at `basePx + 10` in `status.hidden`, tooltip
 '(hidden SSID)'. If a later ingest supplies a name for the same BSSID: `ssidKnown = ssid`, `revealAt = clock`,
-`hidden = false`; the label fades in over `motion.fadeInMs`, the hidden ring dissolves, detail 'name revealed 12 s ago'.
+`hidden = false`; the label is drawn from the next frame and the hidden ring is no longer drawn, with no fade of its own (the node's own fade-in is the only one), and the detail says 'name revealed 12 s ago'.
 **Memory:** if an even later poll returns `""` again, `ssidKnown` remains as the label (italic, `title="last seen name"`).
-`stats().revealed`. The group key uses `ssidKnown ?? ssid`.
+`stats().revealed`. The group key uses `ssidKnown ?? ssid`. A hidden network shows no name: on the device measured on 17 October 2026 every hidden beacon row holds zero bytes only and no row of any type holds a name for a hidden BSSID (device-notes §4a), so the collector blanks the name of a hidden row, as it has done since the first release, and there is no field for one.
 
 ### 8.6 ESSID/roaming constellations
 
@@ -2391,11 +2397,12 @@ departs from them, this chapter prevails. The regression checks that the chapter
 ### 14.2 Hard rules
 
 - **Passive.** Starchorus sends no frames: no deauth/disassoc, no probe requests or active scans, no
-  association, no injection, no AP of its own, no active function of the AP service. The only marked exception is the
+  association, no injection, no AP of its own, no active function of the AP service; on Bluetooth no inquiry, no scan request, no
+  advertising, no connection: passive LE scan only (§14.6). The only marked exception is the
   opt-in `STARCHORUS_ALLOW_ACTIVE=1` (`source: "iw-scan-ACTIVE"`). No write or command path from the browser to the device (no
   POST/PUT, no CGI/handler file, no commands via query, no WebSocket/SSE/`sendBeacon`); the page's only network access is
   `fetch("starchorus.json…")`.
-- **Device calls** (AP service CLI, the device's display commands) only via the allowlist in §14.6.
+- **Device calls** (AP service CLI, the device's display commands, the two Bluetooth tools) only via the allowlists in §14.6.
 - **JSON contract** stable; new fields additive and optional; old `starchorus.json` files keep working.
 - **Determinism.** No `Math.random`; no `Date.now()` in data, freshness, event, render or debug logic; time comes from
   `generated`, animation from `S.clock`, tests use `setFixedTime`. The only wall clock is the viewer's clock `dtgTick` (D14);
@@ -2493,16 +2500,43 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
 
 ### 14.6 Device calls: allowlist (binding)
 
-- Exactly one function `apcli_ro <id>` in `starchorus-collect.sh` with three literal command lines for two read-only
+- Exactly one function `apcli_ro <id>` in `starchorus-collect.sh` with four literal command lines for three read-only
   commands of the AP service CLI: `recon_aps` (the recon list of APs as JSON) and `recon_devices` (the APs and stations as JSON;
   the device has no `RECON CLIENTS`), the latter also as `recon_devices_recent`, the same list newest first and cut at 400
-  entries. The id `present` runs no command, it only asks whether the CLI exists. No `eval`, no command name from a variable, no
-  argument (the lines carry only the optional prefix `timeout 10`). The function runs only with `STARCHORUS_APCLI_RO=1` (default
-  off). The one caller is the opt-in source `STARCHORUS_SOURCE=pineap` (by default the one bounded `recon_devices_recent`; with
+  entries, and `recon_channels` (`RECON CHANNELS format=json`: the AP service's frame count per frequency, which the collector reads as
+  relative channel activity, never as devices). The id `present` runs no command, it only asks whether the CLI exists. No `eval`, no
+  command name from a variable, no argument (the lines carry only the optional prefix `timeout 10`). The function runs only with
+  `STARCHORUS_APCLI_RO=1` (default off), with one exception: `recon_channels` is gated on `STARCHORUS_TRAFFIC=1` alone (one command, one
+  opt-in), so switching Traffic on does not make `recon_aps`, `recon_devices` or `recon_devices_recent` callable, and `STARCHORUS_APCLI_RO=1`
+  does not make `recon_channels` callable. The command exits 1 while printing valid JSON, so its answer is judged by its text. The one caller
+  of the three lists is the opt-in source `STARCHORUS_SOURCE=pineap` (by default the one bounded `recon_devices_recent`; with
   `STARCHORUS_PINEAP_CALLS=full` `recon_aps` and `recon_devices`), which switches the flag on for itself. The self-test checks
   the rejection rules with a logging stub (permitted IDs → exactly the expected line; forbidden inputs, the former `monitor` id
-  among them → exit ≠ 0 without a stub call) and the source with a stub that prints fixture JSON. All three lines are verified
-  on the device (`docs/device-notes.md`, V-3 and §6a: the transmit counters stayed the same).
+  among them, extra arguments, and each id without its own switch → exit ≠ 0 without a stub call) and the source with a stub that prints fixture JSON.
+  The three recon commands are verified on the device (`docs/device-notes.md`, V-3 and §6a: the transmit counters stayed the same); for
+  `RECON CHANNELS` that holds for single calls, and the check over ten minutes of calls every cycle (the V-3 extension) is still open.
+- Bluetooth: exactly one function, `bt_begin`, starts a Bluetooth tool, and it does so with two literal lines, each pinned to the
+  controller `hci0` (a hot-plugged adapter can never take the scan): `btmon -i hci0` first, and `hcitool -i hci0 lescan --passive
+  --duplicates` only once `btmon` holds its monitor socket, both under `timeout -s INT` as dead-man timers. No tool name comes from a
+  variable and no argument from outside (the seconds are validated integers, the paths fixed). The window is opt-in
+  (`STARCHORUS_BLUETOOTH=1`, default off) and lasts 6 s per cycle. A passive scan sends no scan request; the three HCI commands of a
+  window (scan parameters, enable, disable) pass from the host to the controller inside the device and are not radio transmissions
+  (device-notes §2b). Each tool is tracked by two pids, the `timeout` wrapper and the tool itself, and every signal goes by pid to the tool,
+  after `bt_is` has checked by command name that the pid still runs it: SIGINT to `hcitool`, repeated, then at most one SIGTERM and **never
+  SIGKILL** (it ends the scan only from its SIGINT handler); `btmon` may be escalated, as it holds no controller state; a wrapper is signalled
+  only after its tool is gone; the start-up sweep sends SIGINT only. The collector never calls `hciconfig`, `btmgmt`, `bluetoothctl` or any
+  other tool of the stack and never changes the controller's state: a scan that was left running is detected (a missing
+  `Scanning: Disabled` block, or the next window failing to set its parameters), logged and left to the owner (device-notes §2b). The
+  runtime witness reads it back each cycle: a window counts only when `btmon`'s text shows the collector's own `LE Set Scan Parameters` block with
+  `Type: Passive` before the first report, the scan enabled, no `Type: Active` block, no extended scan command or report and frame numbers that
+  increase; otherwise it is void and the layer carries its held records. A name is at most 29 bytes (a legacy advertisement holds 31, less two
+  header bytes), but the Apple manufacturer decoder of BlueZ 5.72 prints its bytes as text without bounding them to the advertisement (A10 of
+  device-notes §2b), so a line the air writes can run on to about 36 bytes. The grammar therefore acts only on lines that no such text reaches
+  (headers, over 40 bytes; `Event type`, at least 38) or in positions a forged line cannot take; a forged `Address type` or `Address` line can
+  only drop the report of its own sender, by the order of the labels. An advertiser cannot forge the witness. The witness checks what was asked of the
+  controller; an observation of the air itself would need a separate sniffer. The window is stopped within about 3 s of a signal (the first
+  SIGINT to a scan younger than a second waits for its first second, since a scan that has not installed its handler would die of it with the
+  controller still scanning), and a collector killed with SIGKILL leaves its tools to their dead-man timers and to the next start's sweep.
 - The receiver is never held on a channel or a BSSID; there is no radio-controlling command in the code.
 - `starchorus-display.sh` uses only the device's display commands `LOG`, `LIST_PICKER`, `ERROR_DIALOG` and
   `WAIT_FOR_INPUT` (`docs/device-notes.md` §7). The display arms one `WAIT_FOR_INPUT` in the background, without a time limit,
@@ -2519,11 +2553,55 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   and of the device's transmitting or upload commands, across the collector, both `starchorus-display.sh`, both `payload.sh`
   and `library/**`, hit only lines of the allowlist function. Besides the AP service's own words, the firmware's other active or
   outward commands are denied by name (the full list is `SEC6_RE`) and by the prefixes `WIFI_PCAP_`, `OPENVPN_`, `WIREGUARD_`, `AUTOSSH_`,
-  `DNSSPOOF_` and `PINEAPPLE_`, and so are the Bluetooth verbs that transmit (`hcitool` with `scan`, `inq`, `cc`, `lecc`, `leadv` or `cmd`,
-  `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` with anything but `-a`), by name only, so another `bluetoothctl`
-  command is not seen; `btmon` is not denied, and the literal
-  `hcitool lescan --passive` is the only `hcitool` invocation allowed anywhere (a row of its own). A device check per command
-  needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same before and after.
+  `DNSSPOOF_` and `PINEAPPLE_`, and the Bluetooth verbs that transmit are denied by name as well (`hcitool` with `scan`, `inq`, `cc`, `lecc`,
+  `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` with anything but `-a`): defence in depth only. The list of
+  transmitting tools (`TX_WORDS`) also names, each as an alternative of its own, `aireplay-ng`, `mdk3`, `mdk4`, `hostapd`, `hostapd_cli`, `airbase-ng`, `hcxdumptool`,
+  `wpa_supplicant`, `wpa_cli`, `nmcli`, `iwlist`, `iwconfig`, `airmon-ng`, `besside-ng`, `reaver`, `bully`, `nmap`, `hping3`, `arping`, `mausezahn`, `tcpreplay` and `bettercap`, read wherever they stand in
+  a code line (a log text too: a text names the tool by its role, or spells the product Nmap with a capital). Three lines of the collector must name one and are pinned byte
+  for byte, each once, with file and function (the same comparison as for the pinned lists below): the two lines of the last resort of `create_monitor` (`if have airmon-ng` and
+  `airmon-ng start "$base"`, the 0.1 fallback when `iw phy ... interface add` failed, with `STARCHORUS_CREATE_MON` on: it changes an interface and sends nothing) and the path of
+  the OUI file that comes with Nmap in `find_oui_file`, which is read and never run; an edited line, a copy in another place and a pin without a line are red. The
+  Bluetooth stack is denied **by tool**, not by verb: `BT_WORDS` names every program and path of BlueZ that the project knows of or that a
+  contributor might reach for (`hcitool`, `btmon`, `hciconfig`, `bluetoothctl`, `btmgmt`, `bluetoothd`, `gatttool`, `l2ping`, `l2test`,
+  `rctest`, `sdptool`, `rfcomm`, `hcidump`, `btattach`, `bccmd`, `bdaddr`, `hciattach`, `hid2hci`, `btgatt-client`, `btgatt-server`, `obexd`,
+  `ciptool`, `avinfo`, `isotest`, `meshctl`, `mesh-cfgclient`, `bluetooth-meshd`, `btproxy`, `bluemoon`, `mpris-proxy`, `hex2hcd`, `obexctl`, `bluetooth-player`, `btinfo`, `scotest`, `hcieventmask`, the bus tools `dbus-send`, `busctl` and `gdbus`
+  and the service name `org.bluez`, which together are the D-Bus route to a discovery, `rfkill`, the Bluetooth init script and the kernel's debug
+  directory; the device's own listing of its BlueZ files is not taken yet, and V-13 adds every name it finds), read on the normal form of a line (the
+  quotes and backslashes removed, adjacent string literals joined, so a name split by them is still the name), and a word
+  of the family may stand only inside the functions of `BT_FUNCS` (`bt_begin`, `bt_end`, `bt_busy`, `bt_sweep`, `bt_stub`, `bt_selftest`), in code,
+  in a string or in a log text alike. So `hciconfig` with any argument (or none), `bluetoothctl scan le`, `scan bredr`, `advertise`, `connect`
+  and `pair`, `sdptool`, `rfcomm`, `btgatt-client`, `l2test`, `rctest`, `gatttool` and `btmgmt` are denied everywhere, whatever the verb or the
+  option order; the only exceptions are the two literal lines of `bt_begin` and read-only reads of `/sys/class/bluetooth`, which holds no word of
+  the family. Inside the allowlist: in `bt_begin` every line that holds a tool word or `timeout` is one of seven enumerated lines (the two
+  literals once each, the three `have` tests, the two `bt_kid` lookups); in the other functions, the test code apart, a tool word stands only as the
+  last argument of `bt_is "$VAR" WORD` or `bt_kid "$VAR" WORD`; in every one of them no command wrapper (`eval`, `sh -c`, `ash -c`, `busybox`,
+  `env`, `xargs`, `nohup`, `setsid`, `nice`, `start-stop-daemon`, `exec`, `source`, `time`, the dot command, `command` other than `command -v`), no
+  command word that is a `$` expansion (a variable, `$( )` or a backtick expression, quoted or not), no glob in a command word and, outside
+  `bt_begin`, no `timeout`; and in `bt_stub` and `bt_selftest` no tool as a command. A name that is only built when a line runs is looked for
+  twice: inside those functions by the rule above, and in every shell file of the scope by two rows of their own (`§14.6d command words from an
+  expansion` and `§14.6e command names from a glob, find -exec, xargs or alias`, mode `dyn` of the awk of the wrapper rows, one pass with two verdicts). That row reads the raw text of every code line, with quotes nested inside `$( )`, a quote or a
+  `$( )` that goes on over several lines and a trailing backslash joining two lines, and lists each simple command whose command word holds an
+  expansion: `$name`, `${...}`, `$( )` or a backtick expression, quoted or not, a word that merely starts with a path (`/usr/bin/hci$x`), behind
+  `NAME=value` and redirections, and behind the wrapper words `exec`, `command` (but not `command -v`), `env`, `nice`, `nohup`, `setsid`, `time`,
+  `xargs`, `busybox`, `timeout [-s SIG] N`, `sudo` and `stdbuf` (a quoted name does not hide a wrapper). The state of the reader also knows `${ }`, inside which blanks, parentheses and glob
+  characters are text. The lines that stand today are a pinned list, byte for byte with the function they stand
+  in (`-` outside every function): the `nice` prefix of the launchers in both `payload.sh`, the fixture builder `$rsq` of the collector's self-test, the
+  Overview's `screen_$1` dispatch (both copies), the page server's `$NC` and `$HANDLER`, the stop call of the payload, and the four `$ap_to _pineap` lines of
+  `apcli_ro` (taken from the pins below). A line that is not on the list, a listed line that changed and a listed line that is gone are red, so every
+  new command word of this kind is read and signed off on purpose. The second row (§14.6e) reads the same text and is red for a command word that holds an
+  unquoted glob character (`*`, `?`, `[`: `/usr/bin/hc?tool`, `/usr/bin/hci[t]ool`, `/usr/sbin/i[w]`; `[` and `[[` alone are the test), for `find` with `-exec`, `-execdir`, `-ok` or `-okdir`
+  (its command is whatever `find` turns up), for an `xargs` whose command is its own replacement string (`-I{} {}`, `-I X X`, `-i`, `--replace=`: the command comes from stdin)
+  or is missing (it then runs `echo` over what it reads), and for any `alias` definition. It compares with a pinned list in the same way; nothing of that kind stands in the
+  scope today, so the list is empty and a first line is a new one. A glob in a for-list, in a case pattern or as an argument is no command word. **What these rows do not read:** a
+  glob that is only handed on as an argument (`ln -s /usr/bin/hc?tool x`, then `x ...`; `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk
+  `system()`, a `jq` program given a built string, `. file`), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
+  check says nothing (the tool names themselves are still red outside the allowlist, wherever they stand in the text), and the guarantee rests on review. The run-time witness (the
+  Bluetooth paragraph above: what was asked of the controller is read back from the monitor each window) covers only the collector's own window, so it cannot vouch for a scan that
+  was started outside one. The mutation probe pins that limit: a built name (`zz_a=hci; zz_b=tool; "$zz_a$zz_b" -i hci0 lescan`) outside `BT_FUNCS` is red, and an `eval`
+  or an awk `system()` over a built string, a glob that is only handed to `ln` and a built string piped into `sh` are controls that stay green, so a change in what the rows read shows up as a change in the controls. The five
+  `_pineap` lines of `apcli_ro` are pinned byte for byte, each once, so a sixth line, a changed argument or a command name from a variable is
+  red. A device check per command needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same
+  before and after.
 
 ### 14.7 Law (binding)
 
@@ -2583,8 +2661,44 @@ update `getToggles`, `BTN_OF` (booleans only), §2.6/§2.7/§9.6 and `KEYS`. Fre
 
 Excluded are new active paths (probe requests, FTM/RTT, ANQP/GAS), speed/connection tests, LAN discovery,
 joining/captive portals, cloud upload/sync, WIPS containment/deauth, a hotspot of its own, active functions of the
-AP service, any control of the device from the browser, payload capture, handshake/PMKID display, Zigbee,
-fingerprinting/de-randomisation, genuine spectrum analysis/direction finding, drone Remote ID. Anything device-dependent (semantics of `time`
-in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 GHz, own BSSIDs, `packets`) is never treated as fact until
-checked on the device and stays behind toggles (default off); `docs/device-notes.md` lists the open questions with the
-identifiers V-1 … V-12 from `tools/device-probe.sh`.
+AP service, any control of the device from the browser, payload capture, handshake/PMKID display, Zigbee, Bluetooth inquiry,
+active LE scans, advertising, connections and GATT, fingerprinting/de-randomisation (Bluetooth addresses included: a rotating address is never
+linked to another across a rotation), genuine spectrum analysis/direction finding, drone Remote ID. Anything device-dependent (semantics of `time`
+in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 GHz, own BSSIDs, `packets`, the passive Bluetooth window, the unit
+of `RECON CHANNELS`) is never treated as fact until checked on the device and stays behind toggles (default off); `docs/device-notes.md` lists the
+open questions with the identifiers V-1 … V-13 from `tools/device-probe.sh` (V-13: the Bluetooth controller and tools, from files alone).
+
+**Gate for the Bluetooth default.** The summary's APs line with the Bluetooth figure is at most 45 characters (three-digit counts, '256+'), and how many characters fit on one console
+line of the Pager is measured only as 'at least 40' (`docs/device-notes.md`, M6; the 50-digit line and the line with the middle dot are not yet run). The fallback for a shorter line (the
+figure leaves the summary, the hub row reads 'Bluetooth (23)') is not built. Until M6 has passed, the Bluetooth setting stays off by default and the release pass does not switch it on.
+
+**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 620,000 bytes,
+and the pair was held to the share of that which the rest of the release left it). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
+there, and no row proves them:
+
+- a detail sheet for a Bluetooth mark (the member list, the 'addresses, not devices' note): a mark has a tooltip, a click selects nothing;
+- the baked tag ('n · BT') on a folded mark: a folded mark has a dot, its count is in the tooltip and in the legend and counter;
+- the `bt()` function of the test API: `stats().bluetooth` is the whole of it;
+- the SITREP line for Bluetooth, and Bluetooth rows or columns in the CSV export (the CSV is the 0.1 table; the JSON export has `bluetooth` and
+  `bluetooth_counts`);
+- two of the three idioms of the traffic cue (a halo, a bloom): the cue is four short ticks round the dot in every theme;
+- the Air drawer's activity line, the channel tooltip's activity line, the title of the whisker, and the Scope's Bluetooth lane;
+- the fade of a revealed name (§8.5 above: there never was one in the code; a name now simply appears).
+
+What is in: the layer with its marks and key `4`, the legend row and its geometry clause, the counter 'BT addresses' with its dash for a void
+window, the activity whiskers, the cue on stations, the frame rate in a station's detail, the JSON export, the Overview's figure, screen and
+bars, and the payload's two rows. Whether to cut the rest of the layer into 0.2.1 as the cut order of the design says, or to keep it as it is, is the
+owner's decision (design question Q7); this list says what keeping it means.
+
+**Where the code differs from the specification** (the specification is not rewritten here; the code is what the other documents describe):
+
+- *The Bluetooth screen's 'Last scan' line.* Specification §4.2 draws `Last scan 12:04:31 (42 s ago)` as a line of that screen. It is the frame that ends every draw of every screen (`stamp`, called by `frame`
+  after `render`): the time of the capture's `generated` in UTC and its age, replaced by the red 'No new scan for N min.' when the capture is more than three intervals old. It dates the capture,
+  not a Bluetooth window of its own, and `--once` prints a screen without its frame. The Bluetooth screen of the radio-pair fixture is held to end with it in `display-selftest` (S16); the screen
+  itself is ten lines at most, so with the frame's two it is twelve.
+- *A void window.* The specification ends the count line with ' - no valid scan now' when that fits in 40 columns, else lets the 'Last scan' line say it. The screen has a line of its own at the end,
+  'No valid scan now; showing held records.', and takes one company line for it; the ACTIVE claim takes one as well, so a screen has seven company lines, six under either and five under both
+  (`display-parity` and the self-test of the display script hold the cap on a capture of eleven companies).
+- *The cut of a company name.* The specification's filter cuts a name at 23 characters; the screen cuts at 22, so that a three-digit signal and a three-digit count make 40 columns and not 41.
+- *The header of `btmon`.* Specification §2.4 and the row A1 of its appendix still show `#n [hci0] t`. `btmon -i hci0` prints no tag (`> HCI Event: LE Meta Event (0x3e) plen 29   #5 1.546345`, the device
+  measurement A1 of 17 October), and the collector's reader accepts both shapes; only the specification's wording is out of date.

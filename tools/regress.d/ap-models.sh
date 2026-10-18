@@ -193,11 +193,13 @@ r = [run(lambda u: u["wargames"]["band"]["6"].__setitem__("core", "#e7c54a")),  
      run(lambda u: u["whitehall"]["accent"].__setitem__("selection", "#4cff6b")),      # selection back to terminal green
      run(lambda u: u["foundation"]["accent"].__setitem__("selection", "#e0b95a")),     # selection = the alarm gold
      run(lambda u: u["foundation"]["render"].__setitem__("bubbleStroke", "rgba(199,215,255,0.55)")),  # tinted aggregate
-     run(lambda u: u["wargames"]["chrome"].__setitem__("bezel", {"color": "#2ab42a", "widthPx": 1, "gapPx": 0, "bracketPx": 10}))]  # chrome in a band colour
+     run(lambda u: u["wargames"]["chrome"].__setitem__("bezel", {"color": "#2ab42a", "widthPx": 1, "gapPx": 0, "bracketPx": 10})),   # chrome in a band colour
+     run(lambda u: u["foundation"]["render"].__setitem__("btMark", u["foundation"]["band"]["2.4"]["core"])),     # 0.2: the Bluetooth mark in the 2.4 GHz core colour
+     run(lambda u: u["whitehall"]["render"].__setitem__("btMark", u["whitehall"]["band"]["6"]["core"]))]         # 0.2: the Bluetooth mark in the 6 GHz violet
 print("".join("1" if x else "0" for x in r))
 PY
 )
-rowif "colour validator bites: 5/5 mutations red [$APM_NEG]" [ "$APM_NEG" = 11111 ]
+rowif "colour validator bites: 7/7 mutations red, the last two the Bluetooth mark in the 2.4 GHz core colour and in the 6 GHz violet [$APM_NEG]" [ "$APM_NEG" = 1111111 ]
 
 # ---- ring values, static anchors of the marks
 APM_RG=$(grep -c 'rings: \[-40, -60, -80\]' "$H")

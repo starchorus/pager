@@ -4,13 +4,13 @@
 # Description:  Reads the starchorus.json the collector already wrote and shows it on the
 #               device's 480x222 screen, one screen at a time: a summary (counts, band split,
 #               freshness, crowding), the strongest networks, bands & security, logical devices /
-#               merged SSIDs, probe requests, stations, and air quality (channel crowding). Each
-#               screen ends with the time of the scan it shows. It NEVER transmits: it only reads
-#               a local JSON file. No deauth, no rogue AP, no scan, no association. It starts and
-#               stops nothing.
+#               merged SSIDs, probe requests, stations, Bluetooth (addresses heard, by company), and
+#               air quality (channel crowding). Each screen ends with the time of the scan it shows.
+#               It NEVER transmits: it only reads a local JSON file. No deauth, no rogue AP, no scan,
+#               no association. It starts and stops nothing.
 # Author:       Starchorus
 # Version:      0.1.1
-# Contract:     2
+# Contract:     3
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -42,7 +42,7 @@
 # the draw and is acted on at once, with the next wait armed straight after (see The key wait below and docs/display-paths.md).
 # Every press acts at once and means the same on every screen:
 #   A  the same screen again          B  one level up: screen -> the list "Overview" -> exit 0, back to the payload's menu
-#   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, air)
+#   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, bluetooth, air)
 #   UP / DOWN  ignored (the console's own scrolling), the wait is armed again at once and nothing is drawn (the screen is drawn
 #              again only when the draw they came in was cut, so no half screen stays)
 #   anything else, or no answer, that comes back within 1 s of its arm: a strike, three in a row end it (a slower one is only waited out)
@@ -437,6 +437,19 @@ fi
 # Deliberate divergences from the page: numeric STRINGS in rssi or last_seen do not count here; the vendor test does not strip
 # control characters; and the Overview reads each capture on its own, so it has no keep rule (the page holds a live cloud down
 # to two addresses; a first load of the page and the Overview agree).
+# Bluetooth and activity (the radio-pair data, additive in the capture): btlist = the records of `bluetooth` that are objects with a
+# numeric rssi, the first 256 (the page's normBt keeps the same, and a numeric string as well: see the divergences below), or null when the capture has no such array; so a capture without the
+# array shows nothing, and an empty one shows 0. The figures are ADDRESSES, never devices: random addresses dominate what is heard and
+# they change with time, and nothing here links addresses across a rotation. btco = the company a record is counted under: the name btmon gave (blank names do
+# not count), else "company id N" for an id in 0..65535, else "company not advertised". The page's fixed addresses are `public` and
+# `random-static`; every other value, a missing or an unknown one included, is a rotating address there, so the Overview counts the
+# same (fixed = those two types, rotating = the rest). actlist = the entries of `activity` with a numeric freq and 0 < share <= 1, the
+# first 69 (the page's normAct); bshare(lo; hi) = the sum of the shares of the frequencies lo <= f < hi (null without one), with the
+# band edges of the page's band_from_freq; bar8 = a share as eight cells of # and -, actbar the bar and the whole percent. A share is a
+# relative figure (frames heard on a channel over frames heard on all of them), never a count. Divergences from the page: a repeated
+# address or frequency counts once on the page (the stronger entry, the later one), twice here; the collector writes neither. A numeric STRING in
+# rssi (bluetooth) or in freq or share (activity), "-60" for example, is a number on the page (numOrNull) and is skipped here, as is the rssi of the
+# Wi-Fi records above; the collector writes numbers only, and the parity rows use text that is no number at all ('loud', 'wide'), where both agree.
 JQLIB='def _WS: ["\u0009","\u000A","\u000B","\u000C","\u000D","\u0020","\u0085","\u00A0","\u1680",
           "\u2000","\u2001","\u2002","\u2003","\u2004","\u2005","\u2006","\u2007","\u2008",
           "\u2009","\u200A","\u2028","\u2029","\u202F","\u205F","\u3000","\uFEFF"];
@@ -502,6 +515,14 @@ def sectag: secupper
            elif contains("WPA2") or contains("RSN") then "WPA2"
            elif contains("WPA") then "WPA"
            else "other" end;
+def btlist: ((.bluetooth // null) | if type == "array" then [.[] | select(type == "object" and (.rssi | type) == "number")] | .[0:256] else null end);
+def btco: (.company_name | if type == "string" and (_trimws | length) > 0 then _trimws else null end) as $n
+  | (.company | if type == "number" and . >= 0 and . <= 65535 and . == (. | round) then . else null end) as $c
+  | if $n != null then $n elif $c != null then "company id \($c)" else "company not advertised" end;
+def actlist: ((.activity // null) | if type == "array" then [.[] | select(type == "object" and (.freq | type) == "number" and (.share | type) == "number" and .share > 0 and .share <= 1)] | .[0:69] else [] end);
+def bshare($lo; $hi): [actlist[] | select(.freq >= $lo and .freq < $hi) | .share] | if length == 0 then null else add end;
+def bar8: (. * 8 | round) as $n | [range(0; 8) | if . < $n then "#" else "-" end] | add;
+def actbar($lo; $hi): bshare($lo; $hi) | if . == null then empty else bar8 + " " + (. * 100 | round | tostring) + "%" end;
 def _r: tostring;
 def _chomp: if type == "string" then until(endswith("\n") | not; .[:-1]) else . end;
 def _R($k; f): [try f] | map(_r | split("\n")) | add // [] | "\($k) \(length)", .[];
@@ -728,6 +749,7 @@ JQ_SUMMARY='_D(
     _R("assoc"; [.aps[].clients // [] | length] | add // 0),
     _R("b24"; bandcnt($B; "2.4")), _R("b5"; bandcnt($B; "5")), _R("b6"; bandcnt($B; "6")),
     _R("probing"; [probers] | length),
+    _R("bt"; btlist | if . == null then empty else length end),
     _R("center"; .center.label // "This device" | _chomp),
     _R("claim"; (.source // "") | tostring | ascii_downcase | contains("active")),
     _R("fresh"; (.generated | if type == "number" then . else null end) as $g | [.aps[] | apprep | tierof($g)] as $t
@@ -735,6 +757,12 @@ JQ_SUMMARY='_D(
        | "heard < 1 min \($c[0]) · heard < 5 min \($c[1]) · heard < 15 min \($c[2]) · on record \($c[3])" + (if $u > 0 then " · undated \($u)" else "" end)),
     _R("lvl"; [$cl[].load] | (max // 0) as $m | 1 + ([1.5, 3, 5, 8] | map(select($m >= .)) | length)),
     _R("bz"; $cl | _busiest | if . == null then "" else .b + " GHz ch " + (.ch + 0 | tostring) end))'
+# bt_figure N -> "  BT 23" for the APs line, in ASCII with two blanks, nothing without a count; "256+" at the cap (the capture holds at
+# most 256 addresses, so a document at the cap may hold more than it shows, as the page's counter says)
+bt_figure() {
+    case ${1:-} in ''|*[!0-9]*) return 0 ;; esac
+    if [ "$1" -ge 256 ]; then printf '  BT 256+\n'; else printf '  BT %s\n' "$1"; fi
+}
 # rnd_note: RN = " (N random, K clouds)" from the rnd / ncl records of the screen just loaded; empty without a randomised free station
 rnd_note() {
     RN=
@@ -751,7 +779,7 @@ screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines,
     a=$(age_str "$R_gen")
     log blue  "Starchorus  ~  $center"
     log       "GEN $GEN ${a:+· $a}  ($(claim))"
-    log       "APs $aps   ·   2.4:$b24  5:$b5  6:$b6"
+    log       "APs $aps   ·   2.4:$b24  5:$b5  6:$b6$(bt_figure "$R_bt")"
     rnd_note
     log       "Clients  $free free$RN · $assoc associated"
     log       "$R_fresh"
@@ -778,19 +806,24 @@ screen_top() {   # strongest networks by RSSI
         done
 }
 
+# With `activity` in the capture (the Traffic setting) each band line also gets the band's share of all the frames the device heard
+# on its channels, as eight cells and a whole percent, and one line under the band lines says what the figure is. The edges are the
+# page's band_from_freq (2400-2499, 4900-5924, 5925-7199 MHz). A share is relative: of frames heard, never a count of anything.
 JQ_BANDS='_D(
   (try [.aps[] | (.band | bandnorm)] catch null) as $B
   | _R("gen"; .generated // empty),
     _R("b24"; bandcnt($B; "2.4")), _R("b5"; bandcnt($B; "5")), _R("b6"; bandcnt($B; "6")),
+    _R("a24"; actbar(2400; 2500)), _R("a5"; actbar(4900; 5925)), _R("a6"; actbar(5925; 7200)),
     _R("sec"; [.aps[] | (.security | sectag)]
         | group_by(.) | map({k:.[0], n:length}) | sort_by(-.n) | .[]
         | "  " + .k + ": " + (.n|tostring)))'
 screen_bands() {   # band split + security tally
     jq_warn; ready bands "$JQ_BANDS" || return
     log blue "Bands & security (GEN $GEN)"
-    log "  2.4 GHz: ${R_b24:-0} AP(s)"
-    log "  5 GHz: ${R_b5:-0} AP(s)"
-    log "  6 GHz: ${R_b6:-0} AP(s)"
+    log "  2.4 GHz: ${R_b24:-0} AP(s)${R_a24:+  act $R_a24}"
+    log "  5 GHz: ${R_b5:-0} AP(s)${R_a5:+  act $R_a5}"
+    log "  6 GHz: ${R_b6:-0} AP(s)${R_a6:+  act $R_a6}"
+    [ -z "$R_a24$R_a5$R_a6" ] || log "act = share of frames heard (relative)"
     rec_lines sec \
       | while IFS= read -r line; do
             case "$line" in *"Open:"*|*"WEP:"*) log red "$line" ;; *) log "$line" ;; esac
@@ -861,6 +894,61 @@ screen_clients() {
     rnd_note
     log "  ${R_free:-0} free$RN · ${R_assoc:-0} associated"
     rec_lines clist | logeach
+}
+
+# Bluetooth LE (opt-in in the collector, passive scan only): the addresses the last window heard, counted as ADDRESSES (a phone's
+# resolvable address changes about every quarter of an hour, so a count of addresses is not a count of devices), and the strongest
+# few by company, the id the advertiser puts in its manufacturer data. Companies are named by the name the collector took from the
+# decoding (btco), else "company id N", else "company not advertised". Without a `bluetooth` array in the capture the setting is off
+# (or the collector is older): two lines say so. A void window (center.bt_window 0: no valid scan this time) shows the records the
+# collector still holds, with a line that says they are held. Every line is at most 40 columns and ASCII (the summary's middle dot
+# is the screen's own and the ACTIVE line is the page's wording); at most 12 lines with the frame. `hold` is center.bt_hold, the
+# seconds a record is kept (120). A name is cut at 22 characters ("company not advertised" is 22): with a three-digit signal and a
+# three-digit count (256 at most) the line is then 40 columns, where a cut at 23 would make 41.
+JQ_BT='_D(
+  btlist as $L
+  | _R("gen"; .generated // empty),
+    _R("claim"; (.source // "") | tostring | ascii_downcase | contains("active")),
+    _R("on"; $L != null),
+    _R("void"; (.center.bt_window // null) == 0),
+    _R("hold"; .center.bt_hold // empty),
+    _R("n"; ($L // []) | length),
+    _R("fixed"; [($L // [])[] | select(.addr_type == "public" or .addr_type == "random-static")] | length),
+    _R("blist"; ($L // []) | map({k: btco, r: (.rssi | round)})
+      | group_by(.k) | map({k: .[0].k, n: length, r: (map(.r) | max)})
+      | sort_by(-.r, .k) | .[0:7][] | " \(.r) dBm  \(.k | oneline | .[0:22] | _rtrimws)  (\(.n))"))'
+screen_bluetooth() {
+    ready bluetooth "$JQ_BT" || return
+    ACTIVE=$R_claim
+    bt_max=7
+    if [ "$ACTIVE" = true ]; then log blue "Bluetooth LE (GEN $GEN)"; log "$(claim)"; bt_max=6
+    else log blue "Bluetooth LE (GEN $GEN)  $(claim short)"; fi
+    if [ "$R_on" != true ]; then
+        log "No Bluetooth in this scan."
+        log "Turn it on in Settings > Bluetooth."
+        return 0
+    fi
+    bt_n=${R_n:-0}; case $bt_n in ''|*[!0-9]*) bt_n=0 ;; esac
+    bt_f=${R_fixed:-0}; case $bt_f in ''|*[!0-9]*) bt_f=0 ;; esac
+    [ "$bt_f" -le "$bt_n" ] || bt_f=$bt_n
+    bt_ns=$bt_n; bt_w=addresses
+    if [ "$bt_n" -ge 256 ]; then bt_ns="256+"; elif [ "$bt_n" = 1 ]; then bt_w=address; fi
+    log "$bt_ns $bt_w ($((bt_n - bt_f)) rotating, $bt_f fixed)"
+    if [ "$bt_n" -gt 0 ]; then
+        bt_h=${R_hold:-120}; case $bt_h in ''|0|*[!0-9]*|??????*) bt_h=120 ;; esac
+        age_words "$bt_h"
+        log "Strongest by company (last $AW):"
+        [ "$R_void" != true ] || bt_max=$((bt_max - 1))
+        bt_i=0
+        while IFS= read -r bt_l; do
+            [ "$bt_i" -lt "$bt_max" ] || break
+            [ -n "$bt_l" ] || continue
+            log "$bt_l"; bt_i=$((bt_i + 1))
+        done <<EOF
+$(rec_lines blist)
+EOF
+    fi
+    [ "$R_void" != true ] || log "No valid scan now; showing held records."
 }
 
 # Air quality: the page's Air drawer as a LOG block. Per band the busiest channels (overlap load) with
@@ -960,8 +1048,8 @@ frame() {
 # be read in a terminal. It runs the REAL JQLIB text above (never a copy) through the jq on PATH, in three
 # layers so a failing jq shows WHICH piece is wrong: (1) one probe per jq builtin / syntax form the
 # filters use, each on its own line; (2) a small table of bandnorm / secupper / isopenwep / sectag inputs
-# (modelled on the oracle in tools/regress.d/jq-noregex.sh, far smaller); (3) the jq_healthy probe and
-# screen_summary over a tiny embedded fixture. INFO lines are informational and never change the verdict.
+# (modelled on the oracle in tools/regress.d/jq-noregex.sh, far smaller), with the Bluetooth and activity helpers; (3) the jq_healthy
+# probe and screen_summary, screen_bands and screen_bluetooth over a tiny embedded fixture. INFO lines are informational and never change the verdict.
 # The one file it writes is that fixture (mktemp); a trap removes it again, also on INT/TERM.
 ST_N=0; ST_FAIL=0; ST_TMP=
 st_pass() { ST_N=$((ST_N + 1)); printf '[display-selftest]   PASS: %s\n' "$1"; }
@@ -980,6 +1068,29 @@ st_probe() {  # st_probe NAME 'FILTER' 'WANT-JSON': one builtin on its own, noth
 st_lib() {  # st_lib FN 'INPUT-JSON' 'WANT-JSON': FN of the real JQLIB applied to INPUT
     st_got=$(printf '%s\n' "$2" | jq -c "$JQLIB$1" 2>&1); st_rc=$?
     st_ck "$1 $2 -> $3" "$3" "$st_got" "$st_rc"
+}
+# st_btdoc SOURCE CENTER-EXTRA: a capture of fourteen records in eleven companies (five named, five by id, one with no company at all), strongest first, for the cap of the Bluetooth screen
+st_btdoc() {
+    printf '{"source":"%s","center":{"label":"selftest"%s},"unassociated":[],"aps":[],"bluetooth":[' "$1" "$2"
+    st_i=0
+    while [ "$st_i" -lt 14 ]; do
+        case $((st_i % 3)) in
+            0) st_c=",\"company\":$((100 + st_i)),\"company_name\":\"Maker $st_i\"" ;;
+            1) st_c=",\"company\":$((300 + st_i))" ;;
+            *) st_c= ;;
+        esac
+        [ "$st_i" = 0 ] || printf ','
+        printf '{"addr":"02:00:00:00:02:%02d","addr_type":"random-resolvable","rssi":%d%s}' "$st_i" $((-40 - st_i)) "$st_c"
+        st_i=$((st_i + 1))
+    done
+    printf ']}\n'
+}
+st_cap() {  # st_cap LABEL SOURCE CENTER-EXTRA WANT: screen_bluetooth on that capture shows WANT company lines and at most ten lines in all (the frame adds two: twelve)
+    st_btdoc "$2" "$3" > "$ST_TMP"
+    st_o=$(screen_bluetooth 2>&1)
+    st_n=$(printf '%s\n' "$st_o" | grep -c ' dBm  '); st_l=$(printf '%s\n' "$st_o" | grep -c .)
+    if [ "$st_n" = "$4" ] && [ "$st_l" -le 10 ]; then st_pass "screen_bluetooth: the cap on eleven companies, $1: $4 company lines, $st_l lines"
+    else st_fail "screen_bluetooth: the cap on eleven companies, $1  (want $4 company lines, got $st_n; $st_l lines, ten at most)"; fi
 }
 st_has() {  # st_has NAME TEXT grep-args...: PASS iff grep finds its pattern in TEXT (else show the counter lines)
     st_name=$1; st_text=$2; shift 2
@@ -1048,6 +1159,9 @@ display_selftest() {
     # the SINCE gate goes in front of a screen's program, and the Air program begins with a def of its own
     st_probe "syntax def after a pipe (the SINCE gate in front of a program)" '[1 | def f: . + 1; f]' '[2]'
     st_probe "builtin group_by keeps the input order inside a group" '[{"k": 2, "v": "a"}, {"k": 1, "v": "b"}, {"k": 2, "v": "c"}] | group_by(.k) | map(map(.v))' '[["b"],["a","c"]]'
+    # the Bluetooth screen and the activity bars: a string built with add over a range, a max over numbers, a slice of a sorted list
+    st_probe "builtin add over strings" '["#", "-", "-"] | add' '"#--"'
+    st_probe "builtin max over numbers after a map" '[{"r": -61}, {"r": -48}] | map(.r) | max' '-48'
 
     # (2) what the JQLIB helpers MEAN, on a small fixed table (input and expected value are JSON)
     st_lib bandnorm '"2.4GHz"' '"2.4"'
@@ -1070,6 +1184,20 @@ display_selftest() {
     st_lib sectag '"WEP"' '"WEP"'
     st_lib sectag '""' '"Open"'
     st_lib sectag '"CCMP"' '"other"'
+    # Bluetooth and activity: the list the page keeps (objects with a numeric rssi), the company a record is counted under, the eight cells of
+    # a share, and a band's bar (the page's band edges); a capture without the array or the entries shows nothing
+    st_lib 'btlist | length' '{"bluetooth":[{"rssi":-50},{"rssi":"x"},3,null,{"rssi":-60}]}' '2'
+    st_lib 'btlist' '{}' 'null'
+    st_lib btco '{"company_name":"Maker A","company":65535}' '"Maker A"'
+    st_lib btco '{"company":65535}' '"company id 65535"'
+    st_lib btco '{"company_name":"  ","company":70000}' '"company not advertised"'
+    st_lib btco '{"company":2.5}' '"company not advertised"'
+    st_lib bar8 '0.78' '"######--"'
+    st_lib bar8 '0' '"--------"'
+    st_lib bar8 '1' '"########"'
+    st_lib 'actbar(2400; 2500)' '{"activity":[{"freq":2412,"share":0.5},{"freq":2437,"share":0.25},{"freq":5180,"share":0.25}]}' '"######-- 75%"'
+    st_lib 'actbar(4900; 5925)' '{"activity":[{"freq":2412,"share":0.5},{"freq":5180,"share":0.25},{"freq":5955,"share":0.25}]}' '"##------ 25%"'
+    st_lib 'actbar(2400; 2500)' '{"activity":[{"freq":2412,"share":1.5},{"freq":2417,"share":0},{"freq":2422}]}' ''
     # busiest = the page's crowdingOf on a tie: ch 1 and ch 11 carry the same load, ch 1 holds the lower BSSID, so the page
     # meets it first and keeps it (jq max_by would keep the LAST maximum, ch 11)
     # clouds = the page's random clouds (§8.8a): twenty bursts of two addresses at -40 dBm, one every 50 s, are one cloud of 40 (the two at -70 stay single); at irregular times there is none
@@ -1086,6 +1214,9 @@ display_selftest() {
         # synthetic fixture: locally administered dummy BSSIDs, no real network data
         cat > "$ST_TMP" <<'ST_JSON'
 {"source":"selftest","center":{"label":"selftest"},"unassociated":[],
+ "bluetooth":[{"addr":"02:00:00:00:00:b1","addr_type":"random-resolvable","rssi":-50,"company":65535,"company_name":"Maker A"},
+              {"addr":"02:00:00:00:00:b2","addr_type":"public","rssi":-60}],
+ "activity":[{"freq":2412,"share":0.75},{"freq":5180,"share":0.25}],
  "aps":[{"bssid":"02:00:00:00:00:01","ssid":"Test-A","rssi":-40,"band":"2.4GHz","security":"WPA2/WPA3"},
         {"bssid":"02:00:00:00:00:02","ssid":"Test-B","rssi":-50,"band":" 5 GHz","security":"Open"},
         {"bssid":"02:00:00:00:00:03","ssid":"Test-C","rssi":-60,"band":"5","security":"WEP"},
@@ -1093,10 +1224,24 @@ display_selftest() {
 ST_JSON
         JSON=$ST_TMP
         st_out=$(screen_summary 2>&1)
+        st_bt=$(screen_bluetooth 2>&1)
+        st_bd=$(screen_bands 2>&1)
+        # the cap of the Bluetooth screen, on a capture of fourteen records in eleven companies (so that it has to take effect): seven company lines, one fewer under a void window and one
+        # fewer under the ACTIVE claim (each of them takes a line of the screen's budget), five under both; ten lines in all, twelve with the frame
+        st_cap "plain" selftest '' 7
+        st_cap "a void window" selftest ',"bt_window":0' 6
+        st_cap "the ACTIVE claim" selftest-ACTIVE '' 6
+        st_cap "a void window under the ACTIVE claim" selftest-ACTIVE ',"bt_window":0' 5
         rm -f "$ST_TMP"; ST_TMP=
         st_has "screen_summary: band counters are digits" "$st_out" -Eq '2\.4:[0-9]+ +5:[0-9]+ +6:[0-9]+'
         st_has "screen_summary: band counts match the fixture (2.4:1 5:2 6:1)" "$st_out" -qF '2.4:1  5:2  6:1'
         st_has "screen_summary: open/WEP line matches the fixture (2)" "$st_out" -qxF 'Open/WEP networks: 2'
+        st_has "screen_summary: the Bluetooth figure follows the band counts (BT 2)" "$st_out" -qxF 'APs 4   ·   2.4:1  5:2  6:1  BT 2'
+        st_has "screen_bands: a band's activity bar (2.4: 75 percent)" "$st_bd" -qxF '  2.4 GHz: 1 AP(s)  act ######-- 75%'
+        st_has "screen_bands: the note that explains the bar" "$st_bd" -qxF 'act = share of frames heard (relative)'
+        st_has "screen_bluetooth: addresses, rotating and fixed (2, 1, 1)" "$st_bt" -qxF '2 addresses (1 rotating, 1 fixed)'
+        st_has "screen_bluetooth: the strongest company first" "$st_bt" -qxF ' -50 dBm  Maker A  (1)'
+        st_has "screen_bluetooth: an address without a company is counted as such" "$st_bt" -qxF ' -60 dBm  company not advertised  (1)'
     else
         st_fail "screen_summary end-to-end (no temp file for the fixture)"
     fi
@@ -1106,7 +1251,7 @@ ST_JSON
 # ------------------------------------------------------------------ main loop
 render() {
     case "$1" in
-        top|bands|devices|probes|clients|air) "screen_$1" ;;
+        top|bands|devices|probes|clients|bluetooth|air) "screen_$1" ;;
         *) screen_summary ;;
     esac
 }
@@ -1143,22 +1288,22 @@ draw() {
 step() {
     case $1$view in
         RIGHTsummary) view=top ;; RIGHTtop) view=bands ;; RIGHTbands) view=devices ;; RIGHTdevices) view=probes ;;
-        RIGHTprobes) view=clients ;; RIGHTclients) view=air ;; RIGHTair) view=summary ;;
+        RIGHTprobes) view=clients ;; RIGHTclients) view=bluetooth ;; RIGHTbluetooth) view=air ;; RIGHTair) view=summary ;;
         LEFTsummary) view=air ;; LEFTtop) view=summary ;; LEFTbands) view=top ;; LEFTdevices) view=bands ;;
-        LEFTprobes) view=devices ;; LEFTclients) view=probes ;; LEFTair) view=clients ;;
+        LEFTprobes) view=devices ;; LEFTclients) view=probes ;; LEFTbluetooth) view=clients ;; LEFTair) view=bluetooth ;;
     esac
 }
 row_of() {
     case $view in
         top) ROW="Strongest Networks" ;; bands) ROW="Bands & Security" ;; devices) ROW="Devices & Merges" ;;
-        probes) ROW="Probe Requests" ;; clients) ROW=Stations ;; air) ROW="Air Quality" ;; *) ROW=Summary ;;
+        probes) ROW="Probe Requests" ;; clients) ROW=Stations ;; bluetooth) ROW=Bluetooth ;; air) ROW="Air Quality" ;; *) ROW=Summary ;;
     esac
 }
 view_of() {
     case $1 in
         Summary) view=summary ;; "Strongest Networks") view=top ;; "Bands & Security") view=bands ;;
         "Devices & Merges") view=devices ;; "Probe Requests") view=probes ;; Stations) view=clients ;;
-        "Air Quality") view=air ;; *) return 1 ;;
+        Bluetooth) view=bluetooth ;; "Air Quality") view=air ;; *) return 1 ;;
     esac
 }
 
@@ -1211,7 +1356,7 @@ while :; do
         LEFT|RIGHT) bad=0; step "$KEY" ;;
         UP|DOWN) bad=0; again=$ov_cut ;;
         B) bad=0; row_of
-           sel=$(pick "Overview" "Summary" "Strongest Networks" "Bands & Security" "Devices & Merges" "Probe Requests" "Stations" "Air Quality" "$ROW") || exit 0
+           sel=$(pick "Overview" "Summary" "Strongest Networks" "Bands & Security" "Devices & Merges" "Probe Requests" "Stations" "Bluetooth" "Air Quality" "$ROW") || exit 0
            parent_gone && exit 0
            view_of "$sel" || exit 0 ;;
         *) again=$ov_cut

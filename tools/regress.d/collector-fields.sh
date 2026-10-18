@@ -113,3 +113,88 @@ CFL_PLV=$(sed -n 's/^# Version:  *\([0-9.]*\)$/\1/p' library/user/reconnaissance
 rowif "collector 0.1.1 · payload default STARCHORUS_MAX_AGE 3600, collector 0 (U3) · payload 0.1.1 [$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV]" [ "$CFL_V/$CFL_PL/$CFL_PLA/$CFL_CM/$CFL_PLV" = 0.1.1/1/1/1/0.1.1 ]
 CFL_FL=$(grep -cE '^(HOPINFO|SURVEY|OWN|APCLI_RO)=\$\{STARCHORUS_[A-Z_]+:-0\}' starchorus-collect.sh)
 rowif "collector fields: device-dependent flags default OFF (HOPINFO/SURVEY/OWN/APCLI_RO = $CFL_FL/4)" [ "$CFL_FL" = 4 ]
+
+# ---- the radio pair (0.2): the switches, and what the collector's own self-test has to have covered. Chrome-free.
+# Bluetooth and Traffic are off by default (anything that depends on the device is a flag until it has been looked at there, spec §14.10), the scan window
+# is a checked integer, and the names on record of hidden networks are gone: the device's database holds none (device-notes 4a, measured 17 October 2026).
+CFL_SW=$(grep -cE '^(BLUETOOTH|TRAFFIC)=\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}$' starchorus-collect.sh)
+CFL_RN=$(grep -c 'RECORDED_NAMES\|ap_rec' starchorus-collect.sh)
+CFL_BW=$(grep -cE '^BT_WIN=\$\{STARCHORUS_BT_WINDOW:-6\}( |$)' starchorus-collect.sh)
+rowif "collector fields: Bluetooth and Traffic off by default, the scan window 6 s, no names-on-record switch or code (BLUETOOTH, TRAFFIC $CFL_SW/2, RECORDED_NAMES or ap_rec $CFL_RN/0, BT_WIN $CFL_BW/1)" [ "$CFL_SW/$CFL_RN/$CFL_BW" = 2/0/1 ]
+# the row bites: the same count over a text whose Bluetooth default is 1 finds one switch, not two
+# shellcheck disable=SC2016  # the text is the thing searched
+CFL_SWB=$(printf '%s\n%s\n' 'BLUETOOTH=${STARCHORUS_BLUETOOTH:-1}' 'TRAFFIC=${STARCHORUS_TRAFFIC:-0}' | grep -cE '^(BLUETOOTH|TRAFFIC)=\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}$')
+rowif "collector fields: the default row bites (a Bluetooth default of 1 is not counted: $CFL_SWB of 2)" [ "$CFL_SWB" = 1 ]
+# The payload exports 0 for both, like its SURVEY line (the payload's own track writes the lines; the check follows the Contract number, which
+# integration raises to 3 once for the new settings keys): while the header says 2 the payload only may not default either switch to 1, from 3 on it
+# must export both with 0.
+CFL_PLB=library/user/reconnaissance/starchorus/payload.sh
+CFL_CN=$(sed -n 's/^# Contract:  *\([0-9][0-9]*\)$/\1/p' starchorus-collect.sh | head -n 1)
+CFL_PX=$(grep -cE '^export STARCHORUS_(BLUETOOTH|TRAFFIC)="\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}"' "$CFL_PLB")
+CFL_P1=$(grep -cE 'STARCHORUS_(BLUETOOTH|TRAFFIC):-1' "$CFL_PLB")
+if [ "${CFL_CN:-0}" -ge 3 ] 2>/dev/null; then
+  rowif "collector fields: the payload exports 0 for Bluetooth and Traffic (Contract $CFL_CN: $CFL_PX/2 export lines, $CFL_P1 defaults of 1)" [ "$CFL_PX/$CFL_P1" = 2/0 ]
+else
+  rowif "collector fields: the payload defaults neither Bluetooth nor Traffic to 1 (Contract $CFL_CN: the exports with 0 are required from Contract 3; $CFL_PX/2 there, $CFL_P1 defaults of 1)" [ "$CFL_P1" = 0 ]
+fi
+# the payload rows bite: a payload line that exports a Bluetooth default of 1 is counted as a default of 1 and not as an export with 0
+# shellcheck disable=SC2016  # the text is the thing searched
+CFL_PB=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE 'STARCHORUS_(BLUETOOTH|TRAFFIC):-1')
+# shellcheck disable=SC2016
+CFL_PB0=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE '^export STARCHORUS_(BLUETOOTH|TRAFFIC)="\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}"')
+rowif "collector fields: the payload rows bite (a default of 1 is seen as one, and is not an export with 0: $CFL_PB/$CFL_PB0)" [ "$CFL_PB/$CFL_PB0" = 1/0 ]
+# The self-test has one line per family of the new cases (a case that stops running would otherwise only lower a count that nobody reads): the output
+# of the run that tools/static.sh made (out/PREFIX-selftest.txt); without it (a drop-in run on its own) the row says so.
+cfl_fam() {   # FILE -> the families that have no PASS line in the self-test output FILE
+  _cf_m=""
+  for _cf_p in 'bt_parse: the worked example' 'bt_parse: the grep prefilter' 'bt_parse: the real window of the device' 'bt_judge: Type: Active' 'bt_judge: no passive parameters' \
+               'bt_judge: an LE Extended' 'forgery: a forged RSSI' 'forgery: a company line' 'bt_judge: a frame number' 'bt_begin: runs exactly' 'bt_end abort:' \
+               'window same:' 'window parent:' 'overlap:' 'bt_begin: a monitor that holds no socket' 'bt_end: a scan that fails' 'watchdog same:' 'watchdog parent:' \
+               'watchdog noforward:' 'watchdog: a scan that ignores INT and TERM' 'watchdog: a monitor that ignores' 'watchdog: without /proc' 'naps:' 'bt_sweep:' 'bt_sweep: a collector killed with -9' 'bt_sweep: a tool whose recorded start differs' 'bt_begin: a collector that has only written its marker' 'bt_end abort: the first INT to a scan younger' \
+               'hold: addresses that go and come back' 'hold: at most 4 carries' 'hold: 300 addresses' 'layers: airodump-csv' 'layers: write_empty' 'layers: recon.db' \
+               'layers: pineap' 'layers: tcpdump' 'traffic: the answer' 'traffic: [], an object' 'traffic: a hung AP service' 'size: a' 'station packets: STARCHORUS_TRAFFIC=1' \
+               'station packets: a schema without' 'hidden networks: a hidden beacon row gives' 'hidden networks: a stronger probe response' \
+               'hidden networks: a newer non-hidden' 'skip with layers: nothing changed' 'skip with layers: 22 quiet cycles' 'apcli_ro: the four allowed ids' \
+               'apcli_ro: Traffic alone opens no list command' 'window state:' 'run_cycle: a capture-source cycle with a Bluetooth window' 'pineap: a cycle with the Bluetooth layer' \
+               'pineap: a hidden beacon gives' 'run_cycle: a cycle without data' 'STARCHORUS_BT_WINDOW:' 'bt_note:' 'bt_stat:' 'bt_tick:' 'cleanup: a wrapper forked' \
+               'bt_parse: an LE Direct' 'bt_parse: RSSI invalid' 'forgery: a TAB' 'forgery: a Type: Passive' 'bt_judge: no Scanning: Disabled' 'bt_parse: an awk that runs out'; do
+    grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
+  done
+  printf '%s' "$_cf_m"
+}
+if [ -s "out/$P-selftest.txt" ]; then
+  CFL_FM=$(cfl_fam "out/$P-selftest.txt")
+  rowif "collector selftest: the Bluetooth, layer, traffic, hidden-network and skip cases all ran (missing:${CFL_FM:- none})" [ -z "$CFL_FM" ]
+  # the row bites: the output without the watchdog cases and the size case names them
+  CFL_FB=$(grep -v 'PASS: watchdog\|PASS: size:' "out/$P-selftest.txt" > "out/$P-cfl-st.txt"; cfl_fam "out/$P-cfl-st.txt")
+  case $CFL_FB in *'[watchdog same:]'*'[size: a]'*) CFL_FBO=1 ;; *) CFL_FBO=0 ;; esac
+  rowif "collector selftest: the family row bites (an output without the watchdog and size cases names them)" [ "$CFL_FBO" = 1 ]
+else
+  notcov "collector selftest: the Bluetooth, layer, traffic, hidden-network and skip cases (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
+fi
+
+# ---- the self-test reaches no radio and no controller, whatever the environment holds (spec 2.11, preamble; tools/install.sh and the README call it "offline,
+# embedded sample data, no radio"). Both switches are set in the environment, hci0 stands in a sysfs of its own, and trap programs named hcitool, btmon, _pineap
+# and timeout come first in PATH: the first three record any call, the timeout trap records a call whose command is one of them (not a stand-in of the same name that
+# a case put in front) and runs everything else unbounded.
+# The run must record none (the cases that need a window or a call put their own stand-ins first, which this PATH sits behind). The trap bites: three direct calls are
+# three records. The same run on the tree before this fix recorded 86 scans, 86 monitors and 76 channel calls (measured by the review that found it).
+cfl_trap() {   # cfl_trap DIR: the trap programs in DIR/bin, an empty DIR/calls.log, a sysfs with hci0 in DIR/sys
+  rm -rf "$1"; mkdir -p "$1/bin" "$1/sys/hci0"; : > "$1/calls.log"; CFL_TD=$(cd "$1" && pwd)
+  for _cn in hcitool btmon _pineap; do
+    printf '#!/bin/sh\necho "%s $*" >> "%s/calls.log"\nexit 0\n' "$_cn" "$CFL_TD" > "$1/bin/$_cn"
+  done
+  # shellcheck disable=SC2016  # the text is the program of the trap, written to a file
+  printf '#!/bin/sh\nif [ "$1" = -s ]; then shift 2; fi\nn=$1; shift\ncase $(command -v "$1" 2>/dev/null) in "%s/bin/"*) echo "timeout $n $*" >> "%s/calls.log"; exit 0 ;; esac\nexec "$@"\n' "$CFL_TD" "$CFL_TD" > "$1/bin/timeout"
+  chmod +x "$1/bin/hcitool" "$1/bin/btmon" "$1/bin/_pineap" "$1/bin/timeout"
+}
+cfl_trap "out/$P-cfl-trap"
+PATH="$CFL_TD/bin:$PATH" hcitool -i hci0 lescan --passive --duplicates >/dev/null 2>&1
+PATH="$CFL_TD/bin:$PATH" timeout -s INT 6 btmon -i hci0 >/dev/null 2>&1
+PATH="$CFL_TD/bin:$PATH" _pineap RECON CHANNELS format=json >/dev/null 2>&1
+CFL_TB=$(wc -l < "$CFL_TD/calls.log" | tr -d ' '); : > "$CFL_TD/calls.log"
+STARCHORUS_BLUETOOTH=1 STARCHORUS_TRAFFIC=1 STARCHORUS_APCLI_RO=1 STARCHORUS_SYSFS_BT="$CFL_TD/sys" PATH="$CFL_TD/bin:$PATH" \
+  sh starchorus-collect.sh --selftest > "out/$P-cfl-hostile.txt" 2>&1
+CFL_HC=$(wc -l < "$CFL_TD/calls.log" | tr -d ' '); CFL_HV=$(grep -c 'SELFTEST: ALL PASS' "out/$P-cfl-hostile.txt")
+rowif "collector selftest: with both switches on in the environment, hci0 in its sysfs and trap programs for hcitool, btmon, timeout and _pineap first in PATH, the run passes and no trap is called ($CFL_HC calls, verdict lines $CFL_HV; the trap records 3 of 3 direct calls: $CFL_TB)" [ "$CFL_HC/$CFL_HV/$CFL_TB" = 0/1/3 ]
+[ "$CFL_HC" = 0 ] || sed 's/^/    call: /' "$CFL_TD/calls.log" | sort | uniq -c | sort -rn | head -n 5

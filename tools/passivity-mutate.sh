@@ -8,8 +8,8 @@
 #   --only NAME  one mutation (used by --meta and for debugging); --only alts = the alternative probe alone
 #   --meta       the probe of the probe: blinds one rule family, or ONE alternative of one, in an image of the checker and
 #                demands that THIS script then reports GREEN (BLIND!) for the matching mutation / alternative.
-# Alternative probe: the regex families of the checker (`--regexes`: NETSURF_RE, NETX, TX_WORDS, IW_VERBS, SEC6_RE) are split at
-# their top-level `|`, DERIVED from the checker, not typed here. Every alternative needs exactly one planted sample in the
+# Alternative probe: the regex families of the checker (`--regexes`: NETSURF_RE, NETX, TX_WORDS, IW_VERBS, SEC6_RE, BT_WORDS, BT_WRAP_RE)
+# are split at their top-level `|`, DERIVED from the checker, not typed here. Every alternative needs exactly one planted sample in the
 # table `alt` below (sample matches its own alternative and no other; count of alternatives pinned as MIN_ALTS_*): all
 # samples of one file go in one copy, one checker run, and each must show up as its own line in the evidence of the expected
 # row (the checker prints the offending lines under a red row). A thinned-out alternative is then `GREEN (BLIND!)`, a new
@@ -19,9 +19,29 @@
 #                 does not match), was emptied, or lost ONE alternative (importScripts, hostapd, DEAUTH, sendBeacon ...) stays
 #                 green forever, because nothing ever plants a violation.
 # NEGATIVE PROBE: `sh tools/passivity-mutate.sh --meta` (also a regress row): NETX loses `window\.open\(|`, or the location
-#                 alternative loses its object prefix, or one alternative of NETX/TX_WORDS/SEC6_RE/NETSURF_RE goes, or the
-#                 sqlite3 rule reads the whole line again, or the hcitool row counts only `hcitool lescan` and lets other hcitool
-#                 words through ⇒ the matching mutation/alternative prints GREEN (BLIND!), exit 1.
+#                 alternative loses its object prefix, or one alternative of NETX/TX_WORDS/SEC6_RE/NETSURF_RE/BT_WORDS/BT_WRAP_RE
+#                 goes, or the sqlite3 rule reads the whole line again, or one of the Bluetooth rows (tool words outside the
+#                 allowlist, the lines of bt_begin, word forms, wrappers, command position, the pinned apcli_ro lines) stops
+#                 reading what it reads ⇒ the matching mutation/alternative prints GREEN (BLIND!), exit 1. The row of the built names (command
+#                 word from an expansion, §14.6d) is blinded one part at a time too: the row itself, the detection of an expansion in a command
+#                 word, the wrapper words, the report of a line that is not pinned, the report of a pin without a line.
+# BUILT NAMES:    the row '§14.6d command words from an expansion' reads every code line of the shell scope and lists each simple command whose command word
+#                 holds an expansion, against a pinned list of the lines that stand. The `dyn-` mutations plant what it reads (the review's plant, in which a
+#                 function outside the Bluetooth allowlist puts `hci` and `tool` together and starts the result, and every form of an expansion in a command word)
+#                 and what it compares (an edited pinned line, a vanished one, a copy of one); the `dyn-ok-` controls and the two `dyn-limit-` controls must stay green:
+#                 what the row does not read (a built string handed to eval or to an awk system()) is written down as a test.
+# BUILT NAMES, THE SECOND ROW: '§14.6e command names from a glob, find -exec, xargs or alias' is the second verdict of the same pass. The `dyn-glob`, `dyn-glob-star`, `dyn-bracket` and
+#                 `dyn-iw-glob` mutations plant a glob character in a command word, the `dyn-find-` ones `find` with each of `-exec`, `-execdir`, `-ok` and `-okdir`, the `dyn-xargs-` ones an
+#                 `xargs` whose command is its replacement string (`{}` and one of its own) or is missing, `dyn-alias` an alias; the `dyn-ok-` controls (a glob in a for-list, a case pattern
+#                 or as an argument, the test `[ ]`, a `${ }` with a blank or a parenthesis, `find` without `-exec`, `xargs` with its own command, an `alias` that only looks) and the two
+#                 `dyn-limit-` ones that were added (a glob only handed to `ln`, a built string piped into `sh`) must stay green: the limits are written down as tests.
+# TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
+# PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
+#                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
+#                 target text is one of those lines (`mutr1` in the table) is reported PENDING, not run, and the run can be green
+#                 without it; the rows are proven on the base meanwhile by the `-planted` mutations, which define a function of
+#                 BT_FUNCS in the copy instead of editing one. Once the announcements are empty, a missing target is a SETUP-ERROR
+#                 like any other, so a pending mutation can never be left behind unnoticed.
 # NOT PROVEN:     proves nothing about behaviour, only that the SOURCE guard bites (a sqlite3 call through a variable or
 #                 `command`, a method check outside the `case` in starchorus-serve.sh: seen by no rule, hence by no
 #                 mutation); one example per alternative does not prove that every OTHER spelling of the same alternative hits
@@ -41,10 +61,11 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=12    # mutations in the table (≥); count: sh tools/passivity-mutate.sh | grep -c '^mutation '
-# alternatives per regex family (≥, only ever raised); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> ' (family: netsurf 6, netx 19, tx 19, iw 3, sec6 21)
-MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=19; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21
-MIN_ROWS=13   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'
+MIN_MUT=128    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (152 lines: 128 and 24 controls)
+# alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
+# (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15)
+MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15
+MIN_ROWS=21   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias)
 
 # ---- 0 · the probe may only ever RUN the checker (and itself for --meta) on a copy: grep our own executable lines
 self_guard() {
@@ -73,6 +94,8 @@ cp -R "$R/tools" "$base/tools" && cp -R "$R/library" "$base/library" || exit 2
 
 # The ONLY place a copy is executed. The checker reads files under its own root and prints rows; it starts nothing.
 run_check() { ( cd "$1" && sh tools/passivity-check.sh ${2:+"$2"} ); }
+# what the checker still announces as not there yet: the collector's Bluetooth functions and the fifth apcli_ro line (see PENDING above)
+pending=$(run_check "$base" --pending 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
 
 # ---- mutation helpers (text only; no sed -i)
 # lines of FILE containing the literal TEXT; a leading "^" anchors TEXT at the start of the line (the only special character:
@@ -99,6 +122,9 @@ apply() {
     fnappend) ensure_nl "$_f"; printf '%s\n' 'zz_probe() {' "    $_a" '    :' '}' >> "$_f" ;;
     subst)    _c=$(nlit "$_f" "$_a"); [ "$_c" = 1 ] || { echo "target text found on $_c lines of $2 (want exactly 1): $_a" >&2; return 1; }
               subst_lit "$_f" "$_a" "$_b" ;;
+    fndef)    ensure_nl "$_f"; printf '%s\n' "$_a() {" "    $_b" '    :' '}' >> "$_f" ;;   # a function of that NAME holding the line B (a name of BT_FUNCS: the planted copy defines it)
+    fnline)   _c=$(nlit "$_f" "^$_a() {"); [ "$_c" = 1 ] || { echo "function head $_a() { found on $_c lines of $2 (want exactly 1)" >&2; return 1; }
+              _fa=$_a _fb=$_b awk 'BEGIN { h = ENVIRON["_fa"] "() {"; t = ENVIRON["_fb"] } { print } index($0, h) == 1 { print "    " t }' "$_f" > "$_f.new" && mv "$_f.new" "$_f" ;;   # the line B as the first line of function A
     denylist) _e=$(grep -v '^[[:space:]]*$' "$work/tools/denylist.txt" | head -n 1)
               [ -n "$_e" ] || { echo "tools/denylist.txt has no entry" >&2; return 1; }
               ensure_nl "$_f"; printf '%s\n' "// $_e" >> "$_f" ;;
@@ -109,7 +135,7 @@ apply() {
 }
 
 # ---- the rows of passivity-check.sh, by name prefix. Every one must be red at least once (coverage line below).
-ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|hcitool: only|sqlite3 read-only|starchorus-serve.sh: GET|§14.7 denylist'
+ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|sqlite3 read-only|starchorus-serve.sh: GET|§14.7 denylist'
 
 sel=""; meta=0
 while [ $# -gt 0 ]; do
@@ -120,7 +146,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-nmut=0; nok=0; ngreen=0; nwrong=0; nctl=0; nctlok=0; nsetup=0; setup_names=""; covered="|"
+nmut=0; nok=0; ngreen=0; nwrong=0; nctl=0; nctlok=0; nsetup=0; npend=0; setup_names=""; covered="|"
 seen_sel=0
 
 # mut NAME FILE KIND ARG1 ARG2 EXPECT   (EXPECT = "|"-separated row prefixes that must be red, and only those; "" = stays green)
@@ -158,6 +184,21 @@ mut() {
   else nok=$((nok + 1)); printf 'mutation %s: RED %s (expected %s)\n' "$_name" "$_show" "$_exp"; fi
 }
 
+# mutr1: like mut, for a mutation whose target is a line of the collector's Bluetooth code (bt_begin, bt_end, bt_selftest, the recon_channels line). While the
+# checker announces that work (PENDING in the header) a target that is not in the base yet makes it PENDING instead of a SETUP-ERROR; with nothing
+# announced it is exactly mut, so the first run after the collector has that code either bites or names the line to adapt.
+mutr1() {
+  [ -z "$sel" ] || [ "$sel" = "$1" ] || return 0
+  if [ -n "$pending" ] && [ -f "$base/$2" ]; then
+    case $3 in fnline) _tl="^$4() {" ;; *) _tl=$4 ;; esac
+    if [ "$(nlit "$base/$2" "$_tl")" = 0 ]; then
+      seen_sel=1; npend=$((npend + 1))
+      printf 'mutation %s: PENDING (its target is not in %s yet; the checker still announces: %s)\n' "$1" "$2" "$pending"; return 0
+    fi
+  fi
+  mut "$@"
+}
+
 # ============================== meta: the probe of the probe ==============================
 if [ "$meta" = 1 ]; then
   nm=0; nmok=0
@@ -180,15 +221,57 @@ if [ "$meta" = 1 ]; then
   metaprobe netx-location-prefix tools/passivity-check.sh '(^|[^A-Za-z0-9_])((document|top|parent|self|window)\.)?location' '(^|[^A-Za-z0-9_.])location' doc-location 'mutation doc-location: GREEN (BLIND!)'
   # (c) ONE alternative of a family goes (a row-level probe never saw these): the alternative probe names it
   metaprobe alt-netx-importscripts tools/passivity-check.sh 'importScripts|' '' alts 'alt netx importScripts: GREEN (BLIND!)'
-  metaprobe alt-tx-hostapd tools/passivity-check.sh '|hostapd' '' alts 'alt tx hostapd: GREEN (BLIND!)'
+  metaprobe alt-tx-hostapd tools/passivity-check.sh '|hostapd|airbase' '|airbase' alts 'alt tx =hostapd: GREEN (BLIND!)'
   metaprobe alt-sec6-deauth tools/passivity-check.sh 'DEAUTH|' '' alts 'alt sec6 DEAUTH: GREEN (BLIND!)'
   metaprobe alt-netsurf-beacon tools/passivity-check.sh '|sendBeacon' '' alts 'alt netsurf sendBeacon: GREEN (BLIND!)'
   # (c2) the alternative stays in the regex, but the evidence the row prints no longer reads it (another family there): not listed
   metaprobe alt-netx-evidence-unwired tools/passivity-check.sh 'grep -nE "$NETX" "$H"' 'grep -nE "$NETSURF_RE" "$H"' alts 'alt netx RTCPeerConnection: GREEN (BLIND!) line'
   # (d) the sqlite3 rule must read only the code part of the line: reading the whole line lets a trailing `# -readonly` pass
   metaprobe sqlite-whole-line tools/passivity-check.sh 'if ((" " substr(seg, 1, cut - 1) " ") !~' 'if ((" " t " ") !~' sqlite-comment-flag 'mutation sqlite-comment-flag: GREEN (BLIND!)'
-  # (e) the hcitool row counts only `hcitool lescan` without `--passive` and lets every other hcitool word through
-  metaprobe hcitool-others-ignored tools/passivity-check.sh '[ "$nhi/$nhl" = 0/0 ]' '[ "$nhl" = 0 ]' bt-hcitool-other 'mutation bt-hcitool-other: GREEN (BLIND!)'
+  # (e) the Bluetooth rows, one at a time: each stops reading what it reads, and the mutation that plants its violation (a `-planted`
+  #     one, which needs nothing of the collector's Bluetooth code) must say GREEN (BLIND!)
+  metaprobe bt-words-blind tools/passivity-check.sh '(hits $(lines "$tmp/bt"))" [ ! -s "$tmp/btbad" ]' '(hits $(lines "$tmp/bt"))" true' bt-outside 'mutation bt-outside: GREEN (BLIND!)'
+  metaprobe bt-begin-blind tools/passivity-check.sh '[ ! -s "$tmp/btbbad" ] && [ "$btb_p" = 1/1 ] && btb_ok=1' 'btb_ok=1' bt-begin-planted 'mutation bt-begin-planted: GREEN (BLIND!)'
+  metaprobe bt-forms-blind tools/passivity-check.sh 'if (t ~ BT) print $0 > BAD }' 'if (0) print $0 > BAD }' bt-form-planted 'mutation bt-form-planted: GREEN (BLIND!)'
+  metaprobe bt-varexec-blind tools/passivity-check.sh 'else if (s ~ /^["\047]?\$/) bad = 1' 'else if (0) bad = 1' bt-varexec-planted 'mutation bt-varexec-planted: GREEN (BLIND!)'
+  metaprobe bt-timeout-blind tools/passivity-check.sh 'else if (fn != "bt_begin" && u ~ /^timeout([ \t]|$)/) bad = 1' 'else if (0) bad = 1' bt-timeout-planted 'mutation bt-timeout-planted: GREEN (BLIND!)'
+  metaprobe bt-cmdpos-blind tools/passivity-check.sh '[ ! -s "$tmp/bt_cmdpos" ] ;;' 'true ;;' bt-cmdpos-planted 'mutation bt-cmdpos-planted: GREEN (BLIND!)'
+  metaprobe apcli-unpinned-blind tools/passivity-check.sh '[ "$ap_bad" = 0 ] && [ -z "$ap_off$ap_dup$ap_unk" ] && ap_ok=1' '[ -z "$ap_off$ap_dup$ap_unk" ] && ap_ok=1' apcli-fifth-line 'mutation apcli-fifth-line: GREEN (BLIND!)'
+  metaprobe bt-normal-form-blind tools/passivity-check.sh 'if (NORM == "1") { gsub(/\\/, "", l); gsub(/"[ \t]+"/, "", l); gsub(/["\047]/, "", l) }' 'if (NORM == "1") { l = l }' bt-split-quote 'mutation bt-split-quote: GREEN (BLIND!)'
+  metaprobe bt-cmd-expansion-blind tools/passivity-check.sh 'if (MODE == "wrap" && CWX) bad = 1' 'if (0) bad = 1' bt-cmd-subst 'mutation bt-cmd-subst: GREEN (BLIND!)'
+  metaprobe bt-glob-blind tools/passivity-check.sh 'if (cw !~ /^\[\[?$/ && cw ~ /[?*\[]/) bad = 1' 'if (0) bad = 1' bt-glob 'mutation bt-glob: GREEN (BLIND!)'
+  metaprobe alt-bt-dbus tools/passivity-check.sh '|dbus-send' '' alts 'alt bt dbus-send: GREEN (BLIND!)'
+  metaprobe alt-btwrap-time tools/passivity-check.sh '|^time([[:space:]]|$)' '' alts 'alt btwrap ^time: GREEN (BLIND!)'
+  metaprobe alt-bt-btgatt tools/passivity-check.sh '|btgatt-client' '' alts 'alt bt btgatt-client: GREEN (BLIND!)'
+  metaprobe alt-btwrap-nohup tools/passivity-check.sh '|^nohup([[:space:]]|$)' '' alts 'alt btwrap ^nohup: GREEN (BLIND!)'
+  # (f) the row of the built names (§14.6d), one part at a time: the row reads nothing, the wrapper words are no wrappers, the pinned list reports no new line, or no
+  #     vanished one; the mutation that plants what that part sees must say GREEN (BLIND!). With the detection of an expansion in a command word off, the row is red for
+  #     another reason (every pin has lost its line, so a mutation still reads RED), and what shows the loss is a control that goes red: WRONG-ROW.
+  metaprobe dyn-row-blind tools/passivity-check.sh '[ "$dyn_ok" = 1 ]' 'true' dyn-split-name 'mutation dyn-split-name: GREEN (BLIND!)'
+  metaprobe dyn-expansion-blind tools/passivity-check.sh 'if (dtexp) dbad = 1' 'if (0) dbad = 1' dyn-ok-assign 'mutation dyn-ok-assign: WRONG-ROW'
+  metaprobe dyn-wrapper-blind tools/passivity-check.sh '/^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/' '/^(zz_none)$/' dyn-wrapper-nice 'mutation dyn-wrapper-nice: GREEN (BLIND!)'
+  metaprobe dyn-new-line-blind tools/passivity-check.sh 'else print $0 > NEW }' 'else np++ }' dyn-split-name 'mutation dyn-split-name: GREEN (BLIND!)'
+  metaprobe dyn-gone-pin-blind tools/passivity-check.sh 'print k > GONE; print np + 0' 'print k > "/dev/null"; print np + 0' dyn-pin-gone 'mutation dyn-pin-gone: GREEN (BLIND!)'
+  # (g) the second row of the pass (§14.6e), one part at a time: the row, the glob test, find, the placeholder of xargs, xargs without a command, the alias, and the two things that
+  #     keep the row from flagging what it must not: the end of a case pattern and the `${ }` that holds a blank or a parenthesis (their controls go red when it is blind)
+  metaprobe dyn6e-row-blind tools/passivity-check.sh '[ "$dyn_ok2" = 1 ]' 'true' dyn-glob 'mutation dyn-glob: GREEN (BLIND!)'
+  metaprobe dyn6e-glob-blind tools/passivity-check.sh 'if (dtglob && dtok !~ /^\[\[?$/) dbad2 = 1' 'if (0) dbad2 = 1' dyn-bracket 'mutation dyn-bracket: GREEN (BLIND!)'
+  metaprobe dyn6e-find-blind tools/passivity-check.sh 'if (dcmd == "find" && a ~ /^-(exec|execdir|ok|okdir)$/) dbad2 = 1' 'if (0) dbad2 = 1' dyn-find-"ex"ec 'mutation dyn-find-exec: GREEN (BLIND!)'
+  metaprobe dyn6e-find-okdir-blind tools/passivity-check.sh 'a ~ /^-(exec|execdir|ok|okdir)$/' 'a ~ /^-(exec|execdir|ok)$/' dyn-find-okdir 'mutation dyn-find-okdir: GREEN (BLIND!)'
+  metaprobe dyn6e-xargs-blind tools/passivity-check.sh 'if (dwc == "xargs" && (index(dn, "{}") > 0 || (dxr != "" && index(dn, dxr) > 0))) dbad2 = 1' 'if (0) dbad2 = 1' dyn-xargs-placeholder 'mutation dyn-xargs-placeholder: GREEN (BLIND!)'
+  metaprobe dyn6e-xargs-custom-blind tools/passivity-check.sh '(index(dn, "{}") > 0 || (dxr != "" && index(dn, dxr) > 0))' '(index(dn, "{}") > 0)' dyn-xargs-custom 'mutation dyn-xargs-custom: GREEN (BLIND!)'
+  metaprobe dyn6e-xargs-missing-blind tools/passivity-check.sh 'function dxend() { if (dwr && dwc == "xargs") { dbad2 = 1; dwr = 0 } }' 'function dxend() { dwr = dwr }' dyn-xargs-missing 'mutation dyn-xargs-missing: GREEN (BLIND!)'
+  metaprobe dyn6e-alias-blind tools/passivity-check.sh 'else if (dcmd == "alias" && index(a, "=") > 0) dbad2 = 1' 'else if (0) dbad2 = 1' dyn-alias 'mutation dyn-alias: GREEN (BLIND!)'
+  metaprobe dyn6e-case-pattern-blind tools/passivity-check.sh 'dbad = bsep; dbad2 = bsep2; dcs = 1; continue' 'dbad = bsep; dcs = 1; continue' dyn-ok-glob-case 'mutation dyn-ok-glob-case: WRONG-ROW'
+  metaprobe dyn6e-brace-blind tools/passivity-check.sh 'if (top == "B") {' 'if (0) {' dyn-ok-param-expansion 'mutation dyn-ok-param-expansion: WRONG-ROW'
+  metaprobe dyn6e-wrapper-quote-blind tools/passivity-check.sh 'if (dn ~ /^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/)' 'if (dtok ~ /^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/)' dyn-wrapper-quoted 'mutation dyn-wrapper-quoted: GREEN (BLIND!)'
+  # (h) the pinned lines of the transmit row: the row reads nothing, a pin without a line goes unreported. (That a pin covers one line only is held by the mutations `tx-pin-elsewhere` and
+  #     `dyn-pin-twice`; the decrement of the pin cannot be blinded alone, since the report of the pins without a line reads the same counter, so no image of the checker shows it.)
+  metaprobe tx-row-blind tools/passivity-check.sh '[ "$tx_ok" = 1 ]' 'true' transmit-tool 'mutation transmit-tool: GREEN (BLIND!)'
+  metaprobe tx-pin-gone-blind tools/passivity-check.sh 'tx_ok=0; [ ! -s "$tmp/tx" ] && [ ! -s "$tmp/tx_gone" ] && tx_ok=1' 'tx_ok=0; [ ! -s "$tmp/tx" ] && tx_ok=1' tx-pin-gone 'mutation tx-pin-gone: GREEN (BLIND!)'
+  metaprobe alt-tx-nmap tools/passivity-check.sh '|nmap|iwconfig' '|iwconfig' alts 'alt tx nmap: GREEN (BLIND!)'
+  metaprobe alt-tx-hostapd-cli tools/passivity-check.sh '|hostapd_cli' '' alts 'alt tx hostapd_cli: GREEN (BLIND!)'
+  metaprobe alt-bt-scotest tools/passivity-check.sh '|scotest|hcieventmask' '|hcieventmask' alts 'alt bt scotest: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -235,20 +318,148 @@ mut sqlite-comment-flag starchorus-collect.sh  fnappend 'sqlite3 "$db" "DELETE F
 mut sqlite-two-calls starchorus-collect.sh     fnappend 'sqlite3 -readonly a "SELECT 1"; sqlite3 "$db" "DELETE FROM t"' '' 'sqlite3 read-only'
 mut sqlite-flag-in-string starchorus-collect.sh fnappend 'sqlite3 "$db" "SELECT '"'"'-readonly '"'"'"' ''                'sqlite3 read-only'
 mut sqlite-after-hash starchorus-collect.sh    fnappend 'printf "%s #" x; sqlite3 "$db" "DELETE FROM t"' ''            'sqlite3 read-only'
-# ---- the firmware's outward commands by prefix, and the Bluetooth tools: a prefix hits what it has not listed by name (WIFI_PCAP_ + anything);
-# `hcitool lescan --passive` is the one hcitool call that passes, a second call on the same line or a spelling that is not the literal does not
+# ---- the firmware's outward commands by prefix: a prefix hits what it has not listed by name (WIFI_PCAP_ + anything)
 mut prefix-family    starchorus-collect.sh     fnappend 'WIFI_PCAP_NEW_VERB x' ''                                       '§14.6 device calls'
 mut prefix-vpn       starchorus-collect.sh     fnappend 'OPENVPN_NEW_VERB x' ''                                         '§14.6 device calls'
-mut bt-transmit      starchorus-collect.sh     fnappend 'l2ping -c 1 x' ''                                              'transmit tools invoked'
-mut bt-hcitool-scan  starchorus-collect.sh     fnappend 'hcitool scan' ''                                               'transmit tools invoked|hcitool: only'
-mut bt-hcitool-lescan starchorus-collect.sh    fnappend 'hcitool lescan' ''                                             'hcitool: only'
-mut bt-hcitool-lescan-opt starchorus-collect.sh fnappend 'hcitool lescan --duplicates --passive' ''                     'hcitool: only'
-mut bt-hcitool-other starchorus-collect.sh     fnappend 'hcitool name x' ''                                             'hcitool: only'
-mut bt-hcitool-second starchorus-collect.sh    fnappend 'hcitool lescan --passive; hcitool name x' ''                   'hcitool: only'
-mut bt-hcitool-display starchorus-display.sh   fnappend 'hcitool lescan' ''                                             'hcitool: only'
-mut bt-hcitool-helper library/user/reconnaissance/starchorus/helper newfile 'hcitool name x' ''                         'hcitool: only'
-mut bt-hciconfig-up  starchorus-collect.sh     fnappend 'hciconfig hci0 up' ''                                          'transmit tools invoked'
-mut bt-hciconfig-a-up starchorus-collect.sh    fnappend 'hciconfig -a hci0 leadv' ''                                    'transmit tools invoked'
+# ---- the Bluetooth stack, denied BY TOOL (§14.6). Fourteen mutations of the table that fixed it, in its order (the last column is the one row that turns red);
+# the targets of the ones written `mutr1` are lines of the collector's Bluetooth code (bt_begin, bt_end, the fifth apcli_ro line), so they wait as PENDING
+# while the checker announces them. The texts that would trip the guard at the top of this script when written out (a command word
+# followed by a blank: the shell's re-reading, running and sourcing words, also inside the name of a mutation) are written with an empty pair of quotes in them.
+mutr1 bt-active-scan     starchorus-collect.sh     subst    'lescan --passive --duplicates > /dev/null 2> "$BT_F.err" &' 'lescan --duplicates > /dev/null 2> "$BT_F.err" &' 'Bluetooth lines in bt_begin'
+mutr1 bt-extra-line      starchorus-collect.sh     subst    'BT_SPID=$!; BT_ARM=""' 'BT_SPID=$!; BT_ARM=""; timeout -s INT 8 hcitool -i hci0 lescan --passive --duplicates --privacy > /dev/null &' 'Bluetooth lines in bt_begin'
+mut   bt-outside         starchorus-collect.sh     fnappend 'btmon -i hci0 > /dev/null &' ''                                '§14.6b Bluetooth words'
+mut   bt-display         starchorus-display.sh     fnappend 'hcitool -i hci0 lescan --passive' ''                           '§14.6b Bluetooth words'
+mut   bt-undefined       tools/passivity-check.sh  subst    "BT_FUNCS=' bt_begin" "BT_FUNCS=' zz_undefined bt_begin"        'Bluetooth allowlist names'
+mutr1 bt-var-name        starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); bt_x=hcitool'               'Bluetooth word forms'
+mutr1 bt-var-"ex"ec      starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); "$BT_TOOL" -i hci0 lescan'  'Bluetooth wrappers|§14.6d command words'
+mutr1 bt-"ev"al          starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); ev''al "$bt_c"'              'Bluetooth wrappers'
+mutr1 bt-busybox         starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); busybox sh -c "$bt_c"'      'Bluetooth wrappers'
+mutr1 bt-timeout-outside starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); timeout 5 sleep 1'          'Bluetooth wrappers'
+# the spec names no unique line of bt_selftest, so the line is added as its first: the planted tool word is a command there
+mutr1 bt-selftest-cmd    starchorus-collect.sh     fnline   'bt_selftest' 'hcitool -i hci0 dev'                             'Bluetooth command position'
+mutr1 apcli-extra-arg    starchorus-collect.sh     subst    'RECON CHANNELS format=json ;;' 'RECON CHANNELS format=json all ;;' 'apcli_ro literal lines|§14.6d command words'
+mut   apcli-fifth-line   starchorus-collect.sh     subst    'ap_to=""; have timeout && ap_to="timeout 10"' 'ap_to=""; have timeout && ap_to="timeout 10"; $ap_to _pineap RECON CLIENTS format=json' 'apcli_ro literal lines|§14.6d command words'
+mutr1 apcli-variable-prefix starchorus-collect.sh  subst    '$ap_to _pineap RECON CHANNELS' '$ap_x _pineap RECON CHANNELS'    'apcli_ro literal lines|§14.6d command words'
+# ---- the same rules proven on the base before the collector has the functions: a function of BT_FUNCS is DEFINED in the copy with one bad line
+mut   bt-begin-planted   starchorus-collect.sh     fndef    'bt_begin' 'timeout -s INT 8 hcitool -i hci0 lescan --duplicates > /dev/null &' 'Bluetooth lines in bt_begin'
+mut   bt-form-planted    starchorus-collect.sh     fndef    'bt_busy' 'bt_x=hcitool'                                         'Bluetooth word forms'
+mut   bt-varexec-planted starchorus-collect.sh     fndef    'bt_sweep' '"$BT_TOOL" -i hci0 lescan'                           'Bluetooth wrappers|§14.6d command words'
+mut   bt-eval-planted    starchorus-collect.sh     fndef    'bt_sweep' 'ev''al "$bt_c"'                                       'Bluetooth wrappers'
+mut   bt-timeout-planted starchorus-collect.sh     fndef    'bt_busy' 'timeout 5 sleep 1'                                    'Bluetooth wrappers'
+mut   bt-cmdpos-planted  starchorus-collect.sh     fndef    'bt_stub' 'hcitool -i hci0 dev'                                  'Bluetooth command position'
+# ---- the review's finding: every tool of the stack is denied by NAME, whatever the verb (one line each; the alternative probe below has every
+# name once). The transmit row still sees the verbs it lists; the rest is seen by the tool rule alone.
+mut bt-tool-bluetoothctl starchorus-collect.sh     fnappend 'bluetoothctl scan le; bluetoothctl scan bredr; bluetoothctl advertise on; bluetoothctl connect 02:00:00:00:00:01; bluetoothctl pair 02:00:00:00:00:01' '' '§14.6b Bluetooth words'
+mut bt-tool-sdp-rfcomm   starchorus-collect.sh     fnappend 'sdptool browse local; rfcomm connect hci0 02:00:00:00:00:01; btgatt-client -d 02:00:00:00:00:01; l2test -n 02:00:00:00:00:01; rctest -n 02:00:00:00:00:01' '' '§14.6b Bluetooth words'
+mut bt-tool-gatt-mgmt    starchorus-collect.sh     fnappend 'gatttool -b 02:00:00:00:00:01 -I; btmgmt power on; hciconfig hci0 up' '' 'transmit tools invoked|§14.6b Bluetooth words'
+mut bt-transmit      starchorus-collect.sh     fnappend 'l2ping -c 1 x' ''                                              'transmit tools invoked|§14.6b Bluetooth words'
+mut bt-hcitool-scan  starchorus-collect.sh     fnappend 'hcitool scan' ''                                               'transmit tools invoked|§14.6b Bluetooth words'
+mut bt-hcitool-lescan starchorus-collect.sh    fnappend 'hcitool lescan' ''                                             '§14.6b Bluetooth words'
+mut bt-hcitool-lescan-opt starchorus-collect.sh fnappend 'hcitool lescan --duplicates --passive' ''                     '§14.6b Bluetooth words'
+mut bt-hcitool-passive-outside starchorus-collect.sh fnappend 'hcitool lescan --passive' ''                             '§14.6b Bluetooth words'
+mut bt-hcitool-other starchorus-collect.sh     fnappend 'hcitool name x' ''                                             '§14.6b Bluetooth words'
+mut bt-hcitool-second starchorus-collect.sh    fnappend 'hcitool lescan --passive; hcitool name x' ''                   '§14.6b Bluetooth words'
+mut bt-hcitool-display starchorus-display.sh   fnappend 'hcitool lescan' ''                                             '§14.6b Bluetooth words'
+mut bt-hcitool-helper library/user/reconnaissance/starchorus/helper newfile 'hcitool name x' ''                         '§14.6b Bluetooth words'
+mut bt-btmon-write   starchorus-collect.sh     fnappend 'btmon -w /tmp/x' ''                                            '§14.6b Bluetooth words'
+mut bt-hciconfig-up  starchorus-collect.sh     fnappend 'hciconfig hci0 up' ''                                          'transmit tools invoked|§14.6b Bluetooth words'
+mut bt-hciconfig-a-up starchorus-collect.sh    fnappend 'hciconfig -a hci0 leadv' ''                                    'transmit tools invoked|§14.6b Bluetooth words'
+mut bt-hciconfig-read starchorus-collect.sh    fnappend 'hciconfig -a | head -n 5; hciconfig; hciconfig -a >/tmp/x' ''  '§14.6b Bluetooth words'
+# ---- the second review's bypasses: a tool name split by quotes, a backslash or a string join (read on the normal form of the line), the D-Bus route to
+# bluetoothd (denied by the names of the bus tools and of the service), and inside the functions of the allowlist a command word that is built when the line
+# runs (a `$( )` or backtick expansion, quoted or not, a glob) or that goes through `time`. The two controls are an assignment from a substitution and a substitution
+# as an argument: neither is a command word.
+mut bt-split-quote       starchorus-collect.sh     fnappend "hc''itool -i hci0 cmd 8 0x0c" ''                               '§14.6b Bluetooth words'
+mut bt-split-backslash   starchorus-collect.sh     fnappend 'hc\itool -i hci0 cmd 8 0x0c' ''                                '§14.6b Bluetooth words'
+mut bt-split-dq          starchorus-collect.sh     fnappend '"hci""tool" -i hci0 cmd 8 0x0c' ''                             '§14.6b Bluetooth words'
+mut bt-sh-c-split        starchorus-collect.sh     fnappend "sh -c 'hci''tool -i hci0 cmd 8 0x0c'" ''                       '§14.6b Bluetooth words'
+mut bt-awk-system        starchorus-collect.sh     fnappend 'awk "BEGIN { system(\"hci\" \"tool -i hci0 cmd\") }"' ''      '§14.6b Bluetooth words'
+mut bt-split-display     starchorus-display.sh     fnappend "hc''itool -i hci0 cmd 8 0x0c" ''                               '§14.6b Bluetooth words'
+mut bt-dbus-send         starchorus-collect.sh     fnappend 'dbus-send --system --dest=org.bluez /org/bluez/hci0 org.bluez.Adapter1.StartDiscovery' '' '§14.6b Bluetooth words'
+mut bt-busctl            starchorus-collect.sh     fnappend 'busctl call org.bluez /org/bluez/hci0 org.bluez.Adapter1 StartDiscovery' '' '§14.6b Bluetooth words'
+mut bt-cmd-subst         starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); $(bt_pick) -i hci0 lescan'  'Bluetooth wrappers|§14.6d command words'
+mut bt-cmd-subst-quoted  starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); "$(bt_pick)" -i hci0 lescan' 'Bluetooth wrappers|§14.6d command words'
+mut bt-cmd-backtick      starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); `bt_pick` -i hci0 lescan'   'Bluetooth wrappers|§14.6d command words'
+mut bt-time              starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); time "$BT_TOOL" -i hci0 lescan' 'Bluetooth wrappers|§14.6d command words'
+mut bt-glob              starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); /usr/bin/hcito?l -i hci0 lescan' 'Bluetooth wrappers|§14.6e command names'
+mut bt-stub-glob         starchorus-collect.sh     fnline   'bt_stub' '/usr/bin/hcito?l -i hci0 dev'                         'Bluetooth wrappers|§14.6e command names'
+mut bt-ok-assign         starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); zz_x=$(bt_now); zz_y="$(bt_now)"' ''
+mut bt-ok-argument       starchorus-collect.sh     subst    'bt_t0=$(bt_now)' 'bt_t0=$(bt_now); echo "$(bt_now)" > /dev/null; echo "[$(bt_now)] arm [$bt_t0]" > /dev/null' ''
+# ---- a command whose NAME is built when the line runs, anywhere in the scope (row '§14.6d': every simple command whose command word holds an expansion, against a
+# pinned list). dyn-split-name is the review's plant: a function outside BT_FUNCS puts `hci` and `tool` together and starts the result, a name that no line spells.
+# Then every form the row reads: a variable, `${ }`, `$( )`, a backtick expression, a word that only starts with a path, behind a wrapper word, behind `NAME=value`, after a
+# pipe, in a case arm, inside a substitution, behind a redirection, on the line after a pipe, outside every function, in the other shell files of the scope; and the
+# pinned list itself (an edited pinned line, a vanished one, a second copy of one). The controls stay green: assignments from a substitution, expansions as arguments, a
+# `$` word in a case pattern, a `$` inside quotes, a quote that goes on over two lines. The two limits are controls too, so that they are written down in a test: a built
+# string handed to eval or to an awk system() is not read (SECURITY.md says so). Names and texts that would trip the guard at the top of this script are written with an empty pair of quotes.
+mut dyn-split-name       starchorus-collect.sh     fnappend 'zz_a=hci; zz_b=tool; "$zz_a$zz_b" -i hci0 lescan'            '' '§14.6d command words'
+mut dyn-var-name         starchorus-collect.sh     fnappend '$zz_cmd -i hci0 lescan'                                      '' '§14.6d command words'
+mut dyn-braced           starchorus-collect.sh     fnappend '${zz_cmd} -i hci0 lescan'                                    '' '§14.6d command words'
+mut dyn-subst            starchorus-collect.sh     fnappend '$(zz_pick) -i hci0 lescan'                                   '' '§14.6d command words'
+mut dyn-subst-quoted     starchorus-collect.sh     fnappend '"$(zz_pick)" -i hci0 lescan'                                 '' '§14.6d command words'
+mut dyn-backtick         starchorus-collect.sh     fnappend '`zz_pick` -i hci0 lescan'                                    '' '§14.6d command words'
+mut dyn-path-prefix      starchorus-collect.sh     fnappend '/usr/bin/hci$zz_b -i hci0 lescan'                            '' '§14.6d command words'
+mut dyn-wrapper-nice     starchorus-collect.sh     fnappend 'nice "$zz_a$zz_b" -i hci0 lescan'                            '' '§14.6d command words'
+mut dyn-wrapper-env      starchorus-collect.sh     fnappend 'env X=1 "$zz_a$zz_b" -i hci0 lescan'                         '' '§14.6d command words'
+mut dyn-wrapper-"ex"ec   starchorus-collect.sh     fnappend 'ex''ec "$zz_a$zz_b" -i hci0 lescan'                          '' '§14.6d command words'
+mut dyn-wrapper-timeout  starchorus-collect.sh     fnappend 'timeout -s INT 6 "$zz_a$zz_b" -i hci0 lescan'                '' '§14.6d command words'
+mut dyn-assign-prefix    starchorus-collect.sh     fnappend 'zz_x=1 "$zz_a$zz_b" -i hci0 lescan'                          '' '§14.6d command words'
+mut dyn-subst-prefix     starchorus-collect.sh     fnappend 'zz_x=$(zz_f) "$zz_a$zz_b" -i hci0 lescan'                    '' '§14.6d command words'
+mut dyn-pipe             starchorus-collect.sh     fnappend 'echo x | "$zz_a$zz_b" -i hci0 lescan'                        '' '§14.6d command words'
+mut dyn-case-arm         starchorus-collect.sh     fnappend 'case x in x) "$zz_a$zz_b" -i hci0 lescan ;; esac'           '' '§14.6d command words'
+mut dyn-in-substitution  starchorus-collect.sh     fnappend 'zz_x=$("$zz_a$zz_b" -i hci0 lescan)'                         '' '§14.6d command words'
+mut dyn-redirect-first   starchorus-collect.sh     fnappend '>/dev/null "$zz_a$zz_b" -i hci0 lescan'                      '' '§14.6d command words'
+mut dyn-continued        starchorus-collect.sh     fnappend 'echo x |
+    "$zz_a$zz_b" -i hci0 lescan'                                                                                        '' '§14.6d command words'
+mut dyn-top-level        starchorus-collect.sh     append   '"$zz_a$zz_b" -i hci0 lescan'                                 '' '§14.6d command words'
+mut dyn-display          starchorus-display.sh     fnappend '"$zz_a$zz_b" -i hci0 lescan'                                 '' '§14.6d command words'
+mut dyn-payload          library/user/reconnaissance/starchorus/payload.sh fnappend '"$zz_a$zz_b" -i hci0 lescan'         '' '§14.6d command words'
+mut dyn-serve            starchorus-serve.sh       fnappend '"$zz_a$zz_b" -i hci0 lescan'                                 '' '§14.6d command words'
+mut dyn-helper           library/user/reconnaissance/starchorus/helper newfile '"$zz_a$zz_b" -i hci0 lescan'              '' '§14.6d command words'
+mut dyn-pin-edited       payload.sh                subst    'NICE uhttpd -f -p' 'NICE "$zz_a$zz_b" -f -p'                      '§14.6d command words'
+mut dyn-pin-gone         payload.sh                subst    '$NICE busybox httpd' 'nice busybox httpd'                         '§14.6d command words'
+mut dyn-pin-twice        payload.sh                append   '$NICE ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &' '' '§14.6d command words'
+mut dyn-ok-assign        starchorus-collect.sh     fnappend 'zz_x=$(zz_f); zz_y="$(zz_f)"; zz_n=$(( $(zz_f) + 30 ))'      '' ''
+mut dyn-ok-argument      starchorus-collect.sh     fnappend 'echo "$(zz_f)" "$zz_x" $zz_y; command -v "$zz_x" > /dev/null; for zz_i in "$@"; do echo "$zz_i"; done' '' ''
+mut dyn-ok-case-pattern  starchorus-collect.sh     fnappend 'case "$zz_x" in $zz_y|z) : ;; esac'                          '' ''
+mut dyn-ok-quoted-text   starchorus-collect.sh     fnappend "echo '\$zz_a \$(zz_c) \"\$zz_b\"'"                           '' ''
+mut dyn-ok-multiline     starchorus-collect.sh     fnappend 'echo "a
+    $zz_b c"'                                                                                                           '' ''
+mut dyn-limit-"ev"al     starchorus-collect.sh     fnappend 'ev''al "$zz_a$zz_b -i hci0 lescan"'                          '' ''
+mut dyn-limit-awk        starchorus-collect.sh     fnappend "awk -v zz_c=\"\$zz_a\$zz_b\" 'BEGIN { system(zz_c \" -i hci0 lescan\") }'" '' ''
+# ---- the second row of the same pass (§14.6e): a name that a glob, find, xargs or an alias makes when the line runs. The review's plants, each in a function outside the
+# allowlist: a glob character in the command word (`?`, `[`, `*`; the Wi-Fi side too: a bracket in `iw`), `find` with `-exec`, `-execdir`, `-ok` or `-okdir`, `xargs` whose
+# command is the replacement string (`{}` and a string of its own) or is missing, and an alias. Quoted names do not hide a wrapper ("exec" "$x"). The controls stay green: a glob in
+# a for-list, in a case pattern or as an argument, the test `[ ]` and `[[ ]]`, a `${ }` that holds a blank or a parenthesis, `find` without `-exec`, `xargs` with a command of its
+# own, `alias` that only looks. The two limits are controls as well: a glob that is only handed to `ln` and a built string piped into `sh` are not read (SECURITY.md says so).
+# The texts that would trip the guard at the top of this script (the word before a blank) are written with an empty pair of quotes.
+mut dyn-glob             starchorus-collect.sh     fnappend '/usr/bin/hc?tool -i hci0 lescan'                             '' '§14.6e command names'
+mut dyn-glob-star        starchorus-collect.sh     fnappend '/usr/bin/hci* -i hci0 lescan'                                '' '§14.6e command names'
+mut dyn-bracket          starchorus-collect.sh     fnappend '/usr/bin/hci[t]ool -i hci0 lescan'                           '' '§14.6e command names'
+mut dyn-iw-glob          starchorus-collect.sh     fnappend '/usr/sbin/i[w] dev wlan1mon scan'                            '' '§14.6e command names'
+mut dyn-find-"ex"ec      starchorus-collect.sh     fnappend 'find /usr/bin -name hci\*l -ex''ec {} -i hci0 lescan \;'       '' '§14.6e command names'
+mut dyn-find-execdir     starchorus-collect.sh     fnappend 'find /usr/bin -name hci\*l -execdir {} -i hci0 lescan \;'      '' '§14.6e command names'
+mut dyn-find-ok          starchorus-collect.sh     fnappend 'find /usr/bin -name hci\*l -ok {} -i hci0 lescan \;'           '' '§14.6e command names'
+mut dyn-find-okdir       starchorus-collect.sh     fnappend 'find /usr/bin -name hci\*l -okdir {} -i hci0 lescan \;'        '' '§14.6e command names'
+mut dyn-xargs-placeholder starchorus-collect.sh    fnappend 'printf "%s\n" tool | xargs -I{} {} -i hci0 lescan'           '' '§14.6e command names'
+mut dyn-xargs-custom     starchorus-collect.sh     fnappend 'printf "%s\n" tool | xargs -I X X -i hci0 lescan'             '' '§14.6e command names'
+mut dyn-xargs-missing    starchorus-collect.sh     fnappend 'printf "%s\n" tool | xargs -n 1'                              '' '§14.6e command names'
+mut dyn-alias            starchorus-collect.sh     fnappend 'alias zz_s="$zz_a$zz_b"; zz_s -i hci0 lescan'                '' '§14.6e command names'
+mut dyn-wrapper-quoted   starchorus-collect.sh     fnappend '"exec" "$zz_a$zz_b" -i hci0 lescan'                          '' '§14.6d command words'
+mut dyn-ok-glob-for      starchorus-collect.sh     fnappend 'for zz_f in /usr/bin/hci* /tmp/zz?; do echo "$zz_f"; done'    '' ''
+mut dyn-ok-glob-case     starchorus-collect.sh     fnappend 'case "$zz_x" in a*|b?) : ;; [0-9]*) : ;; *) : ;; esac'        '' ''
+mut dyn-ok-glob-arg      starchorus-collect.sh     fnappend 'ls /usr/bin/hci* > /dev/null; rm -f /tmp/zz_*.tmp; echo ?'    '' ''
+mut dyn-ok-test-bracket  starchorus-collect.sh     fnappend '[ -f /tmp/x ] && [ -d /tmp ] || [[ "$zz_a" = a* ]]; zz_t=$([ -n "$zz_a" ] && echo y)' '' ''
+mut dyn-ok-param-expansion starchorus-collect.sh   fnappend 'zz_y=${zz_x%) *}; zz_m=${zz_n%% *}; zz_p=${zz_q##*") "}; zz_r="${zz_s:-a b)}"' '' ''
+mut dyn-ok-find-plain    starchorus-collect.sh     fnappend 'find /tmp -name "*.zz" -print; find . -type f | sort; echo find -ex''ec' '' ''
+mut dyn-ok-xargs-literal starchorus-collect.sh     fnappend 'printf "%s\n" a | xargs rm -f; printf "%s\n" a | xargs -I{} echo {}; printf "%s\n" a | xargs -n 1 -P 2 -- echo' '' ''
+mut dyn-ok-alias-lookup  starchorus-collect.sh     fnappend 'alias; alias -p; alias zz_s'                                 '' ''
+mut dyn-limit-ln         starchorus-collect.sh     fnappend 'ln -sf /usr/bin/hc?tool /tmp/zz_t; /tmp/zz_t -i hci0 lescan' '' ''
+mut dyn-limit-pipe-sh    starchorus-collect.sh     fnappend 'printf "%s\n" "$zz_a$zz_b -i hci0 lescan" | sh'               '' ''
+# ---- the pinned lines of the transmit row (the airmon-ng last resort of create_monitor, the Nmap OUI path): an edited one, one that is gone, one more copy elsewhere
+mut tx-pin-edited        starchorus-collect.sh     subst    'out=$(airmon-ng start "$base" 2>/dev/null)' 'out=$(airmon-ng start "$base" check kill 2>/dev/null)' 'transmit tools invoked'
+mut tx-pin-gone          starchorus-collect.sh     subst    'if have airmon-ng; then' 'if have zz_mon; then'                  'transmit tools invoked'
+mut tx-pin-elsewhere     starchorus-collect.sh     fnappend 'out=$(airmon-ng start "$base" 2>/dev/null)'                    '' 'transmit tools invoked'
 # ---- display script (one of the two copies; the cmp of the copies belongs to static checks, not here)
 mut display-transmit starchorus-display.sh       fnappend 'mdk4 wlan0mon d' ''                                            'transmit tools invoked'
 # ---- the listener (starchorus-serve.sh is in the §14.6 shell scope: a transmit tool in it is seen, and losing it from the list is named)
@@ -256,7 +467,7 @@ mut serve-transmit   starchorus-serve.sh       fnappend 'aireplay-ng -0 1 wlan0m
 # ---- the payload directory ships to the device as a whole: its payload.sh and a helper WITHOUT the .sh suffix are in scope
 mut library-payload-transmit library/user/reconnaissance/starchorus/payload.sh fnappend 'aireplay-ng -0 1 wlan0mon' '' 'transmit tools invoked'
 mut library-helper-transmit library/user/reconnaissance/starchorus/helper newfile 'mdk4 wlan0mon d' ''              'transmit tools invoked'
-mut serve-out-of-scope tools/passivity-check.sh subst 'payload.sh starchorus-serve.sh; find' 'payload.sh; find'          '§14.6 scope fill'
+mut serve-out-of-scope tools/passivity-check.sh subst 'payload.sh starchorus-serve.sh; find' 'payload.sh; find'          '§14.6 scope fill|§14.6d command words'
 mut serve-third-path starchorus-serve.sh       subst    '/|/index.html) f=' '/|/index.html|/x) f='                      'starchorus-serve.sh: GET'
 mut serve-post       starchorus-serve.sh       subst    'case "$method" in GET|HEAD) : ;;' 'case "$method" in GET|HEAD|POST) : ;;' 'starchorus-serve.sh: GET'
 mut serve-no-block   starchorus-serve.sh       subst    'case "$path" in' 'case "$pth" in'                              'starchorus-serve.sh: GET'
@@ -264,14 +475,13 @@ mut serve-no-block   starchorus-serve.sh       subst    'case "$path" in' 'case 
 mut sec6-undefined   tools/passivity-check.sh subst "SEC6_FUNCS=' apcli_ro apcli_stub apcli_selftest '" "SEC6_FUNCS=' apcli_ro apcli_stub apcli_selftest zz_undefined '" '§14.6 allowlist names'
 # a function head the scope awk no longer recognises: its hits are read as "outside", and the fill probe names the loss
 mut fnhead-oneliner  starchorus-collect.sh     subst    'run_cycle() {' 'run_cycle() { :'                                '§14.6 scope fill'
-mut fnhead-selftest  starchorus-collect.sh     subst    '^selftest() {' 'selftest() { :'                                  '§14.6 scope fill|sqlite3 read-only'
+mut fnhead-selftest  starchorus-collect.sh     subst    '^selftest() {' 'selftest() { :'                                  '§14.6 scope fill|sqlite3 read-only|§14.6d command words'
 # ---- control: a comment line is not a call (scoped() skips comments); a deviation here would be a finding
 mut comment-only     starchorus-collect.sh     fnappend '# aireplay-ng -0 1 wlan0mon' ''                                ''
 mut sqlite-ok-comment starchorus-collect.sh    fnappend 'sqlite3 -readonly -noheader "$db" "SELECT 1"   # read only' ''  ''
 mut sqlite-ok-two    starchorus-collect.sh     fnappend 'sqlite3 -readonly "$db" "SELECT 1" && sqlite3 -readonly "$db" "SELECT 2"' '' ''
-mut bt-hcitool-passive-ok starchorus-collect.sh fnappend 'hcitool lescan --passive' ''                                     ''
-mut bt-btmon-ok      starchorus-collect.sh     fnappend 'btmon -w /tmp/x' ''                                            ''
-mut bt-hciconfig-ok  starchorus-collect.sh     fnappend 'hciconfig -a | head -n 5; hciconfig; hciconfig -a >/tmp/x' ''  ''
+mut bt-comment       starchorus-collect.sh     fnappend '# hcitool cc 02:00:00:00:00:01' ''                             ''
+mut bt-sysfs-ok      starchorus-collect.sh     fnappend 'ls /sys/class/bluetooth; [ -d /sys/class/bluetooth/hci0 ]' ''  ''
 
 # ============================== alternatives: one planted sample per regex alternative ==============================
 # alt FAMILY KEY SAMPLE ROW : KEY is a literal piece of exactly ONE alternative of the family (as `sh tools/passivity-check.sh
@@ -306,26 +516,101 @@ alt netx '@import'              'var zz = "@import x";'                         
 alt netx 'url\('                'var zz = "url(https://x.invalid/a)";'            'other network APIs'
 alt tx 'aireplay'               'aireplay-ng -0 1 wlan0mon'                       'transmit tools invoked'
 alt tx 'mdk['                   'mdk4 wlan0mon d'                                 'transmit tools invoked'
-alt tx 'hostapd'                'hostapd /tmp/x.conf'                             'transmit tools invoked'
+alt tx '=hostapd'               'hostapd /tmp/x.conf'                             'transmit tools invoked'
 alt tx 'airbase'                'airbase-ng -e x wlan0mon'                        'transmit tools invoked'
 alt tx 'hcxdumptool'            'hcxdumptool -i wlan0mon'                         'transmit tools invoked'
 alt tx 'wpa_supplicant'         'wpa_supplicant -i wlan0mon -c /tmp/x'            'transmit tools invoked'
 alt tx 'nmcli'                  'nmcli dev wifi list'                             'transmit tools invoked'
 alt tx 'iwlist'                 'iwlist wlan0mon frequency'                       'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+scan'  'hcitool scan'                                    'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+inq'   'hcitool inq'                                     'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+cc'    'hcitool cc'                                      'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+lecc'  'hcitool lecc'                                    'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+leadv' 'hcitool leadv'                                   'transmit tools invoked'
-alt tx 'hcitool[[:space:]]+cmd'   'hcitool cmd'                                     'transmit tools invoked'
-alt tx 'l2ping'                   'l2ping -c 1 x'                                   'transmit tools invoked'
-alt tx 'bluetoothctl['            'bluetoothctl scan on'                            'transmit tools invoked'
-alt tx 'btmgmt'                   'btmgmt find'                                     'transmit tools invoked'
-alt tx 'gatttool'                 'gatttool -I'                                     'transmit tools invoked'
-alt tx 'hciconfig('               'hciconfig hci0 up'                               'transmit tools invoked'
+alt tx 'nmap'                   'nmap -sn 10.0.0.0/24'                            'transmit tools invoked'
+alt tx 'iwconfig'               'iwconfig wlan1mon channel 6'                     'transmit tools invoked'
+alt tx 'tcpreplay'              'tcpreplay -i wlan1mon /tmp/zz.pcap'              'transmit tools invoked'
+alt tx 'airmon'                 'airmon-ng start wlan1'                           'transmit tools invoked'
+alt tx 'mausezahn'              'mausezahn wlan1mon -c 1'                         'transmit tools invoked'
+alt tx 'hping'                  'hping3 -S 10.0.0.1'                              'transmit tools invoked'
+alt tx 'arping'                 'arping -c 1 10.0.0.1'                            'transmit tools invoked'
+alt tx 'bettercap'              'bettercap -iface wlan1mon'                       'transmit tools invoked'
+alt tx 'wpa_cli'                'wpa_cli -i wlan1mon status'                      'transmit tools invoked'
+alt tx 'hostapd_cli'            'hostapd_cli status'                              'transmit tools invoked'
+alt tx 'besside'                'besside-ng wlan1mon'                             'transmit tools invoked'
+alt tx 'reaver'                 'reaver -i wlan1mon -b x'                         'transmit tools invoked'
+alt tx 'bully'                  'bully wlan1mon -b x'                             'transmit tools invoked'
+alt tx 'hcitool[[:space:]]+scan'  'hcitool scan'                                    'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hcitool[[:space:]]+inq'   'hcitool inq'                                     'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hcitool[[:space:]]+cc'    'hcitool cc'                                      'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hcitool[[:space:]]+lecc'  'hcitool lecc'                                    'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hcitool[[:space:]]+leadv' 'hcitool leadv'                                   'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hcitool[[:space:]]+cmd'   'hcitool cmd'                                     'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'l2ping'                   'l2ping -c 1 x'                                   'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'bluetoothctl['            'bluetoothctl scan on'                            'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'btmgmt'                   'btmgmt find'                                     'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'gatttool'                 'gatttool -I'                                     'transmit tools invoked|§14.6b Bluetooth words'
+alt tx 'hciconfig('               'hciconfig hci0 up'                               'transmit tools invoked|§14.6b Bluetooth words'
 alt iw 'connect'                'iw dev wlan0mon connect x'                       'transmit tools invoked'
 alt iw 'ibss['                  'iw dev wlan0mon ibss join x 2412'                'transmit tools invoked'
 alt iw 'mesh['                  'iw dev wlan0mon mesh join x'                     'transmit tools invoked'
+# bt: every tool and path of the stack, planted in a function that is NOT on the allowlist (row §14.6b). ROW may name rows that are tolerated on the
+# same line after a `|`: a name that the transmit row denies by verb as well (btmgmt, gatttool, l2ping) is listed under both.
+alt bt 'hcitool'                'hcitool -i hci0 dev'                             '§14.6b Bluetooth words'
+alt bt 'btmon'                  'btmon -i hci0'                                   '§14.6b Bluetooth words'
+alt bt 'hciconfig'              'hciconfig -a'                                    '§14.6b Bluetooth words'
+alt bt 'bluetoothctl'           'bluetoothctl show'                               '§14.6b Bluetooth words'
+alt bt 'btmgmt'                 'btmgmt info'                                     '§14.6b Bluetooth words|transmit tools invoked'
+alt bt 'bluetoothd'             'bluetoothd -n'                                   '§14.6b Bluetooth words'
+alt bt 'gatttool'               'gatttool -I'                                     '§14.6b Bluetooth words|transmit tools invoked'
+alt bt 'l2ping'                 'l2ping -c 1 x'                                   '§14.6b Bluetooth words|transmit tools invoked'
+alt bt 'l2test'                 'l2test -n x'                                     '§14.6b Bluetooth words'
+alt bt 'rctest'                 'rctest -n x'                                     '§14.6b Bluetooth words'
+alt bt 'sdptool'                'sdptool browse local'                            '§14.6b Bluetooth words'
+alt bt 'rfcomm'                 'rfcomm show'                                     '§14.6b Bluetooth words'
+alt bt 'hcidump'                'hcidump -i hci0'                                 '§14.6b Bluetooth words'
+alt bt 'btattach'               'btattach -B /dev/x'                              '§14.6b Bluetooth words'
+alt bt 'bccmd'                  'bccmd psget x'                                   '§14.6b Bluetooth words'
+alt bt 'bdaddr'                 'bdaddr -i hci0'                                  '§14.6b Bluetooth words'
+alt bt 'hciattach'              'hciattach /dev/x any'                            '§14.6b Bluetooth words'
+alt bt 'hid2hci'                'hid2hci --quiet'                                 '§14.6b Bluetooth words'
+alt bt 'btgatt-client'          'btgatt-client -d x'                              '§14.6b Bluetooth words'
+alt bt 'btgatt-server'          'btgatt-server -s x'                              '§14.6b Bluetooth words'
+alt bt 'obexd'                  'obexd -n'                                        '§14.6b Bluetooth words'
+alt bt 'rfkill'                 'rfkill list'                                     '§14.6b Bluetooth words'
+alt bt 'init\.d/bluetooth'      '/etc/init.d/bluetooth start'                     '§14.6b Bluetooth words'
+alt bt '/sys/kernel/debug/bluetooth' 'cat /sys/kernel/debug/bluetooth/hci0/x'     '§14.6b Bluetooth words'
+alt bt 'dbus-send'              'dbus-send --system --dest=x'                     '§14.6b Bluetooth words'
+alt bt 'busctl'                 'busctl call x'                                   '§14.6b Bluetooth words'
+alt bt 'gdbus'                  'gdbus call --system x'                           '§14.6b Bluetooth words'
+alt bt 'org\.bluez'             'zz_x=org.bluez'                                  '§14.6b Bluetooth words'
+alt bt 'ciptool'                'ciptool show'                                    '§14.6b Bluetooth words'
+alt bt 'avinfo'                 'avinfo x'                                        '§14.6b Bluetooth words'
+alt bt 'isotest'                'isotest -n x'                                    '§14.6b Bluetooth words'
+alt bt 'meshctl'                'meshctl x'                                       '§14.6b Bluetooth words'
+alt bt 'mesh-cfgclient'         'mesh-cfgclient x'                                '§14.6b Bluetooth words'
+alt bt 'bluetooth-meshd'        'bluetooth-meshd -n'                              '§14.6b Bluetooth words'
+alt bt 'btproxy'                'btproxy -u'                                      '§14.6b Bluetooth words'
+alt bt 'bluemoon'               'bluemoon -i x'                                   '§14.6b Bluetooth words'
+alt bt 'mpris-proxy'            'mpris-proxy'                                     '§14.6b Bluetooth words'
+alt bt 'hex2hcd'                'hex2hcd x y'                                     '§14.6b Bluetooth words'
+alt bt 'obexctl'                'obexctl -a x'                                    '§14.6b Bluetooth words'
+alt bt 'bluetooth-player'       'bluetooth-player x'                              '§14.6b Bluetooth words'
+alt bt 'btinfo'                 'btinfo x'                                        '§14.6b Bluetooth words'
+alt bt 'scotest'                'scotest -n x'                                    '§14.6b Bluetooth words'
+alt bt 'hcieventmask'           'hcieventmask x'                                  '§14.6b Bluetooth words'
+# btwrap: the wrappers, planted as simple commands inside ONE function of the allowlist (a copy of bt_busy, row Bluetooth wrappers); the three
+# words that the guard at the top of this script reads as a command are written with an empty pair of quotes inside them
+alt btwrap '^eval'                 'ev''al "$x"'                                      'Bluetooth wrappers'
+alt btwrap '^sh[[:space:]]+-c'     'sh -c "x"'                                        'Bluetooth wrappers'
+alt btwrap '^ash[[:space:]]+-c'    'ash -c "x"'                                       'Bluetooth wrappers'
+alt btwrap '^busybox'              'busybox ls'                                       'Bluetooth wrappers'
+alt btwrap '^env'                  'env X=1 true'                                     'Bluetooth wrappers'
+alt btwrap '^xargs'                'xargs ls'                                         'Bluetooth wrappers'
+alt btwrap '^nohup'                'nohup ls'                                         'Bluetooth wrappers'
+alt btwrap '^setsid'               'setsid ls'                                        'Bluetooth wrappers'
+alt btwrap '^nice'                 'nice ls'                                          'Bluetooth wrappers'
+alt btwrap '^start-stop-daemon'    'start-stop-daemon -S -x /bin/true'                'Bluetooth wrappers'
+alt btwrap '^exec'                 'ex''ec true'                                      'Bluetooth wrappers'
+alt btwrap '^source'               'sour''ce /tmp/x'                                  'Bluetooth wrappers'
+alt btwrap '^time'                 'time ls'                                          'Bluetooth wrappers'
+alt btwrap '^\.[[:space:]]'        '. /tmp/x'                                         'Bluetooth wrappers'
+alt btwrap '^command[[:space:]]+(' 'command ls'                                       'Bluetooth wrappers'
 alt sec6 '_pineap'              '_pineap RECON ALL'                               '§14.6 device calls'
 alt sec6 'PINEAPPLE_'           'PINEAPPLE_X=1'                                   '§14.6 device calls'
 alt sec6 'WIGLE_'               'WIGLE_X=1'                                       '§14.6 device calls'
@@ -366,22 +651,28 @@ split_alts() {
       cur = cur c }
     print cur }'
 }
-min_alts() { case $1 in netsurf) echo "$MIN_ALTS_NETSURF";; netx) echo "$MIN_ALTS_NETX";; tx) echo "$MIN_ALTS_TX";; iw) echo "$MIN_ALTS_IW";; *) echo "$MIN_ALTS_SEC6";; esac; }
+# key_in ALT KEY: KEY is a literal piece of ALT, or, written with a leading `=`, all of it (`=hostapd` is the alternative hostapd, not the one of hostapd_cli)
+key_in() { case $2 in =*) [ "$1" = "${2#=}" ] ;; *) case $1 in *"$2"*) return 0 ;; esac; return 1 ;; esac; }
+min_alts() { case $1 in netsurf) echo "$MIN_ALTS_NETSURF";; netx) echo "$MIN_ALTS_NETX";; tx) echo "$MIN_ALTS_TX";; iw) echo "$MIN_ALTS_IW";; bt) echo "$MIN_ALTS_BT";; btwrap) echo "$MIN_ALTS_BTWRAP";; *) echo "$MIN_ALTS_SEC6";; esac; }
 na=0; naok=0; nablind=0; nawrong=0; nauncov=0; nasetup=0; nafam=0; naderived=0
 
-# run_group FILE KIND FAMILIES: every entry of those families planted in ONE copy (kind append = a line, fn = a function), one
-# checker run, then each sample's own line must appear in the evidence of its row
+# run_group FILE KIND FAMILIES [FUNCTION]: every entry of those families planted in ONE copy (kind append = a line, fn = a function of its own
+# each, or with FUNCTION one function of that name holding every sample), one checker run, then each sample's own line must appear in the evidence
+# of its row
 run_group() {
-  _gf="$work/$1"; _kind=$2; _fams=" $3 "
+  _gf="$work/$1"; _kind=$2; _fams=" $3 "; _gfn=${4:-}
   rm -rf "$work"; cp -R "$base" "$work" || { nasetup=$((nasetup + 1)); return 0; }
   ensure_nl "$_gf"; _c=$(wc -l < "$_gf" | tr -d ' '); : > "$tmp/grp"
+  if [ -n "$_gfn" ]; then printf '%s\n' "$_gfn() {" >> "$_gf"; _c=$((_c + 1)); fi
   while IFS="$TAB" read -r _f _k _sm _rw _st; do
     case $_fams in *" $_f "*) ;; *) continue ;; esac
-    if [ "$_kind" = fn ]; then
+    if [ -n "$_gfn" ]; then printf '%s\n' "    $_sm" >> "$_gf"; _c=$((_c + 1)); _at=$_c
+    elif [ "$_kind" = fn ]; then
       printf '%s\n' "zz_alt$_c() {" "    $_sm" '    :' '}' >> "$_gf"; _at=$((_c + 2)); _c=$((_c + 4))
     else printf '%s\n' "$_sm" >> "$_gf"; _c=$((_c + 1)); _at=$_c; fi
     printf '%s\t%s\t%s\t%s\t%s\n' "$_f" "$_k" "$_rw" "$_at" "$_st" >> "$tmp/grp"
   done < "$tmp/ents"
+  if [ -n "$_gfn" ]; then printf '%s\n' '    :' '}' >> "$_gf"; fi
   run_check "$work" > "$tmp/aout" 2>&1; _arc=$?
   [ "$_arc" -lt 2 ] || { nasetup=$((nasetup + 1)); echo "alt probe: the checker exited $_arc on the planted copy" >&2; return 0; }
   # evidence: "row<TAB>indented evidence line" for every indented line under a row
@@ -389,10 +680,12 @@ run_group() {
   while IFS="$TAB" read -r _f _k _rw _at _st; do
     na=$((na + 1))
     _rows=$(awk -F'\t' -v L="$_at" '{ e = $2; sub(/^    /, "", e); n = split(e, a, ":"); v = (a[1] ~ /^[0-9]+$/) ? a[1] : a[2]; if (v == L) print $1 }' "$tmp/ev")
-    _hit=0; _other=""
+    _hit=0; _other=""; _prim=${_rw%%|*}; _tol=""; case $_rw in *'|'*) _tol=${_rw#*|} ;; esac
     while IFS= read -r _r; do
       [ -n "$_r" ] || continue
-      case $_r in "$_rw"*) _hit=1 ;; *) _other="$_other [$(printf '%s' "$_r" | cut -c1-40)]" ;; esac
+      case $_r in "$_prim"*) _hit=1; continue ;; esac
+      _ok=0; _ifs=$IFS; IFS='|'; for _x in $_tol; do case $_r in "$_x"*) _ok=1 ;; esac; done; IFS=$_ifs   # a row the entry tolerates on the same line
+      [ "$_ok" = 1 ] || _other="$_other [$(printf '%s' "$_r" | cut -c1-40)]"
     done <<EOF
 $_rows
 EOF
@@ -407,11 +700,13 @@ alt_probe() {
   if ! run_check "$base" --regexes > "$tmp/rx" 2> "$tmp/rx.err" || [ ! -s "$tmp/rx" ]; then
     echo "alt probe: the checker prints no regex families (--regexes)" >&2; nasetup=$((nasetup + 1)); return 0; fi
   : > "$tmp/ents"
-  for _spec in netsurf:NETSURF_RE netx:NETX tx:TX_WORDS iw:IW_VERBS sec6:SEC6_RE; do
+  for _spec in netsurf:NETSURF_RE netx:NETX tx:TX_WORDS iw:IW_VERBS sec6:SEC6_RE bt:BT_WORDS btwrap:BT_WRAP_RE; do
     _fam=${_spec%%:*}; _var=${_spec#*:}
     _re=$(awk -F'\t' -v N="$_var" '$1 == N { print $2; exit }' "$tmp/rx")
     split_alts "$_re" > "$tmp/alts.$_fam"; _n=$(grep -c '' "$tmp/alts.$_fam")
     nafam=$((nafam + 1)); naderived=$((naderived + _n))
+    # a sample is read with the boundaries its family has in the checker (a word of TX_WORDS or BT_WORDS stands between characters that are no part of a name: hostapd_cli is no hostapd)
+    case $_fam in tx) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_]|$)' ;; bt) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_-]|$)' ;; *) _pre='('; _suf=')' ;; esac
     if [ "$_n" -lt "$(min_alts "$_fam")" ]; then
       printf 'alt %s: SETUP-ERROR %s alternatives derived from %s (want at least %s)\n' "$_fam" "$_n" "$_var" "$(min_alts "$_fam")"; nasetup=$((nasetup + 1)); fi
     # every derived alternative needs a sample
@@ -419,7 +714,7 @@ alt_probe() {
       _hit=0
       while IFS="$TAB" read -r _f _k _sm _rw; do
         [ "$_f" = "$_fam" ] || continue
-        case $_a in *"$_k"*) _hit=$((_hit + 1)) ;; esac
+        key_in "$_a" "$_k" && _hit=$((_hit + 1))
       done < "$altfile"
       [ "$_hit" -ge 1 ] || { nauncov=$((nauncov + 1)); printf 'alt %s: UNCOVERED alternative %s (no sample in the table: add one line, or the alternative is new)\n' "$_fam" "$_a"; }
     done < "$tmp/alts.$_fam"
@@ -427,19 +722,20 @@ alt_probe() {
     while IFS="$TAB" read -r _f _k _sm _rw; do
       [ "$_f" = "$_fam" ] || continue
       _cnt=0; _own=""
-      while IFS= read -r _a; do case $_a in *"$_k"*) _cnt=$((_cnt + 1)); _own=$_a ;; esac; done < "$tmp/alts.$_fam"
+      while IFS= read -r _a; do if key_in "$_a" "$_k"; then _cnt=$((_cnt + 1)); _own=$_a; fi; done < "$tmp/alts.$_fam"
       _st=ok
       if [ "$_cnt" = 0 ]; then _st=orphan
       elif [ "$_cnt" -gt 1 ]; then _st=bad; printf 'alt %s %s: SETUP-ERROR key stands in %s alternatives (want 1)\n' "$_fam" "$_k" "$_cnt"; nasetup=$((nasetup + 1))
       else
-        _m=0; while IFS= read -r _a; do printf '%s\n' "$_sm" | grep -qE -- "$_a" && _m=$((_m + 1)); done < "$tmp/alts.$_fam"
-        if ! { printf '%s\n' "$_sm" | grep -qE -- "$_own" && [ "$_m" = 1 ]; }; then _st=bad; printf 'alt %s %s: SETUP-ERROR sample matches %s alternatives of the family, its own included or not (want exactly its own)\n' "$_fam" "$_k" "$_m"; nasetup=$((nasetup + 1)); fi
+        _m=0; while IFS= read -r _a; do printf '%s\n' "$_sm" | grep -qE -- "$_pre$_a$_suf" && _m=$((_m + 1)); done < "$tmp/alts.$_fam"
+        if ! { printf '%s\n' "$_sm" | grep -qE -- "$_pre$_own$_suf" && [ "$_m" = 1 ]; }; then _st=bad; printf 'alt %s %s: SETUP-ERROR sample matches %s alternatives of the family, its own included or not (want exactly its own)\n' "$_fam" "$_k" "$_m"; nasetup=$((nasetup + 1)); fi
       fi
       [ "$_st" = bad ] || printf '%s\t%s\t%s\t%s\t%s\n' "$_f" "$_k" "$_sm" "$_rw" "$_st" >> "$tmp/ents"
     done < "$altfile"
   done
   run_group starchorus.html append 'netsurf netx'
-  run_group starchorus-collect.sh fn 'tx iw sec6'
+  run_group starchorus-collect.sh fn 'tx iw sec6 bt'
+  run_group starchorus-collect.sh fn 'btwrap' bt_busy
   printf 'alternatives: %s/%s planted samples red on their row (%s families, %s alternatives derived), %s uncovered, %s blind, %s wrong-row\n' "$naok" "$na" "$nafam" "$naderived" "$nauncov" "$nablind" "$nawrong"
 }
 alt_ok() { [ "$na" -ge 1 ] && [ "$naok" = "$na" ] && [ "$nauncov" = 0 ] && [ "$nablind" = 0 ] && [ "$nawrong" = 0 ] && [ "$nasetup" = 0 ]; }
@@ -464,6 +760,7 @@ if [ "$nsetup" != 0 ] || [ "${nasetup:-0}" != 0 ]; then
     "$nsetup" "${setup_names# }" "${nasetup:-0}" "$nok" "$nmut" "$ngreen" "$nwrong" "$naok" "$na" "$nauncov" "$(printf '%s' "${setup_names# }" | tr ' ' '|')"
   exit 1
 fi
-printf 'passivity mutation probe: %s/%s red on the expected rows, %s green, %s wrong-row; %s/%s alternatives red, %s uncovered\n' "$nok" "$nmut" "$ngreen" "$nwrong" "$naok" "$na" "$nauncov"
-[ "$nmut" -ge "$MIN_MUT" ] && [ "$nok" = "$nmut" ] && [ "$nctlok" = "$nctl" ] && [ -z "$uncovered" ] && [ "$nrows" -ge "$MIN_ROWS" ] && alt_ok
+[ "$npend" = 0 ] || printf 'pending: %s mutation(s) wait for lines of the Bluetooth code of the collector (%s); they run as soon as the checker no longer announces them\n' "$npend" "$pending"
+printf 'passivity mutation probe: %s/%s red on the expected rows, %s pending, %s green, %s wrong-row; %s/%s alternatives red, %s uncovered\n' "$nok" "$nmut" "$npend" "$ngreen" "$nwrong" "$naok" "$na" "$nauncov"
+[ "$((nmut + npend))" -ge "$MIN_MUT" ] && [ "$nok" = "$nmut" ] && [ "$nctlok" = "$nctl" ] && [ -z "$uncovered" ] && [ "$nrows" -ge "$MIN_ROWS" ] && alt_ok
 exit $?

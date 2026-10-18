@@ -24,7 +24,15 @@
 #   itself change (it compares the script with itself); R3 is the row that can. It pins the _WS membership
 #   at BOTH ends (_wsprobe/_lwsprobe), all three _rtrimws points inside bandnorm, and the leading
 #   whitespace the page's .trim() removes.
-# R4 types  : screen_top rendered from a non-string ssid/security/band, both jq builds.
+# NEGATIVE PROBE (radio pair): a regex call put into JQ_BT (`"x" | test("x")` in the record that says the array is on) => R1 red (both copies
+#   named), R2 red (the Bluetooth screen of radio-pair differs between the builds), the radio-pair guard red (no count line, no company line under
+#   the simulated device jq) and the odd-types row red; the normalisation oracle stays green.
+# R4 types  : screen_top rendered from a non-string ssid/security/band, both jq builds; the Bluetooth screen and the activity bars of the
+#   Bands screen from records and entries of the wrong types, both builds, with what survives pinned.
+# The radio-pair screens ride on R2 and R4 like every other: the Bluetooth screen (btlist, btco, group_by, max, sort_by, slices,
+# oneline) and the activity bars (bshare, bar8, round) run on every fixture through the device's jq, and two guards sit with the
+# sanity guard: on the radio-pair fixture the simulated Bluetooth screen must carry its company lines and the Bands screen its bars,
+# or both builds could agree on two screens that lost the lot (NOT COVERED while the fixture is not there yet).
 
 JQR_PAY=library/user/reconnaissance/starchorus/starchorus-display.sh
 JQR_D="$R/out/$P-jqnrx"
@@ -108,7 +116,7 @@ fi
 JQR_CELL=0; JQR_DIFF=0; JQR_SANE=0
 for JQR_J in "$F"/*.json; do
   JQR_B=$(basename "$JQR_J" .json)
-  for JQR_S in summary top bands devices probes clients air; do
+  for JQR_S in summary top bands devices probes clients bluetooth air; do
     JQR_CELL=$((JQR_CELL + 1))
     jqr_run 0 "$JQR_S" "$JQR_J" "$JQR_D/$JQR_B.$JQR_S.real"
     jqr_run 1 "$JQR_S" "$JQR_J" "$JQR_D/$JQR_B.$JQR_S.nrx"
@@ -122,11 +130,29 @@ for JQR_J in "$F"/*.json; do
     *) grep -q '2\.4:[0-9]' "$JQR_D/$JQR_B.summary.nrx" && JQR_SANE=$((JQR_SANE + 1)) ;;
   esac
 done
-JQR_FIX=$(( JQR_CELL / 7 ))
+JQR_FIX=$(( JQR_CELL / 8 ))
 if [ "$JQR_DIFF" = 0 ] && [ "$JQR_SANE" = "$JQR_FIX" ] && [ "$JQR_CELL" -ge 40 ]; then
   row "display script on the device's jq = on the real jq ($JQR_CELL cells, $JQR_SANE/$JQR_FIX with counts)" PASS
 else
   row "display script on the device's jq: $JQR_DIFF/$JQR_CELL differ, counts $JQR_SANE/$JQR_FIX" FAIL
+fi
+# the radio-pair guards: both screens carry real lines on the simulated device jq (a regex-free filter that fell over would print the two
+# lines of an absent array on both builds alike), and the Bluetooth figure rides on the summary's APs line. Without tests/fixtures/radio-pair.json
+# (the page track writes it; the parity drop-in has the row that is red for its absence) the row is NOT COVERED, never a quiet PASS.
+JQR_RP="$F/radio-pair.json"; JQR_RPB=$JQR_D/radio-pair.bluetooth.nrx; JQR_RPD=$JQR_D/radio-pair.bands.nrx; JQR_RPS=$JQR_D/radio-pair.summary.nrx
+if [ ! -s "$JQR_RP" ]; then
+  notcov "display Bluetooth and activity on the device's jq (needs tests/fixtures/radio-pair.json)"
+else
+  jqr_run 1 bluetooth "$JQR_RP" "$JQR_RPB"; jqr_run 1 bands "$JQR_RP" "$JQR_RPD"; jqr_run 1 summary "$JQR_RP" "$JQR_RPS"
+  JQR_G1=$(grep -cE '^[0-9]+\+? addresses? \([0-9]+ rotating, [0-9]+ fixed\)$' "$JQR_RPB")
+  JQR_G1=$((JQR_G1 + $(grep -cE '^ -?[0-9]+ dBm  .+  \([0-9]+\)$' "$JQR_RPB")))
+  JQR_G2=$(grep -cE '^  (2\.4|5|6) GHz: [0-9]+ AP\(s\)  act [#-]{8} [0-9]+%$' "$JQR_RPD")
+  JQR_G3=$(grep -cE '^APs [0-9]+ .* 2\.4:[0-9]+  5:[0-9]+  6:[0-9]+  BT [0-9]+\+?$' "$JQR_RPS")
+  if [ "$JQR_G1" -ge 2 ] && [ "$JQR_G2" -ge 1 ] && [ "$JQR_G3" = 1 ]; then
+    row "display Bluetooth and activity on the device's jq carry real lines on radio-pair (count line + companies $JQR_G1, band bars $JQR_G2, BT on the APs line $JQR_G3)" PASS
+  else
+    row "display Bluetooth and activity on the device's jq: count line + companies $JQR_G1 (want 2 or more), band bars $JQR_G2 (want 1 or more), BT on the APs line $JQR_G3 (want 1)" FAIL
+  fi
 fi
 # ---- R3 ORACLE: what the normalisation MEANS, pinned by a table.
 # R2 above runs the script against itself under two jq builds, so it cannot see the normalisation itself
@@ -265,8 +291,20 @@ cat > "$JQR_ODD" <<'JQRODD'
         {"bssid":"02:00:00:00:00:03","ssid":true,"rssi":-44,"channel":1,"security":["WPA2"],"band":"2.4","clients":[]},
         {"bssid":"02:00:00:00:00:04","rssi":-55,"channel":40,"clients":[]}]}
 JQRODD
+# the same document carries the radio-pair fields with the wrong types: a record that is no object, a string rssi, a number as the company
+# name, an array as the company id, an unknown address type (the page counts it as rotating), activity entries with a string freq, a string
+# share, a share over 1 and a share of 0; two records and one entry are good
+JQR_ODD2="$JQR_D/odd-radio.json"
+cat > "$JQR_ODD2" <<'JQRODD2'
+{"generated":1789500000,"source":"recon-db","center":{"label":"Bench","bt_window":6,"bt_hold":120},"unassociated":[],
+ "bluetooth":[{"addr":"02:00:00:00:00:b1","addr_type":7,"rssi":-50,"company_name":42},
+              {"addr":"02:00:00:00:00:b2","addr_type":"public","rssi":-55,"company":[1]},
+              {"addr":"02:00:00:00:00:b3","addr_type":"public","rssi":"-60"}, "text", null, 3],
+ "activity":[{"freq":"2412","share":0.5},{"freq":2412,"share":"x"},{"freq":2417,"share":1.5},{"freq":2422,"share":0},{"freq":2437,"share":0.4}],
+ "aps":[{"bssid":"02:00:00:00:00:01","ssid":"Lobby","rssi":-31,"channel":6,"security":"WPA2","band":"2.4","clients":[]}]}
+JQRODD2
 JQR_O4=0; JQR_C4=0
-for JQR_S in summary top bands devices probes clients air; do
+for JQR_S in summary top bands devices probes clients bluetooth air; do
   JQR_C4=$((JQR_C4 + 1))
   jqr_run 0 "$JQR_S" "$JQR_ODD" "$JQR_D/odd.$JQR_S.real"
   jqr_run 1 "$JQR_S" "$JQR_ODD" "$JQR_D/odd.$JQR_S.nrx"
@@ -281,9 +319,20 @@ grep -q '^-31 dBm  Lobby  2.4G  WPA2$' "$JQR_D/odd.top.real" || { JQR_O4=$((JQR_
   echo "    odd-types: the ordinary AP vanished too -- the filter died outright"; }
 grep -q '2\.4:2' "$JQR_D/odd.summary.real" || { JQR_O4=$((JQR_O4 + 1))
   echo "    odd-types: band counts did not survive a non-string band"; }
-if [ "$JQR_O4" = 0 ] && [ "$JQR_C4" = 7 ]; then
-  row "screen_top survives non-string ssid/security ($JQR_C4 screens x 2 builds)" PASS
+# the odd radio-pair document: both builds agree on every screen, the two good records are counted (one rotating, one fixed), both land in
+# 'company not advertised', the one good entry makes its band's bar, and the summary says BT 2
+for JQR_S in summary bands bluetooth; do
+  jqr_run 0 "$JQR_S" "$JQR_ODD2" "$JQR_D/oddr.$JQR_S.real"
+  jqr_run 1 "$JQR_S" "$JQR_ODD2" "$JQR_D/oddr.$JQR_S.nrx"
+  cmp -s "$JQR_D/oddr.$JQR_S.real" "$JQR_D/oddr.$JQR_S.nrx" || { JQR_O4=$((JQR_O4 + 1)); echo "    odd-radio device-jq differs: $JQR_S"; }
+done
+grep -qxF '2 addresses (1 rotating, 1 fixed)' "$JQR_D/oddr.bluetooth.real" || { JQR_O4=$((JQR_O4 + 1)); echo "    odd-radio: the count line of the two good records is missing"; }
+grep -qxF ' -50 dBm  company not advertised  (2)' "$JQR_D/oddr.bluetooth.real" || { JQR_O4=$((JQR_O4 + 1)); echo "    odd-radio: the company line is missing"; }
+grep -qxF '  2.4 GHz: 1 AP(s)  act ###----- 40%' "$JQR_D/oddr.bands.real" || { JQR_O4=$((JQR_O4 + 1)); echo "    odd-radio: the bar of the one good entry is missing"; }
+grep -q '  BT 2$' "$JQR_D/oddr.summary.real" || { JQR_O4=$((JQR_O4 + 1)); echo "    odd-radio: BT 2 is missing from the summary"; }
+if [ "$JQR_O4" = 0 ] && [ "$JQR_C4" = 8 ]; then
+  row "screen_top survives non-string ssid/security; the Bluetooth screen and the activity bars survive records and entries of the wrong types ($JQR_C4 screens x 2 builds)" PASS
 else
-  row "screen_top on non-string ssid/security: $JQR_O4 problem(s)" FAIL
+  row "screen_top on non-string ssid/security, Bluetooth and activity on wrong types: $JQR_O4 problem(s)" FAIL
 fi
 unset -f jqr_run

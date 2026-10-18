@@ -193,12 +193,13 @@ changes nothing in the device's interface; a firmware update does not touch it.
 
 | Screen | `--once` name | Content |
 |---|---|---|
-| Summary | `summary` | GEN and age of the capture, number of APs split by band, clients (free, how many of them randomised and in how many clouds, associated), freshness, channel crowding (level 1–5, busiest channel), number of searching stations, number of open/WEP networks (red) |
+| Summary | `summary` | GEN and age of the capture, number of APs split by band (with `BT n`, the addresses of the last Bluetooth scan, on the same line when the capture has the array; `256+` at the cap), clients (free, how many of them randomised and in how many clouds, associated), freshness, channel crowding (level 1–5, busiest channel), number of searching stations, number of open/WEP networks (red) |
 | Strongest networks | `top` | the eight strongest networks by RSSI, with band and security; open and WEP networks in red |
-| Bands and security | `bands` | APs per band and the count per security class; Open and WEP in red |
+| Bands and security | `bands` | APs per band, each with the band's share of all channel activity as an 8-cell ASCII bar (`act ######-- 78%`) when the capture has activity, and the note 'act = share of frames heard (relative)' under the band lines only then; the count per security class; Open and WEP in red |
 | Devices and merges | `devices` | logical devices (at least two BSSIDs sharing the first five bytes, locally administered addresses excepted), merged SSIDs (one name under at least two devices), up to four examples |
 | Probe requests | `probes` | how many stations have a named probe, the eight most named SSIDs as 'named: <SSID>' (received only; 'No named probe heard.' when there is none) |
 | Stations | `clients` | clients free (randomised, clouds)/associated, the eight strongest stations with their assignment; the addresses of a cloud as one line |
+| Bluetooth | `bluetooth` | the addresses of the last passive Bluetooth LE scan ('23 addresses (21 rotating, 2 fixed)'), the strongest by company over the last two minutes (at most seven lines: signal, company name, 'company id N' where only the id is known, 'company not advertised' for rotating addresses without manufacturer data, and the count; addresses, never devices; no names), the time of the last scan and, on a window that was void, ' - no valid scan now'. A capture without the array reads 'No Bluetooth in this scan.' and 'Turn it on in Settings > Bluetooth.'. Every line is at most 40 columns, ASCII separators only |
 | Air quality | `air` | crowding level; per band the three busiest channels with co-channel and adjacent-channel counts, the least occupied common channel and the estimated beacon share |
 
 The Overview moves only when a key is pressed. Every screen is drawn in the order ARM, DRAW, TAKE. ARM starts one
@@ -224,10 +225,10 @@ and what each key does in them:
 
 | State | Shows | A | B | Left / Right | Up / Down |
 |---|---|---|---|---|---|
-| Arm, then Draw (any of the seven) | the wait is started, then `Reading...` while `jq` runs, the block, the frame | the first key ends the draw, then the same screen is drawn again (a cut draw keeps nothing: `jq` runs again) | the draw ends, then the list opens | the draw ends, then the previous / next screen is drawn | the draw ends and, because it was cut, the same screen is drawn again |
-| Screen (any of the seven), wait open | the finished draw | Arm, Draw: the same screen again | opens the list, the cursor on this screen | Arm, Draw: the previous / next screen | ignored: Arm again at once, nothing drawn |
+| Arm, then Draw (any of the eight) | the wait is started, then `Reading...` while `jq` runs, the block, the frame | the first key ends the draw, then the same screen is drawn again (a cut draw keeps nothing: `jq` runs again) | the draw ends, then the list opens | the draw ends, then the previous / next screen is drawn | the draw ends and, because it was cut, the same screen is drawn again |
+| Screen (any of the eight), wait open | the finished draw | Arm, Draw: the same screen again | opens the list, the cursor on this screen | Arm, Draw: the previous / next screen | ignored: Arm again at once, nothing drawn |
 | Waiting, wait open | 'Waiting for the first scan.' and the frame | Arm, Draw: again, and reads the capture if one has come | opens the list | as on a screen | ignored |
-| List, no wait | `LIST_PICKER` titled `Overview` with the rows `Summary`, `Strongest Networks`, `Bands & Security`, `Devices & Merges`, `Probe Requests`, `Stations`, `Air Quality` | Arm, Draw: the chosen screen | ends the Overview with exit 0: the payload's menu, the cursor on 'Overview' | the picker's own | the picker's own |
+| List, no wait | `LIST_PICKER` titled `Overview` with the rows `Summary`, `Strongest Networks`, `Bands & Security`, `Devices & Merges`, `Probe Requests`, `Stations`, `Bluetooth`, `Air Quality` | Arm, Draw: the chosen screen | ends the Overview with exit 0: the payload's menu, the cursor on 'Overview' | the picker's own | the picker's own |
 
 Left and Right step through the screens in the order of the list and round its ends: Right on Air Quality shows the summary, and
 Left on the summary shows Air Quality. BACK and Escape count as B, and a lower-case a or b as the capital (the words other payloads of the library test for); any other

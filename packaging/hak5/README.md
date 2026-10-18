@@ -23,7 +23,7 @@ on the management address only, so it never appears on other networks the Pager 
 
 <img src="https://raw.githubusercontent.com/starchorus/pager/main/docs/img/starchorus-phone.jpg" width="250" alt="The sky on a phone, from simulated data: the status bar at the top, the controls in a sheet at the bottom">
 
-The Pager's own display carries a compact Overview instead: seven screens of counts and lists, for
+The Pager's own display carries a compact Overview instead: eight screens of counts and lists, for
 a glance when no second screen is to hand. To see what the second screen shows without a Pager,
 open the demonstration at <https://starchorus.com/pager/>.
 
@@ -36,8 +36,11 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
 
 Starchorus never transmits. It does not deauthenticate, run an access point of its own, inject
 frames, associate with any network or scan actively. It reads the recon database from a read-only
-copy (`sqlite3 -readonly`), or receives in monitor mode. It does not change the LED. An active scan
-exists in the collector only as a last resort behind the environment variable
+copy (`sqlite3 -readonly`), or receives in monitor mode. Two settings, both off by default, add to what
+it reads: 'Traffic' (channel activity from the AP service and the frame counts of stations) and
+'Bluetooth' (a scan of 6 s per refresh). Bluetooth: passive LE scan only; by the Bluetooth specification a
+passive scan sends no scan request, it listens for advertisements that devices broadcast anyway. It does not change the LED. An active scan exists in the collector only as
+a last resort behind the environment variable
 `STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it.
 
 One collector runs per Pager, so that two loops never share the monitor interface or radio: starting
@@ -120,10 +123,13 @@ environment variable of the same meaning takes precedence over the file.
 | `vendor` | `on` | `on`, `off` | vendor names from the local OUI list |
 | `survey` | `off` | `on`, `off` | channel occupancy from the survey dump |
 | `page` | `on` | `on`, `off` | 'Start' starts the page server |
+| `bluetooth` | `off` | `on`, `off` | the passive Bluetooth LE scan, 6 s per refresh |
+| `traffic` | `off` | `on`, `off` | channel activity from the AP service and the frame counts of stations |
 
 In the menu's Settings, `interval` is 'Refresh', `window` is 'Show Last', `vendor` is 'Vendor
-Names', `survey` is 'Channel Load' and `page` is 'Web Page'. A change made there while Starchorus
-runs is applied when you leave Settings, except 'Web Page', which takes effect at once. A window of one hour keeps each pass small enough for the
+Names', `survey` is 'Channel Load', `traffic` is 'Traffic', `bluetooth` is 'Bluetooth' and `page` is
+'Web Page'. A change made there while Starchorus runs is applied when you leave Settings, except
+'Web Page', which takes effect at once. A window of one hour keeps each pass small enough for the
 Pager's CPU; 'Show Last' also offers 'All (may be slow)'. Marking the Pager's own radios
 (`STARCHORUS_OWN=1`) and keeping the Overview closed after 'Start' (`STARCHORUS_DASHBOARD=0`) are
 environment variables only.
