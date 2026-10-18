@@ -196,7 +196,7 @@ rowif "phone pass theme-free: phoneLayout, skyBox, phDetailDetent, applyPhone ($
 
 # ---- the masthead shows the version in small type: the text is STARCHORUS.version (the page's one version line), its font is
 # at most three quarters of the brand's, and the brand still fits one line on a 375-px phone
-PHN_VER=$(sed -n 's/^  version: "\([0-9.]*\)",$/\1/p' "$H")
+PHN_VER=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$H")
 PHN_VE='(()=>{const e=document.getElementById("mast-ver"),b=document.getElementById("mast-brand"),fs=x=>parseFloat(getComputedStyle(x).fontSize);return [e.textContent===STARCHORUS.version,fs(e)<=fs(b)*0.75,b.getBoundingClientRect().height<fs(b)*2.2,e.textContent].join("|")})()'
 runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-ver" --width 1440 --height 900 --wait 3 --fps 0 --eval "$PHN_VE" >/dev/null 2>&1
 runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-verp" --width 375 --height 812 --mobile --wait 3 --fps 0 --eval "$PHN_VE" >/dev/null 2>&1

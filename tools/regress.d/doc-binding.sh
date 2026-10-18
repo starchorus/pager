@@ -52,9 +52,9 @@ if [ -z "$DBN_QM" ] && [ -n "$DBN_Q" ]; then row "spec binding: every query para
 else row "spec binding: every query parameter ($DBN_Q) is in §2.7 (missing:${DBN_QM:- none})" FAIL; fi
 
 # versions agree: the page, the spec's §10 listing, the display script (the full list of places is the version row of station-outputs.sh)
-DBN_PV=$(grep -o 'version: "[0-9.]*"' starchorus.html | head -n 1 | sed 's/version: "\(.*\)"/\1/')
-DBN_SV=$(grep -o '^  version: "[0-9.]*",' "$DBN_SPEC" | head -n 1 | sed 's/.*"\(.*\)".*/\1/')
-DBN_GV=$(sed -n 's/^# Version:      \([0-9.]*\)$/\1/p' starchorus-display.sh | head -n 1)
+DBN_PV=$(grep -o 'version: "[0-9][0-9A-Za-z.-]*"' starchorus.html | head -n 1 | sed 's/version: "\(.*\)"/\1/')
+DBN_SV=$(grep -o '^  version: "[0-9][0-9A-Za-z.-]*",' "$DBN_SPEC" | head -n 1 | sed 's/.*"\(.*\)".*/\1/')
+DBN_GV=$(sed -n 's/^# Version:      \([0-9][0-9A-Za-z.-]*\)$/\1/p' starchorus-display.sh | head -n 1)
 if [ -n "$DBN_PV" ] && [ "$DBN_PV" = "$DBN_SV" ] && [ "$DBN_PV" = "$DBN_GV" ]; then row "spec binding: versions agree — page $DBN_PV = spec §10 $DBN_SV = display script $DBN_GV" PASS; else row "spec binding: versions disagree — page $DBN_PV / spec $DBN_SV / display script $DBN_GV" FAIL; fi
 # CONTRIBUTING: ONE policy. The mandatory section names the passivity check as "must be green" for every PR and the full
 # regression as green before the merge; no heading or sentence calls the checks as a whole "not a condition"/"not mandatory"
