@@ -253,10 +253,13 @@ necessarily who made the device. Names are rare under a passive scan.
   60-s windows, about 20:45: 35 off, 31 with `hcitool` only, 27 off, 57 with `hcitool` and `btmon --write`, 62 off. The traffic of the
   surroundings moved by more (27 to 62 rx/s with no scan) than any effect of the scan, so there was no loss to see; the measurement
   cannot show that there is none either. It was taken on `wlan1mon`, which is the interface that shares the USB device with `hci0` (A15,
-  17 October 2026), so it watched the right radio; its weakness is the drift of the surroundings, not the interface. The devbench's
-  coexistence row (§6a) is the answer to give; the layer stays off by default until it exists.
+  17 October 2026), so it watched the right radio; its weakness is the drift of the surroundings, not the interface. The paired
+  measurement of 18 October 2026 (§6a, the coexistence row) answers it as far as 30 pairs can: with the window on, `wlan1mon` heard
+  20.7 frames per second against 20.7 without, a within-pair difference of −0.07/s where the pairs could have shown about 1/s; the
+  round trip of the management link stayed at 1.2 ms. A loss of a few per cent would have shown; a smaller one would not. The layer stays
+  off by default for its CPU cost (§6a), not for coexistence.
 
-**What the collector does** (the design, `docs/architecture.md` §14.6 and `SECURITY.md`; none of it has run on the device yet).
+**What the collector does** (the design, `docs/architecture.md` §14.6 and `SECURITY.md`; measured on the device on 18 October 2026, §6a).
 It is opt-in (`STARCHORUS_BLUETOOTH=1`, or Settings > Bluetooth). Each cycle it starts `btmon -i hci0` and, once `btmon` holds its
 monitor socket, `hcitool -i hci0 lescan --passive --duplicates`, for a window of 6 s (`STARCHORUS_BT_WINDOW`, 5 to 15), each under
 `timeout -s INT` as a dead-man timer and each tracked by two pids (the `timeout` wrapper and the tool). It ends the tools with SIGINT:
@@ -741,23 +744,35 @@ time itself was measured, above): the number of `sqlite3` processes per cycle (a
 `collect.log` after a change of scenery (is the cache growing, and if not, which reason is named); and an end-to-end
 `STARCHORUS_SOURCE=pineap sh starchorus-collect.sh --once` by hand (the daemon of the harness has run it under BusyBox `awk`).
 
-**The radio pair on the device: what is open.** The opt-in Bluetooth window and the opt-in Traffic read (`docs/architecture.md` §14.6) have
-**not** been measured as part of the collector. What exists are the hand measurements of §2b (the costs of the two tools alone) and the
-per-step costs above; an estimate built from them puts the Bluetooth window above the share of the core that was hoped for, which is the
-first reason the switch is off by default. In a crowded hall the parse is held to a size and a time limit, so the cycle can lengthen but the
-Wi-Fi document is never held back by it. The rows below replace the estimate (the benchmark harness on the device, owner-run, one
-approval per command; the order matters: the reads that settle the design, A1, A2, A10 and A15 of §2b, were taken on 17 October 2026 (what is left of them: the
-head start of `btmon` and `-i` on `hcitool` in A1, INT forwarding in A2, the offline decode of A10), and the 10-minute traffic repetition comes before the sentence on `RECON CHANNELS` in `SECURITY.md` is dated; the two-call test of A5 is done):
+**The radio pair on the device: measured on 18 October 2026.** The opt-in Bluetooth window and the opt-in Traffic read (`docs/architecture.md` §14.6)
+were measured as part of the collector: a copy of the 0.2.0-dev.1 collector under `/tmp` with its own directories and the payload's defaults
+(one-hour window, 30-s interval, vendor on), alongside the recon engine, the installed 0.1.1 collector and the owner's open Overview; the
+reads that settle the design (A1, A2, A10, A15 of §2b) came first. Segments of 8, 8 and 10 minutes with both switches off, Bluetooth on and
+Traffic on; the ticks are the CPU time of the collector's children per cycle (`cutime` and `cstime` of the loop), the tools' own ticks were read
+from `/proc` once a second while they ran. The result in one line: the design is passive as built (V-13 and V-3 below), the tools cost what
+the brief said, and the parse, the polling and the AP service's command-line client cost more than the budget; the switches stay off by default
+and the levers are listed after the table. In a crowded hall the parse is held to a size and a time limit, so the cycle can lengthen but the
+Wi-Fi document is never held back by it.
 
-| Row | Procedure | Pass |
-|---|---|---|
-| Bluetooth, `btmon` part | the collector daemon with the payload's defaults, 20 min in alternating 10-min halves with `STARCHORUS_BLUETOOTH=0` and `1`; ticks of `btmon` and `hcitool` per cycle, a 6-s window measured directly (no scaling) | at most 50 ticks per cycle |
-| Bluetooth, parse and layers part | the same; ticks of `grep`, the parse and the per-cycle layer pass per cycle | at most 80 ticks per cycle |
-| Bluetooth, whole | the collector's process tree | at most 130 ticks per cycle (about 3 % at 44 s); above it, a 5-s window |
-| crowded hall | a synthetic 1.5-MB window (the masked fixture repeated with counter-derived addresses) replayed through the parser on the device | wall time at most 6 s; the ticks are recorded |
-| traffic | the same alternation with `STARCHORUS_TRAFFIC=0` and `1` | at most 20 ticks per cycle |
-| coexistence | on the interface that shares the chip with `hci0` (A15), plus the management link (ping latency from the owner's side, the `wlan0mgmt` counters): 30 pairs of 20 s on and 20 s off; the mean of the within-pair differences of rx frames per second, overall and per band (2.4 GHz against 5 GHz, from the activity shares or `iw survey` busy time) | the difference and the smallest difference these pairs can detect are written into §2b; the default stays off |
-| V-13 passivity | one window by the collector; the window's `btmon` text counted for `Type: Passive (0x00)` before the first report, `Scanning: Enabled`, `Scanning: Disabled` after it, and every event type (counts only; no address leaves the device) | 1, 1, 1; the event-type histogram is recorded; no `hcitool` or `btmon` process is left |
+| Row | Procedure | Pass | Measured (18 October 2026) |
+|---|---|---|---|
+| Bluetooth, `btmon` part | the collector daemon with the payload's defaults, 20 min in alternating 10-min halves with `STARCHORUS_BLUETOOTH=0` and `1`; ticks of `btmon` and `hcitool` per cycle, a 6-s window measured directly (no scaling) | at most 50 ticks per cycle | **passes**: `btmon` 33 and `hcitool` 3 per window (399 and 37 ticks over 12 windows) |
+| Bluetooth, parse and layers part | the same; ticks of `grep`, the parse and the per-cycle layer pass per cycle | at most 80 ticks per cycle | **fails**: about 295 per cycle (502 with Bluetooth against 171 without, less the tools' 36). Taken apart on a real 6-s window (322 reports, 4,475 lines, 177 KB, 2,261 lines after the prefilter): `grep` 25 ticks, the `awk` grammar 150 (0.68 ms per kept line; the brief reckoned 0.1 to 0.36), `tr` 2; the polling about 60 (73 process spawns more per cycle: the `$( )` substitutions and `sleep` naps of the window loop, 0.25 to 0.85 ticks each); the layer pass about 20 |
+| Bluetooth, whole | the collector's process tree | at most 130 ticks per cycle (about 3 % at 44 s); above it, a 5-s window | **fails**: about 331 per cycle, 8 % of the core at the 40-s cycle the window makes; 54 reports per second in this room against the brief's 30 |
+| crowded hall | a synthetic 1.5-MB window (the masked fixture repeated with counter-derived addresses) replayed through the parser on the device | wall time at most 6 s; the ticks are recorded | not run on 18 October; from the real window's 0.68 ms per kept line, 1.5 MB (about 19,000 kept lines) would take about 13 s, so the parse cap (512 KiB, `timeout 6`) is what holds the cycle, as designed |
+| traffic | the same alternation with `STARCHORUS_TRAFFIC=0` and `1` | at most 20 ticks per cycle | **fails**: about 48 per cycle (219 against 171); the cost is the AP service's command-line client itself (one call per cycle) |
+| V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; transmit counters of the radios before and after | counters unchanged | **passes**: `tx_packets` of `wlan0`, `wlan0mon` and `wlan1mon` stayed 0 over all 26 minutes of the three segments (the firmware had no `wlan0mgmt` or `wlan0cli` that day; `eth0` carried only the ssh session) |
+| stop paths | in a copy: `--stop` in the middle of a window; `kill -9` of the loop in the middle of a window, then a new start | no tool left; the next window sets its parameters | **passes**: `--stop` returned in 2.4 s and the tools were gone 1 s later, no pid file left, the loop ended with 143; after `kill -9` the tools ended by their own timers 12.9 s later and the window's pid file stayed; the next start swept it, and its first window had its witness (1, 1, 1; 325 reports) |
+| coexistence | on the interface that shares the chip with `hci0` (A15), plus the management link (ping latency from the owner's side, the `wlan0mgmt` counters): 30 pairs of 20 s on and 20 s off; the mean of the within-pair differences of rx frames per second, overall and per band (2.4 GHz against 5 GHz, from the activity shares or `iw survey` busy time) | the difference and the smallest difference these pairs can detect are written into §2b; the default stays off | **no loss to see**: 30 pairs (`btmon` and the passive scan for 20 s, then 20 s without), rx frames per second on `wlan1mon` 20.7 with the window and 20.7 without, mean within-pair difference −0.07/s (−0.3 %), the pairs could have shown a difference of about 1 frame per second (two standard errors, sd 2.6); the other radio (`wlan0mon`, a control that shares nothing) moved by −1.7/s, which marks the drift the pairs still carry rather than any effect; the management link's round trip from the owner's machine stayed at 1.2 ms median in both phases (600 and 557 samples, p95 1.3 ms, no loss); no per-band split (the activity shares were not taken alongside) |
+| V-13 passivity | one window by the collector; the window's `btmon` text counted for `Type: Passive (0x00)` before the first report, `Scanning: Enabled`, `Scanning: Disabled` after it, and every event type (counts only; no address leaves the device) | 1, 1, 1; the event-type histogram is recorded; no `hcitool` or `btmon` process is left | **passes**: 1, 1, 1 and no `Type: Active`; 320 reports in 6 s, `ADV_IND` 261, `ADV_NONCONN_IND` 33, `ADV_SCAN_IND` 26, every event with one report; the document carried 23 Bluetooth records (6 public, 7 resolvable, 10 static) and 13 activity shares; no process and no pid file left |
+
+**The levers, in the order of their yield** (none taken on 18 October; the owner decides for 0.2.0): the `awk` grammar of the parse runs its
+header test, two `substr` and up to three regular expressions on every kept line, five of the seven of which are field lines that start with
+eight blanks and can be told apart by their first byte, so the grammar can skip the header test for them (about a third of the 150 ticks);
+the window loop polls every 0.2 s with `$( )` substitutions and a `sleep` applet, each a process on this shell, about 73 spawns and 60 ticks per
+window, which globals set by the functions themselves and a longer nap would cut to a handful; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
+brief's Q2) takes a sixth off the tools and the parse alike; the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s
+wide, so nothing is lost) for half its cost. The binary route (A16) stays out: the device has no `od`.
 | V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |
 
 ---

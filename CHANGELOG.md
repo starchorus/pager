@@ -5,7 +5,7 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ## 0.2.0 - unreleased
 
-*Development build `0.2.0-dev.1` of 18 October 2026: a GitHub pre-release with everything listed here, for trying out; the stable release stays 0.1.1. Bluetooth and Traffic are opt-in and have not yet been measured on the device.*
+*Development build `0.2.0-dev.1` of 18 October 2026: a GitHub pre-release with everything listed here, for trying out; the stable release stays 0.1.1. Bluetooth and Traffic are opt-in; measured on the device on 18 October 2026 (`docs/device-notes.md` §6a): passive as designed, but the Bluetooth window costs about 8 % of the Pager's core per cycle against the 3 % the design budgeted, and the Traffic read about half a second of CPU per cycle; both stay off by default.*
 
 ### Added
 
