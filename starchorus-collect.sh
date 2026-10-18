@@ -763,12 +763,15 @@ bt_kid() {
         bt_nap
     done
 }
-# PID (the monitor's own; may be empty): 0 once it holds a socket (a link of /proc/PID/fd that starts with socket:), or has written its first line
-# to the window file; polled by the clock for up to BT_T_READY. No socket, no scan: the window is void before anything was asked of the controller.
+# PID (the monitor's own; may be empty): 0 once it holds a socket (a link of /proc/PID/fd that starts with socket:), or has written a line other
+# than its banner to the window file (the index and note lines come with the socket; the banner "Bluetooth monitor ver 5.72" comes before it: on
+# the device 0.1 s after the start against 0.5 s for the socket, five runs on 18 October 2026, so the banner alone would start the scan with the
+# monitor not yet attached and the scan's parameters unrecorded); polled by the clock for up to BT_T_READY. No socket, no scan: the window is
+# void before anything was asked of the controller.
 bt_ready() {
     bt_tick; br_t=$BT_NOW
     while :; do
-        [ -s "$BT_F" ] && return 0
+        if [ -s "$BT_F" ] && grep -q -v '^Bluetooth monitor ver' "$BT_F" 2>/dev/null; then return 0; fi
         if [ -n "$1" ]; then
             for br_f in "$BT_PROC/$1"/fd/*; do
                 case $(readlink "$br_f" 2>/dev/null) in socket:*) return 0 ;; esac
@@ -3260,7 +3263,8 @@ run_cycle() {
 # Every stub writes its own $$ to log/pid.<role> (S = the scan, M = the monitor, T = the timeout stand-in), its argv to log/argv.<role>, and a stat
 # file whose state is Z once it has ended, as a real zombie shows. Modes, in cfg/ (one word per file; a missing file means "ok"):
 #   S.mode / M.mode: ok (ends on INT or TERM), ignoreint (ends on TERM only), ignoreall (ends only when killed), fail (S: prints the error the
-#                    scan prints when it cannot set its parameters, exits 1), silent (M: no output, no socket)
+#                    scan prints when it cannot set its parameters, exits 1), silent (M: no output, no socket), banner (M: only the banner line
+#                    "Bluetooth monitor ver 5.72", no socket: the device's state 0.1 to 0.5 s after the start)
 #   T.mode: same (the stand-in becomes the tool, as the BusyBox applet makes its program, its watcher delivers the signal at the deadline), parent (the tool is its child;
 #           forwards what arrives for the wrapper; returns 124 after delivering its signal), noforward (parent, but a signal that arrives for the
 #           wrapper ends the wrapper and leaves the tool alone). Every signal that reaches a wrapper is written to log/wrapper.sigs.
@@ -3323,7 +3327,8 @@ echo $$ > "$BTS/tool.$pp"
 trap 'printf "%s (%s) Z %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n" "$$" "$cm" "$pp" "$$" > "$BTS/proc/$$/stat"' EXIT
 grep '^SigIgn' "/proc/$$/status" > "$BTS/log/sigign.$ROLE" 2>/dev/null
 if [ "$ROLE" = S ] && [ "$mode" = fail ]; then echo 'Set scan parameters failed: Input/output error' >&2; exit 1; fi
-if [ "$ROLE" = M ] && [ "$mode" != silent ]; then
+if [ "$ROLE" = M ] && [ "$mode" = banner ]; then echo 'Bluetooth monitor ver 5.72'; fi
+if [ "$ROLE" = M ] && [ "$mode" != silent ] && [ "$mode" != banner ]; then
     ln -s 'socket:[1]' "$BTS/proc/$$/fd/3"
     cat "$BTS/cfg/M.text" 2>/dev/null
 fi
@@ -3551,6 +3556,27 @@ BTWE
     { bpt_n=0; bpt_pre; bpt_rep 02:00:00:00:00:91 Static -50 "$bpt_adv"; bpt_hdr '>' 'HCI Event: Command Complete (0x0e) plen 4'; } > "$bpt/w11b.txt"
     bpt_run "$bpt/w11b.txt"
     if [ "$bpt_ok" = 1 ] && [ "$BPT_NB" = 1 ] && [ "$bpt_jr" = 0 ] && [ "$bpt_l1/$bpt_l2" = 1/0 ]; then st_pass "bt_judge: no Scanning: Disabled -> the window counts (its reports were heard passively), one 'may still be scanning' line per episode"; else st_fail "bt_judge: no disable (ok $bpt_ok, B $BPT_NB, log $bpt_l1/$bpt_l2, W [$BPT_W])"; fi
+    # 12) a name from the air with a newline inside: btmon prints names unfiltered (A10, the device's decode of a crafted btsnoop file, 18 October
+    #     2026), so the rest of the name becomes a line of its own. A name is at most 29 bytes, so that line is at most 28 bytes: never a header (41
+    #     and more), never an Event type that opens a report (38 with its " - NAME (0x0N)" tail), never an Address (34). A Type: or RSSI: line that
+    #     fits is read inside the injecting report only, which is then dropped (suspect); the other reports and the witness are untouched, active
+    #     stays 0, the window counts. A line at column 0 (no indentation) is no line of the grammar at all.
+    { bpt_n=0; bpt_pre
+      bpt_rep c2:00:00:00:00:41 Static -40 "$bpt_adv" '        Name (complete): ' '        Type: Active (0x01)'
+      bpt_rep c2:00:00:00:00:42 Static -41 "$bpt_adv" '        Name (complete): ' '        RSSI: -30 dBm (0xe2)'
+      bpt_rep c2:00:00:00:00:43 Static -42 "$bpt_adv" '        Name (complete): ' '        Type: Passive (0x00)'
+      bpt_rep c2:00:00:00:00:44 Static -43 "$bpt_adv" '        Name (complete): ' '        Event type: X'
+      bpt_rep c2:00:00:00:00:45 Static -44 "$bpt_adv" '        Name (complete): ' 'Address: c2:00:00:00:00:99'
+      bpt_rep c2:00:00:00:00:46 Static -45 "$bpt_adv" '        Name (complete): Maker-Z'
+      bpt_rep c2:00:00:00:00:47 Static -46 "$bpt_adv" '        Name (complete): AAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+      bpt_post; } > "$bpt/w12.txt"
+    bpt_run "$bpt/w12.txt"
+    bpt_want=$(printf 'B\tc2:00:00:00:00:45\trandom-static\t-44\t1\t\t\t\t1\nB\tc2:00:00:00:00:46\trandom-static\t-45\t1\t\t\tMaker-Z\t1\nB\tc2:00:00:00:00:47\trandom-static\t-46\t1\t\t\tAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\t1\n')
+    if [ "$BPT_BL" = "$bpt_want" ] && [ "$BPT_W" = "$(printf 'W\t1\t0\t1\t1\t0\t4\t0')" ] && [ "$bpt_jr" = 0 ] \
+       && [ "$(grep -c '4 malformed reports dropped' "$bpt/log")" = 1 ] && [ "$(wc -l < "$bpt/log" | tr -d ' ')" = 1 ]; then
+        st_pass "bt_parse: a name with a newline inside cannot act as a field outside its own report (Type: Active, RSSI, Type: Passive, Event type injected: four reports dropped, active 0, passive 1, the window counts; a line at column 0 is ignored; a 29-byte name is kept whole)"
+    else st_fail "bt_parse: injected name lines [$BPT_W] judge $bpt_jr log [$(cat "$bpt/log")] lines [$BPT_BL]"; fi
+
     unset -f bpt_hdr bpt_pre bpt_post bpt_rep bpt_run bpt_f
 }
 
@@ -3999,6 +4025,13 @@ BTWIN
         st_pass "bt_begin: a monitor that holds no socket and writes nothing -> rc 6, the scan is never started, the monitor is stopped, the window is void"
     else st_fail "bt_begin: not ready (rc $BTW_RC, scan argv [$(cat "$BTS/log/argv.S" 2>/dev/null)], void [$BT_VOID], $((bts_t1 - bts_t0)) s)"; fi
     bts_idle "monitor not ready"
+    # 15b) the monitor has written its banner but holds no socket yet (the device's order: banner after 0.1 s, socket after 0.5 s): not ready either
+    bts_reap; printf 'banner\n' > "$BTS/cfg/M.mode"; BT_T_READY=100
+    bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s); BT_T_READY=300
+    if [ "$BTW_RC" = 6 ] && [ ! -e "$BTS/log/argv.S" ] && [ -e "$BTS/log/argv.M" ] && [ "$BT_VOID" = nomonitor ] && [ $((bts_t1 - bts_t0)) -le 5 ]; then
+        st_pass "bt_begin: a monitor that has written only its banner and holds no socket is not ready -> rc 6, the scan is never started, the window is void"
+    else st_fail "bt_begin: banner counted as ready (rc $BTW_RC, scan argv [$(cat "$BTS/log/argv.S" 2>/dev/null)], void [$BT_VOID], $((bts_t1 - bts_t0)) s)"; fi
+    bts_idle "monitor banner only"
     # 16) the scan cannot start (it prints its failure and exits 1): void, one log line per episode
     bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'fail\n' > "$BTS/cfg/S.mode"; printf 'same\n' > "$BTS/cfg/T.mode"
     BT_CUR=" "; BT_LOGGED=" "; bts_win; bts_v1=$BT_VOID; bts_l1=$(grep -c 'could not start' "$BTS/log/err")
