@@ -774,7 +774,7 @@ Wi-Fi document is never held back by it.
 | coexistence | on the interface that shares the chip with `hci0` (A15), plus the management link (ping latency from the owner's side, the `wlan0mgmt` counters): 30 pairs of 20 s on and 20 s off; the mean of the within-pair differences of rx frames per second, overall and per band (2.4 GHz against 5 GHz, from the activity shares or `iw survey` busy time) | the difference and the smallest difference these pairs can detect are written into §2b; the default stays off | **no loss to see**: 30 pairs (`btmon` and the passive scan for 20 s, then 20 s without), rx frames per second on `wlan1mon` 20.7 with the window and 20.7 without, mean within-pair difference −0.07/s (−0.3 %), the pairs could have shown a difference of about 1 frame per second (two standard errors, sd 2.6); the other radio (`wlan0mon`, a control that shares nothing) moved by −1.7/s, which marks the drift the pairs still carry rather than any effect; the management link's round trip from the owner's machine stayed at 1.2 ms median in both phases (600 and 557 samples, p95 1.3 ms, no loss); no per-band split (the activity shares were not taken alongside) |
 | V-13 passivity | one window by the collector; the window's `btmon` text counted for `Type: Passive (0x00)` before the first report, `Scanning: Enabled`, `Scanning: Disabled` after it, and every event type (counts only; no address leaves the device) | 1, 1, 1; the event-type histogram is recorded; no `hcitool` or `btmon` process is left | **passes**: 1, 1, 1 and no `Type: Active`; 320 reports in 6 s, `ADV_IND` 261, `ADV_NONCONN_IND` 33, `ADV_SCAN_IND` 26, every event with one report; the document carried 23 Bluetooth records (6 public, 7 resolvable, 10 static) and 13 activity shares; no process and no pid file left |
 
-**The levers, in the order of their yield** (none taken on 18 October; the owner decides for 0.2.0): the `awk` grammar of the parse runs its
+**The levers, in the order of their yield** (none taken on 18 October; the owner chose all four for 0.2.0, and none of them is measured on the device yet): the `awk` grammar of the parse runs its
 header test, two `substr` and up to three regular expressions on every kept line, five of the seven of which are field lines that start with
 eight blanks and can be told apart by their first byte, so the grammar can skip the header test for them (about a third of the 150 ticks; taken for 0.2.0,
 the main rule tests the first byte before it calls the header test, and the gain is not yet measured on the device);
@@ -788,8 +788,9 @@ reaches the collector alone waits for the nap in progress, up to 0.5 s where it 
 its budget is 10 s). Counted from the code, that is about 20 process starts fewer per window, not yet measured on the Pager; the polls of `bt_ready`
 (a `grep` at each, and a `readlink` per open descriptor of the monitor) stay as they were; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
 brief's Q2) takes a sixth off the tools and the parse alike (taken for 0.2.0: 5 s is the default, 6 s when the rows above were measured, and the
-5-s window has not run on the device yet); the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s
-wide, so nothing is lost) for half its cost. The binary route (A16) stays out: the device has no `od`.
+5-s window has not run on the device yet); the Traffic read is now taken every second cycle (the AP service's window is 20 to 30 s
+wide, so nothing is lost) for half its cost: the collector calls on the first cycle and then every second one, and the cycle in between publishes the answer
+of the cycle before, which makes the 48 ticks per call about 24 per cycle on average (the arithmetic of the figure above, not a new measurement on the Pager). The binary route (A16) stays out: the device has no `od`.
 | V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |
 
 ---

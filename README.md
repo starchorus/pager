@@ -351,7 +351,7 @@ All variables are optional.
 | `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` its read-only recon commands of the AP service (three fixed command lines, see [SECURITY.md](SECURITY.md)). Nothing calls it except the `pineap` source, and `STARCHORUS_SOURCE=pineap` switches it on for itself. The channel-activity line is not one of them: it needs `STARCHORUS_TRAFFIC=1` alone. |
 | `STARCHORUS_BLUETOOTH` | `0` | `1` = a passive Bluetooth LE scan window every cycle (`hcitool -i hci0 lescan --passive --duplicates`, read with `btmon -i hci0`), written as `bluetooth[]`. Needs a controller `hci0` and the tools, otherwise the layer stays off. Payload key: `bluetooth on\|off` (Settings > Bluetooth). |
 | `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 5, with one log line. Environment only. |
-| `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` every cycle (written as `activity[]`, a relative share per frequency) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
+| `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` on the first cycle and then every second one (written as `activity[]`, a relative share per frequency; the cycle in between publishes the answer of the cycle before, because the AP service counts over a window of 20 to 30 s and its command-line client costs about half a second of CPU per call on the Pager; at the payload's 30-s interval the call comes about once a minute) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 

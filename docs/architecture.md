@@ -2504,7 +2504,8 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   commands of the AP service CLI: `recon_aps` (the recon list of APs as JSON) and `recon_devices` (the APs and stations as JSON;
   the device has no `RECON CLIENTS`), the latter also as `recon_devices_recent`, the same list newest first and cut at 400
   entries, and `recon_channels` (`RECON CHANNELS format=json`: the AP service's frame count per frequency, which the collector reads as
-  relative channel activity, never as devices). The id `present` runs no command, it only asks whether the CLI exists. No `eval`, no
+  relative channel activity, never as devices, on the first cycle and then every second one: the AP service counts over a window of 20 to 30 s, so the cycle in between
+  publishes the answer of the cycle before, and an answer that gave nothing usable is called for again on the next cycle). The id `present` runs no command, it only asks whether the CLI exists. No `eval`, no
   command name from a variable, no argument (the lines carry only the optional prefix `timeout 10`). The function runs only with
   `STARCHORUS_APCLI_RO=1` (default off), with one exception: `recon_channels` is gated on `STARCHORUS_TRAFFIC=1` alone (one command, one
   opt-in), so switching Traffic on does not make `recon_aps`, `recon_devices` or `recon_devices_recent` callable, and `STARCHORUS_APCLI_RO=1`
@@ -2514,7 +2515,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   the rejection rules with a logging stub (permitted IDs → exactly the expected line; forbidden inputs, the former `monitor` id
   among them, extra arguments, and each id without its own switch → exit ≠ 0 without a stub call) and the source with a stub that prints fixture JSON.
   The three recon commands are verified on the device (`docs/device-notes.md`, V-3 and §6a: the transmit counters stayed the same); for
-  `RECON CHANNELS` that holds for single calls, and the check over ten minutes of calls every cycle (the V-3 extension) is still open.
+  `RECON CHANNELS` that holds for single calls and for ten minutes of calls every cycle (the V-3 extension, 18 October 2026, `docs/device-notes.md` §6a), which is twice the rate of the calls made now.
 - Bluetooth: exactly one function, `bt_begin`, starts a Bluetooth tool, and it does so with two literal lines, each pinned to the
   controller `hci0` (a hot-plugged adapter can never take the scan): `btmon -i hci0` first, and `hcitool -i hci0 lescan --passive
   --duplicates` only once `btmon` holds its monitor socket, both under `timeout -s INT` as dead-man timers. No tool name comes from a

@@ -103,9 +103,10 @@
 #                        beside the source build) and writes the top-level "bluetooth" array and center."bt_window"/"bt_hold". Needs a
 #                        controller (hci0) and the scan tools; without them it stays off with one log line. Addresses, not devices.  (default 0)
 #   STARCHORUS_BT_WINDOW      the window length in whole seconds, 5 to 15; anything else is 5 with one log line.  (default 5)
-#   STARCHORUS_TRAFFIC        1 = every cycle reads RECON CHANNELS (the fifth literal line of apcli_ro, gated on this flag alone, in the
-#                        background) into the top-level "activity" array (a share per frequency, never a count), and the recon database
-#                        path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
+#   STARCHORUS_TRAFFIC        1 = the first cycle and then every second one reads RECON CHANNELS (the fifth literal line of apcli_ro, gated on
+#                        this flag alone, in the background) into the top-level "activity" array (a share per frequency, never a count); the
+#                        cycles in between publish the answer of the cycle before again, as the AP service counts over a window of 20 to 30 s.
+#                        The recon database path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
 #   STARCHORUS_SYSFS_BT       tests only: where the controller is looked for (default /sys/class/bluetooth), like STARCHORUS_SYSFS_NET.
 #   STARCHORUS_PROC_BT        tests only: where the Bluetooth window code reads /proc from (default /proc).
 #
@@ -246,6 +247,7 @@ BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those o
 BT_LOGGED=" "
 BT_FRAC=1           # 0 once a `sleep` of a fraction (0.2 or 0.5) has failed here (bt_nap)
 TR_PID=""           # the background RECON CHANNELS call of this cycle
+TR_REUSE=0          # 1 = the next cycle reads the answer file of this one again instead of calling: the call is made on the first cycle and then every second one
 # Bluetooth constants. The times are hundredths of a second of bt_now. A test may set the variables; production never does.
 BT_HOLD=120         # seconds a record is carried after its window (center.bt_hold)
 BT_T_READY=300      # the monitor has this long to hold its socket before the scan starts
@@ -1406,9 +1408,12 @@ run_layers() {
         fi
         if [ "$TRAFFIC" = 1 ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != ok ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != none ]; then
             bt_issue traffic "Traffic: the AP service gave no usable channel list"
+            TR_REUSE=0   # an answer that gave nothing is not carried to the next cycle: that one calls again
         fi
     fi
-    rm -f "$rl_b.held" "$rl_b.new" "$rl_b.stat" "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
+    rm -f "$rl_b.held" "$rl_b.new" "$rl_b.stat" 2>/dev/null
+    # the answer file stays for the cycle that reads it again (TR_REUSE, run_cycle); in any other case it goes with the cycle
+    [ "$TR_REUSE" = 1 ] || rm -f "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
     [ -z "$BT_F" ] || rm -f "$BT_F.out" 2>/dev/null
 }
 
@@ -3200,7 +3205,7 @@ refresh_generated() {   # $1 = now, $2 = where the document goes
 
 # --------------------------------------------------------------------------- one cycle
 # In order: (1) the per-cycle layers that run beside the build start, the Bluetooth window (bt_begin, the processes run in the background from here on)
-# and the RECON CHANNELS call; (2) the source build, which on the recon.db path may be a SKIP: the document of the last full pass with a new
+# and the RECON CHANNELS call (on every second cycle, see there); (2) the source build, which on the recon.db path may be a SKIP: the document of the last full pass with a new
 # "generated" is the work file, no database copy, no query, no vendor pass; (3) on a built document only: the center extras, the homing reading, the
 # vendor fields; (4) on a full build only: keep the base for the next skip, before any layer; (5) the layers: the window ends (bt_end), the traffic
 # answer is waited for, add_layers; (6) publish, then the vendor cache merge. So a skipped cycle still carries fresh Bluetooth and activity layers.
@@ -3212,7 +3217,12 @@ run_cycle() {
     ok=1; CENTER_DONE=0; rc_skip=0
     BT_CUR=" "; BT_RC=3; TR_PID=""
     if [ "$BLUETOOTH" = 1 ]; then bt_begin; BT_RC=$?; fi
-    if [ "$TRAFFIC" = 1 ]; then apcli_ro recon_channels 2>/dev/null > "$TMPDIR_RAM/starchorus-traffic-$$.json" & TR_PID=$!; fi
+    # RECON CHANNELS is called on the first cycle and then every second one: the AP service's command-line client is about 48 ticks a call on the device, and its own
+    # counting window is 20 to 30 s wide, so the cycle in between publishes the answer of the cycle before and loses nothing. An empty or missing file is called for.
+    if [ "$TRAFFIC" = 1 ]; then
+        if [ "$TR_REUSE" = 1 ] && [ -s "$TMPDIR_RAM/starchorus-traffic-$$.json" ]; then TR_REUSE=0
+        else TR_REUSE=1; apcli_ro recon_channels 2>/dev/null > "$TMPDIR_RAM/starchorus-traffic-$$.json" & TR_PID=$!; fi
+    fi
     case "$RESOLVED" in
         capture)
             if [ "$CAP_METHOD" = "airodump" ]; then
@@ -3793,7 +3803,7 @@ lay_selftest() {
     # shellcheck disable=SC2016  # the stand-in script text is written out literally
     printf '#!/bin/sh\nshift\n"$@" &\np=$!\n( sleep 1; kill "$p" 2>/dev/null ) &\nw=$!\nwait "$p"\nkill "$w" 2>/dev/null\nexit 0\n' > "$LAY/hb/timeout"; chmod +x "$LAY/hb/timeout"
     lay_pa=$PATH; lay_ao=$APCLI_RO; lay_rs=$RESOLVED; lay_cm=$CAP_METHOD; lay_of=$OUTFILE; lay_od=$OUTDIR; lay_ve=$VENDOR
-    PATH="$LAY/hb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/hung.json"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1
+    PATH="$LAY/hb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/hung.json"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; TR_REUSE=0
     lay_a=$(command date +%s); BT_LOGGED=" "; run_cycle 2> "$LAY/hung.log" >/dev/null; lay_b=$(command date +%s)
     PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve
     if [ $((lay_b - lay_a)) -le 4 ] && json_ok < "$LAY/hung.json" && ! grep -q '"activity"' "$LAY/hung.json" && grep -q 'gave no usable channel list' "$LAY/hung.log" \
@@ -3804,13 +3814,43 @@ lay_selftest() {
     # the answer of the AP service reaches the document through a whole cycle (only Traffic on; the one literal call is all the stub sees)
     mkdir -p "$LAY/tb"; printf '{"0":3,"2437":300,"5180":100}\n' > "$LAY/chan.json"; apcli_stub "$LAY/tb" "$LAY/tlog" "" "" "$LAY/chan.json"
     lay_pa=$PATH; lay_ao=$APCLI_RO; lay_rs=$RESOLVED; lay_cm=$CAP_METHOD; lay_of=$OUTFILE; lay_od=$OUTDIR; lay_ve=$VENDOR
-    PATH="$LAY/tb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/chan.out"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; : > "$LAY/tlog"
+    PATH="$LAY/tb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/chan.out"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; TR_REUSE=0; : > "$LAY/tlog"
     run_cycle 2> /dev/null > /dev/null
     PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve
     if json_ok < "$LAY/chan.out" && grep -q '^  "activity": \[{"freq": 2437, "share": 0.750}, {"freq": 5180, "share": 0.250}\],$' "$LAY/chan.out" && [ "$(cat "$LAY/tlog")" = "RECON CHANNELS format=json" ] \
        && ! grep -q '"bluetooth"' "$LAY/chan.out"; then
         st_pass "traffic: a whole cycle with only Traffic on makes the one literal call, and the document carries the shares (0.750 / 0.250), no Bluetooth field"
     else st_fail "traffic: whole cycle ([$(cat "$LAY/tlog")], $(grep activity "$LAY/chan.out"))"; fi
+
+    # the cadence: three cycles against the same stand-in. The call is made on the first cycle and on the third, not on the second, which publishes the answer of the first
+    # (the stand-in's answer changes after the first cycle, so a reused file and a new call tell apart); every one of the three documents carries activity[]
+    lay_pa=$PATH; lay_ao=$APCLI_RO; lay_rs=$RESOLVED; lay_cm=$CAP_METHOD; lay_of=$OUTFILE; lay_od=$OUTDIR; lay_ve=$VENDOR
+    PATH="$LAY/tb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/alt.out"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; TR_REUSE=0; : > "$LAY/tlog"
+    printf '{"0":3,"2437":300,"5180":100}\n' > "$LAY/chan.json"
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt1.json"; lay_n1=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    printf '{"2412":100,"2437":100}\n' > "$LAY/chan.json"
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt2.json"; lay_n2=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt3.json"; lay_n3=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve; TR_REUSE=0; rm -f "$LAY/ram/starchorus-traffic-$$.json"
+    if [ "$lay_n1/$lay_n2/$lay_n3" = 1/1/2 ] && [ "$(sort -u "$LAY/tlog")" = "RECON CHANNELS format=json" ] && json_ok < "$LAY/alt1.json" && json_ok < "$LAY/alt2.json" && json_ok < "$LAY/alt3.json" \
+       && grep -q '^  "activity": \[{"freq": 2437, "share": 0.750}, {"freq": 5180, "share": 0.250}\],$' "$LAY/alt1.json" \
+       && grep -q '^  "activity": \[{"freq": 2437, "share": 0.750}, {"freq": 5180, "share": 0.250}\],$' "$LAY/alt2.json" \
+       && grep -q '^  "activity": \[{"freq": 2412, "share": 0.500}, {"freq": 2437, "share": 0.500}\],$' "$LAY/alt3.json"; then
+        st_pass "traffic: every second cycle: three cycles with Traffic on call the AP service on the first and the third ($lay_n1/$lay_n2/$lay_n3 calls after each), the second publishes the first's answer, activity[] is in all three documents"
+    else st_fail "traffic: every second cycle (calls after each cycle $lay_n1/$lay_n2/$lay_n3, want 1/1/2; $(grep -h activity "$LAY/alt1.json" "$LAY/alt2.json" "$LAY/alt3.json" | cut -c1-110 | tr '\n' '|'))"; fi
+    # an answer that gave nothing is not carried: the cycle after it calls again, and the answer it gets is carried to the one after that
+    PATH="$LAY/tb:$PATH"; APCLI_RO=0; RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$LAY/alt.out"; OUTDIR="$LAY"; VENDOR=0; TRAFFIC=1; TR_REUSE=0; : > "$LAY/tlog"; BT_LOGGED=" "
+    printf '[]\n' > "$LAY/chan.json"
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt1.json"; lay_n1=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    printf '{"2412":100,"2437":100}\n' > "$LAY/chan.json"
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt2.json"; lay_n2=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    run_cycle 2> /dev/null > /dev/null; cp "$OUTFILE" "$LAY/alt3.json"; lay_n3=$(wc -l < "$LAY/tlog" | tr -d ' ')
+    PATH=$lay_pa; APCLI_RO=$lay_ao; RESOLVED=$lay_rs; CAP_METHOD=$lay_cm; OUTFILE=$lay_of; OUTDIR=$lay_od; VENDOR=$lay_ve; TR_REUSE=0; rm -f "$LAY/ram/starchorus-traffic-$$.json"
+    if [ "$lay_n1/$lay_n2/$lay_n3" = 1/2/2 ] && json_ok < "$LAY/alt1.json" && ! grep -q '"activity"' "$LAY/alt1.json" \
+       && grep -q '^  "activity": \[{"freq": 2412, "share": 0.500}, {"freq": 2437, "share": 0.500}\],$' "$LAY/alt2.json" \
+       && grep -q '^  "activity": \[{"freq": 2412, "share": 0.500}, {"freq": 2437, "share": 0.500}\],$' "$LAY/alt3.json"; then
+        st_pass "traffic: every second cycle: an answer that gave nothing usable is not carried (no array that cycle, the next one calls again: $lay_n1/$lay_n2/$lay_n3 calls after each), and the usable answer after it is carried to the cycle after that"
+    else st_fail "traffic: bad answer then good (calls after each cycle $lay_n1/$lay_n2/$lay_n3, want 1/2/2; $(grep -h activity "$LAY/alt1.json" "$LAY/alt2.json" "$LAY/alt3.json" | cut -c1-110 | tr '\n' '|'))"; fi
 
     # 29) a window of 2 MiB: the first 512 KiB and the end are read, the disable block at the end is found, 'busy air' once
     awk 'BEGIN { pad = ""; for (i = 0; i < 100; i++) pad = pad "00"
