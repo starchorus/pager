@@ -22,7 +22,7 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
   monitor interface or radio: starting or stopping any instance stops every other collector loop on
   the device, and each loop so stopped is named in the collector's LOG with its pid and directory.
   Two settings, both off by default, add to what it reads: 'Traffic' (channel activity from the AP
-  service and the frame counts of stations) and 'Bluetooth' (a scan of 6 s per refresh). Bluetooth:
+  service and the frame counts of stations) and 'Bluetooth' (a scan of 5 s per refresh). Bluetooth:
   passive LE scan only: by the Bluetooth specification a passive scan sends no scan request, it listens for advertisements that devices
   broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)).
 - Page (`starchorus.html`, `index.html` on the device): a single, self-contained HTML file on port
@@ -148,7 +148,7 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
 - **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Traffic',
   'Bluetooth', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default; switching one
   on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
-  scan, 6 s per refresh.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
+  scan, 5 s per refresh.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
   short list ('Show Last' also offers 'All (may be slow)'), 'Port' a number entry. Every change is
   saved at once. While Starchorus runs, 'Web Page' takes effect at once, and the other changes are
   applied when you leave Settings, without a question. Only 'Reset to Defaults' asks first. A
@@ -191,7 +191,7 @@ Environment variables, all optional:
 | `STARCHORUS_ALLOW_ACTIVE` | `0` | `1` permits the collector, as a last resort, the ACTIVE `iw scan` (sends probe requests); the page and the Overview then show the ACTIVE line. |
 | `STARCHORUS_OWN` | `0` | `1` marks the device's own radios (interface MACs from sysfs). Environment only. |
 | `STARCHORUS_DASHBOARD` | `1` | `0` keeps the Overview from opening after 'Start'. Environment only. |
-| `STARCHORUS_BT_WINDOW` | `6` | Length of the Bluetooth window in whole seconds, 5 to 15; any other value is 6. Environment only; the payload passes it to the collector unchanged. |
+| `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; any other value is 5. Environment only; the payload passes it to the collector unchanged. |
 | `STARCHORUS_COLLECTOR` | `1` | `0` starts no collector; the menu then refuses to run, and `payload.sh start` serves the page alone. Environment only. |
 | `STARCHORUS_DISPLAY_TEMPLATE` | – | a template line for the Overview's summary with `{aps}`, `{b24}`, `{b5}`, `{b6}`, `{open}`, `{crowding}`, `{gen}`; otherwise the first line of `/root/loot/starchorus/display.tpl`. |
 
@@ -212,7 +212,7 @@ touch the file.
 | `vendor` | `on` | `on`, `off` | `STARCHORUS_VENDOR` (`1`/`0`): vendor name from the local OUI list ('Vendor Names') |
 | `survey` | `off` | `on`, `off` | `STARCHORUS_SURVEY` (`1`/`0`): channel occupancy from the survey dump ('Channel Load') |
 | `page` | `on` | `on`, `off` | payload only (`STARCHORUS_PAGE`): serve the page ('Web Page') |
-| `bluetooth` | `off` | `on`, `off` | `STARCHORUS_BLUETOOTH` (`1`/`0`): the passive Bluetooth LE scan, 6 s per refresh ('Bluetooth') |
+| `bluetooth` | `off` | `on`, `off` | `STARCHORUS_BLUETOOTH` (`1`/`0`): the passive Bluetooth LE scan, 5 s per refresh ('Bluetooth') |
 | `traffic` | `off` | `on`, `off` | `STARCHORUS_TRAFFIC` (`1`/`0`): channel activity from the AP service and the frame counts of stations ('Traffic') |
 
 'Refresh' in the menu is `interval`, 'Show Last' is `window`, 'Traffic' is `traffic` and 'Bluetooth' is `bluetooth`.

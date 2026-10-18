@@ -2519,8 +2519,9 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   controller `hci0` (a hot-plugged adapter can never take the scan): `btmon -i hci0` first, and `hcitool -i hci0 lescan --passive
   --duplicates` only once `btmon` holds its monitor socket, both under `timeout -s INT` as dead-man timers. No tool name comes from a
   variable and no argument from outside (the seconds are validated integers, the paths fixed). The window is opt-in
-  (`STARCHORUS_BLUETOOTH=1`, default off) and lasts 6 s per cycle. A passive scan sends no scan request; the three HCI commands of a
-  window (scan parameters, enable, disable) pass from the host to the controller inside the device and are not radio transmissions
+  (`STARCHORUS_BLUETOOTH=1`, default off) and lasts 5 s per cycle by default (`STARCHORUS_BT_WINDOW`, 5 to 15). A passive scan sends no
+  scan request; the three HCI commands of a window (scan parameters, enable, disable) pass from the host to the controller inside the
+  device and are not radio transmissions
   (device-notes §2b). Each tool is tracked by two pids, the `timeout` wrapper and the tool itself, and every signal goes by pid to the tool,
   after `bt_is` has checked by command name that the pid still runs it: SIGINT to `hcitool`, repeated, then at most one SIGTERM and **never
   SIGKILL** (it ends the scan only from its SIGINT handler); `btmon` may be escalated, as it holds no controller state; a wrapper is signalled

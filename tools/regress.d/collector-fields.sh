@@ -119,8 +119,8 @@ rowif "collector fields: device-dependent flags default OFF (HOPINFO/SURVEY/OWN/
 # is a checked integer, and the names on record of hidden networks are gone: the device's database holds none (device-notes 4a, measured 17 October 2026).
 CFL_SW=$(grep -cE '^(BLUETOOTH|TRAFFIC)=\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}$' starchorus-collect.sh)
 CFL_RN=$(grep -c 'RECORDED_NAMES\|ap_rec' starchorus-collect.sh)
-CFL_BW=$(grep -cE '^BT_WIN=\$\{STARCHORUS_BT_WINDOW:-6\}( |$)' starchorus-collect.sh)
-rowif "collector fields: Bluetooth and Traffic off by default, the scan window 6 s, no names-on-record switch or code (BLUETOOTH, TRAFFIC $CFL_SW/2, RECORDED_NAMES or ap_rec $CFL_RN/0, BT_WIN $CFL_BW/1)" [ "$CFL_SW/$CFL_RN/$CFL_BW" = 2/0/1 ]
+CFL_BW=$(grep -cE '^BT_WIN=\$\{STARCHORUS_BT_WINDOW:-5\}( |$)' starchorus-collect.sh)
+rowif "collector fields: Bluetooth and Traffic off by default, the scan window 5 s, no names-on-record switch or code (BLUETOOTH, TRAFFIC $CFL_SW/2, RECORDED_NAMES or ap_rec $CFL_RN/0, BT_WIN $CFL_BW/1)" [ "$CFL_SW/$CFL_RN/$CFL_BW" = 2/0/1 ]
 # the row bites: the same count over a text whose Bluetooth default is 1 finds one switch, not two
 # shellcheck disable=SC2016  # the text is the thing searched
 CFL_SWB=$(printf '%s\n%s\n' 'BLUETOOTH=${STARCHORUS_BLUETOOTH:-1}' 'TRAFFIC=${STARCHORUS_TRAFFIC:-0}' | grep -cE '^(BLUETOOTH|TRAFFIC)=\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}$')

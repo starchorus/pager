@@ -102,7 +102,7 @@
 #   STARCHORUS_BLUETOOTH      1 = every cycle runs ONE passive Bluetooth LE scan window (STARCHORUS_BT_WINDOW seconds, in the background
 #                        beside the source build) and writes the top-level "bluetooth" array and center."bt_window"/"bt_hold". Needs a
 #                        controller (hci0) and the scan tools; without them it stays off with one log line. Addresses, not devices.  (default 0)
-#   STARCHORUS_BT_WINDOW      the window length in whole seconds, 5 to 15; anything else is 6 with one log line.  (default 6)
+#   STARCHORUS_BT_WINDOW      the window length in whole seconds, 5 to 15; anything else is 5 with one log line.  (default 5)
 #   STARCHORUS_TRAFFIC        1 = every cycle reads RECON CHANNELS (the fifth literal line of apcli_ro, gated on this flag alone, in the
 #                        background) into the top-level "activity" array (a share per frequency, never a count), and the recon database
 #                        path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
@@ -172,7 +172,7 @@ OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
 APCLI_RO=${STARCHORUS_APCLI_RO:-0}
 BLUETOOTH=${STARCHORUS_BLUETOOTH:-0}
 TRAFFIC=${STARCHORUS_TRAFFIC:-0}
-BT_WIN=${STARCHORUS_BT_WINDOW:-6}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
+BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
 BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
 HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}         # "aa:bb:cc:dd:ee:ff" or empty (then $OUTDIR/homing.target, if it exists)
@@ -261,7 +261,7 @@ BT_MAXB=8388608     # a window's text over this many bytes: the monitor is stopp
 # seconds a nap really sleeps then), BT_SIGLOG / BT_SIGMSG = a log of the signals bt_sig sends and a directory that receives INT and TERM instead of
 # the processes.
 BT_PROC=${STARCHORUS_PROC_BT:-/proc}; BT_FAKE=""; BT_FAKE_NAP=""; BT_SIGLOG=""; BT_SIGMSG=""
-# The window length: whole seconds from 5 to 15, anything else is 6 (the daemon says so once at start, see the main section).
+# The window length: whole seconds from 5 to 15, anything else is 5, the shortest (the daemon says so once at start, see the main section).
 BT_WIN_BAD=""
 case $BT_WIN in
     ''|*[!0-9]*) BT_WIN_BAD=$BT_WIN ;;
@@ -269,7 +269,7 @@ case $BT_WIN in
        while [ "${#BT_WIN_N}" -gt 1 ] && [ "${BT_WIN_N#0}" != "$BT_WIN_N" ]; do BT_WIN_N=${BT_WIN_N#0}; done
        if [ "$BT_WIN_N" -ge 5 ] && [ "$BT_WIN_N" -le 15 ]; then BT_WIN=$BT_WIN_N; else BT_WIN_BAD=$BT_WIN; fi ;;
 esac
-[ -z "$BT_WIN_BAD" ] || BT_WIN=6
+[ -z "$BT_WIN_BAD" ] || BT_WIN=5
 BT_MON_S=$((BT_WIN + 8))     # the monitor's own dead-man timer: it covers the readiness wait, the pid lookup and the scan
 
 # --------------------------------------------------------------------------- small helpers
@@ -3688,18 +3688,27 @@ lay_selftest() {
         st_pass "bt_nap: the nap is its argument in hundredths of a second (20 without one): 0.2 s, 0.5 s or, where fractions fail, 1 s on the real clock; 20 + 50 + 20 on the test clock"
     else st_fail "bt_nap: [$lay_nap1] [$lay_nap2] frac $lay_napf, test clock $lay_napc"; fi
 
-    # STARCHORUS_BT_WINDOW: whole seconds from 5 to 15, anything else is 6, said once at start (a start that finds no source ends before any window is run)
+    # STARCHORUS_BT_WINDOW: whole seconds from 5 to 15, anything else is 5, said once at start (a start that finds no source ends before any window is run)
     lay_o="$LAY/o"; mkdir -p "$lay_o"; lay_wok=1
-    for lay_w in 20:6:1 4:6:1 abc:6:1 5:5:0 15:15:0 06:6:0 007:7:0 16:6:1; do
+    for lay_w in 20:5:1 4:5:1 abc:5:1 5:5:0 15:15:0 06:6:0 007:7:0 16:5:1; do
         lay_v=${lay_w%%:*}; lay_r=${lay_w#*:}; lay_x=${lay_r#*:}; lay_r=${lay_r%%:*}
         STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 \
             STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_WINDOW=$lay_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
-        lay_m=0; grep -q "STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$lay_v'); using 6" "$LAY/w.log" && lay_m=1
+        lay_m=0; grep -q "STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$lay_v'); using 5" "$LAY/w.log" && lay_m=1
         grep -q "one passive LE scan window of ${lay_r}s per cycle" "$LAY/w.log" || lay_wok=0
         [ "$lay_m" = "$lay_x" ] || lay_wok=0
     done
     STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BT_WINDOW=20 sh "$0" --once > /dev/null 2> "$LAY/w.log"
-    if [ "$lay_wok" = 1 ] && ! grep -q 'Bluetooth' "$LAY/w.log"; then st_pass "STARCHORUS_BT_WINDOW: 5 to 15 whole seconds are taken (a leading zero is no octal), anything else is 6 with one log line; with Bluetooth off the collector says nothing about it"; else st_fail "STARCHORUS_BT_WINDOW: ($lay_wok) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
+    if [ "$lay_wok" = 1 ] && ! grep -q 'Bluetooth' "$LAY/w.log"; then st_pass "STARCHORUS_BT_WINDOW: 5 to 15 whole seconds are taken (a leading zero is no octal), anything else is 5 with one log line; with Bluetooth off the collector says nothing about it"; else st_fail "STARCHORUS_BT_WINDOW: ($lay_wok) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
+    # the default: no STARCHORUS_BT_WINDOW at all, or an empty one, is a window of 5 s and no complaint (the loop above always names a value, so it cannot tell the default from the fallback)
+    lay_dk=1
+    for lay_dw in unset empty; do
+        ( unset STARCHORUS_BT_WINDOW; [ "$lay_dw" = unset ] || export STARCHORUS_BT_WINDOW=
+          STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 \
+              STARCHORUS_BLUETOOTH=1 sh "$0" --once > /dev/null 2> "$LAY/w.log" )
+        grep -q "one passive LE scan window of 5s per cycle" "$LAY/w.log" && ! grep -q 'must be whole seconds' "$LAY/w.log" || lay_dk=0
+    done
+    if [ "$lay_dk" = 1 ]; then st_pass "STARCHORUS_BT_WINDOW: unset, or empty, the window is 5 s and the collector logs no complaint about it"; else st_fail "STARCHORUS_BT_WINDOW: default ($lay_dk) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
 
     # 21) the hold. lay_win TS MODE [ADDR RSSI REPORTS]...: the window's file, add_layers on a fresh document, BT_HELD kept as run_layers keeps it
     lay_win() {
@@ -3959,16 +3968,16 @@ BTWIN
     for bts_f in "$BTS"/bin/*; do bts_nb=$((bts_nb + 1)); [ "$(command -v "${bts_f##*/}")" = "$bts_f" ] || bts_ok=0; done
     if [ "$bts_ok" = 1 ] && [ "$bts_nb" = 3 ]; then st_pass "window stand-ins: the two scan tools and the dead-man stand-in are what the names resolve to (a case that set PATH wrongly must not scan)"; else st_fail "window stand-ins: PATH does not put the stand-ins first [$bts_nb files]"; bt_env off; return 1; fi
 
-    # 12) argv: exactly the two lines, each under the stand-in with -s INT, default window (6 s, the monitor's dead-man timer 14 s); flag off and no controller: no call
-    BT_WIN=6; BT_MON_S=14; : > "$BTS/log/err"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"
+    # 12) argv: exactly the two lines, each under the stand-in with -s INT, default window (5 s, the monitor's dead-man timer 13 s); flag off and no controller: no call
+    BT_WIN=5; BT_MON_S=13; : > "$BTS/log/err"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"
     bt_begin 2>> "$BTS/log/err"; bts_rc=$?
     sleep 1
     bts_mp=$(tail -n 1 "$BTS/log/pid.M" 2>/dev/null); bts_sp=$(tail -n 1 "$BTS/log/pid.S" 2>/dev/null)
     bts_a1=$(cat "$BTS/log/argv.M" 2>/dev/null); bts_a2=$(cat "$BTS/log/argv.S" 2>/dev/null)
     bts_a3=$(sed -n 1p "$BTS/log/argv.T" 2>/dev/null); bts_a4=$(sed -n 2p "$BTS/log/argv.T" 2>/dev/null); bts_a5=$(wc -l < "$BTS/log/argv.T" | tr -d ' ')
-    bts_w1="-s INT 14 btmon -i hci0"; bts_w2="-s INT 6 hcitool -i hci0 lescan --passive --duplicates"
+    bts_w1="-s INT 13 btmon -i hci0"; bts_w2="-s INT 5 hcitool -i hci0 lescan --passive --duplicates"
     if [ "$bts_rc" = 0 ] && [ "$bts_a1" = "-i hci0" ] && [ "$bts_a2" = "-i hci0 lescan --passive --duplicates" ] && [ "$bts_a3" = "$bts_w1" ] && [ "$bts_a4" = "$bts_w2" ] && [ "$bts_a5" = 2 ]; then
-        st_pass "bt_begin: runs exactly the monitor pinned to hci0 and the passive scan pinned to hci0 with --duplicates, each under the dead-man stand-in with -s INT and its time of 14 s and 6 s, the monitor first"
+        st_pass "bt_begin: runs exactly the monitor pinned to hci0 and the passive scan pinned to hci0 with --duplicates, each under the dead-man stand-in with -s INT and its time of 13 s and 5 s, the monitor first"
     else st_fail "bt_begin: argv rc $bts_rc [$bts_a1] [$bts_a2] [$bts_a3] [$bts_a4]"; fi
     # 13) terminal signals: HUP and QUIT are ignored for the two launches only (the stand-in tools inherit them; no /proc here: nothing to read)
     if [ -r /proc/self/status ] && [ -s "$BTS/log/sigign.S" ]; then
@@ -5950,7 +5959,7 @@ setup_vendor
 resolve_source
 log "resolved data source: $RESOLVED  (interface: ${MONIF:-n/a}, created_mon=$CREATED_MON)"
 if [ "$BLUETOOTH" = 1 ]; then
-    [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 6"
+    [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 5"
     log "Bluetooth: one passive LE scan window of ${BT_WIN}s per cycle (STARCHORUS_BLUETOOTH=1); addresses, not devices"
 fi
 

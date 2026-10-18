@@ -451,10 +451,10 @@ pl_kids() {
 pl_kill_sleeps() { for pl_sk in $(pl_kids "$1"); do kill "$pl_sk" 2>/dev/null; done; }
 
 pl_nap() { if sleep 0.5 2>/dev/null; then PL_NAP=5; else sleep 1; PL_NAP=10; fi; }   # PL_NAP = tenths of a second slept
-# the Bluetooth window in seconds the collector will use: STARCHORUS_BT_WINDOW as it reads it (whole seconds 5 to 15, a leading zero is no octal), else 6
+# the Bluetooth window in seconds the collector will use: STARCHORUS_BT_WINDOW as it reads it (whole seconds 5 to 15, a leading zero is no octal), else 5
 pl_btwin() {
-    pl_w=${STARCHORUS_BT_WINDOW:-6}
-    case $pl_w in ''|*[!0-9]*) pl_w=6 ;; *) while [ "${#pl_w}" -gt 1 ] && [ "${pl_w#0}" != "$pl_w" ]; do pl_w=${pl_w#0}; done; if [ "$pl_w" -lt 5 ] || [ "$pl_w" -gt 15 ]; then pl_w=6; fi ;; esac
+    pl_w=${STARCHORUS_BT_WINDOW:-5}
+    case $pl_w in ''|*[!0-9]*) pl_w=5 ;; *) while [ "${#pl_w}" -gt 1 ] && [ "${pl_w#0}" != "$pl_w" ]; do pl_w=${pl_w#0}; done; if [ "$pl_w" -lt 5 ] || [ "$pl_w" -gt 15 ]; then pl_w=5; fi ;; esac
     printf '%s' "$pl_w"
 }
 

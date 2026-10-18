@@ -815,9 +815,9 @@ pui_is bluetooth_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 
 pui_is traffic_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: ON' 'Port: 8199' 'Reset to Defaults' 'Traffic: OFF')" = 1 ]
 pui_is bluetooth_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: OFF')" = 1 ]
 pui_is l8d [ "$(pui_x LOG 'Traffic: channel activity and frame rates.')" = 2 ]
-pui_is l8e [ "$(pui_x LOG 'Bluetooth: passive LE scan, 6 s per refresh.')" = 1 ]
-# L8e names the window the collector will use: STARCHORUS_BT_WINDOW as the collector reads it (9; 07 is 7; 4, 16 and text are 6)
-for pui_w in 9:9 07:7 4:6 16:6 abc:6; do
+pui_is l8e [ "$(pui_x LOG 'Bluetooth: passive LE scan, 5 s per refresh.')" = 1 ]
+# L8e names the window the collector will use: STARCHORUS_BT_WINDOW as the collector reads it (9; 07 is 7; 4, 16 and text are 5)
+for pui_w in 9:9 07:7 4:5 16:5 abc:5; do
   pui_new; pui_ans "=Settings" "=Bluetooth: OFF" "!2" "!2"
   pui_run_ui "$PUI_UIP" STARCHORUS_BT_WINDOW="${pui_w%%:*}" sh "$PUI_PL"
   pui_is "l8e_${pui_w%%:*}" [ "$(pui_x LOG "Bluetooth: passive LE scan, ${pui_w#*:} s per refresh.")" = 1 ]

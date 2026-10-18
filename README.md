@@ -107,7 +107,7 @@ Starchorus 0.2.0-dev.1. Every part carries the same number:
     hidden; the legend still counts them all ('n randomised MAC · k in m clouds'). The Overview
     counts clouds by the same rule ('Clients 247 free (245 random, 1 cloud)'), and the CSV export
     ends in a `cloud` column.
-- **Bluetooth LE** (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive scan of 6 seconds per refresh. What it
+- **Bluetooth LE** (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive scan of 5 seconds per refresh. What it
   hears is drawn as small triangles at the radius of their signal on the same rings as the Wi-Fi nodes; the rings are shared, the scale is not,
   and direction is not measured. A filled triangle is an address that does not rotate, a hollow one is rotating addresses of one
   company in one signal ring, folded into one mark (a dot at its centre; the tooltip gives the count); the figures are **addresses, not
@@ -170,7 +170,7 @@ Only the following is permitted:
 - receiving in monitor mode (`tcpdump`, or `airodump-ng` without injection);
 - tuning the receiver to a channel;
 - a passive Bluetooth LE scan (`STARCHORUS_BLUETOOTH=1`, opt-in, off by default): `hcitool -i hci0 lescan --passive --duplicates`
-  for 6 seconds per refresh, read with `btmon -i hci0`. A passive scan sends no scan request; it listens for advertisements that
+  for 5 seconds per refresh, read with `btmon -i hci0`. A passive scan sends no scan request; it listens for advertisements that
   devices broadcast anyway. A window counts only when `btmon` shows the collector's own scan parameters as `Passive`, and nothing else
   of the Bluetooth stack is ever called (every other tool is denied by name in the static check; see [SECURITY.md](SECURITY.md));
 - the AP service's channel activity (`STARCHORUS_TRAFFIC=1`, opt-in, off by default): one read-only command,
@@ -350,7 +350,7 @@ All variables are optional.
 | `STARCHORUS_PINEAP_CALLS` | `recent` | `pineap` source only: `recent` = one `RECON DEVICES` call, newest first and cut at 400 entries (`sort=time sortdir=desc limit=400`; its passivity is checked on the device, the ordering and the cut are still to be looked at, device-notes §5a and §6a), the access points taken from its beacon records; `full` = `RECON APS` + `RECON DEVICES`, every device of the AP service's session is read and parsed, which costs about 22 ms of the device's CPU each. |
 | `STARCHORUS_APCLI_RO` | `0` | `1` permits `apcli_ro()` its read-only recon commands of the AP service (three fixed command lines, see [SECURITY.md](SECURITY.md)). Nothing calls it except the `pineap` source, and `STARCHORUS_SOURCE=pineap` switches it on for itself. The channel-activity line is not one of them: it needs `STARCHORUS_TRAFFIC=1` alone. |
 | `STARCHORUS_BLUETOOTH` | `0` | `1` = a passive Bluetooth LE scan window every cycle (`hcitool -i hci0 lescan --passive --duplicates`, read with `btmon -i hci0`), written as `bluetooth[]`. Needs a controller `hci0` and the tools, otherwise the layer stays off. Payload key: `bluetooth on\|off` (Settings > Bluetooth). |
-| `STARCHORUS_BT_WINDOW` | `6` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 6, with one log line. Environment only. |
+| `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 5, with one log line. Environment only. |
 | `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` every cycle (written as `activity[]`, a relative share per frequency) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:

@@ -268,8 +268,9 @@ necessarily who made the device. Names are rare under a passive scan.
 
 **What the collector does** (the design, `docs/architecture.md` §14.6 and `SECURITY.md`; measured on the device on 18 October 2026, §6a).
 It is opt-in (`STARCHORUS_BLUETOOTH=1`, or Settings > Bluetooth). Each cycle it starts `btmon -i hci0` and, once `btmon` holds its
-monitor socket, `hcitool -i hci0 lescan --passive --duplicates`, for a window of 6 s (`STARCHORUS_BT_WINDOW`, 5 to 15), each under
-`timeout -s INT` as a dead-man timer and each tracked by two pids (the `timeout` wrapper and the tool). It ends the tools with SIGINT:
+monitor socket, `hcitool -i hci0 lescan --passive --duplicates`, for a window of 5 s (`STARCHORUS_BT_WINDOW`, 5 to 15; the default was 6 s
+when §6a was measured), each under `timeout -s INT` as a dead-man timer and each tracked by two pids (the `timeout` wrapper and the tool).
+It ends the tools with SIGINT:
 `hcitool` gets SIGINT repeatedly for at most 12 s and then at most one SIGTERM, never SIGKILL (it ends the scan only from its SIGINT
 handler); `btmon` may be escalated. A stop in the middle of a window sends the first SIGINT to a scan younger than a second one second after its start, and a
 collector killed with SIGKILL leaves its tools to their dead-man timers and to the next daemon start's sweep (SIGINT only). It calls no `hciconfig`, `btmgmt` or `bluetoothctl` and never changes the controller's state. A
@@ -782,11 +783,12 @@ window, and the development tree has since changed part of that: the time of the
 into a global (two sub-shells fewer per window; the reading at the start of `bt_end` and the two `bt_kid` lookups of `bt_begin` still use one each), and
 `bt_end` naps 0.5 s instead of 0.2 s while only the scan's own end is due (the scan alive, the watchdog's deadline, the window plus 2 s, more than a
 second away): at most 21 `sleep` starts fewer for a 6-s window, reached when the scan lives until a second after its own end, 18 fewer when it ends at
-its own 6 s, and fewer the later `bt_end` starts. The end of the scan and the size check of a runaway window are seen up to 0.5 s late, and a TERM that
+its own 6 s, and fewer the later `bt_end` starts (for the 5-s window that is now the default, 18 and 15). The end of the scan and the size check of a runaway window are seen up to 0.5 s late, and a TERM that
 reaches the collector alone waits for the nap in progress, up to 0.5 s where it was 0.2 s (the payload's stop ends the `sleep` children by name, and
 its budget is 10 s). Counted from the code, that is about 20 process starts fewer per window, not yet measured on the Pager; the polls of `bt_ready`
 (a `grep` at each, and a `readlink` per open descriptor of the monitor) stay as they were; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
-brief's Q2) takes a sixth off the tools and the parse alike; the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s
+brief's Q2) takes a sixth off the tools and the parse alike (taken for 0.2.0: 5 s is the default, 6 s when the rows above were measured, and the
+5-s window has not run on the device yet); the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s
 wide, so nothing is lost) for half its cost. The binary route (A16) stays out: the device has no `od`.
 | V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |
 

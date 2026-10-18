@@ -38,7 +38,7 @@ Starchorus never transmits. It does not deauthenticate, run an access point of i
 frames, associate with any network or scan actively. It reads the recon database from a read-only
 copy (`sqlite3 -readonly`), or receives in monitor mode. Two settings, both off by default, add to what
 it reads: 'Traffic' (channel activity from the AP service and the frame counts of stations) and
-'Bluetooth' (a scan of 6 s per refresh). Bluetooth: passive LE scan only; by the Bluetooth specification a
+'Bluetooth' (a scan of 5 s per refresh). Bluetooth: passive LE scan only; by the Bluetooth specification a
 passive scan sends no scan request, it listens for advertisements that devices broadcast anyway. It does not change the LED. An active scan exists in the collector only as
 a last resort behind the environment variable
 `STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it.
@@ -123,7 +123,7 @@ environment variable of the same meaning takes precedence over the file.
 | `vendor` | `on` | `on`, `off` | vendor names from the local OUI list |
 | `survey` | `off` | `on`, `off` | channel occupancy from the survey dump |
 | `page` | `on` | `on`, `off` | 'Start' starts the page server |
-| `bluetooth` | `off` | `on`, `off` | the passive Bluetooth LE scan, 6 s per refresh |
+| `bluetooth` | `off` | `on`, `off` | the passive Bluetooth LE scan, 5 s per refresh |
 | `traffic` | `off` | `on`, `off` | channel activity from the AP service and the frame counts of stations |
 
 In the menu's Settings, `interval` is 'Refresh', `window` is 'Show Last', `vendor` is 'Vendor
