@@ -777,8 +777,15 @@ Wi-Fi document is never held back by it.
 header test, two `substr` and up to three regular expressions on every kept line, five of the seven of which are field lines that start with
 eight blanks and can be told apart by their first byte, so the grammar can skip the header test for them (about a third of the 150 ticks; taken for 0.2.0,
 the main rule tests the first byte before it calls the header test, and the gain is not yet measured on the device);
-the window loop polls every 0.2 s with `$( )` substitutions and a `sleep` applet, each a process on this shell, about 73 spawns and 60 ticks per
-window, which globals set by the functions themselves and a longer nap would cut to a handful; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
+the window loop polled every 0.2 s with `$( )` substitutions and a `sleep` applet, each a process on this shell, about 73 spawns and 60 ticks per
+window, and the development tree has since changed part of that: the time of the scan's start and the start of the wrapper wait are read by `bt_tick`
+into a global (two sub-shells fewer per window; the reading at the start of `bt_end` and the two `bt_kid` lookups of `bt_begin` still use one each), and
+`bt_end` naps 0.5 s instead of 0.2 s while only the scan's own end is due (the scan alive, the watchdog's deadline, the window plus 2 s, more than a
+second away): at most 21 `sleep` starts fewer for a 6-s window, reached when the scan lives until a second after its own end, 18 fewer when it ends at
+its own 6 s, and fewer the later `bt_end` starts. The end of the scan and the size check of a runaway window are seen up to 0.5 s late, and a TERM that
+reaches the collector alone waits for the nap in progress, up to 0.5 s where it was 0.2 s (the payload's stop ends the `sleep` children by name, and
+its budget is 10 s). Counted from the code, that is about 20 process starts fewer per window, not yet measured on the Pager; the polls of `bt_ready`
+(a `grep` at each, and a `readlink` per open descriptor of the monitor) stay as they were; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
 brief's Q2) takes a sixth off the tools and the parse alike; the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s
 wide, so nothing is lost) for half its cost. The binary route (A16) stays out: the device has no `od`.
 | V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |

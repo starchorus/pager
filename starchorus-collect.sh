@@ -244,7 +244,7 @@ BT_RC=3             # bt_begin's answer in this cycle
 BT_HELD=""          # last cycle's Bluetooth records (tab separated: the B fields, last_seen, carry); in memory, like RS_DOCV: a file would outlive a killed collector
 BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those of the cycle before: a message is logged once per episode (bt_issue)
 BT_LOGGED=" "
-BT_FRAC=1           # 0 once `sleep 0.2` has failed here (bt_nap)
+BT_FRAC=1           # 0 once a `sleep` of a fraction (0.2 or 0.5) has failed here (bt_nap)
 TR_PID=""           # the background RECON CHANNELS call of this cycle
 # Bluetooth constants. The times are hundredths of a second of bt_now. A test may set the variables; production never does.
 BT_HOLD=120         # seconds a record is carried after its window (center.bt_hold)
@@ -678,10 +678,12 @@ cleanup() {
 # while it stops the collector, and a killed nap only makes the poll come round again.
 
 # BT_NOW = hundredths of a second since boot, read by the shell itself from /proc/uptime (no process); without it the clock of `date` in whole
-# seconds, and where that gives nothing either, 0.2 s more than the last tick (so that no wait can last for ever). A whole-second clock can jump by a
+# seconds, and where that gives nothing either, 0.2 s more than the last tick (so that no wait can last for ever; the polls are 0.2 s apart, bar the 0.5-s
+# steady state of bt_end, where this clock runs slow, a case that the Pager, with its /proc/uptime, does not meet). A whole-second clock can jump by a
 # full second between two readings a few milliseconds apart, so the waits that must not end early add BT_SLK to their allowance: 0 with a real clock,
 # 100 with the whole-second one (a wait then lasts its time, and up to one second more). `command date`: a test may replace `date`. BT_FAKE (a test)
-# is a clock that bt_nap moves on.
+# is a clock that bt_nap moves on. A wait that runs on every poll takes the time as `bt_tick; VAR=$BT_NOW`: bt_now is the same through a `$( )`, a process of its
+# own on ash, and is left to bt_end's one reading at its start.
 bt_tick() {
     if [ -n "$BT_FAKE" ]; then BT_NOW=$BT_FAKE; BT_SLK=0; return 0; fi
     BT_SLK=0; bt_u=""
@@ -696,15 +698,18 @@ bt_tick() {
     esac
 }
 bt_now() { bt_tick; printf '%s\n' "$BT_NOW"; }
-# One short wait between two polls: 0.2 s where `sleep 0.2` works, else 1 s (the pattern of pl_nap in the payload). A nap that was killed
-# (status 128 and up) only returns: the caller polls again, by the clock.
+# One short wait between two polls, $1 hundredths of a second (20 without an argument): where `sleep` takes fractions 0.2 s for 20 and 0.5 s for 50,
+# else 1 s (the pattern of pl_nap in the payload). Each `sleep` is a process on ash, so only the steady state of bt_end asks for 50, while nothing can
+# happen in the next second; every other wait keeps the 0.2 s that its signal rules and one-second holds are measured in. With BT_FAKE set the nap
+# moves that clock on by $1 instead. A nap that was killed (status 128 and up) only returns: the caller polls again, by the clock.
 bt_nap() {
     if [ -n "$BT_FAKE" ]; then
-        BT_FAKE=$((BT_FAKE + 20)); [ -z "$BT_FAKE_NAP" ] || sleep "$BT_FAKE_NAP" 2>/dev/null
+        BT_FAKE=$((BT_FAKE + ${1:-20})); [ -z "$BT_FAKE_NAP" ] || sleep "$BT_FAKE_NAP" 2>/dev/null
         return 0
     fi
     if [ "$BT_FRAC" = 1 ]; then
-        sleep 0.2 2>/dev/null; bt_r=$?
+        bt_sv=0.2; [ "${1:-20}" != 50 ] || bt_sv=0.5
+        sleep "$bt_sv" 2>/dev/null; bt_r=$?
         if [ "$bt_r" = 0 ] || [ "$bt_r" -ge 128 ]; then return 0; fi
         BT_FRAC=0
     fi
@@ -857,7 +862,7 @@ bt_begin() {
     trap 'cleanup; exit 129' HUP; trap - QUIT
     BT_MKID=$(bt_kid "$BT_MPID" btmon)
     bt_ready "$BT_MKID" || { bt_note; return 6; }
-    BT_TS=$(bt_now); trap '' HUP QUIT; BT_ARM=s
+    bt_tick; BT_TS=$BT_NOW; trap '' HUP QUIT; BT_ARM=s
     timeout -s INT "$BT_WIN" hcitool -i hci0 lescan --passive --duplicates > /dev/null 2> "$BT_F.err" &
     BT_SPID=$!; BT_ARM=""
     trap 'cleanup; exit 129' HUP; trap - QUIT
@@ -868,10 +873,11 @@ bt_begin() {
 
 # [abort]: waits for the window to run its course, stops what is left, reads the text (bt_parse) and judges it (bt_judge). Only by pid, and only
 # while bt_is still says the pid runs that tool.
-#   1. Wait, by the clock, while the scan lives: at most until its own deadline plus 2 s (BT_TS + the window + 2 s). One second after the scan is
-#      gone the monitor gets INT (it has recorded the disable by then) and up to BT_T_MON more to flush and end. If the window's text grows past
-#      BT_MAXB (a runaway, far beyond any window) the monitor is stopped at once and the episode is logged. When the monitor never got ready
-#      (BT_SPID empty) only the monitor is stopped, without the second.
+#   1. Wait, by the clock, while the scan lives: at most until the watchdog's deadline, the scan's own end plus 2 s (BT_TS + the window + 2 s). The
+#      polls are 0.5 s apart until one second before that deadline (one second after the scan's own end) and 0.2 s apart from then on. One second
+#      after the scan is gone the monitor gets INT (it has recorded the disable by then) and up to BT_T_MON more to flush and end. If the window's text
+#      grows past BT_MAXB (a runaway, far beyond any window; the size is looked at every 2 s, at the poll that falls due) the monitor is stopped at
+#      once and the episode is logged. When the monitor never got ready (BT_SPID empty) only the monitor is stopped, without the second.
 #   2. The watchdog. The scan: INT about once a second until it is gone, after BT_T_TERM one TERM and a log line, NEVER KILL; a TERM that did
 #      not end it is given a second and then left (its pid file stays for bt_sweep). The monitor: INT, BT_T_MON, TERM, BT_T_MON, KILL. A wrapper
 #      that outlives its tool by BT_T_WRAP gets TERM. A window that needed the watchdog is void.
@@ -949,7 +955,13 @@ bt_end() {
         fi
         [ -n "$be_sa$be_ma" ] || break
         [ $((BT_NOW - BT_TS)) -lt "$be_cap" ] || break
-        bt_nap
+        # Steady state (the scan alive, no watchdog yet, no big-window stop, the watchdog's deadline more than a second away): nothing is due but the scan's own
+        # end and the 2-s size check, so nap 0.5 s, two sleeps a second where 0.2 s takes five; that end, and a runaway window, are then seen up to 0.5 s late
+        # instead of 0.2 s, and so is a TERM that reaches only this shell (its trap waits for the nap). The signal rules of the watchdog and of the monitor
+        # after the scan, the one-second holds and the abort (it naps and goes on in its own branch above; be_ab only keeps it so) keep the 0.2 s they are measured in.
+        be_n=20
+        if [ "$be_ab" = 0 ] && [ -n "$be_sa" ] && [ -z "$be_w0" ] && [ -z "$be_bg" ] && [ $((BT_NOW - BT_TS)) -lt $((be_dl - 100)) ]; then be_n=50; fi
+        bt_nap "$be_n"
     done
     if [ "$be_ab" = 1 ]; then
         rm -f "$BT_F" "$BT_F.err" 2>/dev/null
@@ -960,7 +972,7 @@ bt_end() {
     be_scan=0; [ -z "$BT_SPID" ] || be_scan=1
     be_wr=""; [ -n "$BT_STRAND" ] || be_wr=$BT_SPID
     [ -n "$be_ma" ] || be_wr="$be_wr $BT_MPID"
-    be_w0=$(bt_now)
+    bt_tick; be_w0=$BT_NOW
     # shellcheck disable=SC2086  # a list of pids, some of them empty
     while [ -n "${be_wr# }" ]; do
         bt_tick
@@ -3663,6 +3675,19 @@ lay_selftest() {
     BT_FAKE=1000; bt_nap; bt_nap; bt_tick; lay_c3=$BT_NOW; BT_FAKE=""
     if [ "$lay_c1/$lay_c2/$lay_c3" = 123407/76/1040 ]; then st_pass "bt_tick: hundredths of a second from /proc/uptime (builtins only), and a test clock that bt_nap moves on"; else st_fail "bt_tick: $lay_c1/$lay_c2/$lay_c3"; fi
 
+    # bt_nap's length is its argument in hundredths of a second, 20 without one. On the test clock the nap moves BT_FAKE on by that. On the real one `sleep`
+    # (a function here, so that nothing waits and its argument can be read) gets 0.2 for 20 and 0.5 for 50, and 1 for both once a fraction has failed (BT_FRAC drops to 0)
+    lay_nl=""; lay_fok=1; lay_fr=$BT_FRAC
+    sleep() { lay_nl="$lay_nl $1"; case $1 in *.*) [ "$lay_fok" = 1 ] ;; esac; }
+    BT_FRAC=1; bt_nap; bt_nap 50; bt_nap 20; lay_nap1=$lay_nl
+    lay_nl=""; lay_fok=0; BT_FRAC=1; bt_nap 50; lay_napf=$BT_FRAC; bt_nap; bt_nap 50; lay_nap2=$lay_nl
+    unset -f sleep
+    BT_FRAC=$lay_fr
+    BT_FAKE=1000; bt_nap; bt_nap 50; bt_nap 20; lay_napc=$BT_FAKE; BT_FAKE=""
+    if [ "$lay_nap1/$lay_nap2/$lay_napf/$lay_napc" = " 0.2 0.5 0.2/ 0.5 1 1 1/0/1090" ]; then
+        st_pass "bt_nap: the nap is its argument in hundredths of a second (20 without one): 0.2 s, 0.5 s or, where fractions fail, 1 s on the real clock; 20 + 50 + 20 on the test clock"
+    else st_fail "bt_nap: [$lay_nap1] [$lay_nap2] frac $lay_napf, test clock $lay_napc"; fi
+
     # STARCHORUS_BT_WINDOW: whole seconds from 5 to 15, anything else is 6, said once at start (a start that finds no source ends before any window is run)
     lay_o="$LAY/o"; mkdir -p "$lay_o"; lay_wok=1
     for lay_w in 20:6:1 4:6:1 abc:6:1 5:5:0 15:15:0 06:6:0 007:7:0 16:6:1; do
@@ -4096,6 +4121,65 @@ BTWIN
             st_pass "watchdog $bts_m: a scan that ignores INT gets INT every second, $bts_ni of them, then one TERM and the log lines, never KILL; the window is void; the monitor ends on its one INT; no wrapper was signalled"
         else st_fail "watchdog $bts_m: void [$BT_VOID] INT $bts_ni TERM $bts_nt KILL $bts_nk wrapper-signalled $bts_wsig log [$(cat "$BTS/log/err")]"; fi
     done
+    #  a2) the cadence of the wait (the test clock again; `sleep` is a function that notes the clock after each nap, so nothing waits, and BT_FAKE_NAP only has to be set for bt_nap
+    #      to call it). While the scan lives and the watchdog's deadline (BT_WIN * 100 + 200 after the scan's start) is more than a second away the wait goes on in steps of 0.5 s;
+    #      from there to the deadline in steps of 0.2 s, so that the watchdog starts at the deadline itself. A scan that is gone, a window that is being stopped for its size and
+    #      an abort keep 0.2 s.
+    #      Only the clocks up to the deadline are read; what the stand-ins do after it is the business of the cases b to d.
+    #      bts_steps START END "CLOCKS": the steps between the clocks, up to END: bts_sa of 0.5 s, bts_sb of 0.2 s, bts_so of any other length, bts_sh = 1 when END was one of the clocks.
+    bts_steps() {
+        bts_sr=$(printf '%s\n' "$3" | awk -v p="$1" -v e="$2" '{ for (i = 1; i <= NF; i++) { d = $i - p; p = $i; if (d == 50) a++; else if (d == 20) b++; else o++; if (p == e) { h = 1; exit } } }
+            END { print a + 0 "/" b + 0 "/" o + 0 "/" h + 0 }')
+        bts_sa=${bts_sr%%/*}; bts_sr=${bts_sr#*/}; bts_sb=${bts_sr%%/*}; bts_sr=${bts_sr#*/}; bts_so=${bts_sr%%/*}; bts_sh=${bts_sr#*/}
+    }
+    bts_vg=$BT_T_GRACE; bts_vm=$BT_T_MON; bts_vw=$BT_WIN; bts_vx=$BT_MAXB
+    #  the scan alive, a window of 6 s (deadline 800 hundredths after the start): 14 steps of 0.5 s to 700, 5 of 0.2 s to 800
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; rm -f "$BTS/cfg/S.mode" "$BTS/cfg/M.mode"; : > "$BTS/log/sig.log"
+    BT_CUR=" "; BT_LOGGED=" "; BT_T_GRACE=100; BT_T_MON=200; BT_WIN=6
+    bt_begin 2> "$BTS/log/err"
+    bts_nl=""; bts_end=$((BT_TS + 800))
+    sleep() { bts_nl="$bts_nl $BT_FAKE"; }
+    BT_FAKE=$BT_TS; BT_FAKE_NAP=1; bt_end 2>> "$BTS/log/err"; BT_FAKE=""; BT_FAKE_NAP=""
+    unset -f sleep
+    bts_steps "$BT_TS" "$bts_end" "$bts_nl"; bts_cd1="$bts_sa/$bts_sb/$bts_so/$bts_sh"
+    bts_reap
+    #  the scan gone before its deadline (it ended on its own after 1 s of the real clock, and the window code is told the window was 6 s): nothing is due, but the monitor's
+    #  one second is measured in 0.2 s
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"
+    BT_CUR=" "; BT_LOGGED=" "; BT_WIN=1
+    bt_begin 2> "$BTS/log/err"; bts_sp=$(tail -n 1 "$BTS/log/pid.S"); bts_w=0
+    while kill -0 "$bts_sp" 2>/dev/null && [ "$bts_w" -lt 100 ]; do sleep 0.1 2>/dev/null || sleep 1; bts_w=$((bts_w + 1)); done
+    BT_WIN=6; bts_nl=""
+    sleep() { bts_nl="$bts_nl $BT_FAKE"; }
+    BT_FAKE=$((BT_TS + 100)); BT_FAKE_NAP=1; bt_end 2>> "$BTS/log/err"; BT_FAKE=""; BT_FAKE_NAP=""
+    unset -f sleep
+    bts_steps "$((BT_TS + 100))" 0 "$bts_nl"; bts_cd2="$bts_sa/$bts_so"; bts_cd2b=$bts_sb
+    bts_reap
+    #  a window of 3 s (deadline 500) whose text is over BT_MAXB: the monitor is stopped at the first look at the size (200 hundredths in), and from there the steps are 0.2 s
+    cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'parent\n' > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"
+    BT_CUR=" "; BT_LOGGED=" "; BT_WIN=3; BT_MAXB=1
+    bt_begin 2> "$BTS/log/err"; bts_w=0
+    while [ ! -s "$BT_F" ] && [ "$bts_w" -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; bts_w=$((bts_w + 1)); done
+    bts_nl=""; bts_end=$((BT_TS + 500))
+    sleep() { bts_nl="$bts_nl $BT_FAKE"; }
+    BT_FAKE=$BT_TS; BT_FAKE_NAP=1; bt_end 2>> "$BTS/log/err"; BT_FAKE=""; BT_FAKE_NAP=""
+    unset -f sleep
+    bts_steps "$BT_TS" "$bts_end" "$bts_nl"; bts_cd3="$bts_sa/$bts_sb/$bts_so/$bts_sh"
+    BT_MAXB=$bts_vx
+    #  an abort (bt_end abort, as cleanup() calls it) on a scan of 6 s younger than a second, both tools ignoring INT: the hold of the first INT (5 steps), the first INT, the 2 s
+    #  to the second (10), all of 0.2 s. The abort is not in the steady state however far the scan's deadline is.
+    bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'ignoreint\n' > "$BTS/cfg/S.mode"; printf 'ignoreint\n' > "$BTS/cfg/M.mode"; printf 'parent\n' > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"
+    BT_CUR=" "; BT_LOGGED=" "
+    bt_begin 2> "$BTS/log/err"
+    bts_nl=""
+    sleep() { bts_nl="$bts_nl $BT_FAKE"; }
+    BT_FAKE=$BT_TS; BT_FAKE_NAP=1; bt_end abort 2>> "$BTS/log/err"; BT_FAKE=""; BT_FAKE_NAP=""
+    unset -f sleep
+    bts_steps "$BT_TS" 0 "$bts_nl"; bts_cd4="$bts_sa/$bts_sb/$bts_so"
+    bts_reap; BT_T_GRACE=$bts_vg; BT_T_MON=$bts_vm; BT_WIN=$bts_vw
+    if [ "$bts_cd1" = 14/5/0/1 ] && [ "$bts_cd2" = 0/0 ] && [ "$bts_cd2b" -ge 5 ] && [ "$bts_cd3" = 4/15/0/1 ] && [ "$bts_cd4" = 0/15/0 ]; then
+        st_pass "bt_end: the wait polls every 0.5 s while the scan lives and the watchdog's deadline is over a second away (14 steps for a 6 s window), then every 0.2 s up to the deadline (5), which is a clock of its own; a scan that is gone, a window stopped for its size and an abort keep 0.2 s"
+    else st_fail "bt_end: cadence of the wait (scan alive $bts_cd1, want 14/5/0/1; scan gone: 0.5 s steps / other $bts_cd2, want 0/0, and $bts_cd2b steps of 0.2 s, want 5 or more; big window $bts_cd3, want 4/15/0/1; abort $bts_cd4, want 0/15/0)"; fi
     #  b) a scan that ignores INT and TERM: 12 INT (one a second), one TERM at 12 s, never KILL; it is still there afterwards (the pid file stays for bt_sweep)
     bts_reap; cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'same\n' > "$BTS/cfg/T.mode"; printf 'ignoreall\n' > "$BTS/cfg/S.mode"; : > "$BTS/log/sig.log"
     BT_CUR=" "; BT_LOGGED=" "
