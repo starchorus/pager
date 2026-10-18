@@ -59,7 +59,7 @@ rowif "hak5 package: every file byte-identical to its repo source (bad:${HKP_BAD
 # ---- 3 · the payload header Hak5 asks for: Title, Description, Author, Version (= the page's), Category (= the directory's)
 HKP_BAD=""
 HKP_HD=$(head -n 15 "$HKP_P/payload.sh" 2>/dev/null)
-HKP_PV=$(sed -n 's/^  version: "\([0-9][0-9.]*\)",$/\1/p' starchorus.html | head -n 1)
+HKP_PV=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' starchorus.html | head -n 1)
 for HKP_k in Title Description Author; do printf '%s\n' "$HKP_HD" | grep -q "^# $HKP_k: [^ ]" || HKP_BAD="$HKP_BAD $HKP_k"; done
 [ "$(printf '%s\n' "$HKP_HD" | sed -n 's/^# Version: //p')" = "${HKP_PV:-none}" ] || HKP_BAD="$HKP_BAD Version"
 [ "$(printf '%s\n' "$HKP_HD" | sed -n 's/^# Category: //p')" = reconnaissance ] || HKP_BAD="$HKP_BAD Category"

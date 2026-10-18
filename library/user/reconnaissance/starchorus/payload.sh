@@ -2,7 +2,7 @@
 # Title: Starchorus
 # Author: Starchorus
 # Description: Strictly passive, receive-only Wi-Fi observation tool; visualises the radio environment and never transmits.
-# Version: 0.1.1
+# Version: 0.2.0-dev.1
 # Contract: 3
 # Category: reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -699,7 +699,7 @@ pl_status() {
 # too. An installed file with a version but no contract line is contract 1; a file
 # with no version header at all is not judged. The remedy named is tools/install.sh, or, where this payload's own directory
 # carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them.
-pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
+pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_con() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_skew() {
     pl_me=$(pl_ver "$0"); [ -n "$pl_me" ] || pl_me=$(pl_ver "$PL_HOME/payload.sh")

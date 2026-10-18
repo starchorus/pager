@@ -108,8 +108,8 @@ EOF
 cmp -s "$ROOT/starchorus-display.sh" "$ROOT/$PLSRC/starchorus-display.sh" ||
   die 2 "starchorus-display.sh differs between the repo root and $PLSRC/ -- the two copies must be identical; nothing was installed"
 
-page_ver() { sed -n 's/^[[:space:]]*version:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$1" | head -n 1; }
-hdr_ver()  { sed -n 's/^#[[:space:]]*Version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$1" | head -n 1; }
+page_ver() { sed -n 's/^[[:space:]]*version:[[:space:]]*"\([0-9][0-9A-Za-z.-]*\)".*/\1/p' "$1" | head -n 1; }
+hdr_ver()  { sed -n 's/^#[[:space:]]*Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$1" | head -n 1; }
 ver_of() {   # ver_of REPO-RELATIVE-FILE -> its version, or "-" when the file carries none
   case $1 in *.html) _v=$(page_ver "$ROOT/$1") ;; *) _v=$(hdr_ver "$ROOT/$1") ;; esac
   printf '%s' "${_v:--}"

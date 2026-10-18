@@ -315,7 +315,7 @@ def chk_fixtures(a, root):
 COUNT_RE = re.compile(r"\b\d+ \(?(PASS|checks?|check ?points?|tests?|assertions?|cases?|green)\b", re.I)
 # a script name followed (no digit, no sentence end in between) by a version-like token: "version 1.2", "starchorus-collect.sh 1.2 delivers", "collector 1.3",
 # "Collector: 1.2", a table row "| starchorus-collect.sh | 1.2 |"
-WHO_RE = re.compile(r"(?<![\w-])(collector|starchorus-collect\.sh|Dashboard|starchorus-display\.sh)(?![\w-])([^\d.;]{0,40}?)(?<![\w.§])v?(\d+\.\d+(?:\.\d+)?)(?![\d.]*\d)(?! ?(?:s|ms|px|Hz|kB|MB)\b)", re.I)   # "1.2 s" is a duration, not a version
+WHO_RE = re.compile(r"(?<![\w-])(collector|starchorus-collect\.sh|Dashboard|starchorus-display\.sh)(?![\w-])([^\d.;]{0,40}?)(?<![\w.§])v?(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)(?![\d.]*\d)(?! ?(?:s|ms|px|Hz|kB|MB)\b)", re.I)   # "1.2 s" is a duration, not a version
 HIST_RE = re.compile(r"\b(since|from|until|up to|first)\b|≥|>=")   # "since 1.3", "up to 1.0.1": says when something began or ended, not what is current
 
 
@@ -326,13 +326,16 @@ def plain(t):
     return re.sub(r"[ \t]+", " ", t)
 
 
-def vtuple(v):
-    return tuple(int(x) for x in v.split("."))
+def vnorm(v):
+    """A version as (numeric core padded to three parts, pre-release suffix): "0.2" is 0.2.0, and "0.2.0-dev.1" is not "0.2.0" (semver 2.0.0)."""
+    core, _, suf = v.partition("-")
+    parts = core.split(".") + ["0"] * (3 - core.count(".") - 1)
+    return (tuple(int(x) for x in parts), suf)
 
 
 def head_version(root, script):
     for ln in rd(root, script).split("\n")[:40]:
-        m = re.match(r"^#\s*Version:\s*(\d+\.\d+(?:\.\d+)?)\s*$", ln)
+        m = re.match(r"^#\s*Version:\s*(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)\s*$", ln)
         if m:
             return m.group(1)
     return None
@@ -372,7 +375,7 @@ def chk_prose(a, root):
                 if not head or HIST_RE.search(both[max(0, m.start() - 12):m.end() + 12]):
                     continue
                 # one project, one version: a claim that is not the header's version (older or newer) is stale
-                if vtuple(m.group(3) + ".0" * (2 - m.group(3).count("."))) != vtuple(head + ".0" * (2 - head.count("."))):
+                if vnorm(m.group(3)) != vnorm(head):
                     prob.append("%s:%d version claim %s about the %s, the header says %s (delete it, date it with \"as of\", or say \"since\"/\"until\"): %s" % (f, i, m.group(3), who, head, ln.strip()[:90]))
     return result("%d documents read (%s), hand-typed check counts and collector/display version claims: %d (%d version mentions judged)" % (len(md), how, len(prob), nver), prob)
 
@@ -413,10 +416,10 @@ HEADER_SCRIPTS = ("starchorus-collect.sh", "starchorus-display.sh", "library/use
 
 def chk_headers(a, root):
     prob, parts = [], []
-    m = re.search(r'^  version: "(\d+\.\d+\.\d+)",$', rd(root, "starchorus.html"), re.M)
+    m = re.search(r'^  version: "(\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)",$', rd(root, "starchorus.html"), re.M)
     page = m.group(1) if m else None
     if not page:
-        prob.append('starchorus.html has no `  version: "x.y.z",` line')
+        prob.append('starchorus.html has no `  version: "x.y.z",` line (x.y.z, or x.y.z-pre.n for a development build)')
     for script in HEADER_SCRIPTS:
         head = head_version(root, script)
         if not head:

@@ -9,7 +9,7 @@
 #               no injection, no association/connection, no channel jamming, no active
 #               features of the device's AP service. It only RECEIVES what the air already carries.
 # Author:       Starchorus
-# Version:      0.1.1
+# Version:      0.2.0-dev.1
 # Contract:     3
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later

@@ -16,8 +16,8 @@
 DRF_S=docs/architecture.md
 
 # ---- R6: version html = spec §10
-DRF_V=$(sed -n 's/^  version: "\([0-9.]*\)",$/\1/p' starchorus.html)
-DRF_P=$(sed -n 's/^  version: "\([0-9.]*\)",$/\1/p' "$DRF_S")
+DRF_V=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' starchorus.html)
+DRF_P=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$DRF_S")
 if [ -n "$DRF_V" ] && [ "$DRF_V" = "$DRF_P" ]; then
   row "version html = spec §10 ($DRF_V)" PASS
 else

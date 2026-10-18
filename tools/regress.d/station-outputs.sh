@@ -110,16 +110,16 @@ else
   row "P10 export/display (export hit $SOU_XP, display hit $SOU_PGP)" FAIL
 fi
 
-# ---- the ONE project version: every place that states it says 0.1.1 -- the page (STARCHORUS.version), the spec's §10
+# ---- the ONE project version: every place that states it says 0.2.0-dev.1 -- the page (STARCHORUS.version), the spec's §10
 # listing, the "# Version:" header of each script (collector, display script and its library copy, serve script, both
 # payload.sh), the device probe's banner and the README. A place that says something else, or no longer says it, is red.
-SOU_VER=0.1.1
-SOU_VL="page:$(sed -n 's/^  version: "\([0-9.]*\)",$/\1/p' "$H" | tr '\n' ',')"
-SOU_VL="$SOU_VL spec:$(sed -n 's/^  version: "\([0-9.]*\)",$/\1/p' "$R/docs/architecture.md" | tr '\n' ',')"
+SOU_VER=0.2.0-dev.1
+SOU_VL="page:$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$H" | tr '\n' ',')"
+SOU_VL="$SOU_VL spec:$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$R/docs/architecture.md" | tr '\n' ',')"
 for SOU_F in starchorus-collect.sh starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh starchorus-serve.sh payload.sh library/user/reconnaissance/starchorus/payload.sh; do
-  SOU_VL="$SOU_VL $SOU_F:$(sed -n '1,40s/^# Version:  *\([0-9][0-9.]*\)$/\1/p' "$R/$SOU_F" | tr '\n' ',')"
+  SOU_VL="$SOU_VL $SOU_F:$(sed -n '1,40s/^# Version:  *\([0-9][0-9A-Za-z.-]*\)$/\1/p' "$R/$SOU_F" | tr '\n' ',')"
 done
-SOU_VL="$SOU_VL device-probe:$(sed -n 's/.*# Starchorus device-probe \([0-9][0-9.]*\): .*/\1/p' "$R/tools/device-probe.sh" | tr '\n' ',')"
-SOU_VL="$SOU_VL README:$(sed -n 's/^Starchorus \([0-9][0-9.]*\)\. .*/\1/p' "$R/README.md" | tr '\n' ',')"
+SOU_VL="$SOU_VL device-probe:$(sed -n 's/.*# Starchorus device-probe \([0-9][0-9A-Za-z.-]*\): .*/\1/p' "$R/tools/device-probe.sh" | tr '\n' ',')"
+SOU_VL="$SOU_VL README:$(sed -n 's/^Starchorus \([0-9][0-9A-Za-z.-]*\)\. .*/\1/p' "$R/README.md" | tr '\n' ',')"
 SOU_VBAD=""; for SOU_X in $SOU_VL; do [ "${SOU_X#*:}" = "$SOU_VER," ] || SOU_VBAD="$SOU_VBAD $SOU_X"; done
 rowif "version $SOU_VER in page = spec §10 = 6 script headers = device-probe = README (off:${SOU_VBAD:- none})" [ -z "$SOU_VBAD" ]

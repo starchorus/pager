@@ -5,6 +5,8 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ## 0.2.0 - unreleased
 
+*Development build `0.2.0-dev.1` of 18 October 2026: a GitHub pre-release with everything listed here, for trying out; the stable release stays 0.1.1. Bluetooth and Traffic are opt-in and have not yet been measured on the device.*
+
 ### Added
 
 - Bluetooth (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive LE scan of 6 s per refresh. The page draws what it hears as small triangles by signal, filled for an address that does not rotate and hollow for rotating addresses, which it folds by company and signal ring into one mark (a dot at its centre, the count in its tooltip); key 4 and the 'BT' button hide them, and a counter 'BT addresses' keeps the total while they are hidden. The Overview counts them on the summary and has a Bluetooth screen. The figures are addresses, not devices, and a rotating address is never linked to another. A mark has a tooltip and no detail sheet in this release.

@@ -58,5 +58,5 @@ done || { rm -rf "$DST.tmp"; die 2 "copy into $DST failed"; }
 mv "$DST.tmp" "$DST" || die 2 "cannot rename $DST.tmp"
 
 n=$(printf '%s\n' "$MAP" | wc -l | tr -d ' ')
-v=$(sed -n 's/^# Version: *\([0-9][0-9.]*\)$/\1/p' "$DST/payload.sh" | head -n 1)
+v=$(sed -n 's/^# Version: *\([0-9][0-9A-Za-z.-]*\)$/\1/p' "$DST/payload.sh" | head -n 1)
 printf 'hak5-package: %s files, payload %s -> %s\n' "$n" "${v:-?}" "$DST"

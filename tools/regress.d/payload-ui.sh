@@ -112,7 +112,7 @@ PUI_PL="$R/library/user/reconnaissance/starchorus/payload.sh"
 PUI_DS="$R/starchorus-display.sh"
 PUI_D="$PUI_T/d"; PUI_LOG="$PUI_T/log"; PUI_ANS="$PUI_T/ans"; PUI_ALL="$PUI_T/all.log"
 PUI_TAB=$(printf '\t')
-PUI_VER=$(sed -n 's/^# Version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$PUI_PL" | head -n 1)
+PUI_VER=$(sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$PUI_PL" | head -n 1)
 pui_hc() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$R/$1" | head -n 1; }   # pui_hc FILE -> its "# Contract:" number
 PUI_CON=$(sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$PUI_PL" | head -n 1)
 mkdir -p "$PUI_T/sys" "$PUI_T/bin" "$PUI_T/ui" "$PUI_T/srv" "$PUI_T/decoy" "$PUI_T/tpl" "$PUI_T/jq" "$PUI_T/proc" "$PUI_T/qrm" "$PUI_T/qru" "$PUI_T/qra" "$PUI_T/qrb" "$PUI_T/uino" "$PUI_T/ovx" "$PUI_T/jqs" "$PUI_T/tmp"

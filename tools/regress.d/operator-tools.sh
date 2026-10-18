@@ -228,8 +228,8 @@ OPS_HOMG=$(awk '/^function homingIngest\(/,/^}/' starchorus.html)
 OPS_HOME=$(printf '%s\n' "$OPS_HOMG" | grep -c 'seenAp.has'); OPS_HOMC=$(printf '%s\n' "$OPS_HOMG" | grep -c 'seenCl.has'); OPS_HOMO=$(printf '%s\n' "$OPS_HOMG" | grep -c 'own.bssids.has')
 if [ "$OPS_HOME" -ge 1 ] && [ "$OPS_HOMC" -ge 1 ] && [ "$OPS_HOMO" -ge 1 ]; then row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" PASS
 else row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" FAIL; fi
-OPS_V=$(sed -n 's/^# Version:      \([0-9.]*\)$/\1/p' starchorus-collect.sh | head -n 1)
-rowif "collector version 0.1.1 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.1.1 ]
+OPS_V=$(sed -n 's/^# Version:      \([0-9][0-9A-Za-z.-]*\)$/\1/p' starchorus-collect.sh | head -n 1)
+rowif "collector version 0.2.0-dev.1 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.2.0-dev.1 ]
 # --help prints the header's USAGE/CONFIG block whole: first line "USAGE:", last line the end of the STARCHORUS_OUI_FILE entry.
 OPS_HLP=$(sh starchorus-collect.sh --help 2>/dev/null)
 OPS_HL1=$(printf '%s\n' "$OPS_HLP" | head -n 1); OPS_HLN=$(printf '%s\n' "$OPS_HLP" | wc -l | tr -d ' ')
