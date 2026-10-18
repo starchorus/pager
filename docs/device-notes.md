@@ -227,15 +227,22 @@ necessarily who made the device. Names are rare under a passive scan.
   dump (`isprint(...) ? buf[i] : '.'`) sanitises. A name is at most 29 bytes (31 of payload less two). It is not the only text the air writes:
   `print_manufacturer_apple` (company 76 or 19456, type 0x01) prints the bytes after its length byte with `snprintf(identifier, 99, "%s", data + 1)` and no bound to the
   advertisement, so it reads on into the RSSI byte and stale buffer bytes, and in a multi-report event a run the advertiser controls can reach about 36 bytes. So the
-  rule is not 'no line the air writes is longer than 29 bytes'. The lines the parser acts on stay out of reach: the headers are over 40 bytes and `Event type` is at
-  least 38; a forged `Address type` or `Address` line (35 and 34 bytes at least) can only drop the report of its own sender, by the order of the labels. The real
+  rule is not 'no line the air writes is longer than 29 bytes'. The lines the parser acts on stay out of reach: a header is over 40 bytes and does not start with a blank (the length alone is not enough, as the
+  54-byte name line below shows) and `Event type` is at least 38; a forged `Address type` or `Address` line (35 and 34 bytes at least) can only drop the report of its own sender, by the order of the labels. The real
   10-s window had `Num reports: 1` only, so a multi-report event has not been seen. Decoded on 18 October 2026 with `btmon -r` on the device from a crafted btsnoop file (monitor format and H4, six reports in one event, `plen 223`): a 29-byte name makes a
   54-byte line (`        Name (complete): ` and the name), the longest line the air wrote; a line feed inside a name makes a second line that can match a field line byte
   for byte (`        Type: Passive (0x00)`, 28 bytes, the most a 29-byte name can place after its line feed); a carriage return and a tab pass through (the collector's
   `clean_ctrl` removes the one and the parser's `clip` turns the other into a space); a NUL ends a short name; a report whose length exceeds its data printed the bytes
   that followed and `btmon` went on. Run through the collector's grammar, every injected line was read inside the injecting report only, which was then dropped as
   suspect; the other reports, the witness and the window were untouched, `active` stayed 0, and a line at column 0 is no line of the grammar. Self-test window 12 keeps
-  the case with the four injections that fit (`Type: Active`, `RSSI`, `Type: Passive`, a short `Event type`).
+  the case with the four injections that fit (`Type: Active`, `RSSI`, `Type: Passive`, a short `Event type`). The 54-byte name line is over 40 bytes, so length does not keep it from the header test: the 29-byte name `]: < HCI Event: plen 1 #0 1.0` (or
+  `]: > HCI Event: plen 1 #9 1.0`; as `Name (complete)` or `Name (short)`) makes the line `        Name (complete): ]: < HCI Event: plen 1 #0 1.0`, which passes the
+  prefilter, and a header test that looks for `]: < HCI ` anywhere in a line took it for a header. It closed its own report and its frame number broke the order of the real ones,
+  so one advertiser in range could make the collector discard every window ('monitor output out of order'). The main rule closes this with a first-byte test: a header
+  does not start with a blank, so no indented line is tested as one. This was found by reading the grammar and run on synthetic windows (self-test window 13b), not on the
+  device. Window 13 keeps a header-shaped line with eight blanks in front that `btmon` does not write, to pin the shortcut itself. The test reads one real line differently:
+  a header from a process whose own name starts with a blank is no header any more. Such a name has to be chosen on purpose, and a chosen name could already hide a header
+  (a process named `]: > HCI ` does, with the old test as with the new).
 - **A11.** The five busiest MACs show steady deltas (for example 112, 89, 105, 115, 147, 142, 118, 122, 107): no alternation between 0 and double, so the firmware updates
   `packets` steadily and nothing aliases with a 30-s capture.
 - **A12.** In five minutes of passive scan: 30 addresses, 6,004 reports (20 per second). The strongest report of each address: one in the −30s, two in the −40s, six in the −50s,
@@ -768,7 +775,8 @@ Wi-Fi document is never held back by it.
 
 **The levers, in the order of their yield** (none taken on 18 October; the owner decides for 0.2.0): the `awk` grammar of the parse runs its
 header test, two `substr` and up to three regular expressions on every kept line, five of the seven of which are field lines that start with
-eight blanks and can be told apart by their first byte, so the grammar can skip the header test for them (about a third of the 150 ticks);
+eight blanks and can be told apart by their first byte, so the grammar can skip the header test for them (about a third of the 150 ticks; taken for 0.2.0,
+the main rule tests the first byte before it calls the header test, and the gain is not yet measured on the device);
 the window loop polls every 0.2 s with `$( )` substitutions and a `sleep` applet, each a process on this shell, about 73 spawns and 60 ticks per
 window, which globals set by the functions themselves and a longer nap would cut to a handful; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
 brief's Q2) takes a sixth off the tools and the parse alike; the Traffic read can be taken every second cycle (the AP service's window is 20 to 30 s

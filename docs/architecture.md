@@ -2532,11 +2532,14 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   increase; otherwise it is void and the layer carries its held records. A name is at most 29 bytes (a legacy advertisement holds 31, less two
   header bytes), but the Apple manufacturer decoder of BlueZ 5.72 prints its bytes as text without bounding them to the advertisement (A10 of
   device-notes §2b), so a line the air writes can run on to about 36 bytes. The grammar therefore acts only on lines that no such text reaches
-  (headers, over 40 bytes; `Event type`, at least 38) or in positions a forged line cannot take; a forged `Address type` or `Address` line can
-  only drop the report of its own sender, by the order of the labels. An advertiser cannot forge the witness. The witness checks what was asked of the
-  controller; an observation of the air itself would need a separate sniffer. The window is stopped within about 3 s of a signal (the first
-  SIGINT to a scan younger than a second waits for its first second, since a scan that has not installed its handler would die of it with the
-  controller still scanning), and a collector killed with SIGKILL leaves its tools to their dead-man timers and to the next start's sweep.
+  (headers, over 40 bytes and not starting with a blank; `Event type`, at least 38) or in positions a forged line cannot take; a forged `Address type`
+  or `Address` line can only drop the report of its own sender, by the order of the labels. The length alone does not keep a header out of a name: a
+  29-byte name that holds `]: < HCI Event: plen 1 #0 1.0` makes a 54-byte line which a test that finds the marker anywhere would count as a header and
+  as frame 0, and the window would be void by order, so the main rule asks for a first byte other than a blank before it asks whether a line is a header.
+  An advertiser cannot forge the witness. The witness checks what was asked of the controller; an observation of the air itself would need a
+  separate sniffer. The window is stopped within about 3 s of a signal (the first SIGINT to a scan younger than a second waits for its first
+  second, since a scan that has not installed its handler would die of it with the controller still scanning), and a collector killed with
+  SIGKILL leaves its tools to their dead-man timers and to the next start's sweep.
 - The receiver is never held on a channel or a BSSID; there is no radio-controlling command in the code.
 - `starchorus-display.sh` uses only the device's display commands `LOG`, `LIST_PICKER`, `ERROR_DIALOG` and
   `WAIT_FOR_INPUT` (`docs/device-notes.md` §7). The display arms one `WAIT_FOR_INPUT` in the background, without a time limit,

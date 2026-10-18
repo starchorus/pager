@@ -1054,10 +1054,13 @@ bt_sweep() {
 #   31 bytes of advertising data, so a name is at most 29 bytes and none spans two real lines. It is a rule for names, not for every line the air can
 #   write: print_manufacturer_apple of BlueZ 5.72 (company 76 or 19456, type 0x01) prints the bytes after its length byte as text with no bound to
 #   the advertisement, so it reads on into the RSSI byte and stale buffer bytes, and in a multi-report event a run the advertiser controls can reach
-#   about 36 bytes. The grammar therefore acts only on lines longer than that (headers over 40 bytes, Event type at least 38) or on lines in a position
-#   a forged line cannot take (a forged Address type or Address line, 35 and 34 bytes at least, only drops its sender's own report, by the label
-#   order): Type / Scanning count only as the FIRST field line after their command header; a report is closed by RSSI, exactly once, and stays pending
-#   until the next line is a valid Event type or a header: any other field line there means a forged short RSSI closed it early, and the report is
+#   about 36 bytes. The grammar therefore acts only on lines longer than that (headers over 40 bytes that do not start with a blank, Event type at least
+#   38) or on lines in a position a forged line cannot take (a forged Address type or Address line, 35 and 34 bytes at least, only drops its sender's own
+#   report, by the label order). Length alone does not keep a header out of a name: a 29-byte name "]: < HCI Event: plen 1 #0 1.0" makes a 54-byte line
+#   that a test finding the marker anywhere would take for a header and count as frame 0, and one advertiser in range could void every window that way,
+#   so the main rule asks for a first byte other than a blank before it asks hdr(). Type / Scanning count only as the FIRST field line after their
+#   command header; a report is closed by RSSI, exactly once, and stays pending until the next line is a valid Event type or a header: any other field
+#   line there means a forged short RSSI closed it early, and the report is
 #   dropped (suspect). A hostile name can at most drop its own report or dress it up (a company name or a short name of its choosing, which it could
 #   advertise anyway); it cannot create a record, change another, or touch the witness. Field lines are exactly eight blanks and a label; every
 #   other line (ten-blank sub-lines, Flags, Data, TX power ...) is ignored, so the filtered and the unfiltered text give the same answer.
@@ -1107,7 +1110,10 @@ AWK_BT='
     {
         l = $0
         if (l == "#--#") { sep(); next }
-        if (hdr(l)) {
+        # a header starts with "<", ">" or a process prefix, not with a blank: an indented line is never tested as one, so a name line that holds a header
+        # ("        Name (complete): ]: < HCI Event: plen 1 #0 1.0") cannot move the frame count, and the field lines of eight blanks, most of the kept
+        # lines, skip hdr(); only a process whose own name starts with a blank reads differently
+        if (substr(l, 1, 1) != " " && hdr(l)) {
             if (rs == 2) commit(); else if (rs == 1) suspect++
             rs = 0; inev = 0; evnext = 0; blk = ""; first = 0
             p = HP
@@ -3576,6 +3582,42 @@ BTWE
        && [ "$(grep -c '4 malformed reports dropped' "$bpt/log")" = 1 ] && [ "$(wc -l < "$bpt/log" | tr -d ' ')" = 1 ]; then
         st_pass "bt_parse: a name with a newline inside cannot act as a field outside its own report (Type: Active, RSSI, Type: Passive, Event type injected: four reports dropped, active 0, passive 1, the window counts; a line at column 0 is ignored; a 29-byte name is kept whole)"
     else st_fail "bt_parse: injected name lines [$BPT_W] judge $bpt_jr log [$(cat "$bpt/log")] lines [$BPT_BL]"; fi
+
+    # 13) the main rule tests the first byte before it asks hdr(): a real header never starts with a blank (it starts with "<", ">" or a process prefix), so a
+    #     header-shaped line with eight blanks in front is a field line with an unknown label, whatever else it says. This line is not one btmon writes (88
+    #     bytes under an unknown label, more than any name the air can set); it pins the shortcut itself. It has its prefix, opcode, plen and frame number
+    #     in place, so only the blanks keep it from being a header; a Type: Active line follows it. Read as a header it would open a parameters block that takes
+    #     that line as its own (active 1: the window is void, 'another scan') and its frame number (#9) would put the next real header out of order. Read as a
+    #     field line, the Type: line drops the injecting report (suspect 1) and nothing else: the clean report beside it is kept, passive stays 1, active 0,
+    #     the window counts. 13b is the line btmon does write.
+    { bpt_n=0; bpt_pre
+      bpt_rep c2:00:00:00:00:b1 Static -40 "$bpt_adv"
+      bpt_rep c2:00:00:00:00:b2 Static -41 "$bpt_adv" '        host[1]: < HCI Command: LE Set Scan Parameters (0x08|0x000b) plen 7  #9 1.000009' '        Type: Active (0x01)'
+      bpt_post; } > "$bpt/w13.txt"
+    bpt_run "$bpt/w13.txt"
+    bpt_want=$(printf 'B\tc2:00:00:00:00:b1\trandom-static\t-40\t1\t\t\t\t1\n')
+    if [ "$BPT_BL" = "$bpt_want" ] && [ "$BPT_W" = "$(printf 'W\t1\t0\t1\t1\t0\t1\t0')" ] && [ "$bpt_jr" = 0 ] && [ -z "$BT_VOID" ] \
+       && [ "$(grep -c '1 malformed reports dropped' "$bpt/log")" = 1 ] && [ "$(wc -l < "$bpt/log" | tr -d ' ')" = 1 ]; then
+        st_pass "bt_parse: a header-shaped line with eight blanks in front is no header (it opens no parameters block: passive 1, active 0, the frame number #9 not counted); the report that carries it is dropped as suspect, the clean report beside it is kept, the window counts"
+    else st_fail "bt_parse: indented header-shaped line [$BPT_W] void [$BT_VOID] judge $bpt_jr log [$(cat "$bpt/log")] lines [$BPT_BL]"; fi
+
+    # 13b) a header inside an advertised name (A10): btmon prints a name unfiltered, so the 29-byte name "]: < HCI Event: plen 1 #0 1.0" becomes the 54-byte line
+    #      "        Name (complete): ]: < HCI Event: plen 1 #0 1.0" (and "]: > HCI Event: plen 1 #9 1.0" as Name (short), 51 bytes). Both pass the prefilter and are
+    #      over 40 bytes, and a test that finds the marker "]: < HCI " anywhere in a line takes them for headers: each closes its own report and brings a frame
+    #      number (#0, #9) that breaks the order of the real ones, so one advertiser in range could void every window ('monitor output out of order'). The
+    #      blank at the first byte keeps them out of hdr(): both are Name lines, both reports are kept with the text as their name, nothing is suspect, no
+    #      frame number moves, the window counts. The clean reports around them show that the real headers (#1 to #7) are read in order.
+    { bpt_n=0; bpt_pre
+      bpt_rep c2:00:00:00:00:c1 Static -40 "$bpt_adv"
+      bpt_rep c2:00:00:00:00:c2 Static -41 "$bpt_adv" '        Name (complete): ]: < HCI Event: plen 1 #0 1.0'
+      bpt_rep c2:00:00:00:00:c3 Static -42 "$bpt_adv" '        Name (short): ]: > HCI Event: plen 1 #9 1.0'
+      bpt_rep c2:00:00:00:00:c4 Static -43 "$bpt_adv"
+      bpt_post; } > "$bpt/w13b.txt"
+    bpt_run "$bpt/w13b.txt"
+    bpt_want=$(printf 'B\tc2:00:00:00:00:c1\trandom-static\t-40\t1\t\t\t\t1\nB\tc2:00:00:00:00:c2\trandom-static\t-41\t1\t\t\t]: < HCI Event: plen 1 #0 1.0\t1\nB\tc2:00:00:00:00:c3\trandom-static\t-42\t1\t\t\t]: > HCI Event: plen 1 #9 1.0\t1\nB\tc2:00:00:00:00:c4\trandom-static\t-43\t1\t\t\t\t1\n')
+    if [ "$BPT_BL" = "$bpt_want" ] && [ "$BPT_W" = "$(printf 'W\t1\t0\t1\t1\t0\t0\t0')" ] && [ "$bpt_jr" = 0 ] && [ -z "$BT_VOID" ] && [ ! -s "$bpt/log" ]; then
+        st_pass "bt_parse: a name that holds a header ('Name (complete): ]: < HCI Event: plen 1 #0 1.0', and a short one with '>' and #9) is a name, not a header: both reports are kept, no frame number moves, nothing is suspect, the window counts"
+    else st_fail "bt_parse: header inside a name [$BPT_W] void [$BT_VOID] judge $bpt_jr log [$(cat "$bpt/log")] lines [$BPT_BL]"; fi
 
     unset -f bpt_hdr bpt_pre bpt_post bpt_rep bpt_run bpt_f
 }
