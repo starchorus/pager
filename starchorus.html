@@ -5043,8 +5043,8 @@ function drawStars() {
     }
     drawSelectionMarks(ctx, ap, ap.alphaDraw);
   }
-  const cm = THEME.render.changeCue, e2 = Math.floor(S.clock * 2);   // an alerted AP's ring, alarm colour: a slow pulse, a phosphor flicker or a chalk blink by the theme's cue, steady under reduced motion
-  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alarm, 2, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + 2 * ENCODING.ringOffsetPx, 0, Math.PI * 2); }
+  const cm = THEME.render.changeCue, e2 = Math.floor(S.clock * 2);   // an alerted AP's ring, in a band of its own between the hidden-SSID and selection rings; pulse, flicker or blink by the theme's cue, steady under reduced motion
+  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alarm, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); }
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }

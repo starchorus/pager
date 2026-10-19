@@ -70,7 +70,7 @@ rowif "alerts: the validator refuses twelve broken alerts[] (a type that is not 
 AL_EVR='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,T=I.THEMES,o={},TM=[0,100,400,500,900,1000,1400,1500,2000,2500,3000,3500],TH=["foundation","wargames","whitehall"];
 const A1="02:00:5e:a1:00:01",A4="02:00:5e:a1:00:04",C="02:00:5e:a1:00:02";
 await sleep(1500);
-const px=(id)=>{const n=STARCHORUS.nodeScreen(id);return n?STARCHORUS.pixel("sky",Math.round(n.sx+n.px+8),Math.round(n.sy)):{r:-1,g:-1,b:-1,a:-1};};
+const px=(id,o)=>{const n=STARCHORUS.nodeScreen(id);return n?STARCHORUS.pixel("sky",Math.floor(n.sx+n.px+(o===undefined?11.5:o)),Math.round(n.sy)):{r:-1,g:-1,b:-1,a:-1};};
 const ser=async(ids)=>{const r=ids.map(()=>[]);for(const ms of TM){STARCHORUS.setFixedTime(ms);await sleep(120);for(let k=0;k<4;k++)STARCHORUS.frame();ids.forEach((id,i)=>r[i].push(px(id).a));}return r;};
 const mx=a=>Math.max(...a),mn=a=>Math.min(...a),dist=a=>new Set(a).size,eq=(a,ix)=>ix.every(i=>a[i]===a[ix[0]]);
 STARCHORUS.setToggles({crt:false});
@@ -82,14 +82,16 @@ o.whitehall=H.every(a=>eq(a,[0,1,2,3,4,8,9])&&eq(a,[5,6,7,10,11])&&a[0]>0&&a[0]/
 STARCHORUS.setReducedMotion(true);
 const rm={};for(const th of TH){STARCHORUS.setTheme(th);rm[th]=await ser([A1,A4]);}
 o.steady=TH.map(th=>rm[th].every((a,i)=>dist(a)===1&&a[0]>=0.95*mx(live[th][i]))?1:0).join("");
-const own={};
+const own={},band={};
 for(const th of TH){STARCHORUS.setTheme(th);STARCHORUS.setFixedTime(1000);await sleep(120);const ids=[A1,A4,C];
   const sm=()=>{for(let k=0;k<4;k++)STARCHORUS.frame();return ids.map(id=>px(id).a);};
   const w=sm(),keep=S.alerts;S.alerts=[];const z=sm();S.alerts=keep;
   own[th]=(w[0]-z[0]>=60&&w[1]-z[1]>=60&&Math.abs(w[2]-z[2])<=2)?"ok":"bad "+w+"/"+z;
+  const bd=()=>[A1,A4].map(id=>{const r=[];for(let o=3;o<=9;o++){const p=px(id,o);r.push(p.r+","+p.g+","+p.b+","+p.a);}return r.join(";");}).join("|");
+  const bw=(sm(),bd());S.alerts=[];const bz=(sm(),bd());S.alerts=keep;sm();band[th]=bw===bz?"ok":"moved";
   const al=T[th].status.alarm;T[th].status.alarm="#00ff00";const g=(sm(),px(A4));T[th].status.alarm=al;const q=(sm(),px(A4));
   own[th]+=(g.g>=200&&g.r<=80&&g.b<=80&&q.r>=q.g)?"":" token "+[g.r,g.g,g.b]+"/"+[q.r,q.g,q.b];}
-o.where=TH.map(th=>own[th]).join("|");
+o.where=TH.map(th=>own[th]).join("|");o.band=TH.map(th=>band[th]).join("|");
 {STARCHORUS.setTheme("whitehall");
 const fx=await (await fetch("starchorus.json")).json();fx.center.own_bssids=[A1,A4];fx.generated+=50;STARCHORUS.load(fx,"al-own");await sleep(1200);
 STARCHORUS.setFixedTime(1000);await sleep(120);
@@ -98,12 +100,43 @@ const ow=sm2(),keep=S.alerts;S.alerts=[];const z=sm2();S.alerts=keep;
 o.own=(Math.abs(ow[0]-z[0])<=2&&Math.abs(ow[1]-z[1])<=2)?"ok":"bad "+ow+"/"+z;}
 STARCHORUS.setReducedMotion(null);STARCHORUS.setFixedTime(null);
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$AL_FX" "$AL_Q" "$AL_T/ring" --fps 0 --wait 3 --eval-timeout 120 --eval "$AL_EVR" >/dev/null 2>&1
-AL_R=$(evalv "$AL_T/ring.json" 1)
-AL_WANT='{"foundation":true,"wargames":true,"whitehall":true,"steady":"111","where":"ok|ok|ok","own":"ok","errors":0}'
-AL_RN=$(printf '%s' "$AL_R" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k: d.get(k) for k in ("foundation","wargames","whitehall","steady","where","own","errors")}, separators=(",",":")))' 2>/dev/null)
-rowif "alerts: the ring of an alerted access point flickers in each theme's idiom (Foundation a slow smooth pulse, WarGames a seeded phosphor flicker in steps of half a second, Whitehall a chalk blink of two levels), stands steady under reduced motion, is drawn at the two reported access points and at no other (not at an own transmitter either), and reads the theme's alarm token [${AL_RN:-no-value}]" [ "$AL_RN" = "$AL_WANT" ]
+# al_ring PAGE PREFIX: the ring eval on PAGE (the page, or a planted copy of it); the keys it reads come back in AL_R (all) and AL_RN (the verdict keys)
+al_ring() {
+  AL_HK=$H; H=$1   # runq serves $H: point it at the copy for this one call, then put it back
+  runq "$AL_FX" "$AL_Q" "$2" --fps 0 --wait 3 --eval-timeout 120 --eval "$AL_EVR" >/dev/null 2>&1
+  H=$AL_HK
+  AL_R=$(evalv "$2.json" 1)
+  AL_RN=$(printf '%s' "$AL_R" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k: d.get(k) for k in ("foundation","wargames","whitehall","steady","where","band","own","errors")}, separators=(",",":")))' 2>/dev/null)
+}
+al_ring "$H" "$AL_T/ring"
+AL_WANT='{"foundation":true,"wargames":true,"whitehall":true,"steady":"111","where":"ok|ok|ok","band":"ok|ok|ok","own":"ok","errors":0}'
+rowif "alerts: the ring of an alerted access point flickers in each theme's idiom (Foundation a slow smooth pulse, WarGames a seeded phosphor flicker in steps of half a second, Whitehall a chalk blink of two levels), stands steady under reduced motion, is drawn at the two reported access points and at no other (not at an own transmitter either), reads the theme's alarm token, and leaves every pixel of the access point's own rings (3 to 9 px beyond the star: the security ring and its double, the identity frame, the new-plot mark) as it was without the alert [${AL_RN:-no-value}]" [ "$AL_RN" = "$AL_WANT" ]
 [ "$AL_RN" = "$AL_WANT" ] || printf '    %s\n' "$(printf '%s' "${AL_R:-no-value}" | cut -c1-300)"
+
+# ---- R9 the band key bites: the page with the ring put back where the outer circle of a WPA2 double ring is (px + 8, two pixels wide, the place it had before this
+# row existed) must turn the band key red, in all three themes. Fair by construction: the old text exists once, the copy differs from the page in exactly that
+# line, and it boots without errors. The copy is only served to headless Chrome on 127.0.0.1; nothing in it sends.
+# al_plant OUT OLD NEW [OLD NEW ...]: a copy of the page with each OLD replaced by NEW; return 1 unless every OLD is in the page exactly once
+al_plant() {
+  _ap_o=$1; shift
+  python3 -B - "$H" "$_ap_o" "$@" <<'PY'
+import sys
+src, out, *pairs = sys.argv[1:]
+s = open(src, encoding="utf-8").read()
+for old, new in zip(pairs[0::2], pairs[1::2]):
+    if s.count(old) != 1:
+        sys.exit(1)
+    s = s.replace(old, new)
+open(out, "w", encoding="utf-8").write(s)
+PY
+}
+AL_PB="$AL_T/band.html"
+al_plant "$AL_PB" 'ringArc(THEME.status.alarm, 1.5, null, n.alphaDraw' 'ringArc(THEME.status.alarm, 2, null, n.alphaDraw' 'n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2)' 'n.px + 2 * ENCODING.ringOffsetPx, 0, Math.PI * 2)'; AL_PBC=$?
+AL_PBD=$(diff "$H" "$AL_PB" 2>/dev/null | grep -c '^<')
+al_ring "$AL_PB" "$AL_T/ring-band"
+AL_PBV=$(printf '%s' "$AL_R" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("band"), d.get("errors"))' 2>/dev/null)
+AL_PBOK=0; [ "$AL_PBC" = 0 ] && [ "$AL_PBD" = 1 ] && [ "$AL_PBV" = "moved|moved|moved 0" ] && AL_PBOK=1
+rowif "alerts: the band key bites: the ring put back at px + 8 (the outer circle of a WPA2 double ring) moves the access point's own pixels in all three themes [copy differs in $AL_PBD line, band/errors ${AL_PBV:-no-value}]" [ "$AL_PBOK" = 1 ]
 
 # ---- R4 / R6 / R7 the legend row, the observation notes, the words: one run on the fixture, then variants of it loaded into the same page
 AL_EVL='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,o={},TH=["foundation","wargames","whitehall"];
