@@ -241,6 +241,7 @@ S.ui = { theme: "foundation"|"wargames"|"whitehall", view: "2d"|"3d",
          help: false,                                                        // shortcut overlay (not persisted)
          random: "cloud"|"show"|"hide",                                      // the Random switch (§8.8a, persisted)
          panels: true, sheet: "peek"|"half"|"full", legendCard: false,       // Hide panels (persisted); the phone sheet and its legend card (not, §9.8)
+         scope: false,                                                       // the Scope, phone layout only (persisted, §9.8b)
          deviceLinks: false, essMerge: false, affinity: true, observations: false, baselineDiff: false, inventory: false,
          filters: { "2.4": true, "5": true, "6": true } };
 S.queryLocked = Set<key>;           // UI keys from query parameters (§2.7): saveUi() omits them until they are changed via UI/API
@@ -265,7 +266,7 @@ S.errors;                            // window.onerror + unhandledrejection + AP
 ```
 Persistence (`localStorage[STORAGE_KEY]`, JSON, debounced 250 ms, all accesses in `try/catch`):
 `{v: 2, theme, view, random, labels, orbits, links, agg, vendor, nebula, groups, rotate, spin, crt, deviceLinks, essMerge, affinity,
-observations, baselineDiff, inventory, panels}` (`PERSIST_KEYS`; names at index 0–2, booleans from index 3 onwards). **Not** persisted: `paused`,
+observations, baselineDiff, inventory, panels, scope}` (`PERSIST_KEYS`; names at index 0–2, booleans from index 3 onwards). **Not** persisted: `paused`,
 `filters`, `help`, camera, pins, `autoLod` and everything concerning the analysis drawers (§2.6a). Invalid values →
 defaults. `saveUi()` does not write keys in `S.queryLocked` (the stored value remains) until the key is changed via the UI
 or `STARCHORUS.set*`; `setToggle` and `setRandomMode` always, and `applyTheme`/`setView` with `persist: true` (the default), remove it
@@ -312,6 +313,7 @@ All models belong to **one source** (D2): a change of source resets them. Time c
 | `?demo=1` | Hold the built-in sample sky and never poll `starchorus.json`: the chip reads 'Sample' from the start, no request is made (not even by `STARCHORUS.pollNow()`), and the logon is released at the boot, as the first completed poll releases it. `?poll=0` keeps its meaning (without `?demo=1` its first poll runs) |
 | `?phone=1|0` | Phone mode (§9.8) on or off whatever the viewport (otherwise `PHONE.query` decides) |
 | `?panels=0|1` | Hide panels at the start (§9.8); like every override it is not saved |
+| `?scope=1|0` | The Scope at the start (§9.8b); it shows only in phone mode, and it is not saved |
 | `?random=cloud|show|hide` | The Random switch at the start (§8.8a): one node per cloud, one by one, hidden |
 
 All query values land in `S.queryLocked` (§2.6) and are stored only after a user/API change to the same
@@ -379,11 +381,11 @@ errors}` (before any supplementing), `themeAudit(true)` a fresh one over the cur
 `STARCHORUS.stats().themeErrors === 0` and `STARCHORUS.themeAudit().errors === 0` (three key sets of equal size).
 
 **Copy tokens `copy` (D4).** Every statement the page makes about passivity and every source word is a token, with the same
-62 leaf paths in all three themes: `copy.rx{meta, tag, motto, legRx, legArc, probeHint}` · `copy.active{… the same
+63 leaf paths in all three themes: `copy.rx{meta, tag, motto, legRx, legArc, probeHint}` · `copy.active{… the same
 keys}` · `copy.chip{demo, live, stale, offline, recorded, active, none}` · `copy.badge{…}` · `copy.logonMode{demo, live,
 recorded, none, active}` · `copy.bannerBot{… the same five}` · `copy.logonListen{rx, active}` · the voice tokens
 (`crowdSign`, `lamps`, `tote`, `clock`, `lampStrip`, `caption`, `compendium`, `vault`, `signal`, `skyVoice`,
-`legendHeads`) · per theme `logonHead[]`, `logonTail[]`, `bannerTop`. The shared values come from the theme-free
+`legendHeads`, `scope{strip[]}`) · per theme `logonHead[]`, `logonTail[]`, `bannerTop`. The shared values come from the theme-free
 constants `COPY_SITES`/`COPY_ACTIVE`/`COPY_RX_MODE` (section 21); every `THEME.copy` begins with `...COPY_SITES` and may
 reword individual values (`chip.offline` and `badge.offline` read 'Offline', in WarGames 'Link down', in Whitehall 'No link'). The only reader of the passivity statements is
 `copyFor(site) = THEME.copy[sourceKind === "active" ? "active" : "rx"][site]` (section 38); chip, logon and
@@ -538,7 +540,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
 // THEMES.foundation
 {
   "meta": {"id": "foundation", "label": "Foundation", "isDefault": true},
-  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "Offline", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "Offline", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY — NOTHING IS TRANSMITTED · SAMPLE SKY", "live": "MODE: RX ONLY — NOTHING IS TRANSMITTED · LIVE FEED", "recorded": "MODE: RX ONLY — NOTHING IS TRANSMITTED · RECORDED CAPTURE", "none": "MODE: RX ONLY — NOTHING IS TRANSMITTED · NO FEED", "active": "MODE: ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED TRAFFIC · NOTHING IS TRANSMITTED · RX ONLY", "live": "LIVE FEED · NOTHING IS TRANSMITTED · RX ONLY", "recorded": "RECORDED CAPTURE · NOTHING IS TRANSMITTED · RX ONLY", "none": "NO FEED · NOTHING IS TRANSMITTED · RX ONLY", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "logonHead": ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], "logonTail": ["…LOADING SKY"], "bannerTop": "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM", "signal": ["excellent", "good", "weak", "marginal"], "skyVoice": "Compendium", "legendHeads": {"measured": "Measured", "derived": "Derived", "operator": "Operator", "look": "Look"}},
+  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "Offline", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "Offline", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY — NOTHING IS TRANSMITTED · SAMPLE SKY", "live": "MODE: RX ONLY — NOTHING IS TRANSMITTED · LIVE FEED", "recorded": "MODE: RX ONLY — NOTHING IS TRANSMITTED · RECORDED CAPTURE", "none": "MODE: RX ONLY — NOTHING IS TRANSMITTED · NO FEED", "active": "MODE: ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED TRAFFIC · NOTHING IS TRANSMITTED · RX ONLY", "live": "LIVE FEED · NOTHING IS TRANSMITTED · RX ONLY", "recorded": "RECORDED CAPTURE · NOTHING IS TRANSMITTED · RX ONLY", "none": "NO FEED · NOTHING IS TRANSMITTED · RX ONLY", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "logonHead": ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], "logonTail": ["…LOADING SKY"], "bannerTop": "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM", "signal": ["excellent", "good", "weak", "marginal"], "skyVoice": "Compendium", "scope": {"strip": ["Stars", "Satellites", "Clouds", "Brightest", "New"]}, "legendHeads": {"measured": "Measured", "derived": "Derived", "operator": "Operator", "look": "Look"}},
   "surface": {"base": "#05070d", "deep": "#05070d", "raised": "#0a1122", "gradient": "radial-gradient(120% 120% at 50% 42%, #0a1122 0%, #080b16 46%, #05070d 100%)", "panelFill": "rgba(8,11,22,0.80)", "panelBorder": "rgba(233,228,216,0.16)", "panelBlurPx": 12, "panelRadiusPx": 3, "panelShadow": "0 12px 40px rgba(0,0,0,0.55)"},
   "ink": {"primary": "#dfe7fb", "secondary": "#9aa7c4", "muted": "#6f7c9c", "onFill": "#05070d"},
   "line": {"hairline": "rgba(233,228,216,0.20)", "hairlineSoft": "rgba(233,228,216,0.09)", "baseline": "rgba(140,165,220,0.30)", "ring": "rgba(140,165,220,0.56)", "widthPx": 1, "device": "rgba(233,228,216,0.40)", "edge": {"style": "bezier", "curvature": 0.18, "color": "rgba(233,228,216,0.18)", "widthPx": 1, "glowPx": 6}},
@@ -563,7 +565,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
 // THEMES.wargames
 {
   "meta": {"id": "wargames", "label": "WARGAMES", "isDefault": false},
-  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "Link down", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "Link down", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "LISTEN ONLY · STARCHORUS SENDS NO FRAMES", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY — NOTHING IS TRANSMITTED · SAMPLE SKY", "live": "MODE: RX ONLY — NOTHING IS TRANSMITTED · LIVE FEED", "recorded": "MODE: RX ONLY — NOTHING IS TRANSMITTED · RECORDED CAPTURE", "none": "MODE: RX ONLY — NOTHING IS TRANSMITTED · NO FEED", "active": "MODE: ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED TRAFFIC · NOTHING IS TRANSMITTED · RX ONLY", "live": "LIVE FEED · NOTHING IS TRANSMITTED · RX ONLY", "recorded": "RECORDED CAPTURE · NOTHING IS TRANSMITTED · RX ONLY", "none": "NO FEED · NOTHING IS TRANSMITTED · RX ONLY", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "logonHead": ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], "logonTail": ["…LOADING SKY"], "bannerTop": "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM", "signal": ["MAX", "STRONG", "WEAK", "MIN"], "skyVoice": "SKY SUMMARY", "legendHeads": {"measured": "Measured", "derived": "Derived", "operator": "Operator", "look": "Look"}},
+  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "Link down", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "Link down", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "LISTEN ONLY · STARCHORUS SENDS NO FRAMES", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY — NOTHING IS TRANSMITTED · SAMPLE SKY", "live": "MODE: RX ONLY — NOTHING IS TRANSMITTED · LIVE FEED", "recorded": "MODE: RX ONLY — NOTHING IS TRANSMITTED · RECORDED CAPTURE", "none": "MODE: RX ONLY — NOTHING IS TRANSMITTED · NO FEED", "active": "MODE: ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED TRAFFIC · NOTHING IS TRANSMITTED · RX ONLY", "live": "LIVE FEED · NOTHING IS TRANSMITTED · RX ONLY", "recorded": "RECORDED CAPTURE · NOTHING IS TRANSMITTED · RX ONLY", "none": "NO FEED · NOTHING IS TRANSMITTED · RX ONLY", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS"}, "logonHead": ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], "logonTail": ["…LOADING SKY"], "bannerTop": "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM", "signal": ["MAX", "STRONG", "WEAK", "MIN"], "skyVoice": "SKY SUMMARY", "scope": {"strip": ["NETS", "STATIONS", "CLOUDS", "PEAK", "NEW"]}, "legendHeads": {"measured": "Measured", "derived": "Derived", "operator": "Operator", "look": "Look"}},
   "surface": {"base": "#000000", "deep": "#000000", "raised": "#000000", "gradient": null, "panelFill": "rgba(0,0,0,0.85)", "panelBorder": "#0f234b", "panelBlurPx": 0, "panelRadiusPx": 0, "panelShadow": "none"},
   "ink": {"primary": "#e6e6dc", "secondary": "#a7a7a7", "muted": "#808080", "onFill": "#000000"},
   "line": {"hairline": "#0f234b", "hairlineSoft": "rgba(15,35,75,0.60)", "baseline": "#0f234b", "ring": "#287878", "widthPx": 1, "device": "rgba(154,154,144,0.70)", "edge": {"style": "parabola", "curvature": 0.28, "color": "rgba(167,167,167,0.45)", "widthPx": 1, "glowPx": 6}},
@@ -588,7 +590,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
 // THEMES.whitehall
 {
   "meta": {"id": "whitehall", "label": "WHITEHALL", "isDefault": false},
-  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "No link", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "No link", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY - NOTHING IS TRANSMITTED - SAMPLE SKY", "live": "MODE: RX ONLY - NOTHING IS TRANSMITTED - LIVE FEED", "recorded": "MODE: RX ONLY - NOTHING IS TRANSMITTED - RECORDED CAPTURE", "none": "MODE: RX ONLY - NOTHING IS TRANSMITTED - NO FEED", "active": "MODE: ACTIVE SCAN - THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED PLOTS · PASSIVE RECEIVE ONLY · NOT A GOVERNMENT SYSTEM", "live": "REAL-WORLD DATA · NOT EXERCISE PLAY · {src} · LIVE · NOT A GOVERNMENT SYSTEM", "recorded": "REAL-WORLD DATA · NOT EXERCISE PLAY · {src} · RECORDED · NOT A GOVERNMENT SYSTEM", "none": "ENDEX · NO FEED · NOT A GOVERNMENT SYSTEM", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS · {src} · NOT A GOVERNMENT SYSTEM"}, "logonHead": ["STARTEX", "STARCHORUS - PLOTTING TERMINAL", "CONNECTING TO FEED..."], "logonTail": ["EXERCISE - NOT A GOVERNMENT SYSTEM", "...PLOTTING"], "bannerTop": "EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM", "signal": ["STRONG", "GOOD", "WEAK", "FAINT"], "skyVoice": "SITREP", "legendHeads": {"measured": "Plots", "derived": "Filter room · derived", "operator": "Operator", "look": "Look"}},
+  "copy": {"rx": {"meta": "A strictly passive Wi-Fi landscape visualiser — access points as stars, clients as satellites. RX only, nothing is transmitted.", "tag": "passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Observation only — it listens, it never transmits.", "legRx": "RX only · nothing is transmitted", "legArc": "arc = heard probe (rx only)", "probeHint": "(heard probe requests, rx only)"}, "active": {"meta": "A Wi-Fi landscape visualiser — access points as stars, clients as satellites. ACTIVE SCAN · the collector sent probe requests.", "tag": "ACTIVE SCAN · the collector sent probe requests — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.", "motto": "Wi-Fi landscape visualiser.", "legRx": "ACTIVE SCAN · the collector sent probe requests", "legArc": "arc = heard probe", "probeHint": "(heard probe requests)"}, "chip": {"demo": "Sample", "live": "Live", "stale": "Stale", "offline": "No link", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "badge": {"demo": "Simulation", "live": "Live RX", "stale": "Stale", "offline": "No link", "recorded": "Recorded", "active": "Active scan", "none": "No feed"}, "crowdSign": {"title": "Channel crowding", "caption": "derived from channel overlap · not a security assessment", "steps": ["1", "2", "3", "4", "5"]}, "lamps": "capture counter, binary", "tote": {"title": "Plot freshness", "labels": ["HEARD", "RECENT", "FADING", "ON RECORD"], "undated": "undated"}, "clock": "sector clock", "lampStrip": {"title": "Heard this minute", "more": "more"}, "caption": "observer and capture time", "compendium": {"title": "Compendium of the Local Sky"}, "vault": {"title": "Vault", "up": "busier than this sky usually is", "down": "quieter than this sky usually is"}, "logonListen": {"rx": "", "active": ""}, "logonMode": {"demo": "MODE: RX ONLY - NOTHING IS TRANSMITTED - SAMPLE SKY", "live": "MODE: RX ONLY - NOTHING IS TRANSMITTED - LIVE FEED", "recorded": "MODE: RX ONLY - NOTHING IS TRANSMITTED - RECORDED CAPTURE", "none": "MODE: RX ONLY - NOTHING IS TRANSMITTED - NO FEED", "active": "MODE: ACTIVE SCAN - THE COLLECTOR SENT PROBE REQUESTS"}, "bannerBot": {"demo": "SIMULATED PLOTS · PASSIVE RECEIVE ONLY · NOT A GOVERNMENT SYSTEM", "live": "REAL-WORLD DATA · NOT EXERCISE PLAY · {src} · LIVE · NOT A GOVERNMENT SYSTEM", "recorded": "REAL-WORLD DATA · NOT EXERCISE PLAY · {src} · RECORDED · NOT A GOVERNMENT SYSTEM", "none": "ENDEX · NO FEED · NOT A GOVERNMENT SYSTEM", "active": "ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS · {src} · NOT A GOVERNMENT SYSTEM"}, "logonHead": ["STARTEX", "STARCHORUS - PLOTTING TERMINAL", "CONNECTING TO FEED..."], "logonTail": ["EXERCISE - NOT A GOVERNMENT SYSTEM", "...PLOTTING"], "bannerTop": "EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM", "signal": ["STRONG", "GOOD", "WEAK", "FAINT"], "skyVoice": "SITREP", "scope": {"strip": ["NETWORKS", "STATIONS", "CLOUDS", "STRONGEST", "NEW PLOTS"]}, "legendHeads": {"measured": "Plots", "derived": "Filter room · derived", "operator": "Operator", "look": "Look"}},
   "surface": {"base": "#0a0f0b", "deep": "#070b08", "raised": "#0c130d", "gradient": "radial-gradient(120% 120% at 50% 44%, #0d160f 0%, #0a0f0b 52%, #070b08 100%)", "panelFill": "rgba(8,14,9,0.86)", "panelBorder": "#3b4738", "panelBlurPx": 0, "panelRadiusPx": 2, "panelShadow": "none"},
   "ink": {"primary": "#d7dad1", "secondary": "#96a08f", "muted": "#7d8674", "onFill": "#0a0f0b"},
   "line": {"hairline": "rgba(215,218,209,0.14)", "hairlineSoft": "rgba(215,218,209,0.07)", "baseline": "rgba(215,218,209,0.24)", "ring": "rgba(215,218,209,0.42)", "widthPx": 1, "device": "rgba(215,218,209,0.55)", "edge": {"style": "bezier", "curvature": 0.16, "color": "rgba(215,218,209,0.28)", "widthPx": 1, "glowPx": 6}},
@@ -1122,6 +1124,10 @@ Three canvases (§1.1): `#bg` (static, offscreen bitmap), `#sky` (scene; the onl
 | 13 | `#sky` | `drawFlares`, `drawParticles` | ≤ 2 streak sprites; dust particles, one `fillStyle` per alpha step |
 | 14 | `#hud` | `drawHud` | (no `clearRect`) labels (grid + text budget §6.6), group labels, badges, glyphs, bubble counters, core text, ring dBm in 3D, cursor |
 | 15 | DOM | Overlays | `#crt` (CSS); flicker as `#sky.style.opacity = 1 − flickerAmp·noise` (≤ 2 Hz, seeded, not under reduced motion) |
+
+With the Scope on (§9.8b) `render()` takes a shorter road after `beginFrame`: `drawScope()` draws the marks of rows 5, 9, 11, 12
+and 14 on the fan (`#bg` holds the lanes, the rings and the words, rebuilt by `scopeGeom()`/`scopePlace()`), and the frame ends.
+Rows 2 to 4, 6 to 8, 10 and 13 are not drawn.
 
 ### 6.3 Sprite cache (section 31)
 
@@ -1811,6 +1817,7 @@ playback is a view: no model advances, polls are recorded and shown after 'Back 
 | Look | `#t-spin` | `S` | Sky rotation about the observer (§4.2a), 2D and 3D, default on | yes |
 | Look | `#t-crt` | `C` | Scanlines + vignette + persistence; visible only with `crt.userToggle` | yes |
 | Look | `#t-panels` ('Hide panels'), `#panels-pill` | `U` | Hide panels (§9.8): the sky alone; the pill (dot + chip) brings them back | yes |
+| Look (phone) | `#t-scope` ('Scope', 44 px, in the sheet's row) | `Z` | The Scope (§9.8b): phone layout only; no button on the desktop | yes |
 | Layers | `#t-agg` | `A` | Aggregation; `.forced` + `title` when forced (§4.6) | yes |
 | Layers | `#t-vendor` | `E` | Vendor on the label (§8.7) | yes |
 | Layers | `#t-nebula` | `N` | Interference nebula | yes |
@@ -1967,7 +1974,7 @@ on 'Live', and while it stays silent the chip turns 'Offline'. The only network 
 or 2D zoom · `[`/`]` step through pinned nodes (opens the detail) · `Esc` (§9.1) · `?` shortcut overlay · `Tab` through all
 buttons, `Enter`/`Space` on a focused button (native activation only) · `←/→/Home/End` on the focused
 `canvas#detail-spark` (§8.1) · `U` hide or show the panels (§9.8) · `X` Random: one node per cloud → one by one → hidden (§8.8a) ·
-`Enter` with a random cloud selected shows its addresses again. `Z` is unassigned. The drawers (Observations, Inventory, Homing, Air, Time, Record)
+`Z` the Scope (phone layout only, §9.8b) · `Enter` with a random cloud selected shows its addresses again. Every letter has a use now. The drawers (Observations, Inventory, Homing, Air, Time, Record)
 share the **one** legend box (D15); only one is ever open. The table `KEYS` (section 20) is the only
 source for `title` attributes and `#help-list`. In tests cdp switches the theme with `--key t` (with `?intro=0`; otherwise the
 logon appears in the screenshot).
@@ -2047,6 +2054,65 @@ detail's Alias field the keyboard leaves the field visible. 10 Reduce Motion: th
 Safari tab layouts (Compact and Bottom) against the sheet; VoiceOver reads 'STARCHORUS, 11 stars, 33 satellites, Sample' and
 'Expand the sheet, button, collapsed'. 12 First paint from the Pager's address typed into Safari: no desktop chrome before the sheet appears.
 
+### 9.8b The Scope (D22, phone layout only)
+
+A second view of the same capture for a small screen: a fan standing on the Pager, 60° wide, with the sky's own nodes on it. It
+is a view of what was heard, drawn by the same `drawGlows`, `drawClients`, `drawClouds`, `drawStars` and `drawHud` (sprites,
+labels, selection and change cues unchanged) and never a sweep. It is **named** 'Scope', never 'Scanner' or 'Motion'; the page
+never says it looks for anything.
+
+**When.** `scopeOn = phoneOn && S.ui.scope`: phone mode only (≤ 720 px, a phone on its side, `?phone=1`). The button `#t-scope` (44×44,
+in `#sheet-row` before the legend button; on a phone on its side, where the row has no room, it moves to the Look group), the key
+`Z` and `?scope=1|0` (not saved) switch it; `S.ui.scope` is saved in `starchorus.ui.v1` and is **off by default**. The wide desktop
+has no button, no strip and no foot (`:root:not([data-scope=on])` hides them), and `?scope=1` there changes nothing. Hide panels (`U`)
+keeps the strip and the foot and hides the bar and the sheet. A saved 3D view stays saved and comes back with the Scope off.
+
+**Geometry** (theme-free; `SCOPE`, `scopeGeom()`; `scopePlace()` places). The apex O lies below the Pager (the foot's centre, `#sc-ps`);
+the fan opens upward through ±30° (`SCOPE.half`), narrowing to the box where it would leave it (`thv`). **Radius = signal**: `r = rNear
++ (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (L is the length of the fan, from the Pager's mark to the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the nearest
+ring is the strongest signal. The radius never moves, whatever the capture. **Angle =
+a place in a lane, never a direction.** The lanes are the bands: 2.4 GHz, 5 GHz, 6 GHz, stations (widths 0.4372/0.5684/0.2623/0.6121 in
+units of the fan's half-angle, a gap of 0.04 between them, so that the three bands and the stations share the fan). A network sits at
+`scU(band, channel)` along its lane (channels ascend; 1/6/11, 36/100/149 are marked), a station or a cloud at `hash(id + "sc")` (the
+sky's own stable hash, so a station keeps its place when its signal changes). A network whose band is unknown goes into the 6 lane
+and the lane is named '6 · ?'. Networks are nudged sideways (never along the radius) where they would overlap; stations are not.
+The result is stored on the node as `n.sc = {k, r, x, y, px, st, nw, q}`. `SC.g` is `null` when the fan would be shorter than
+120 px; the Scope then draws nothing.
+
+**A wave per capture.** `scopeStep` (the tick's body in the Scope: `stepNodes`, `stepClouds`, no rotation, bubbles or particles)
+re-places the nodes when `S.ingestSeq`, the Random switch or the band filters change and starts a **wave** on a new capture or a
+replay step. A wave is **one arc that contracts** from the far rim to the near one in `clamp(2·fadeInMs, 1200, 1800)` ms: three strokes
+of decreasing width and alpha (`SCOPE.arcs`) in `accent.selection`; a node that is new in the capture (`nw`) stays hidden until the front
+has passed its radius (`q`), then appears. It never runs outward, there is no sweep and nothing rotates (R39). Reduced motion
+(`reduceMotion`), pause and fixed time draw no arc and no wait: the new node shows at once. At rest the page draws **no frame**
+(`scopeWantsFrame()`: the wave and 1.5 s after it, then 2 a second while the feed is not live).
+
+**Stale and offline.** `SC.lv` follows `liveness()`. A live feed is drawn clean with a solid rim. A stale or an offline feed shows
+**snow** (damped specks, `SCOPE.snow`: 1 per 1600 px² stale, 1 per 400 px² offline, redrawn twice a second, standing still under
+reduced motion) over the fan, the rim dashed, and the chip's own word appended to `#sc-rx` ('RX only · nothing is transmitted ·
+Stale'; in WarGames 'Link down' for offline, in Whitehall 'No link'). Never the alarm colour: a stale feed is not an alarm.
+
+**Chrome.** In the Scope the bar shows the brand, the lamps (WarGames: eight IMSAI lamps, `#scope-lamps`) and the chip; the sky's
+counts, the 3D button, the layer group and the camera are hidden (they have no meaning on the fan; their state is kept). The number
+strip `#scope-strip` (five fields: networks, stations, clouds, strongest signal, new networks) is read from the same model as the stats;
+its words are `copy.scope.strip[5]` in each theme (Foundation 'Stars / Satellites / Clouds / Brightest / New'; WarGames 'NETS /
+STATIONS / CLOUDS / PEAK / NEW'; Whitehall 'NETWORKS / STATIONS / CLOUDS / STRONGEST / NEW PLOTS'). The foot `#scope-foot` carries the
+captions **'lanes = band, channel / not direction'**, **'arcs = signal (dBm) / not range'** and **'RX only'** (from `copy.rx.legRx`,
+D4). No text in the Scope is smaller than 13 px (`fontString` takes the floor in the Scope); words that do not fit are cut to the
+shorter form, never shrunk. No sound, no vibration, no request of its own.
+
+**Input.** A touch on a blip selects it (the same detail card in the sheet; no camera flight, a saved 3D view is not entered), a touch
+on empty fan closes it. Wheel and pinch do nothing. The legend hides the derived rows (nebula, groups, devices, merge, crowding) while
+the Scope is on.
+
+**Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); `tools/regress.d/scope.sh`
+reads the geometry, the lanes, the wave, the idle, the strip against a recount of the fixture, the captions, the storage key and the
+absence of any send path. **A check on a real iPhone** (not proven by the harness): 1 Turn it on in the sheet's row: the fan
+stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong network is near the Pager whatever its
+side. 3 Wait for a capture: one arc contracts and new points appear as it passes. 4 Turn on Reduce Motion: no arc. 5 Take the device
+out of range for a minute: snow and the word 'Stale', then 'Offline'. 6 A newcomer asked 'which way is the network?' should say it
+cannot be told from this view.
+
 ### 9.8a Edge-panel layout D15 (outside phone mode, theme-free)
 
 A single edge-panel rule with `--chrome-top/--chrome-bot` (banner from `chrome.banner.show`). `layoutEdges()` (section 37, reads
@@ -2088,7 +2154,8 @@ fade-out · 16 `prefers-reduced-motion` · 17 DPR cap 2 (adaptive below that) ·
 every passivity claim comes from `THEME.copy` (D4) and, when `sourceKind === "active"`, is replaced by 'ACTIVE SCAN · the collector
 sent probe requests' or dropped · 20 Phone mode per §9.8 + focus rings (edge-panel layout outside it: §9.8a) · 21 Random clouds
 (§8.8a) come from the model only; their members never enter bubbles; the Random switch changes only what is drawn, hit and counted as
-visible.
+visible · 22 The Scope (§9.8b) is phone layout only, off by default, saved in `starchorus.ui.v1`; it draws only during a wave and
+while the feed is not live; its angle is a place in a lane and its radius is the signal, and no text or aria label says otherwise.
 
 ---
 
@@ -2191,7 +2258,7 @@ window.STARCHORUS = Object.freeze({
   storageDump() → object | null,         // localStorage[STORAGE_KEY] parsed
   resetStorage() → boolean,
   errors() → string[],                   // window.onerror + unhandledrejection + API errors since boot (max 50)
-  _internals: undefined | { S, THEMES, TK, TD, LAYOUT, AGG, CFG3D, RENDER, spriteCache, particles: { count, pooled } }   // only ?debug=1
+  _internals: undefined | { S, THEMES, TK, TD, LAYOUT, AGG, CFG3D, RENDER, spriteCache, particles: { count, pooled }, SC, SCOPE }   // only ?debug=1
 });
 ```
 Rules: `stats().fps` = rAF ticks of the last second (also during idle skip); `measure()` additionally returns `renderedFrames`.
@@ -2356,6 +2423,7 @@ Documentation binding: STARCHORUS.version = spec §10 · spec §14 complete (D1�
 | R46 | Theme values in the layout | layout differs per theme | `basePxMax` as the only layout size; `ap.basePx` only for hit test/label/drawing (§4.1, §4.7) |
 | R47 | Exponential easings never end exactly | determinism unattainable | snap rule in UTIL, blend snap → `tS` exactly 0/1, `settle()` sets display = layout, API rounds to 1e-3 (§1.3, §4.2, §5.7, §10) |
 | R48 | Movement of free clients creates overlaps | clumps, covered stars | no individual drift; only the rigid sky rotation (§4.2a) |
+| R49 | The Scope's angle is read as a direction to the device | a wrong idea of where a network is | a lane is a band, never a bearing; the captions 'lanes = band, channel / not direction' and 'arcs = signal (dBm) / not range' sit in the foot; no word of direction anywhere in the Scope; the radius is the signal alone and never moves; tested by word list and by geometry (`tools/regress.d/scope.sh`, §9.8b) |
 
 ### 12.1 Risks of the analysis and theme functions
 
@@ -2385,6 +2453,7 @@ In a normal Chrome window (local `http.server`), viewport 1440×900 and 800×480
 - [ ] 3D: recognisable depth (elliptical rings, plumb lines, ground shadows), calm auto-rotation that stops on drag; 2D↔3D without a jump.
 - [ ] WarGames: logon once per session, skippable; scanlines/vignette can be switched off with `C`; alarms strictly red with gap ring and '!'.
 - [ ] Reduced motion (`?rm=1`): no rotation, no breathing, no drift, no flicker/blinking, no logon; controls fully functional.
+- [ ] Scope (phone width, `?scope=1`): the fan stands on the Pager; the three captions are whole; one arc contracts per capture and new points appear as it passes; stale shows snow and the chip's word (§9.8b).
 
 ---
 
@@ -2418,7 +2487,7 @@ departs from them, this chapter prevails. The regression checks that the chapter
   `spriteCache.size ≤ spriteCap`, no re-baking in an idle frame.
 - **Privacy** (§14.5) and **law** (§14.7) are binding.
 
-### 14.3 Decisions D1–D21
+### 14.3 Decisions D1–D22
 
 | # | Topic | Decision (core) |
 |---|---|---|
@@ -2443,6 +2512,7 @@ departs from them, this chapter prevails. The regression checks that the chapter
 | D19 | Ghosts | `S.ghosts` for APs and stations (≤ 40 each, capped separately), frozen, not in layout/labels/stats/hit test; baseline-gone (derived, dashed) and aged (measured, dimmed); without hop data (`channels[]`) never 'gone' |
 | D20 | Names | the theme label 'WHITEHALL' is a descriptive street name (no coat of arms, no classification); no event motion without a change, the decorative sky rotation remains; skyStats reference and operator baseline kept separate; the optional field for frame clusters is called `alerts[]` |
 | D21 | Phone mode | up to 720 px wide or a phone on its side (`?phone=1\|0`): the panels move into a status bar and a bottom sheet with three heights and one card at a time; nothing is duplicated (one chip, D4); the sky centres in the free rectangle; every tap target ≥ 44 px; the desktop above the bound is unchanged to the pixel; Hide panels (`U`) at every size, saved, the Whitehall disclaimer and the status pill stay (§9.8) |
+| D22 | Scope | a phone-only fan view (§9.8b), named 'Scope': 60° from the Pager, lanes = bands (2.4 / 5 / 6 / stations) by channel or stable hash, radius = received signal (dBm); one arc contracts per capture, no sweep (R39), no sound, none under reduced motion; snow when the feed is not live; five-field number bar; captions 'lanes = band, channel / not direction', 'arcs = signal (dBm) / not range', 'RX only'; words per theme in `copy.scope`; off by default, `starchorus.ui.v1`, `?scope=1\|0`, key `Z`; at most 12,000 bytes of the page (owner, 19 Oct 2026) |
 
 ### 14.4 Colour roles (validator `tools/check-colors.py`)
 
@@ -2702,9 +2772,10 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
 | Library, notes, export | — | — | — | inventory, detail, 'Export' | — | — | `starchorus.library.v1` (≤ 20 rules), `starchorus.notes.v1` (≤ 200) |
 | Hide panels (§9.8) | `panels` | on | U | `t-panels` (+ `panels-pill`) | `?panels=0/1` | yes | `starchorus.ui.v1` |
 | Random clouds (§8.8a) | `random` (`cloud`\|`show`\|`hide`) | cloud | X | `t-random` (group 'View') | `?random=cloud/show/hide` | yes | `starchorus.ui.v1` |
+| Scope (§9.8b; phone layout only) | `scope` | off | Z | `t-scope` (sheet row) | `?scope=1/0` | yes | `starchorus.ui.v1` |
 
 `PERSIST_KEYS` holds names at index 0–2 (`theme`, `view`, `random`) and only booleans from index 3 onwards; a new toggle must also
-update `getToggles`, `BTN_OF` (booleans only), §2.6/§2.7/§9.6 and `KEYS`. Free letter: Z.
+update `getToggles`, `BTN_OF` (booleans only), §2.6/§2.7/§9.6 and `KEYS`. No letter is free now (Z is the Scope).
 
 ### 14.9 Design questions U1–U4
 

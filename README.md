@@ -152,6 +152,14 @@ a drawer, a network's detail or the keys. On its side the bar and the sheet form
 left. `?phone=1` or `?phone=0` forces the choice. At any size, `U` or 'Hide panels' leaves the sky
 alone with a small status pill that brings the panels back; the choice is remembered.
 
+The sheet's row also has a 'Scope' button (key `Z`, or `?scope=1`), off until you turn it on and only on a
+phone. It swaps the sky for a fan standing on the Pager: each band has a lane (2.4, 5 and 6 GHz, then
+stations), a network sits along its lane by channel, and the arcs are the received signal in dBm, so a
+strong network is near the Pager. Every new capture sends one arc contracting across the fan, and new
+points appear as it passes; nothing sweeps and nothing is sent. When the feed goes stale or offline the fan
+fills with snow and the chip's word. The lanes are bands and the arcs are signal: the Scope never shows
+where a network is.
+
 With a passive source, the masthead reads 'Observation only — it listens, it never transmits.'.
 If the capture comes from the collector's active opt-in (`source: "iw-scan-ACTIVE"`), the page
 replaces every statement of passivity with 'ACTIVE SCAN · the collector sent probe requests'.

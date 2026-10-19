@@ -196,7 +196,7 @@ panel, or `STARCHORUS.clearLocalData()`, deletes them all in one call. There are
 
 | Key | Content | Limit |
 |---|---|---|
-| `starchorus.ui.v1` | view switches (theme, 2D/3D, the Random switch, layers, Hide panels, Observations and baseline on or off): booleans and names only | a few bytes |
+| `starchorus.ui.v1` | view switches (theme, 2D/3D, the Random switch, layers, Hide panels, the Scope, Observations and baseline on or off): booleans and names only | a few bytes |
 | `starchorus.identity.v1` | the **manual** classification Friend/Neutral/Suspect per **observed key** (AP or station; MAC → class) | **≤ 5000 entries** (`IDENT_MAX`); when the list is full, a new key is refused, and an existing classification is never silently displaced |
 | `starchorus.baseline.v1` | the baseline: per AP `[SSID, channel, band, security class, RSSI]` under its BSSID, per station only `[RSSI]` under its MAC (field `st`, **no link** to an AP), plus the capture's timestamp | **≤ 500 APs, ≤ 2000 stations** (strongest first); never the device's own transmitters, never probable phone hotspots |
 | `starchorus.watch.v1` | the watchlist: SSID texts only (≤ 32 characters) | **≤ 20 entries**; it matches only `aps[].ssid`, never probes |
