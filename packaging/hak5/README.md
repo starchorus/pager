@@ -41,7 +41,8 @@ it reads: 'Traffic' (channel activity from the AP service and the frame counts o
 'Bluetooth' (a scan of 5 s per refresh). Bluetooth: passive LE scan only; by the Bluetooth specification a
 passive scan sends no scan request, it listens for advertisements that devices broadcast anyway. It does not change the LED. An active scan exists in the collector only as
 a last resort behind the environment variable
-`STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it.
+`STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it. The optional companion alert `alert-deauth.sh` only
+writes the times and addresses of the firmware's own deauth/disassoc alert to a file, when the firmware raises it; it listens to nothing and sends nothing.
 
 One collector runs per Pager, so that two loops never share the monitor interface or radio: starting
 or stopping any instance stops every other collector loop on the device, and each loop so stopped is
@@ -56,6 +57,7 @@ named in the collector's LOG with its pid and working directory.
 | `index.html` | the page, one self-contained file; it fetches only `starchorus.json` and sends nothing |
 | `starchorus-display.sh` | the Overview on the Pager's display |
 | `starchorus-serve.sh` | netcat page server: what serves the page on a Pager without `uhttpd` and `python3` |
+| `alert-deauth.sh` | optional companion alert for the firmware's deauth/disassoc alert: appends one line of time and addresses to `alerts.log`; it is copied into the Pager's alert tree by hand (the project README says how), never by the payload |
 | `LICENSE` | GNU General Public License, version 3 |
 
 On its first run the payload copies the collector, the page, the Overview and the netcat server

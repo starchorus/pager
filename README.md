@@ -121,6 +121,11 @@ Starchorus 0.2.0-dev.1. Every part carries the same number:
   Bands screen of the Overview shows it as text bars. A station that is heard often wears four short ticks round its dot, in three
   levels on a logarithmic scale of the frames heard from it per second (the scale ends at 5 per second, about the 95th percentile
   measured on one device); it depends on where the radio listens, and it shows nothing when the feed is not live.
+- **Alerts** (on by default, and silent until the file exists): the Pager's own alert engine can report that it heard many deauth/disassoc
+  frames for an access point. A small companion alert payload, `alert-deauth.sh`, which the owner installs by hand (see Alerts, below),
+  writes one line to `alerts.log` for each report, and the collector turns the lines of the last ten minutes into `alerts[]`. The page lists
+  them as 'many deauth/disassoc frames heard for this AP: <name> (<n>)'. It is a hint and not a diagnosis: a report carries no channel, no
+  signal strength and no count of frames, `n` counts reports, and the source address is whatever the frames claim.
 - **Tools:** Observations (`W`), baseline diff (`B`), inventory (`I`), air quality (`Q`),
   signal over time (`J`), recording and replay (`H`), channel view (`Y`), homing meter (`F`).
   Export as JSON, CSV, SITREP text or PNG.
@@ -174,7 +179,11 @@ Only the following is permitted:
   devices broadcast anyway. A window counts only when `btmon` shows the collector's own scan parameters as `Passive`, and nothing else
   of the Bluetooth stack is ever called (every other tool is denied by name in the static check; see [SECURITY.md](SECURITY.md));
 - the AP service's channel activity (`STARCHORUS_TRAFFIC=1`, opt-in, off by default): one read-only command,
-  `RECON CHANNELS format=json`.
+  `RECON CHANNELS format=json`;
+- the alert log (`STARCHORUS_ALERTS`, on by default, and nothing happens without the file): the collector reads `alerts.log`, a text file that
+  the companion alert payload `alert-deauth.sh` appends to when the firmware's own alert engine reports many deauth/disassoc frames heard for an
+  access point. Starchorus listens to no frame for it and sends nothing; the companion writes times and addresses to a file and calls no display,
+  sound, LED or vibration command (see [SECURITY.md](SECURITY.md)).
 
 The collector creates its own monitor interface only if none exists, and removes it again on exit.
 It never touches the recon radio or the management radio.
@@ -276,6 +285,7 @@ All paths in detail: [docs/display-paths.md](docs/display-paths.md).
 library/user/reconnaissance/starchorus/
 ├── payload.sh              # on-device menu; starts the collector, page server and Overview; "payload.sh stop" stops everything
 ├── starchorus-display.sh   # byte-identical copy of the Overview
+├── alert-deauth.sh         # optional companion alert payload (not a payload of its own): see Alerts
 └── README.md               # description, requirements, installation, configuration
 ```
 
@@ -321,6 +331,35 @@ has stopped writing). On the development machine,
 `sh starchorus-display.sh --once <screen> <file>` prints the same content as text; `<screen>` is
 `summary`, `top`, `bands`, `devices`, `probes`, `clients`, `bluetooth` or `air`.
 
+### Alerts
+
+The Pager's firmware can tell a payload when it hears many deauth/disassoc frames for an access point (its alert `deauth_flood_detected`). Starchorus shows
+that with a companion alert payload, `alert-deauth.sh`, which sits beside `payload.sh` in the payload directory but is no payload of its own (it is not named
+`payload.sh`, so that the payload library's updater does not take it for one). The Settings menu does not install it yet. Until it does, install it by hand, from
+the repository:
+
+```sh
+ssh root@<device> 'mkdir -p /root/payloads/alerts/deauth_flood_detected/starchorus'
+scp -O library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh
+ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh'
+```
+
+Then look at the firmware's Alerts page. Whether a copied alert needs the `chmod`, and whether it starts enabled, has not been tried on a device yet, so check that
+it is listed and switched on. To remove it, switch it off there or delete that directory. The firmware's own alert (its dialogue, its sound or vibration, if you set
+them) is not changed.
+
+For each report the file appends one line to `alerts.log` in `/root/loot/starchorus`: the time, `deauth`, and the access point, source, destination and client
+addresses, separated by tabs, in lower case, with `-` for an address the firmware did not give or gave as something that is not one. The copy in the alert tree
+runs without your environment, so for another directory edit the `DIR=` line of that copy; the collector reads `alerts.log` from its own `STARCHORUS_OUTDIR`, which the payload
+sets to `/root/loot/starchorus`. The file keeps the last 2,000 lines, does not write the message text the firmware sends along, and calls no display, sound, LED or vibration
+command. The collector reads the lines of the last `STARCHORUS_ALERT_WINDOW` seconds (ten minutes), groups them by access point and writes `alerts[]`: the address, `n` (how many
+reports) and `t` (the newest), at most 20, newest first.
+
+What this cannot tell you. A report carries no channel, no signal strength and no count of frames, so one line may stand for one burst or for many, and `n` counts reports, not frames.
+The source address is whatever the frames claim; in a burst of such frames it is usually not the sender's, so Starchorus keeps it in the log, shows it nowhere and draws no line from a source to
+an access point. Whether the Pager's own deauth frames, sent by another payload, would raise the alert is not known; until that has been measured, an alert on a network you are
+testing yourself may be your own doing. None of this has been measured on a device yet: `docs/device-notes.md` §5c lists what is open.
+
 ## Configuration
 
 All variables are optional.
@@ -352,6 +391,8 @@ All variables are optional.
 | `STARCHORUS_BLUETOOTH` | `0` | `1` = a passive Bluetooth LE scan window every cycle (`hcitool -i hci0 lescan --passive --duplicates`, read with `btmon -i hci0`), written as `bluetooth[]`. Needs a controller `hci0` and the tools, otherwise the layer stays off. Payload key: `bluetooth on\|off` (Settings > Bluetooth). |
 | `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 5, with one log line. Environment only. |
 | `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` on the first cycle and then every second one (written as `activity[]`, a relative share per frequency; the cycle in between publishes the answer of the cycle before, because the AP service counts over a window of 20 to 30 s and its command-line client costs about half a second of CPU per call on the Pager; at the payload's 30-s interval the call comes about once a minute) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
+| `STARCHORUS_ALERTS` | `1` | `1` = each cycle reads `$STARCHORUS_OUTDIR/alerts.log` when that file exists (the companion alert payload writes it; see Alerts above) and writes `alerts[]`; without the file nothing is read and no key is written. `0` = never read it. Environment only. |
+| `STARCHORUS_ALERT_WINDOW` | `600` | How long a report counts, in whole seconds, 60 to 86400; anything else is 600, with one log line. Environment only. |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 
@@ -379,7 +420,7 @@ that cycle is built from recon.db and the collector says so once.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview). |
+| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview), and where the companion alert `alert-deauth.sh` writes `alerts.log`. |
 | `STARCHORUS_PORT` | `8199` | Port of the page server. |
 | `STARCHORUS_BIND` | `auto` | Address the page server listens on. `auto`: the IPv4 address of `br-lan` (USB-C and management Wi-Fi), otherwise `172.16.52.1` if an interface has it, otherwise `127.0.0.1` with a note. An IPv4 address: that address only. `all`: every interface, which makes the page and `starchorus.json` (every captured MAC address and SSID) reachable from every network the device is on. On-device payload: also the `bind` key. |
 | `STARCHORUS_MAX_AGE` | `3600` | On-device payload: window of the recon record in seconds (one hour); `0` = the whole record. The collector on its own uses `0`. |
@@ -456,6 +497,9 @@ The collector produces exactly the format the page reads:
   `center.bt_hold`; `activity[]` (`freq`, `share`: the share of the frames heard on that frequency among all frequencies from 2400 MHz up,
   never a count) and the absolute `packets` counter on stations. `channels[]` is unchanged, so the baseline and the Watchlist never read
   activity as 'visited'.
+- Alerts: `alerts[]` (`type`, always `deauth`; `t`; `ap`; `n`) has one entry per access point address with reports in the last `STARCHORUS_ALERT_WINDOW`
+  seconds, `n` being how many reports and `t` the newest, at most 20, newest first. It is written only while `alerts.log` holds such lines; otherwise the key is
+  absent. It means that many deauth/disassoc frames were heard for that access point, as the firmware reported it: no channel, no signal strength, no count of frames.
 
 The header of `starchorus-collect.sh` describes the fields. The page's data model is in the
 specification.

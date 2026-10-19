@@ -341,6 +341,7 @@ The contract stands; all rules are tolerant, no path throws.
 | `clients[]` | Missing/not an array → `[]`; `mac` missing → `"<bssid>:c<j>"`; `unassociated[].mac` missing → `"free"+j`; `mac` normalised like `bssid` |
 | `bluetooth` | Optional array (opt-in `STARCHORUS_BLUETOOTH=1`; absent = off, or no controller or tool). At most 256 entries: `addr` normalised like a station MAC and kept only when it is one; `addr_type` one of `public`, `random-static`, `random-resolvable`, `random-nonresolvable`, `random` (anything else is `random`); `rssi` clamped like a station's (an entry without one is skipped); `reports` and `last_seen` numbers; `company` an integer 0…65535; `company_name` string, max 48; `name` control characters removed, max 32; `connectable` only when `=== true`. A duplicate address keeps the stronger entry. A document without the array has none for the page (no button, counter or legend row). `center.bt_window` (seconds; `0` = no valid window this cycle, the array then holds only carried records) and `center.bt_hold` (seconds a record is carried after its window) are kept as numbers. Text from the air (`name`, `company_name`) is handled like an SSID: escaped on display |
 | `activity` | Optional array of `{freq, share}` (opt-in `STARCHORUS_TRAFFIC=1`): entries with a numeric `freq` and `0 < share ≤ 1`, at most 69. A share of the frames heard on listed frequencies, never a count. It never feeds `channels[]`, the hop information, the baseline ghosts or the Watchlist's 'not heard now' |
+| `alerts` | Optional array of `{type, t, ap, n}` (the collector writes it while `alerts.log` holds reports of the last `STARCHORUS_ALERT_WINDOW` seconds, §14.6): `type` is `deauth`, `ap` a MAC, `n` a number above 0, at most 20 entries; the page drops any other entry. `n` counts the firmware's reports, not frames; there is no channel and no signal strength, and the report's source address is not carried. Local and live (P6) |
 | `packets` of a station | Cumulative frame counter of that MAC's rows heard in the last 300 s (opt-in Traffic, recon database source), absolute; the page derives a rate from consecutive captures (nothing on first sight, nothing after a drop, which is a new recon session). Access points get none |
 | Duplicates | Same `bssid` twice → **merge**: `rssi = max`, `clients` united (by `mac`), missing fields from the later entry, non-empty `ssid` wins; same `mac` both associated **and** free → associated wins; same `mac` under two APs → the first AP wins |
 
@@ -2608,6 +2609,28 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   `_pineap` lines of `apcli_ro` are pinned byte for byte, each once, so a sixth line, a changed argument or a command name from a variable is
   red. A device check per command needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same
   before and after.
+
+- The alert log (`STARCHORUS_ALERTS`, default 1; nothing is read unless the file exists) and its companion file. **Companion:** `library/user/reconnaissance/starchorus/alert-deauth.sh`, a
+  bash file with the Hak5 header (Title, Description, Author, Version) that is not named `payload.sh`, so that the library's UpdatePayloads takes it for no payload of its own; the Hak5 package carries it
+  beside `payload.sh`, and until the Settings menu installs it the owner copies it by hand to `/root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh` and makes it executable (README, Alerts).
+  The firmware runs it once per event of its alert `deauth_flood_detected` and hands the event over in environment variables only. **It reads** `_ALERT_DENIAL_AP_MAC_ADDRESS`,
+  `_ALERT_DENIAL_SOURCE_MAC_ADDRESS`, `_ALERT_DENIAL_DESTINATION_MAC_ADDRESS`, `_ALERT_DENIAL_CLIENT_MAC_ADDRESS`, `STARCHORUS_DIR` (default `/root/loot/starchorus`) and the clock; the
+  alert name and the message text, which the firmware also sets, are not used (the message is free text, and P9 keeps the log to times and addresses). **It writes** one line to `$STARCHORUS_DIR/alerts.log`,
+  `EPOCH<TAB>deauth<TAB>AP<TAB>SOURCE<TAB>DESTINATION<TAB>CLIENT`: the four addresses in lower case, each `-` when it is unset or is not six pairs of hex digits, the file private (mode 600), kept to its last 2,000
+  lines (`tail` into `alerts.log.<pid>`, then `mv`), the append and the cut under `flock -x` on `alerts.lock` in the same directory (without `flock`, or when its file cannot be opened, they run unlocked). The commands it
+  starts are `date`, `tr`, `wc`, `tail`, `mv`, `mkdir`, `rm` and `flock`; it calls no UI command (`ALERT`, `LOG`, `VIBRATE`, `LED`, `RINGTONE` are the owner's choice and are not made), nothing of the AP service,
+  and no network, and it exits 0 whatever happens. It is in the shell scope of the static check (every file under `library/` that is not Markdown), with the same rows as the other scripts.
+  **Collector:** with the switch on, `alerts_look` tests with builtins whether `$OUTDIR/alerts.log` is a readable regular non-empty file (so a Pager without it pays no process; a directory or a pipe, which `tail`
+  would wait on for ever, is said once per episode and read as no file), the layers pass takes a snapshot of its last 256 KiB (mode 600, in `$TMPDIR_RAM`, removed after the cycle) and the one awk of the layers
+  (`AWK_LAYERS`, now with a fourth input beside the Bluetooth records, the Traffic answer and the held records) writes `alerts[]` before `aps`: lines of the last `STARCHORUS_ALERT_WINDOW` seconds, grouped by AP,
+  `n` the count and `t` the newest epoch, sorted by `t` descending and then by address, cut at 20. A line is skipped, and counted, when its epoch is not digits, its type is not `deauth`, its AP is not an address, or its
+  epoch is more than 60 s ahead of the cycle's clock; a blank line is nothing; the skipped lines are said once per episode, like an unreadable file. No entry writes no key. The snapshot is the only copy of the log's
+  addresses that the collector makes; its own log lines say how many lines were skipped and never what they held.
+  **What the data cannot say.** There is no channel, no RSSI and no count of frames: the firmware hands over four addresses and nothing else, so `n` counts reports (how many times the firmware launched the companion,
+  which may be once per burst or once per frame, unmeasured) and `t` is the time the companion ran, not the time of a frame. SOURCE is the address the frames claim; in a burst of such frames it is usually spoofed (a forged
+  deauthentication typically claims the access point's own address as its sender; this is an inference from how such frames are made, not something measured here), so it is kept in the log, carried by no document and shown nowhere, and the page draws no line from a source to an access point: that would claim a geometry the data does
+  not have. A client address in a report is the address the frames name, not proof that the client was disturbed. Whether the Pager's own deauth frames, sent by another payload, raise the firmware's alert is **unknown until
+  measured** (`docs/device-notes.md` §5c, g8): until then an alert may be the owner's own test, and nothing in the log tells it apart. The counts stay local and live (P6).
 
 ### 14.7 Law (binding)
 

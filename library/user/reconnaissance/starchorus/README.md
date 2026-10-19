@@ -33,6 +33,10 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
   while it draws, so a press made while it reads is kept, and it never redraws by itself: key A draws the screen again, key B goes up
   one level, and Left and Right step through the screens. It starts and stops nothing, and its only
   output is LOG lines.
+- Alert companion (`alert-deauth.sh`, optional): when the firmware's alert engine reports many deauth/disassoc frames heard for an
+  access point, this file, put into the firmware's alert tree, appends one line of time and addresses to `alerts.log`, and the collector
+  shows the last ten minutes of it on the page (see Alerts). It is not a payload of its own, sends nothing, and calls no display, sound,
+  LED or vibration command.
 - The payload's menu on the device shows its state in the title, 'Starchorus: Stopped' or
   'Starchorus: Running', and offers only what makes sense in that state (see Operation). Every
   menu setting has a command-line equivalent (`payload.sh set`).
@@ -91,7 +95,7 @@ the vendor (OUI) list into an index once.
 
 `sh tools/hak5-package.sh [OUTDIR]` builds the directory as Hak5's payload library expects it,
 `OUTDIR/library/user/reconnaissance/starchorus/` (default `out/hak5/`): this `payload.sh`, the
-collector, the page as `index.html`, the Overview, the netcat server, a `README.md` written for
+collector, the page as `index.html`, the Overview, the netcat server, the companion alert `alert-deauth.sh` (see Alerts), a `README.md` written for
 Hak5's library (its source is `packaging/hak5/README.md`) and `LICENSE`. Every file is a byte copy
 of its source in this repository; tests, tools and other development files are not included. The
 script runs on the development machine only and sends nothing.
@@ -105,6 +109,25 @@ written through a temporary file and a rename, the collector last, so an interru
 completed on the next run. A collector already present is never overwritten, which also leaves the
 installation above untouched. To take a newer package, replace this directory, delete
 `/root/loot/starchorus/starchorus-collect.sh` and start the payload again; the settings are kept.
+
+### Alerts (optional)
+
+The firmware tells a payload when it hears many deauth/disassoc frames for an access point (its alert `deauth_flood_detected`). `alert-deauth.sh`, beside
+`payload.sh` in this directory, is the companion that records those reports for Starchorus. It is no payload of its own, which is why it is not called
+`payload.sh`; the Settings menu does not install it yet. Until it does, copy it to the firmware's alert tree by hand and make it executable:
+
+```sh
+ssh root@<device> 'mkdir -p /root/payloads/alerts/deauth_flood_detected/starchorus'
+scp -O alert-deauth.sh root@<device>:/root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh
+ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh'
+```
+
+Then check on the firmware's Alerts page that it is listed and switched on: whether a copied alert needs the `chmod` and starts enabled has not been tried on a device
+yet. For each report the file appends one line to `/root/loot/starchorus/alerts.log` (the time, `deauth`, and the access point, source, destination and client
+addresses, tab separated, lower case, `-` where there is none), keeps the last 2,000 lines, and writes no message text. The collector shows the lines of the last
+`STARCHORUS_ALERT_WINDOW` seconds on the page as 'many deauth/disassoc frames heard for this AP'. The report has no channel, no signal strength and no count of
+frames, and its source address is usually not the sender's, so it is a hint and not a diagnosis; whether the Pager's own deauth frames would raise it is not known.
+The repository's README and `docs/architecture.md` §14.6 say more; `docs/device-notes.md` §5c lists what has not been measured on the device.
 
 ## Operation
 
@@ -192,6 +215,8 @@ Environment variables, all optional:
 | `STARCHORUS_OWN` | `0` | `1` marks the device's own radios (interface MACs from sysfs). Environment only. |
 | `STARCHORUS_DASHBOARD` | `1` | `0` keeps the Overview from opening after 'Start'. Environment only. |
 | `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; any other value is 5. Environment only; the payload passes it to the collector unchanged. |
+| `STARCHORUS_ALERTS` | `1` | `0` = the collector never reads `alerts.log` (the companion alert's log, see Alerts). Environment only; the payload passes it to the collector unchanged. |
+| `STARCHORUS_ALERT_WINDOW` | `600` | How long a report from the firmware's alert counts, in whole seconds, 60 to 86400; any other value is 600. Environment only; the payload passes it to the collector unchanged. |
 | `STARCHORUS_COLLECTOR` | `1` | `0` starts no collector; the menu then refuses to run, and `payload.sh start` serves the page alone. Environment only. |
 | `STARCHORUS_DISPLAY_TEMPLATE` | – | a template line for the Overview's summary with `{aps}`, `{b24}`, `{b5}`, `{b6}`, `{open}`, `{crowding}`, `{gen}`; otherwise the first line of `/root/loot/starchorus/display.tpl`. |
 

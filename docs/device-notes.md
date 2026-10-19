@@ -618,6 +618,26 @@ with approval per command:
 | How often does the database update `signal` for a single AP (every cycle or less often)? | read the same BSSID over ten cycles with `sqlite3 -readonly <copy>` | the coarse display |
 | Can a selection on the device display write `homing.target` (first line, MAC) atomically? | `LIST_PICKER` over `aps[]` without the device's own BSSIDs, then `printf … > homing.target.tmp && mv` | choosing the target on the device |
 
+### 5c. The firmware's deauth/disassoc alert (not yet measured on the device)
+
+Starchorus 0.2 reads the firmware's alert `deauth_flood_detected` through a companion alert payload (`alert-deauth.sh`, `docs/architecture.md` §14.6). What is known of the alert comes from Hak5's
+documentation and payload library as they were read on 16 October 2026, with no device touched, and none of it has been observed on the Pager. The companion has been run on the development machine
+only, against stand-in variables (`tools/regress.d/hak5-package.sh`), and the collector's reading of its log against synthetic logs (`--selftest`). Still open, numbered as in the research notes
+(g1, g9 and g10 are left out here: they ask whether the firmware keeps a history of its own, what the other alert types hand over, and what the writes cost):
+
+| # | Question | How it is answered | Affects |
+|---|---|---|---|
+| g2 | What does one event hand over? Can DESTINATION be the broadcast address; is SOURCE ever empty; does the message text carry a count or a channel; how many events per second does a sustained burst give; is the payload launched once per event, per burst or per frame | one burst on a network of the owner's with another device sending it (the owner provokes none), seen through a throw-away copy of the companion that writes out its six `_ALERT*` variables | what `n` counts; whether `alerts.log` grows by lines per second or per minute |
+| g3 | What does the firmware count as many, and does it tell a deauthentication from a disassociation | the same burst, varied in length | the wording 'many deauth/disassoc frames' |
+| g4 | Do two launches for the same burst overlap, and does the firmware end one on a timeout | two events in quick succession, `ps` during the run | whether the lock in the companion is needed |
+| g5 | Are `LOG`, `VIBRATE`, `LED` and `RINGTONE` there inside an alert payload, with which exit codes and argument format | a throw-away alert that calls each | the owner's decision whether the companion adds a signal (it adds none) |
+| g6 | Does a hand-copied alert need `chmod +x`, does it start enabled, how does a `DISABLED.` directory behave | copy it by hand (README, Alerts) and look at the firmware's Alerts page | the install instructions, and the Settings row that is to come |
+| g7 | Does the alert engine need the AP service's recon or listening to be running, or is it always on | one burst with recon stopped, one with it running | when an empty `alerts.log` means 'nothing heard' |
+| g8 | Does the alert fire on the Pager's own deauth frames, and with which SOURCE | the Pager deauthing a network the owner controls, by another payload (an owner's decision; Starchorus never sends one) | whether an alert can be the owner's own test; nothing in the log tells it apart |
+
+Also unmeasured, and assumed by the companion and the collector: that the device has `flock` (the lock is skipped without it), that its `tail` takes `-c` (the collector reads the last 256 KiB of the log with it)
+and that an alert payload runs under bash (`[[:xdigit:]]` in a `case` pattern). `tools/device-probe.sh` does not ask for them yet.
+
 ---
 
 ## 6. The recon database is cumulative: `STARCHORUS_MAX_AGE` as a window

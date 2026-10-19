@@ -143,6 +143,23 @@ CFL_PB=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"
 # shellcheck disable=SC2016
 CFL_PB0=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE '^export STARCHORUS_(BLUETOOTH|TRAFFIC)="\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}"')
 rowif "collector fields: the payload rows bite (a default of 1 is seen as one, and is not an export with 0: $CFL_PB/$CFL_PB0)" [ "$CFL_PB/$CFL_PB0" = 1/0 ]
+# ---- alerts (0.2): the collector reads $OUTDIR/alerts.log by default (STARCHORUS_ALERTS 1, a window of 600 s), and the README says so in the two table rows of the collector's
+# variables and names the companion file that writes the log. Three names, three counts: a name that is missing, or documented with another default, is red.
+CFL_AD=$(grep -cE '^ALERTS=\$\{STARCHORUS_ALERTS:-1\}( |$)' starchorus-collect.sh)
+# shellcheck disable=SC2016  # literal ${...} of the scanned script text, nothing is meant to expand
+CFL_AWD=$(grep -cF 'alert_window "${STARCHORUS_ALERT_WINDOW:-600}"' starchorus-collect.sh)
+# shellcheck disable=SC2016  # the backticks are the Markdown's, nothing is meant to expand
+cfl_names() {   # FILE -> how many of the three README names are documented there, as "table row 1, table row 2, file named"
+  printf '%s/%s/%s' "$(grep -c '^| `STARCHORUS_ALERTS` | `1` |' "$1")" "$(grep -c '^| `STARCHORUS_ALERT_WINDOW` | `600` |' "$1")" "$(grep -c 'alert-deauth\.sh' "$1")"
+}
+CFL_AN=$(cfl_names README.md)
+# shellcheck disable=SC2016  # the backticks are the Markdown's
+CFL_ANB=$(printf '%s\n' '| `STARCHORUS_ALERTS` | `0` | wrong default |' '| `STARCHORUS_ALERT_WINDOW` | `600` | right |' > "out/$P-cfl-alerts.txt"; cfl_names "out/$P-cfl-alerts.txt")
+case $CFL_AN in 1/1/[1-9]*) CFL_ANO=1 ;; *) CFL_ANO=0 ;; esac
+rowif "collector fields: alerts on by default (STARCHORUS_ALERTS 1, window 600 s: $CFL_AD/$CFL_AWD), and the README documents STARCHORUS_ALERTS, STARCHORUS_ALERT_WINDOW and the file alert-deauth.sh (table rows and mentions $CFL_AN)" [ "$CFL_AD/$CFL_AWD/$CFL_ANO" = 1/1/1 ]
+# the row bites: a README table with another default for the switch, and no mention of the file, is counted as 0 / 1 / 0
+rowif "collector fields: the alerts documentation row bites (a wrong default of the switch and no file mention count $CFL_ANB, not 1/1/n)" [ "$CFL_ANB" = 0/1/0 ]
+
 # The self-test has one line per family of the new cases (a case that stops running would otherwise only lower a count that nobody reads): the output
 # of the run that tools/static.sh made (out/PREFIX-selftest.txt); without it (a drop-in run on its own) the row says so.
 cfl_fam() {   # FILE -> the families that have no PASS line in the self-test output FILE
@@ -160,7 +177,9 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'bt_parse: an LE Direct' 'bt_parse: RSSI invalid' 'forgery: a TAB' 'forgery: a Type: Passive' 'bt_judge: no Scanning: Disabled' 'bt_parse: an awk that runs out' \
                'bt_parse: a header-shaped' 'bt_parse: a name that holds a header' 'bt_parse: a name with a newline inside' 'bt_nap: the nap is its argument' \
                'bt_end: the wait polls every 0.5 s' 'bt_begin: a monitor that has written only its banner' 'traffic: a share below 0.001' \
-               'traffic: a whole cycle with only Traffic on' 'traffic: every second cycle: three cycles' 'traffic: every second cycle: an answer'; do
+               'traffic: a whole cycle with only Traffic on' 'traffic: every second cycle: three cycles' 'traffic: every second cycle: an answer' \
+               'alerts: ten lines' 'alerts: skip rules' 'alerts: 25 APs' 'alerts: no file' 'alerts: a directory' 'alerts: a read that fails' 'alerts: the switch' 'alerts: with Traffic' \
+               'STARCHORUS_ALERT_WINDOW: values' 'STARCHORUS_ALERT_WINDOW: the log line' 'alerts: the window'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"

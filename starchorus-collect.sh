@@ -33,6 +33,9 @@
 #                       anyway, and the monitor that decodes what the controller hands the host). A window counts
 #                       only when that monitor shows the scan parameters of the collector's own scan with
 #                       Type: Passive before the first report (the witness, bt_parse).
+#                       Reading the alert log (STARCHORUS_ALERTS, on by default): $OUTDIR/alerts.log, a text file that the companion
+#                       alert payload (alert-deauth.sh) appends to when the firmware reports many deauth/disassoc frames heard for an
+#                       access point. Nothing is received or sent for it; the file is read as untrusted text (alerts[], below).
 #   Never done here   : aireplay/mdk (deauth), hostapd/airbase (rogue AP), hcxdumptool active,
 #                       besside/wifite, associating to any BSS, AP-service impersonation / beacon
 #                       responses / SSID pool broadcast; a Bluetooth inquiry or active scan, advertising,
@@ -107,6 +110,10 @@
 #                        this flag alone, in the background) into the top-level "activity" array (a share per frequency, never a count); the
 #                        cycles in between publish the answer of the cycle before again, as the AP service counts over a window of 20 to 30 s.
 #                        The recon database path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
+#   STARCHORUS_ALERTS         1 = each cycle reads $OUTDIR/alerts.log when that file exists (the companion alert payload alert-deauth.sh writes it, one
+#                        line per deauth/disassoc alert of the firmware: EPOCH, deauth, AP, SOURCE, DESTINATION, CLIENT, tab separated) and writes the
+#                        top-level "alerts" array; without the file nothing is read and no key is written. Runs nothing and sends nothing.  (default 1)
+#   STARCHORUS_ALERT_WINDOW   the seconds an alert stays in "alerts": whole seconds from 60 to 86400; anything else is 600, with one log line.  (default 600)
 #   STARCHORUS_SYSFS_BT       tests only: where the controller is looked for (default /sys/class/bluetooth), like STARCHORUS_SYSFS_NET.
 #   STARCHORUS_PROC_BT        tests only: where the Bluetooth window code reads /proc from (default /proc).
 #
@@ -135,7 +142,12 @@
 #            advertised company, company_name, name, connectable; at most 256, strongest first; addresses, not devices: random
 #            addresses rotate), "activity" (array,
 #            STARCHORUS_TRAFFIC=1: {"freq", "share"} per frequency from RECON CHANNELS, shares of the frames counted on all
-#            frequencies from 2400 MHz, three decimals, never a count; "channels" is not touched by it).
+#            frequencies from 2400 MHz, three decimals, never a count; "channels" is not touched by it), "alerts" (array, STARCHORUS_ALERTS=1
+#            and an alerts.log with lines of the last STARCHORUS_ALERT_WINDOW seconds: {"type": "deauth", "t", "ap", "n"}, one per access
+#            point address, "t" the newest epoch of its lines and "n" how many there are; at most 20, newest first, then by address. A line
+#            whose epoch is not digits, whose type is not deauth, whose AP is not an address or whose epoch lies more than 60 s ahead is
+#            skipped, and said once per episode. It means that many deauth/disassoc frames were heard for that AP: no channel, no signal
+#            strength, no count of frames, and the log's source address is usually not the sender's).
 #   NOT filled: "first_seen" (the `time` column may be an upsert time), "width" (MHz), "phy" (a/b/g/n/ac/ax), "caps": no
 #            passive source on the device carries them (recon.db has no such columns, tcpdump without -v
 #            prints no HT/VHT/HE IEs, airodump CSV has no width column). OPTIONAL in the front-end contract. "packets" is
@@ -173,6 +185,7 @@ OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
 APCLI_RO=${STARCHORUS_APCLI_RO:-0}
 BLUETOOTH=${STARCHORUS_BLUETOOTH:-0}
 TRAFFIC=${STARCHORUS_TRAFFIC:-0}
+ALERTS=${STARCHORUS_ALERTS:-1}                    # 1 = read $OUTDIR/alerts.log when it exists (the header says what writes it); nothing happens without the file
 BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
 BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
@@ -248,6 +261,7 @@ BT_LOGGED=" "
 BT_FRAC=1           # 0 once a `sleep` of a fraction (0.2 or 0.5) has failed here (bt_nap)
 TR_PID=""           # the background RECON CHANNELS call of this cycle
 TR_REUSE=0          # 1 = the next cycle reads the answer file of this one again instead of calling: the call is made on the first cycle and then every second one
+AL_ON=0             # 1 = alerts.log feeds alerts[] in this cycle (alerts_look: the switch is on and the file is a readable regular file with something in it)
 # Bluetooth constants. The times are hundredths of a second of bt_now. A test may set the variables; production never does.
 BT_HOLD=120         # seconds a record is carried after its window (center.bt_hold)
 BT_T_READY=500      # the monitor has this long to hold its socket before the scan starts (0.5 s idle, over 3 s under a full load on the device, 18 October 2026)
@@ -273,6 +287,19 @@ case $BT_WIN in
 esac
 [ -z "$BT_WIN_BAD" ] || BT_WIN=5
 BT_MON_S=$((BT_WIN + 8))     # the monitor's own dead-man timer: it covers the readiness wait, the pid lookup and the scan
+# The alert window: whole seconds from 60 to 86400, anything else is 600, said once at start (the main section). A function, so that the self-test
+# can put many values through it without starting a collector for each. $1 = the setting; sets ALERT_WIN, and ALERT_WIN_BAD to the rejected text (empty = fine).
+alert_window() {
+    ALERT_WIN_BAD=""; ALERT_WIN=600
+    case $1 in
+        '') ;;
+        *[!0-9]*) ALERT_WIN_BAD=$1 ;;
+        *) AW_N=$1
+           while [ "${#AW_N}" -gt 1 ] && [ "${AW_N#0}" != "$AW_N" ]; do AW_N=${AW_N#0}; done   # a leading zero is no octal
+           if [ "${#AW_N}" -le 5 ] && [ "$AW_N" -ge 60 ] && [ "$AW_N" -le 86400 ]; then ALERT_WIN=$AW_N; else ALERT_WIN_BAD=$1; fi ;;
+    esac
+}
+alert_window "${STARCHORUS_ALERT_WINDOW:-600}"
 
 # --------------------------------------------------------------------------- small helpers
 log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf, not echo: see find_oui_file
@@ -641,7 +668,7 @@ cleanup() {
     rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" 2>/dev/null
     # the Bluetooth window's files of this process (the pid file only when no tool is left, bt_end abort decides), the RECON CHANNELS call and its file
     rm -f "$TMPDIR_RAM/starchorus-bt-$$.txt.out" "$TMPDIR_RAM/starchorus-bt-$$.held" "$TMPDIR_RAM/starchorus-bt-$$.new" "$TMPDIR_RAM/starchorus-bt-$$.stat" \
-          "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
+          "$TMPDIR_RAM/starchorus-bt-$$.alog" "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
     if [ -n "$TR_PID" ]; then is_own_child "$TR_PID" && kill "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" 2>/dev/null
@@ -1260,11 +1287,19 @@ EOF
     return 0
 }
 
-# --------------------------------------------------------------------------- the per-cycle layers: bluetooth, activity, center.bt_window / bt_hold
+# --------------------------------------------------------------------------- the per-cycle layers: bluetooth, activity, alerts, center.bt_window / bt_hold
 # ONE awk over the finished document (stdin), with the window's records (SC_BTP, bt_parse's lines), last cycle's records (SC_BTH, tab separated:
-# the B fields, last_seen, carry) and the RECON CHANNELS answer (SC_TRF); it inserts  "bluetooth": [...],  and  "activity": [...],  (one line each)
-# before the first line that starts  "aps": [  and ", "bt_window": N, "bt_hold": H" before the closing brace of the one-line center object, and
-# writes the records for the next cycle to SC_BTN and a status file (lines added, records, traffic ok|none|bad|off, center done) to SC_STAT.
+# the B fields, last_seen, carry), the RECON CHANNELS answer (SC_TRF) and a snapshot of the end of alerts.log (SC_ALF, SC_ALWIN seconds wide); it inserts
+# "bluetooth": [...],  "activity": [...],  and  "alerts": [...],  (one line each) before the first line that starts  "aps": [  and
+# ", "bt_window": N, "bt_hold": H" before the closing brace of the one-line center object, and writes the records for the next cycle to SC_BTN and a
+# status file (lines added, records, traffic ok|none|bad|off, center done, alerts written, alert lines skipped) to SC_STAT. The alerts are the one
+# input of the pass that the firmware's alert engine feeds through a file the collector did not write, so every field of it is untrusted text:
+#   alerts.log: EPOCH TAB deauth TAB AP TAB ...  (the fields after the AP are not read). A line counts when its epoch is digits, its type is deauth, its AP is
+#   an address (six pairs of hex digits, either case, written in lower case) and its epoch is at most SC_TS + 60 (a line from the future is a clock that
+#   is wrong, not an alert); it is inside the window when SC_TS - SC_ALWIN <= epoch. A blank line is nothing; any other line that does not count is
+#   skipped and counted (askip). The lines inside the window are grouped by AP: n = how many, t = the newest epoch. The groups are sorted by t, newest
+#   first, then by address, and cut at 20 (insertion into a list of 20: a hall full of APs costs n times 20 steps at most, never n squared). An empty
+#   result writes no key at all.
 #   SC_BTMODE: 0 = Bluetooth off (nothing is written), 1 = a valid window (its addresses get last_seen = SC_TS, the clock of the cycle that is also the
 #   document's "generated": a record is never later than the document that holds it, though the window ends a few seconds after the cycle began),
 #   2 = a void one (the held records only; bt_window 0, so the layer runs out with its hold instead of blinking on one bad window).
@@ -1276,6 +1311,10 @@ EOF
 #   writes nothing (none). Frames counted over a recent window, so a share, never a count.
 # shellcheck disable=SC2016  # awk program text, deliberately not expanded
 AWK_LAYERS='
+    function albefore(t1, a1, t2, a2) {
+        if (t1 != t2) return (t1 > t2)
+        return (a1 < a2)
+    }
     function before(a, b) {
         if (rr[a] != rr[b]) return (rr[a] > rr[b])
         return (ad[a] < ad[b])
@@ -1301,6 +1340,35 @@ AWK_LAYERS='
         ts = ENVIRON["SC_TS"] + 0; hold = ENVIRON["SC_HOLD"] + 0; win = ENVIRON["SC_WIN"] + 0
         mode = ENVIRON["SC_BTMODE"] + 0; trf = ENVIRON["SC_TRAFFIC"] + 0
         nrec = 0; added = 0; cdone = 0; adone = 0; btline = ""; actline = ""; tstat = "off"; nout = 0
+        alline = ""; alent = 0; alskip = 0; alnap = 0
+        alf = ENVIRON["SC_ALF"]
+        if (alf != "" && ts > 0) {
+            alwin = ENVIRON["SC_ALWIN"] + 0
+            while ((getline line < alf) > 0) {
+                if (line == "") continue
+                aln = split(line, alc, "\t")
+                alp = tolower(alc[3])
+                if (aln < 3 || alc[1] !~ /^[0-9]+$/ || alc[2] != "deauth" || alp !~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/) { alskip++; continue }
+                ale = alc[1] + 0
+                if (ale > ts + 60) { alskip++; continue }
+                if (ale < ts - alwin) continue
+                if (!(alp in alcnt)) { alap[alnap++] = alp; alcnt[alp] = 0; alnew[alp] = 0 }
+                alcnt[alp]++
+                if (ale > alnew[alp]) alnew[alp] = ale
+            }
+            close(alf)
+            for (ali = 0; ali < alnap; ali++) {
+                alp = alap[ali]; ale = alnew[alp]
+                if (alent == 20 && !albefore(ale, alp, alst[19], alsa[19])) continue
+                alj = (alent < 20) ? alent : 19
+                while (alj > 0 && albefore(ale, alp, alst[alj - 1], alsa[alj - 1])) { alst[alj] = alst[alj - 1]; alsa[alj] = alsa[alj - 1]; alj-- }
+                alst[alj] = ale; alsa[alj] = alp
+                if (alent < 20) alent++
+            }
+            alo = ""
+            for (ali = 0; ali < alent; ali++) alo = alo (ali ? ", " : "") sprintf("{\"type\": \"deauth\", \"t\": %d, \"ap\": \"%s\", \"n\": %d}", alst[ali], alsa[ali], alcnt[alsa[ali]])
+            if (alent > 0) alline = "  \"alerts\": [" alo "],"
+        }
         if (mode == 1) {
             f = ENVIRON["SC_BTP"]
             while ((getline line < f) > 0) { if (split(line, c, "\t") >= 9 && c[1] == "B") addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ts, 0) }
@@ -1367,28 +1435,57 @@ AWK_LAYERS='
         if (!adone && index($0, "  \"aps\": [") == 1) {
             if (mode != 0) { print btline; added++ }
             if (actline != "") { print actline; added++ }
+            if (alline != "") { print alline; added++ }
             adone = 1 }
         print
     }
     END {
         sf = ENVIRON["SC_STAT"]
-        printf "added %d\nbt %d\ntraffic %s\ncenter %d\n", added, (mode != 0 ? nout : -1), tstat, cdone > sf
+        printf "added %d\nbt %d\ntraffic %s\ncenter %d\nalerts %d\naskip %d\n", added, (mode != 0 ? nout : -1), tstat, cdone, alent, alskip > sf
         close(sf)
     }
 '
+# Sets AL_ON for this cycle: 1 when the switch is on and $OUTDIR/alerts.log is a readable regular file with something in it. Shell tests only, so a Pager
+# that has no such file pays no process for the feature. A name that is there but is no readable regular file (a directory, a pipe, which `tail` would
+# wait on for ever) is said once per episode and read as no file.
+alerts_look() {
+    AL_ON=0
+    [ "$ALERTS" = 1 ] && [ -e "$OUTDIR/alerts.log" ] || return 0
+    if [ -f "$OUTDIR/alerts.log" ] && [ -r "$OUTDIR/alerts.log" ]; then
+        [ -s "$OUTDIR/alerts.log" ] && AL_ON=1
+    else
+        bt_issue alertsread "Alerts: $OUTDIR/alerts.log is not a readable file; no alerts this cycle"
+    fi
+    return 0
+}
 # $1 = the document (rewritten in place, or left alone when the pass failed its shape check), $2 = the Bluetooth mode (see AWK_LAYERS). Reads $ts,
-# BT_HELD, the window's parse output and the RECON CHANNELS file of this process. Returns post_keep's answer; BT_HELD_NEW = the records for the next cycle.
+# BT_HELD, the window's parse output, the RECON CHANNELS file of this process and, when alerts_look set AL_ON, the last 256 KiB of alerts.log: a snapshot,
+# so that the awk reads a file that stays as it is while a companion alert appends to the log (the companion keeps 2,000 lines of about 90 bytes, so a
+# log of its own is read whole; a larger one is somebody else's, and its first line, cut in the middle, is skipped and said). Returns post_keep's answer;
+# BT_HELD_NEW = the records for the next cycle. The alert lines the awk skipped are said once per episode.
 add_layers() {
     al_b="$TMPDIR_RAM/starchorus-bt-$$"
     al_um=$(umask); umask 077; : > "$al_b.held" 2>/dev/null; : > "$al_b.new" 2>/dev/null; umask "$al_um"   # addresses: for this process only
     if [ -n "$BT_HELD" ]; then printf '%s\n' "$BT_HELD" > "$al_b.held" 2>/dev/null; fi
     al_w=0; [ "$2" != 1 ] || al_w=$BT_WIN
+    al_f=""
+    if [ "$AL_ON" = 1 ]; then
+        umask 077; : > "$al_b.alog" 2>/dev/null; umask "$al_um"   # addresses again
+        if tail -c 262144 "$OUTDIR/alerts.log" > "$al_b.alog" 2>/dev/null; then al_f="$al_b.alog"
+        else bt_issue alertsread "Alerts: $OUTDIR/alerts.log could not be read; no alerts this cycle"; fi
+    fi
     SC_TS=$ts SC_HOLD=$BT_HOLD SC_WIN=$al_w SC_BTMODE=$2 SC_TRAFFIC=$TRAFFIC SC_BTP="$BT_F.out" SC_BTH="$al_b.held" SC_BTN="$al_b.new" \
-        SC_TRF="$TMPDIR_RAM/starchorus-traffic-$$.json" SC_STAT="$al_b.stat" LC_ALL=C awk "$AWK_JSON_HELPERS$AWK_LAYERS" < "$1" > "$1.l" 2>/dev/null
-    post_keep "$1" l $? "$(sed -n 's/^added //p' "$al_b.stat" 2>/dev/null)"
+        SC_TRF="$TMPDIR_RAM/starchorus-traffic-$$.json" SC_ALF="$al_f" SC_ALWIN=$ALERT_WIN SC_STAT="$al_b.stat" LC_ALL=C awk "$AWK_JSON_HELPERS$AWK_LAYERS" < "$1" > "$1.l" 2>/dev/null
+    post_keep "$1" l $? "$(sed -n 's/^added //p' "$al_b.stat" 2>/dev/null)" || return 1
+    al_k=$(sed -n 's/^askip //p' "$al_b.stat" 2>/dev/null)
+    case $al_k in
+        ''|0|*[!0-9]*) ;;
+        *) bt_issue alertsskip "Alerts: $al_k line(s) of alerts.log skipped (a valid line has a digit epoch, deauth and an access point address in its first three fields)" ;;
+    esac
+    return 0
 }
 # $1 = the document of this cycle, as it is about to be published. The Bluetooth window of the cycle is ended and judged here (bt_end), the
-# RECON CHANNELS call is waited for, add_layers runs, and the records for the next cycle are kept.
+# RECON CHANNELS call is waited for, add_layers runs (when Bluetooth or Traffic is on, or alerts_look found an alert log), and the records for the next cycle are kept.
 run_layers() {
     rl_m=0
     if [ "$BLUETOOTH" = 1 ]; then
@@ -1402,7 +1499,7 @@ run_layers() {
     fi
     if [ -n "$TR_PID" ]; then wait "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rl_b="$TMPDIR_RAM/starchorus-bt-$$"
-    if [ "$rl_m" != 0 ] || [ "$TRAFFIC" = 1 ]; then
+    if [ "$rl_m" != 0 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ]; then
         if add_layers "$1" "$rl_m"; then
             [ "$rl_m" = 0 ] || BT_HELD=$(cat "$rl_b.new" 2>/dev/null)
         fi
@@ -1411,7 +1508,7 @@ run_layers() {
             TR_REUSE=0   # an answer that gave nothing is not carried to the next cycle: that one calls again
         fi
     fi
-    rm -f "$rl_b.held" "$rl_b.new" "$rl_b.stat" 2>/dev/null
+    rm -f "$rl_b.held" "$rl_b.new" "$rl_b.stat" "$rl_b.alog" 2>/dev/null
     # the answer file stays for the cycle that reads it again (TR_REUSE, run_cycle); in any other case it goes with the cycle
     [ "$TR_REUSE" = 1 ] || rm -f "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
     [ -z "$BT_F" ] || rm -f "$BT_F.out" 2>/dev/null
@@ -3208,8 +3305,8 @@ refresh_generated() {   # $1 = now, $2 = where the document goes
 # and the RECON CHANNELS call (on every second cycle, see there); (2) the source build, which on the recon.db path may be a SKIP: the document of the last full pass with a new
 # "generated" is the work file, no database copy, no query, no vendor pass; (3) on a built document only: the center extras, the homing reading, the
 # vendor fields; (4) on a full build only: keep the base for the next skip, before any layer; (5) the layers: the window ends (bt_end), the traffic
-# answer is waited for, add_layers; (6) publish, then the vendor cache merge. So a skipped cycle still carries fresh Bluetooth and activity layers.
-# With both switches off a skipped cycle publishes the same bytes as in 0.1. A skip leaves RS_DOCV as it is and RS_SKIPS keeps counting, so SKIP_MAX
+# answer is waited for, add_layers (and the alert log is looked at: alerts_look); (6) publish, then the vendor cache merge. So a skipped cycle still
+# carries fresh Bluetooth, activity and alerts layers. With both switches off and no alerts.log a skipped cycle publishes the same bytes as in 0.1. A skip leaves RS_DOCV as it is and RS_SKIPS keeps counting, so SKIP_MAX
 # still forces a rebuild; the conditions of a skip are today's (the survey and the own-device fields forbid one; Bluetooth and traffic do not).
 run_cycle() {
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
@@ -3274,7 +3371,8 @@ run_cycle() {
     if [ "$rc_skip" = 0 ] && [ "$rs_good" = 1 ] && [ "$RESOLVED" = recondb ] && [ -n "$RS_NEW" ] && [ "$SKIP_UNCHANGED" = 1 ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] \
        && homing_off && rs_keepdoc "$tmp"; then rs_kept=1; fi
     # the layers of this cycle, on the document that is published (never on the base kept above)
-    if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ]; then run_layers "$tmp"; fi
+    alerts_look
+    if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ]; then run_layers "$tmp"; fi
     BT_LOGGED=$BT_CUR
     mv -f "$tmp" "$OUTFILE"    # atomic replace
     if [ "$rs_kept" = 1 ]; then
@@ -3870,6 +3968,161 @@ lay_selftest() {
     BT_CUR=" "; BT_LOGGED=" "; bt_parse "$LAY/big.txt" > "$LAY/slow.out"; lay_pr=$?; PATH=$lay_pa
     bt_parse "$LAY/no-such-window.txt" > "$LAY/none.out"; lay_pn=$?; bt_judge "$LAY/none.out" 2>/dev/null; lay_jn=$?
     if [ "$lay_pr" = 124 ] && [ "$lay_jn" = 1 ] && [ "$BT_VOID" = nopassive ]; then st_pass "bt_parse: an awk that runs out of its 6 s is rc 124 (the window is void), a window file that is not there is void too (nothing witnessed)"; else st_fail "bt_parse: time limit ($lay_pr, $lay_pn/$lay_jn/$BT_VOID)"; fi
+
+    # 30) alerts: alerts.log through the snapshot, the awk and the shape check. lal_run is run_layers with Bluetooth and Traffic off, so that alerts_look is the only
+    # gate; the last rows run whole cycles. The clock of the cycle is a function `date` for the block: 1789300000, the same second in every row.
+    # lal_l EPOCH AP = one line as the companion writes it (EPOCH deauth AP SOURCE DESTINATION CLIENT, tab separated).
+    lal_ad="$LAY/al"; mkdir -p "$lal_ad"
+    lal_so=$OUTDIR; lal_sa=$ALERTS; lal_sw=$ALERT_WIN; lal_sb=$ALERT_WIN_BAD; lal_str=$TRAFFIC; lal_sbl=$BLUETOOTH; lal_sbr=$BT_RC; lal_stp=$TR_PID
+    lal_srs=$RESOLVED; lal_scm=$CAP_METHOD; lal_sof=$OUTFILE; lal_sve=$VENDOR
+    BLUETOOTH=0; TRAFFIC=0; BT_RC=3; TR_PID=""; ALERTS=1; ALERT_WIN=600; ts=1789300000; OUTDIR=$lal_ad; BT_LOGGED=" "
+    date() { if [ "$1" = "+%s" ]; then printf '%s\n' 1789300000; else command date "$@"; fi; }
+    lal_l() { printf '%s\tdeauth\t%s\t02:00:00:00:0b:01\t02:00:00:00:0c:01\t02:00:00:00:0c:02\n' "$1" "$2"; }
+    lal_doc() { printf '{\n  "generated": 1,\n  "center": {"label": "x"},\n  "aps": [\n  ],\n  "unassociated": [\n  ]\n}\n' > "$LAY/al.json"; }
+    lal_run() {   # document -> $LAY/al.json, what the layers logged -> $LAY/al.log; BT_LOGGED carries the episode from one run to the next
+        lal_doc; BT_CUR=" "; { alerts_look; run_layers "$LAY/al.json"; } 2> "$LAY/al.log"; BT_LOGGED=$BT_CUR
+    }
+    lal_doc; cp "$LAY/al.json" "$LAY/al.pristine"
+    lal_p1=02:00:00:00:0a:01; lal_p2=02:00:00:00:0a:02; lal_p3=02:00:00:00:0a:03
+
+    # ten lines, three APs: seven count; one has no epoch, one is a second older than the window, one is 61 s ahead. P1 and P2 end on the same t, so the address orders them;
+    # the newest line of P1 is not its first or last
+    {
+        lal_l 1789299990 $lal_p1
+        lal_l 1789299700 $lal_p3
+        lal_l 1789299800 $lal_p1
+        lal_l 1789299995 $lal_p3
+        lal_l 1789299600 $lal_p1
+        lal_l 1789299990 $lal_p2
+        lal_l 1789299900 $lal_p2
+        printf 'not-an-epoch\tdeauth\t%s\n' "$lal_p3"
+        lal_l 1789299399 $lal_p1
+        lal_l 1789300061 $lal_p2
+    } > "$lal_ad/alerts.log"
+    lal_run; cp "$LAY/al.log" "$LAY/al.log1"; lal_run
+    lal_w='  "alerts": [{"type": "deauth", "t": 1789299995, "ap": "02:00:00:00:0a:03", "n": 2}, {"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:0a:01", "n": 3}, {"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:0a:02", "n": 2}],'
+    if [ "$(wc -l < "$lal_ad/alerts.log" | tr -d ' ')" = 10 ] && grep -qxF "$lal_w" "$LAY/al.json" && [ "$(sed -n '/"alerts"/{n;p;}' "$LAY/al.json")" = '  "aps": [' ] \
+       && [ "$(wc -l < "$LAY/al.json" | tr -d ' ')" = 9 ] && json_ok < "$LAY/al.json" && [ "$(grep -c 'Alerts: 2 line(s) of alerts.log skipped' "$LAY/al.log1")" = 1 ] && [ ! -s "$LAY/al.log" ]; then
+        st_pass "alerts: ten lines, three APs, one without an epoch, one older than the window, one 61 s ahead -> three entries with n 2 / 3 / 2 and the newest t of each, newest first and then by address, in one added line before aps; two lines skipped and said once, not again for the same file"
+    else st_fail "alerts: ten lines ($(grep -c '"alerts"' "$LAY/al.json") alerts lines, $(sed -n '/"alerts"/p' "$LAY/al.json" | cut -c1-200), log [$(cat "$LAY/al.log1")] [$(cat "$LAY/al.log")])"; fi
+
+    # the rules one by one: not deauth, no AP, a short or non-hex address, an epoch of letters, blanks for tabs, two fields (seven skipped, and the ninth is a blank line, which is nothing);
+    # the edge of the window counts (upper-case address, joined with the lower-case form of the same AP), 60 s ahead counts, 61 s ahead is the eighth skipped line
+    {
+        printf '%s\tdisassoc\t%s\n' 1789299990 $lal_p1
+        printf '%s\tdeauth\t-\n' 1789299990
+        printf '%s\tdeauth\t02:00:00:00:0a\n' 1789299990
+        printf '%s\tdeauth\t02:00:00:00:0a:0g\n' 1789299990
+        printf 'abc\tdeauth\t%s\n' $lal_p1
+        printf '1789299990 deauth %s\n' $lal_p1
+        printf '%s\tdeauth\n' 1789299990
+        printf '\n'
+        lal_l 1789299400 02:00:00:00:0A:01
+        lal_l 1789300060 $lal_p1
+        lal_l 1789300061 $lal_p1
+    } > "$lal_ad/alerts.log"
+    BT_LOGGED=" "; lal_run
+    if grep -qxF '  "alerts": [{"type": "deauth", "t": 1789300060, "ap": "02:00:00:00:0a:01", "n": 2}],' "$LAY/al.json" && [ "$(wc -l < "$LAY/al.json" | tr -d ' ')" = 9 ] && json_ok < "$LAY/al.json" \
+       && [ "$(grep -c 'Alerts: 8 line(s) of alerts.log skipped' "$LAY/al.log")" = 1 ]; then
+        st_pass "alerts: skip rules: not deauth, no address, a short or a non-hex address, an epoch of letters, blanks for tabs and two fields are skipped (8 with the one 61 s ahead; a blank line is nothing); the window's edge and 60 s ahead count, and an upper-case address is the same AP"
+    else st_fail "alerts: skip rules ($(sed -n '/"alerts"/p' "$LAY/al.json" | cut -c1-200), log [$(cat "$LAY/al.log")])"; fi
+
+    # 25 APs: the cut at 20. First every AP on its own t (the newest 20 stay), then all on one t, in the opposite order in the file (the 20 lowest addresses stay)
+    lal_i=1; while [ "$lal_i" -le 25 ]; do lal_l $((1789299990 - lal_i)) "$(printf '02:00:00:00:%02x:01' "$lal_i")"; lal_i=$((lal_i + 1)); done > "$lal_ad/alerts.log"
+    lal_run; lal_n1=$(grep -o '"ap"' "$LAY/al.json" | wc -l | tr -d ' '); cp "$LAY/al.json" "$LAY/al.cut1"
+    lal_i=25; while [ "$lal_i" -ge 1 ]; do lal_l 1789299990 "$(printf '02:00:00:00:%02x:01' "$lal_i")"; lal_i=$((lal_i - 1)); done > "$lal_ad/alerts.log"
+    lal_run; lal_n2=$(grep -o '"ap"' "$LAY/al.json" | wc -l | tr -d ' ')
+    if [ "$lal_n1/$lal_n2" = 20/20 ] && grep -q '^  "alerts": \[{"type": "deauth", "t": 1789299989, "ap": "02:00:00:00:01:01", "n": 1}, ' "$LAY/al.cut1" \
+       && grep -q ', {"type": "deauth", "t": 1789299970, "ap": "02:00:00:00:14:01", "n": 1}\],$' "$LAY/al.cut1" && ! grep -q '02:00:00:00:15:01' "$LAY/al.cut1" \
+       && grep -q '^  "alerts": \[{"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:01:01", "n": 1}, ' "$LAY/al.json" \
+       && grep -q '"ap": "02:00:00:00:0a:01", "n": 1}, {"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:0b:01"' "$LAY/al.json" \
+       && grep -q ', {"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:14:01", "n": 1}\],$' "$LAY/al.json" && ! grep -q '02:00:00:00:15:01' "$LAY/al.json" && json_ok < "$LAY/al.json"; then
+        st_pass "alerts: 25 APs -> 20 entries: the 20 newest when the t differ (APs 01 to 14 in hex, the last at t-20), the 20 lowest addresses when the t are equal, whatever the order in the file"
+    else st_fail "alerts: 25 APs (entries $lal_n1/$lal_n2, $(sed -n '/"alerts"/p' "$LAY/al.json" | cut -c1-160))"; fi
+
+    # nothing to write: no file, an empty file, a file whose lines are all out of the window. No key, the document is the one that went in, and nothing is logged
+    lal_ok=1
+    rm -f "$lal_ad/alerts.log"; lal_run; cmp -s "$LAY/al.json" "$LAY/al.pristine" && [ ! -s "$LAY/al.log" ] || lal_ok=0
+    : > "$lal_ad/alerts.log"; lal_run; cmp -s "$LAY/al.json" "$LAY/al.pristine" && [ ! -s "$LAY/al.log" ] || lal_ok=0
+    lal_l 1789299399 $lal_p1 > "$lal_ad/alerts.log"; lal_run; cmp -s "$LAY/al.json" "$LAY/al.pristine" && [ ! -s "$LAY/al.log" ] || lal_ok=0
+    if [ "$lal_ok" = 1 ]; then st_pass "alerts: no file, an empty file, and a file with only old lines write no key at all and log nothing"; else st_fail "alerts: nothing to write (ok $lal_ok, log [$(cat "$LAY/al.log")])"; fi
+
+    # a name that is no readable regular file (a directory here; a pipe would hold `tail` for ever): read as no file, said once per episode
+    rm -f "$lal_ad/alerts.log"; mkdir "$lal_ad/alerts.log"; BT_LOGGED=" "
+    lal_run; cp "$LAY/al.log" "$LAY/al.log1"; lal_cmp1=0; cmp -s "$LAY/al.json" "$LAY/al.pristine" && lal_cmp1=1
+    lal_run; lal_cmp2=0; cmp -s "$LAY/al.json" "$LAY/al.pristine" && lal_cmp2=1
+    rmdir "$lal_ad/alerts.log"
+    if [ "$lal_cmp1$lal_cmp2" = 11 ] && [ "$(grep -c 'alerts.log is not a readable file; no alerts this cycle' "$LAY/al.log1")" = 1 ] && [ ! -s "$LAY/al.log" ]; then
+        st_pass "alerts: a directory named alerts.log is no file: no key, one log line, the same fault again is not logged again"
+    else st_fail "alerts: a directory ($lal_cmp1$lal_cmp2, log [$(cat "$LAY/al.log1")] [$(cat "$LAY/al.log")])"; fi
+
+    # a regular file that `tail` cannot read at the moment although it looked readable (a stand-in `tail` that fails): no key, the document as it came, one log line, once per episode
+    lal_l 1789299990 $lal_p1 > "$lal_ad/alerts.log"; BT_LOGGED=" "
+    tail() { return 1; }
+    lal_run; cp "$LAY/al.log" "$LAY/al.log1"; lal_cmp1=0; cmp -s "$LAY/al.json" "$LAY/al.pristine" && lal_cmp1=1
+    lal_run; lal_cmp2=0; cmp -s "$LAY/al.json" "$LAY/al.pristine" && lal_cmp2=1
+    unset -f tail
+    if [ "$lal_cmp1$lal_cmp2" = 11 ] && [ "$(grep -c 'alerts.log could not be read; no alerts this cycle' "$LAY/al.log1")" = 1 ] && [ ! -s "$LAY/al.log" ]; then
+        st_pass "alerts: a read that fails: a log that exists but cannot be read gives no key and one log line, and the same fault again is not logged again"
+    else st_fail "alerts: a read that fails ($lal_cmp1$lal_cmp2, log [$(cat "$LAY/al.log1")] [$(cat "$LAY/al.log")])"; fi
+
+    # the switch, through whole cycles (capture source, the sample CSV of the first case): on = the line is there, in front of aps, the capture is intact; off = the document of a
+    # cycle without any file, byte for byte (the same second, so even generated is the same)
+    RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$lal_ad/cycle.json"; VENDOR=0
+    { lal_l 1789299970 $lal_p1; lal_l 1789299980 $lal_p1; lal_l 1789299995 $lal_p2; } > "$lal_ad/alerts.log"
+    ALERTS=1; run_cycle 2>/dev/null >/dev/null; cp "$OUTFILE" "$LAY/al.on"
+    ALERTS=0; run_cycle 2>/dev/null >/dev/null; cp "$OUTFILE" "$LAY/al.off"
+    rm -f "$lal_ad/alerts.log"; ALERTS=1; run_cycle 2>/dev/null >/dev/null; cp "$OUTFILE" "$LAY/al.none"
+    if json_ok < "$LAY/al.on" && grep -qxF '  "alerts": [{"type": "deauth", "t": 1789299995, "ap": "02:00:00:00:0a:02", "n": 1}, {"type": "deauth", "t": 1789299980, "ap": "02:00:00:00:0a:01", "n": 2}],' "$LAY/al.on" \
+       && grep -q 'HomeNet' "$LAY/al.on" && ! grep -q '"alerts"' "$LAY/al.off" && cmp -s "$LAY/al.off" "$LAY/al.none" && [ "$(wc -l < "$LAY/al.on" | tr -d ' ')" = $(($(wc -l < "$LAY/al.none" | tr -d ' ') + 1)) ]; then
+        st_pass "alerts: the switch: a whole cycle with STARCHORUS_ALERTS=1 and an alerts.log carries the line (one more than without), STARCHORUS_ALERTS=0 reads nothing and gives the document of a cycle with no file, byte for byte"
+    else st_fail "alerts: the switch (on [$(sed -n '/"alerts"/p' "$LAY/al.on" | cut -c1-200)], off has key $(grep -c '"alerts"' "$LAY/al.off"), off=none $(cmp -s "$LAY/al.off" "$LAY/al.none" && echo yes || echo no))"; fi
+    RESOLVED=$lal_srs; CAP_METHOD=$lal_scm; OUTFILE=$lal_sof; VENDOR=$lal_sve
+
+    # with Traffic on in the same pass: both arrays, activity first, two lines added and nothing else touched
+    { lal_l 1789299990 $lal_p1; lal_l 1789299995 $lal_p3; } > "$lal_ad/alerts.log"
+    TRAFFIC=1; printf '{"2412":600,"2437":400}\n' > "$LAY/ram/starchorus-traffic-$$.json"; lal_run; TRAFFIC=0
+    if json_ok < "$LAY/al.json" && [ "$(wc -l < "$LAY/al.json" | tr -d ' ')" = 10 ] \
+       && [ "$(sed -n '/"activity"/{n;p;}' "$LAY/al.json")" = '  "alerts": [{"type": "deauth", "t": 1789299995, "ap": "02:00:00:00:0a:03", "n": 1}, {"type": "deauth", "t": 1789299990, "ap": "02:00:00:00:0a:01", "n": 1}],' ] \
+       && grep -qxF '  "activity": [{"freq": 2412, "share": 0.600}, {"freq": 2437, "share": 0.400}],' "$LAY/al.json" && [ ! -s "$LAY/al.log" ]; then
+        st_pass "alerts: with Traffic on in the same pass the document gets activity[] and alerts[] (two lines, valid JSON), each as it is without the other"
+    else st_fail "alerts: with Traffic ($(wc -l < "$LAY/al.json" | tr -d ' ') lines, $(sed -n '/"activity"/,/"aps"/p' "$LAY/al.json" | cut -c1-120 | tr '\n' '|'))"; fi
+
+    # the window: 60 to 86400 whole seconds; a leading zero is no octal; anything else is 600 and is named
+    lal_ok=1
+    for lal_c in 60:60: 86400:86400: 600:600: 0600:600: 060:60: 00090:90: 59:600:59 86401:600:86401 0:600:0 abc:600:abc 6.5:600:6.5 -5:600:-5 1e3:600:1e3 999999999999999999999:600:999999999999999999999 600s:600:600s; do
+        lal_v=${lal_c%%:*}; lal_r=${lal_c#*:}; lal_b=${lal_r#*:}; lal_r=${lal_r%%:*}
+        alert_window "$lal_v"
+        [ "$ALERT_WIN/$ALERT_WIN_BAD" = "$lal_r/$lal_b" ] || { lal_ok=0; echo "    alert_window '$lal_v' -> $ALERT_WIN/$ALERT_WIN_BAD, want $lal_r/$lal_b" >&2; }
+    done
+    alert_window ""; [ "$ALERT_WIN/$ALERT_WIN_BAD" = 600/ ] || lal_ok=0
+    if [ "$lal_ok" = 1 ]; then st_pass "STARCHORUS_ALERT_WINDOW: values: 60, 86400, 600, 0600 and 060 are taken (a leading zero is no octal), 59, 86401, 0, letters, a decimal, a sign, a unit, a huge number are 600 and named, an empty one is 600 and quiet"; else st_fail "STARCHORUS_ALERT_WINDOW: values"; fi
+
+    # said once at start, by a collector of its own (a start that finds no source ends after the line): a bad value, a good one, the switch off
+    lal_o="$LAY/alo"; mkdir -p "$lal_o"; lal_ok=1
+    for lal_c in 20:1 abc:1 86401:1 60:0 600:0 86400:0 0600:0; do
+        lal_v=${lal_c%%:*}; lal_x=${lal_c#*:}
+        STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW=$lal_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
+        lal_m=$(grep -c "Alerts: STARCHORUS_ALERT_WINDOW must be whole seconds from 60 to 86400 (got '$lal_v'); using 600" "$LAY/w.log")
+        [ "$lal_m" = "$lal_x" ] && [ "$(grep -c 'Alerts' "$LAY/w.log")" = "$lal_x" ] || { lal_ok=0; echo "    window '$lal_v': $lal_m message(s), want $lal_x" >&2; }
+    done
+    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERT_WINDOW=20 STARCHORUS_ALERTS=0 sh "$0" --once > /dev/null 2> "$LAY/w.log"
+    grep -q 'Alerts' "$LAY/w.log" && lal_ok=0
+    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW='' sh "$0" --once > /dev/null 2> "$LAY/w.log"
+    grep -q 'Alerts' "$LAY/w.log" && lal_ok=0
+    if [ "$lal_ok" = 1 ]; then st_pass "STARCHORUS_ALERT_WINDOW: the log line: a bad value is named once at start, a good one, an empty one and a bad one with STARCHORUS_ALERTS=0 say nothing"; else st_fail "STARCHORUS_ALERT_WINDOW: the log line ($(grep Alerts "$LAY/w.log" | head -n 2))"; fi
+
+    # the window works: a line 5 minutes old and one 2 hours old
+    { lal_l 1789299700 $lal_p1; lal_l 1789292800 $lal_p2; } > "$lal_ad/alerts.log"
+    lal_ok=1
+    ALERT_WIN=60; lal_run; grep -q '"alerts"' "$LAY/al.json" && lal_ok=0
+    ALERT_WIN=600; lal_run; grep -qxF '  "alerts": [{"type": "deauth", "t": 1789299700, "ap": "02:00:00:00:0a:01", "n": 1}],' "$LAY/al.json" || lal_ok=0
+    ALERT_WIN=86400; lal_run; grep -qxF '  "alerts": [{"type": "deauth", "t": 1789299700, "ap": "02:00:00:00:0a:01", "n": 1}, {"type": "deauth", "t": 1789292800, "ap": "02:00:00:00:0a:02", "n": 1}],' "$LAY/al.json" || lal_ok=0
+    if [ "$lal_ok" = 1 ]; then st_pass "alerts: the window is the one set: 60 s drops a line 5 minutes old, 600 s keeps it and drops one 2 hours old, 86400 s keeps both"; else st_fail "alerts: the window ($lal_ok, $(sed -n '/"alerts"/p' "$LAY/al.json" | cut -c1-200))"; fi
+
+    unset -f date lal_l lal_doc lal_run
+    OUTDIR=$lal_so; ALERTS=$lal_sa; ALERT_WIN=$lal_sw; ALERT_WIN_BAD=$lal_sb; TRAFFIC=$lal_str; BLUETOOTH=$lal_sbl; BT_RC=$lal_sbr; TR_PID=$lal_stp; AL_ON=0
+    unset lal_p1 lal_p2 lal_p3 lal_w
 
     TMPDIR_RAM=$lsv_ram; BT_F=$lsv_bf; ts=$lsv_ts; BT_HELD=$lsv_held; BT_WIN=$lsv_win; TRAFFIC=$lsv_tr; BLUETOOTH=$lsv_bl; BT_CUR=$lsv_cur; BT_LOGGED=$lsv_lg
     unset -f lay_doc lay_win lay_get lay_tr; unset A B C t0
@@ -6001,6 +6254,9 @@ log "resolved data source: $RESOLVED  (interface: ${MONIF:-n/a}, created_mon=$CR
 if [ "$BLUETOOTH" = 1 ]; then
     [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 5"
     log "Bluetooth: one passive LE scan window of ${BT_WIN}s per cycle (STARCHORUS_BLUETOOTH=1); addresses, not devices"
+fi
+if [ "$ALERTS" = 1 ] && [ -n "$ALERT_WIN_BAD" ]; then
+    log "Alerts: STARCHORUS_ALERT_WINDOW must be whole seconds from 60 to 86400 (got '$ALERT_WIN_BAD'); using 600"
 fi
 
 if [ "$RESOLVED" = "none" ]; then

@@ -11,6 +11,8 @@
 # Result: OUTDIR/library/user/reconnaissance/starchorus/ with exactly the files of the map below, each a byte copy of its
 # repo source (the page under the name the payload serves, index.html). The payload copies the collector, page, Overview
 # and netcat server into /root/loot/starchorus on its first run (BUNDLE in its header), so the directory runs on its own.
+# alert-deauth.sh is the companion alert payload: it travels in the directory under a name other than payload.sh (the library's
+# UpdatePayloads takes every payload.sh for a payload of its own) and is put into the firmware's alert tree by hand (README).
 # Not packaged: tests, tools, fixtures, the repo's own docs and anything else for development. The target directory is
 # replaced as a whole, so a file that has left the map does not linger; nothing outside it is touched.
 # Exit: 0 = built, 2 = usage or setup problem (missing source, differing Overview copies, unwritable OUTDIR).
@@ -24,6 +26,7 @@ starchorus-collect.sh|starchorus-collect.sh|x
 index.html|starchorus.html|-
 starchorus-display.sh|$PKGREL/starchorus-display.sh|x
 starchorus-serve.sh|starchorus-serve.sh|x
+alert-deauth.sh|$PKGREL/alert-deauth.sh|x
 README.md|packaging/hak5/README.md|-
 LICENSE|LICENSE|-"
 
@@ -33,7 +36,7 @@ R=$(cd "$(dirname "$0")/.." && pwd) || die 2 "cannot find the repo"
 
 case ${1:-} in
     --list) printf '%s\n' "$MAP" | awk -F'|' '{ print $1 "\t" $2 }'; exit 0 ;;
-    -h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die 2 "unknown option: $1 (see --help)" ;;
 esac
 [ $# -le 1 ] || die 2 "at most one argument, the output directory"

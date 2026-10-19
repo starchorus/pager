@@ -55,7 +55,7 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # (anchor + comment strip: neither a trailing `// dtgString(` nor `/* dtgString( */` can launder a Date.now line)
 # ---- floors of the check sets: a row must not turn green because the set it checks got empty or shrank.
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
-MIN_SELFTEST=471          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (471 checks), 19 October 2026)
+MIN_SELFTEST=482          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (482 checks), 19 October 2026: the alert log's eleven cases are in)
 MIN_SECTIONS=42           # grep -c '==== [0-9]' starchorus.html                              (measured: 00..41)
 MIN_FIXTURES=14           # ls tests/fixtures/*.json | wc -l   (measured: 14)
 MIN_QUICK_DROPINS=6       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server mutation-probe)
