@@ -382,8 +382,9 @@ b { font-weight: 600; }
 :root[data-panels="off"] #panels-pill { display: inline-flex; }
 :root[data-panels="off"][data-phone="on"][data-card="detail"] #panels-pill { display: none; }   /* the Detail card has its own close */
 #scope-strip{left:var(--sc-x);top:var(--sc-y);width:var(--sc-w);display:grid;grid:auto auto/none;grid-auto-flow:column;justify-content:space-between;justify-items:center;column-gap:4px;padding:5px 8px 6px}
-#scope-strip b{font:600 20px/26px var(--font-ui);white-space:nowrap;color:var(--ink-primary)}
-#scope-strip i{font:normal 13px/16px var(--font-ui);color:var(--ink-secondary);text-align:center}
+#scope-strip b{font:600 20px/26px var(--font-ui);white-space:nowrap;text-transform:none;color:var(--ink-primary)}
+#scope-strip i{font:normal 13px/16px var(--font-ui);color:var(--ink-secondary)}
+#scope-strip.t{letter-spacing:0}#scope-strip.n i{width:0;height:0;overflow:hidden}
 #scope-foot{position:fixed;left:var(--sc-x);width:var(--sc-w);text-align:center;font-size:13px;line-height:16px;color:var(--ink-secondary);text-transform:var(--text-transform);white-space:pre-line;pointer-events:none;bottom:var(--sc-b);display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;column-gap:4px}
 #scope-foot .l{text-align:right}#scope-foot .r{text-align:left}#sc-rx{grid-column:1/-1;margin-top:3px;color:var(--ink-primary)}
 #bar .lamps:not([hidden]){display:flex;margin-left:auto}
@@ -6835,7 +6836,10 @@ function applyScope() {
 function renderScope() {
   if (!scopeOn) return;
   const T = THEME.copy.scope, ls = liveness(), st = S._stats || {}, aps = S.apOrder.filter(a => S.ui.filters[a.band] !== false), cl = S.ui.random === "cloud" ? st.clouds | 0 : 0;
-  el("scope-strip").replaceChildren(...[aps.length, st.clients | 0, cl, aps.length ? aps[0].rssi + " dBm" : "—", eventsObj().newAps].flatMap((v, i) => [["b", v], ["i", T.strip[i]]].map(([t, x]) => Object.assign(document.createElement(t), { textContent: x }))));
+  const sp = el("scope-strip"), cs = sp.classList;
+  sp.replaceChildren(...[aps.length, st.clients | 0, cl, aps.length ? aps[0].rssi + " dBm" : "—", eventsObj().newAps].flatMap((v, i) => [["b", v], ["i", T.strip[i]]].map(([t, x]) => Object.assign(document.createElement(t), { textContent: x }))));
+  cs.remove("t", "n");
+  for (const x of "tn") if (sp.scrollWidth > sp.clientWidth + 1) cs.add(x);
   el("sc-rx").textContent = copyFor("legRx") + (ls === "live" ? "" : " · " + modeChip.textContent);
   if (ls !== SC.lv) { SC.lv = ls; resize(); }
 }

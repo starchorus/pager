@@ -146,6 +146,9 @@ def direction(v):
     for a in ("not direction", "never a direction", "not range", "arcs = signal (dBm)"): t = t.replace(a, "")
     h = re.findall(r"(?i)\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther)\b|°", t)
     return ["claims: %s" % h] if h else []
+def fit(v):   # the strip at a narrow size: every theme says ok (cells inside the panel and the screen, 13 px words, a unit that keeps its case)
+    d = json.loads(v); bad = ["%s: %s" % (t, d.get(t)) for t in TH if not str(d.get(t, "")).startswith("ok")]
+    return bad + (["errors %s" % d.get("errors")] if d.get("errors") != 0 else [])
 def lamps(v):
     d = json.loads(v); bad = []
     if not (isinstance(d.get("n"), list) and len(d["n"]) == 4 and d["n"][0] >= 10 and d["n"] == [d.get("want")] * 4): bad.append("lamps per AP %s, the strip has %s" % (d.get("n"), d.get("want")))
@@ -323,6 +326,19 @@ SCP_EVB='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wai
 let n=0;for(const M of [S.aps,S.clients,S.clouds])for(const nd of M.values())if(nd.sc&&nd.sc.st===SC.st)n++;
 SC.ph=0.5;const t=[];for(let i=0;i<60;i++){S.dirty=true;const t0=performance.now();STARCHORUS.frame();t.push(performance.now()-t0)}SC.ph=null;
 return JSON.stringify([n,+(t.reduce((a,b)=>a+b,0)/t.length).toFixed(2),+Math.max(...t).toFixed(1),STARCHORUS.errors().length])})()'
+# the strip at a narrow size, in each theme: every cell inside the panel and the screen, the words 13 px or more, the strongest signal's unit in its own case
+SCP_EVF='(async()=>{const W=STARCHORUS.wait,E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),o={};
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(700);const s=E("scope-strip"),r=R(s),cs=getComputedStyle(s),bad=[];
+ const cr=r.right-parseFloat(cs.borderRightWidth),cl=r.left+parseFloat(cs.borderLeftWidth),cells=[...s.children];   // the edge of the panel: a word may use the padding, never leave the panel
+ if(cells.length!==10)bad.push("cells "+cells.length);
+ for(const e of cells){const b=R(e);if(b.right>cr+0.5||b.left<cl-0.5||b.right>innerWidth||b.left<0)bad.push("out "+e.textContent+" "+Math.round(b.right)+">"+Math.round(cr))}
+ if(s.scrollWidth>s.clientWidth+1)bad.push("scroll "+s.scrollWidth+">"+s.clientWidth);
+ const fs=[...s.querySelectorAll("i")].map(e=>parseFloat(getComputedStyle(e).fontSize));if(Math.min(...fs)<13)bad.push("font "+Math.min(...fs));
+ const nums=[...s.querySelectorAll("b")];if(nums.some(e=>R(e).width<=0))bad.push("a number has no width");
+ if(!/dBm$/.test(nums[3].textContent)||getComputedStyle(nums[3]).textTransform!=="none")bad.push("the unit lost its case: "+nums[3].textContent);
+ const ft=R(E("scope-foot"));if(ft.top<r.bottom-0.5||ft.bottom>innerHeight+0.5||document.documentElement.scrollWidth!==innerWidth)bad.push("foot/page");
+ o[t]=bad.join("; ")||"ok "+(s.className.replace(/panel|ph-only/g,"").trim()||"full")}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 # WarGames, the Air drawer: its per-AP lamp strip keeps one lamp per access point after a poll, a second load and the key; the bar's eight capture lamps are a different set
 SCP_EVM='(async()=>{const S=STARCHORUS._internals.S,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};
 const key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubbles:true}));
@@ -452,6 +468,14 @@ rowif "scope: a frame at wave phase 0.5 costs at most 3, 4 and 6 ms of JS for 5,
 runq "$F/many-clients.json" "?spin=0&intro=0&scope=1" "$SCP_T-net" --width 390 --height 844 --mobile --wait 12 --fps 0 --eval 'STARCHORUS.errors().length' >/dev/null 2>&1
 SCP_NV=$(net_verdict "$SCP_T-net.json" - 2); SCP_NC=$?
 rowif "scope: runtime network with the Scope on: $SCP_NV" [ "$SCP_NC" = 0 ]
+
+# ---- the strip at the narrow sizes of the review: 320x568, 568x320 (a small phone on its side), 640x360 and 667x375: words are cut (tighter, then none), numbers stay, 13 px stays
+for SCP_Z in 320x568 568x320 640x360 667x375; do
+  scp_run "fit-$SCP_Z" "$SCP_EVF" "$F/devices.json" "$SCP_Q" "${SCP_Z%x*}" "${SCP_Z#*x}"
+  SCP_R=$(scp_j fit "$(scp_ev "$SCP_T-fit-$SCP_Z.json")")
+  scp_row "scope strip $SCP_Z, 3 themes: the five numbers and the words that fit lie inside the panel and the screen, no sideways scroll, the words 13 px, the unit of the strongest signal in its own case, the foot clear below" "$SCP_R"
+done
+
 # ---- WarGames' Air drawer: the lamp strip of access points keeps its lamps (and has no counter's label) when the Scope's second set of lamps is rendered
 scp_run lamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844
 SCP_R=$(scp_j lamps "$(scp_ev "$SCP_T-lamps.json")")
@@ -492,4 +516,7 @@ scp_mut post 's/^function renderScope() {$/function renderScope() { fetch("\/x",
 # the lamps loop over every .lamps again (the Air drawer's strip is overwritten by the counter's lamps)
 scp_mut lamps 's/document.querySelectorAll("#lamps,#scope-lamps")/document.querySelectorAll(".lamps")/' || SCP_MB="$SCP_MB lamps(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j lamps "$(scp_ev "$SCP_T-mlamps.json")")" != ok ] || SCP_MB="$SCP_MB lamps"; }
+# no fitting of the strip (320x568: the words of WarGames and Whitehall run over the edge)
+scp_mut nofit 's/^  for (const x of "tn") if (sp.scrollWidth > sp.clientWidth + 1) cs.add(x);$//' || SCP_MB="$SCP_MB nofit(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mfit "$SCP_EVF" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j fit "$(scp_ev "$SCP_T-mfit.json")")" != ok ] || SCP_MB="$SCP_MB nofit"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
