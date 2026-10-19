@@ -1,6 +1,6 @@
 # Starchorus
 
-**Strictly passive: it receives and never transmits.** Starchorus shows the Wi-Fi around a device as
+**A strictly passive, receive-only monitor: it listens and never transmits.** Starchorus shows the Wi-Fi around a device as
 a night sky: a shell script on the device listens, and a single HTML page draws the sky from what it
 hears.
 
@@ -160,8 +160,8 @@ replaces every statement of passivity with 'ACTIVE SCAN · the collector sent pr
 
 Starchorus contains no function that transmits or interferes:
 
-- no deauth or disassoc
-- no spoofed or impersonated access point
+- no attacks or interference of any kind — it only listens
+- no access point of its own
 - no packet injection
 - no association with other people's networks
 - no active scan, and on Bluetooth no inquiry, no scan request, no advertising, no connection, no pairing
