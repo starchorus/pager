@@ -2481,12 +2481,12 @@ function scopeGeom() {
   const ps = el("sc-ps").getBoundingClientRect(), top = b.y + el("scope-strip").offsetHeight + 4, py = ps.top + ps.height / 2, L = py - top - SCOPE.rim, rNear = Math.max(34, 0.18 * L), oy = py - SCOPE.near + rNear;
   el("sc-no").hidden = L >= SCOPE.minL;
   if (L < SCOPE.minL) return SC.g = null;
-  let k = -1;
-  const g = { b, top, py, oy, rNear, ox: b.x + b.w / 2, rFar: oy - top - SCOPE.rim, th: SCOPE.half * Math.PI / 180, half: b.w / 2 - 10, lanes: SCOPE.lanes.map(([key, w]) => { const l = { key, k0: k, k1: k += w }; k += SCOPE.gap; return l; }) };
-  return SC.g = g;
+  return SC.g = { b, top, py, oy, rNear, ox: b.x + b.w / 2, rFar: oy - top - SCOPE.rim, th: SCOPE.half * Math.PI / 180, half: b.w / 2 - 10 };
 }
 function scopePlace(wave) {
-  const g = SC.g, ls = { "2.4": [], "5": [], "6": [], sta: [] };
+  const g = SC.g, ls = { "2.4": [], "5": [], "6": [], sta: [], bt: S.ui.filters.bt ? S.btOrder.slice(0, BT.drawMax) : [] }, u = ls.bt.length ? 0.8368 : 1;
+  let k = -1;
+  g.lanes = SCOPE.lanes.concat(u < 1 ? [["bt", 0.35]] : []).map(([key, w]) => { const l = { key, k0: k, k1: k += w * u }; k += SCOPE.gap * u; return l; });
   SC.st++; SC.unk = false;
   for (const a of S.apOrder) if (S.ui.filters[a.band] !== false) ls[a.band in ls ? a.band : (SC.unk = true, "6")].push(a);
   for (const c of S.clientOrder) if (!c.randOut) ls.sta.push(c);
@@ -4657,7 +4657,7 @@ function rebuildBackground() {
   for (const dbm of LAYOUT.rings) { const r = rssiToRadius(dbm) * z; ctx.fillText(dbm + " dBm", CX + 3, CY - r - 3); }
 }
 function drawScopeBg(c) {
-  const g = SC.g; if (!g) return;
+  const g = SC.g; if (!g || !g.lanes) return;
   const edge = (k) => scL(c, t => scXY(g, g.rNear + (g.rFar - g.rNear) * t, k)), ring = (r) => scL(c, t => scXY(g, r, 2 * t - 1));
   c.lineWidth = 1;
   c.strokeStyle = THEME.line.hairline; for (const l of g.lanes.slice(1)) edge(l.k0 - SCOPE.gap / 2);
@@ -4666,7 +4666,7 @@ function drawScopeBg(c) {
   c.font = TD.fontLabel; c.textAlign = "center";
   let lx = -1e9;
   for (const l of g.lanes) {
-    const tk = SCOPE.ticks[l.key], wpx = Math.abs(scXY(g, g.rFar, l.k1)[0] - scXY(g, g.rFar, l.k0)[0]), p = scXY(g, g.rFar + (tk ? 26 : 10), (l.k0 + l.k1) / 2), nm = l.key === "sta" ? THEME.copy.scope.strip[1] : l.key === "6" && SC.unk ? "6 · ?" : ENCODING.band[l.key].legend;
+    const tk = SCOPE.ticks[l.key], wpx = Math.abs(scXY(g, g.rFar, l.k1)[0] - scXY(g, g.rFar, l.k0)[0]), p = scXY(g, g.rFar + (tk ? 26 : 10), (l.k0 + l.k1) / 2), nm = l.key === "sta" ? THEME.copy.scope.strip[1] : l.key === "bt" ? "BT" : l.key === "6" && SC.unk ? "6 · ?" : ENCODING.band[l.key].legend;
     c.fillStyle = THEME.ink.muted; for (const ch of tk || []) { const t = scXY(g, g.rFar + 8, l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * scU(l.key, ch)) * (l.k1 - l.k0)), w = textWidth(c, c.font, ch) / 2; if (t[0] - w < lx + 3) continue; lx = t[0] + w; c.fillText(ch, t[0], t[1]); }
     c.fillStyle = THEME.ink.secondary; for (const t of [nm, nm.split(" ")[0]]) { const s = TD.upper ? t.toUpperCase() : t; if (textWidth(c, c.font, s) <= wpx + 8) { c.fillText(s, p[0], p[1]); break; } }
   }
@@ -4679,7 +4679,7 @@ function drawScope() {
   const g = SC.g, ctx = ctxSky; if (!g) return;
   const p = wavePhase(), rf = g.rFar - (g.rFar - g.rNear) * p, lv = SC.lv, cx = CX, cy = CY;
   SC.sf = Math.floor(S.clock * 2);
-  for (const M of [S.aps, S.clients, S.clouds]) for (const n of M.values()) {
+  for (const M of [S.aps, S.clients, S.clouds, S.bt]) for (const n of M.values()) {
     const s = n.sc;
     if (!s || s.st !== SC.st || (s.nw && p < s.q)) { n.alphaDraw = 0; continue; }
     n.sx = s.x; n.sy = s.y; n.px = s.px; n.fog = n.zc = 1;
@@ -4691,7 +4691,7 @@ function drawScope() {
     setAlpha(ctx, 1);
   }
   CX = g.ox; CY = g.py;
-  drawGlows(); drawClients(); drawClouds(); drawStars(); drawChangeCues(); drawRecvRing();
+  drawGlows(); drawClients(); drawClouds(); drawBt(); drawStars(); drawChangeCues(); drawRecvRing();
   if (lv !== "live") {
     const w = g.b.w, h = g.py - g.top, rnd = mulberry32(reduceMotion ? 1 : 1 + (SC.sf & 1));
     ctx.fillStyle = THEME.ink.muted; setAlpha(ctx, 0.8);
@@ -5475,7 +5475,7 @@ function nodeAt(mx, my, touch) {
     const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd && (!scopeOn || n.alphaDraw >= 0.25)) { bd = d; best = n; } };
     S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98 && !scopeOn) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
     if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
-    if (S.ui.filters.bt && !scopeOn) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
+    if (S.ui.filters.bt) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
     S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; near(n, hitRadius(n, touch)); });
     if (!scopeOn) S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
@@ -6211,7 +6211,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
 }
 function legendVisibility() {   // D10: a mark's row exists exactly while that mark can be drawn (derived rows follow their toggle AND their data)
   const st = S._stats || { groups: 0, probing: 0, apsTotal: 0 };
-  const vis = (id, on) => { const e = el(id); if (e) e.hidden = !on || (scopeOn && /^leg-(nebula|groups|devices|merge|probes|arc|crowding|deviation|ghost|bt)$/.test(id)); };
+  const vis = (id, on) => { const e = el(id); if (e) e.hidden = !on || (scopeOn && /^leg-(nebula|groups|devices|merge|probes|arc|crowding|deviation|ghost)$/.test(id)); };
   vis("leg-nebula", S.ui.nebula && analyzer.pairs.length > 0);
   vis("leg-groups", S.ui.groups && st.groups > 0);
   vis("leg-devices", S.ui.deviceLinks && deviceClusterCount() > 0);

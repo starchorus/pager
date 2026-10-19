@@ -31,6 +31,7 @@ SCP_FNS="scopeGeom scopePlace scopeStep scopeWantsFrame drawScopeBg scopeWave dr
 # the shares are static.sh's (one source); a drop-in run by hand without it reads them from there
 [ -n "${MAX_SCOPE_BYTES:-}" ] || MAX_SCOPE_BYTES=$(sed -n 's/^MAX_SCOPE_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
 [ -n "${MAX_ALERTS_BYTES:-}" ] || MAX_ALERTS_BYTES=$(sed -n 's/^MAX_ALERTS_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
+[ -n "${MAX_SCOPE_BT_BYTES:-}" ] || MAX_SCOPE_BT_BYTES=$(sed -n 's/^MAX_SCOPE_BT_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
 scp_n() { sec_grepc "$1" "$2" "$3" "$4" || echo NOSLICE; }
 SCP_A="$(scp_n 20 21 90 '^const SCOPE = ')/$(scp_n 20 21 90 'key: "Z",.*btn: "t-scope"')/$(scp_n 21 22 300 'scope: { strip: \[')/$(scp_n 21 22 300 'k = scopeOn ? 13 : 0')"
 SCP_A="$SCP_A/$(scp_n 24 25 50 '^const SC = ')/$(scp_n 26 27 400 '^function scopeGeom(')/$(scp_n 26 27 400 '^function scopePlace(')/$(scp_n 30 31 200 '^function scopeStep(')"
@@ -55,10 +56,11 @@ SCP_HD=$(grep -cE "$SCP_BAD" "$SCP_T/dummy.txt")
 rowif "scope: the Scope's code ($SCP_CN lines) has no request, clock, random number, sound, vibration or storage of its own ($SCP_H hits); the pattern flags a dummy ($SCP_HD/3)" [ "$SCP_CN" -ge 100 ] 2>/dev/null && [ "$SCP_H/$SCP_HD" = 0/3 ]
 [ "$SCP_H" = 0 ] || grep -nE "$SCP_BAD" "$SCP_CODE" | cut -c1-160 | sed 's/^/    /'
 SCP_SZ=$(wc -c < "$H" | tr -d ' ')
-scp_share_ok() { [ "$1" -le $((SCP_BASE + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES)) ] 2>/dev/null; }   # the alerts' ring is the one other share on this page after 8e75fe4
-SCP_JB=0; scp_share_ok $((SCP_BASE + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES)) || SCP_JB=1; scp_share_ok $((SCP_BASE + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES + 1)) && SCP_JB=1; scp_share_ok x && SCP_JB=1
-rowif "scope: the page grew by $((SCP_SZ - SCP_BASE)) bytes since 8e75fe4 (the Scope's share $MAX_SCOPE_BYTES, with the alerts' ring $((MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))); the judge refuses one byte more or a size that is no number (bad: $SCP_JB)" [ "$SCP_JB" = 0 ] 2>/dev/null
-scp_share_ok "$SCP_SZ" || { row "scope: the page is over the Scope's and the alerts' shares together ($SCP_SZ bytes)" FAIL; }
+SCP_CEIL=$((MAX_SCOPE_BYTES + MAX_ALERTS_BYTES + MAX_SCOPE_BT_BYTES))   # the alerts' ring and the Scope's fifth lane (the pair's: radio-pair spec 3.6, counted in its 14,000) are the other two shares on this page after 8e75fe4
+scp_share_ok() { [ "$1" -le $((SCP_BASE + SCP_CEIL)) ] 2>/dev/null; }
+SCP_JB=0; scp_share_ok $((SCP_BASE + SCP_CEIL)) || SCP_JB=1; scp_share_ok $((SCP_BASE + SCP_CEIL + 1)) && SCP_JB=1; scp_share_ok x && SCP_JB=1
+rowif "scope: the page grew by $((SCP_SZ - SCP_BASE)) bytes since 8e75fe4 (the Scope's share $MAX_SCOPE_BYTES, with the alerts' ring $MAX_ALERTS_BYTES and the fifth lane $MAX_SCOPE_BT_BYTES: $SCP_CEIL); the judge refuses one byte more or a size that is no number (bad: $SCP_JB)" [ "$SCP_JB" = 0 ] 2>/dev/null
+scp_share_ok "$SCP_SZ" || { row "scope: the page is over the Scope's, the alerts' and the fifth lane's shares together ($SCP_SZ bytes)" FAIL; }
 
 # ---- the judge (Python, one place): each check takes the JSON a run returned and says "ok" or what is wrong
 cat > "$SCP_T/judge.py" <<'PY'
@@ -161,6 +163,17 @@ def note(v):   # 568x320: Whitehall has no room for the fan and says so; the oth
     want = {"whitehall": "none|note|true|true", "foundation": "fan|-|true|true", "wargames": "fan|-|true|true", "whitehall2": "none|note|true|true",
             "text": "Too little room for the scope: turn the phone upright", "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
+def btlane(v):
+    d = json.loads(v); bad = []
+    base = "2.4:-1.0000/-0.5628 5:-0.5228/0.0456 6:0.0856/0.3479 sta:0.3879/1.0000"
+    on = d["on"].split()
+    if [x.split(":")[0] for x in on] != ["2.4", "5", "6", "sta", "bt"] or not on[0].startswith("2.4:-1.0000/") or not on[-1].endswith("/1.0000"): bad.append("with marks: %s" % d["on"])
+    if d["off"] != base: bad.append("filter off (the four lanes of the old widths): %s" % d["off"])
+    if d["back"] != d["on"]: bad.append("filter on again: %s" % d["back"])
+    if not (d["n"][0] == d["n"][1] and d["n"][0] >= 5): bad.append("marks placed %s" % d["n"])
+    if d["marks"] != "ok": bad.append(d["marks"])
+    if d["hit"] is not True or d["leg"] is not True: bad.append("hit %s legend %s" % (d["hit"], d["leg"]))
+    return bad + (["errors"] if d.get("errors") != 0 else [])
 def ticks(v):
     d = json.loads(v); bad = []
     for t in TH:
@@ -381,6 +394,19 @@ SCP_EVN='(async()=>{const I=STARCHORUS._internals,SC=I.SC,W=STARCHORUS.wait,E=i=
 const st=()=>{const n=E("sc-no"),ft=R(E("scope-foot")),sp=R(E("scope-strip"));return [SC.g?"fan":"none",!n.hidden&&n.getClientRects().length>0?"note":"-",ft.top>=sp.bottom-0.5&&ft.bottom<=innerHeight+0.5&&ft.left>=0&&ft.right<=innerWidth+0.5,document.documentElement.scrollWidth===innerWidth].join("|")};
 for(const t of ["whitehall","foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(700);o[o[t]?t+"2":t]=st()}
 o.text=E("sc-no").textContent;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+# radio-pair.json: a fifth lane while Bluetooth marks are heard and the filter (key 4) is on; without them the four lanes are exactly the old ones
+SCP_EVQ='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wait,o={};
+const key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubbles:true}));
+const lanes=()=>SC.g.lanes.map(l=>l.key+":"+l.k0.toFixed(4)+"/"+l.k1.toFixed(4)).join(" ");
+await W(400);
+const fx=await (await fetch("starchorus.json")).json();STARCHORUS.load(fx,"fx",{mode:"live"});await W(1800);STARCHORUS.frame();
+o.on=lanes();const g=SC.g,bl=g.lanes[4],marks=[...S.bt.values()].filter(k=>k.sc&&k.sc.st===SC.st);o.n=[marks.length,S.btOrder.length];
+const bad=[];for(const k of marks){const r=Math.hypot(k.sc.x-g.ox,k.sc.y-g.oy),want=g.rNear+(1-Math.min(1,Math.max(0,(k.rssi+90)/60)))*(g.rFar-g.rNear);if(Math.abs(r-want)>0.5)bad.push("r:"+k.id);if(!(k.sc.k>=bl.k0&&k.sc.k<=bl.k1))bad.push("lane:"+k.id)}
+o.marks=bad.join(";")||"ok";
+const m=[...marks].sort((a,b)=>b.rssi-a.rssi)[0];o.hit=STARCHORUS.hitTest(m.sx,m.sy)===m.id;
+o.leg=(()=>{const r=STARCHORUS.legendRows().find(r=>r.kind==="bt");return !!r&&r.visible})();
+key("4");await W(600);o.off=lanes();key("4");await W(600);o.back=lanes();
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 # four strong 6 GHz networks at 320 px: the lane near the Pager is a few pixels wide, so the nudge would turn over; each point stays inside its lane
 SCP_EVC='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wait,o={};
 const mk=(g,aps)=>({source:"recon-db",generated:g,center:{label:"T",interval:30},aps,unassociated:[]});
@@ -545,6 +571,11 @@ scp_run note "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320
 SCP_R=$(scp_j note "$(scp_ev "$SCP_T-note.json")")
 scp_row "scope 568x320: Whitehall has no fan and the foot says 'Too little room for the scope: turn the phone upright' (inside the screen, clear of the strip), Foundation and WarGames have the fan and no note, Whitehall again has the note" "$SCP_R"
 
+# ---- the fifth lane: Bluetooth marks (radio-pair.json) in a lane of their own after the stations, at their signal's radius; without marks, or with the filter off, the four lanes are exactly the old ones
+scp_run bt "$SCP_EVQ" "$F/radio-pair.json" "$SCP_LQ" 390 844
+SCP_R=$(scp_j btlane "$(scp_ev "$SCP_T-bt.json")")
+scp_row "scope with Bluetooth marks (radio-pair.json): a fifth lane 'bt' after the stations with the fan still spanning -1 to 1, every mark in it at its signal's radius (0.5 px), a tap on a mark picks it, its legend row shows; key 4 takes the lane away and the four lanes are exactly the lanes without marks" "$SCP_R"
+
 # ---- a lane narrower than two blips (the 6 lane near the Pager at 320 px): a crowd of strong networks keeps its places in the lane, the overlap is accepted
 scp_run nudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568
 SCP_R=$(scp_j nudge "$(scp_ev "$SCP_T-nudge.json")")
@@ -603,6 +634,9 @@ scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePha
 # a note that never shows
 scp_mut note 's/el("sc-no").hidden = L >= SCOPE.minL;/el("sc-no").hidden = true;/' || SCP_MB="$SCP_MB note(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mnote "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320; [ "$(scp_j note "$(scp_ev "$SCP_T-mnote.json")")" != ok ] || SCP_MB="$SCP_MB note"; }
+# a fifth lane that is not squeezed in: the fan would span more than -1 to 1
+scp_mut btlane 's/u = ls.bt.length ? 0.8368 : 1;/u = 1;/' || SCP_MB="$SCP_MB btlane(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mbt "$SCP_EVQ" "$F/radio-pair.json" "$SCP_LQ" 390 844; [ "$(scp_j btlane "$(scp_ev "$SCP_T-mbt.json")")" != ok ] || SCP_MB="$SCP_MB btlane"; }
 # ticks that touch
 scp_mut ticks 's/if (t\[0\] - w < lx + 3) continue; //' || SCP_MB="$SCP_MB ticks(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mticks "$SCP_EVK" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j ticks "$(scp_ev "$SCP_T-mticks.json")")" != ok ] || SCP_MB="$SCP_MB ticks"; }

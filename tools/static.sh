@@ -75,6 +75,7 @@ BASE_PAGE_BYTES=597362    # wc -c starchorus.html before the radio pair (feat-0.
 MAX_PAIR_BYTES=14000      # what the pair may add to it
 MAX_SCOPE_BYTES=12000     # what the Scope (the phone-mode fan) may add
 MAX_ALERTS_BYTES=1200     # what the alerts' ring and legend may add
+MAX_SCOPE_BT_BYTES=200    # the Scope's fifth lane (Bluetooth marks, radio-pair spec 3.6): counted inside the pair's 14,000, not the Scope's 12,000; scope.sh admits it in its own size row and the total below is unchanged
 MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 624562, under the release cap of 625000
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
