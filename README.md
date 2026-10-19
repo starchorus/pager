@@ -339,7 +339,7 @@ that with a companion alert payload, `alert-deauth.sh`, which sits beside `paylo
 `payload.sh`, so that the payload library's updater does not take it for one).
 
 The easy way is the Settings row 'Alerts' on the Pager: it reads OFF while the companion is not in the firmware's alert tree and ON while it is. A press asks
-first ('Install the alert companion?') and then does what the by-hand route below does, in `/root/payloads/alerts/deauth_flood_detected/starchorus`: it makes
+first ('Install the alert companion? It may run at once; switch it off on the firmware Alerts page.', because whether a copied alert starts enabled has not been measured) and then does what the by-hand route below does, in `/root/payloads/alerts/deauth_flood_detected/starchorus`: it makes
 the directory, copies `alert-deauth.sh` there as `payload.sh` (through a temporary file and a rename, so that the firmware never finds half a script) and makes it
 executable. On an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh` and, if it is empty, that directory, and nothing else. The row
 needs `alert-deauth.sh` beside the payload's `payload.sh` (the Hak5 package has it there; after `tools/install.sh` or a copy by hand, copy it there with `scp -O

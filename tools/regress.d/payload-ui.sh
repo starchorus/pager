@@ -913,7 +913,7 @@ pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
 pui_run_ui "$PUI_ALP" sh "$PUI_PL"
 pui_is a:rc [ "$PUI_RC" = 0 ]
 pui_is a:off [ "$(pui_alx 'Alerts: OFF' 'Web Page: ON')" = 1 ]
-pui_is a:c2 [ "$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? Manage it on\\nthe firmware's Alerts page.")/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/1 ]
+pui_is a:c2 [ "$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? It may run at\\nonce; switch it off on\\nthe firmware Alerts page.")/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/1 ]
 pui_is a:on [ "$(pui_alx 'Alerts: ON' 'Alerts: ON')" = 1 ]
 pui_is a:file pui_alins
 pui_is a:calls [ "$(pui_alcalls)" = "rm -f AT/payload.sh.tmp|mkdir -p AT|cp SRC AT/payload.sh.tmp|chmod +x AT/payload.sh.tmp|mv -f AT/payload.sh.tmp AT/payload.sh|" ]
@@ -1025,7 +1025,23 @@ pui_is i:mut1 pui_not pui_alpin "$PUI_T/alm1.sh"
 pui_is i:mut2 pui_not pui_alpin "$PUI_T/alm2.sh"
 pui_is i:mut3 pui_not pui_alpin "$PUI_T/alm3.sh"
 pui_is i:mutdiff [ "$(cmp -s "$PUI_PL" "$PUI_T/alm1.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm2.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm3.sh" && echo same)" = "" ]
-rowif "payload ui: Alerts row: ON/OFF by our file in the alert tree; install after C2 (mkdir -p, cp, chmod +x through a rename: byte-identical, executable, no .tmp, L8f), No installs nothing; Remove after C3 takes our file and our empty directory only (L8g); E13/E14/E15; locked by STARCHORUS_ALERTS; plain paths touch nothing; every line naming the tree pinned, three mutants red (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# j. the control of the question's text (a:c2): a planted copy of the payload that asks the question as it was worded before (one line differs) asks that and not the
+# present one, so the pin of a: would be red for it; it runs from $PUI_T, so _PAYLOAD_HOME says where the companion is
+python3 -B - "$PUI_PL" "$PUI_T/alm4.sh" <<'PUI_PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = "companion? It may run at\\nonce; switch it off on\\nthe firmware Alerts page."
+new = "companion? Manage it on\\nthe firmware's Alerts page."
+if s.count(old) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, new))
+PUI_PY
+pui_alnew; pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$R/library/user/reconnaissance/starchorus" sh "$PUI_T/alm4.sh"
+pui_is j:old [ "$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? Manage it on\\nthe firmware's Alerts page.")/$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? It may run at\\nonce; switch it off on\\nthe firmware Alerts page.")" = 1/0 ]
+pui_is j:diff [ "$(diff "$PUI_PL" "$PUI_T/alm4.sh" | grep -c '^<')" = 1 ]
+rm -rf "$PUI_T/alerts"
+rowif "payload ui: Alerts row: ON/OFF by our file in the alert tree; install after C2 (mkdir -p, cp, chmod +x through a rename: byte-identical, executable, no .tmp, L8f), No installs nothing; Remove after C3 takes our file and our empty directory only (L8g); E13/E14/E15; locked by STARCHORUS_ALERTS; plain paths touch nothing; every line naming the tree pinned, three mutants red, a planted copy with the question's old wording asks that and not the present one (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 16 · locked rows: a key the environment sets reads "(locked)", A shows P1 naming that variable and writes nothing,
 #            the cursor stays; the longest locked label fits 28 characters; Reset asks (C1): No keeps everything and the

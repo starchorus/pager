@@ -955,7 +955,7 @@ pl_alert_src() {   # -> 0 and PL_ALSRC = alert-deauth.sh in the payload director
 }
 pl_alert_install() {
     pl_alert_src || { ui_err "alert-deauth.sh is not\nbeside the payload."; return 0; }                                  # E13
-    ui_confirm "Install the alert\ncompanion? Manage it on\nthe firmware's Alerts page." || return 0                      # C2
+    ui_confirm "Install the alert\ncompanion? It may run at\nonce; switch it off on\nthe firmware Alerts page." || return 0       # C2
     # the README's three steps; the copy goes through a temporary file of the same directory and a rename, made executable first
     rm -f "$PL_ALERT_DIR/payload.sh.tmp"
     if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
