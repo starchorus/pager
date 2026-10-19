@@ -69,10 +69,13 @@ MIN_SLICE_SPRITES_INT=800     # §31..§36, measured 1045
 MIN_SLICE_INTRO=25            # §39..§40, measured 39
 # MIN_FNSCOPE (functions the §14.6 scope check recognises) lives in tools/passivity-check.sh next to the awk it guards.
 # The radio pair's own share of the page: the page it started from (0.1.1 and the small items) was 595,327 bytes, and the design (spec §3.11) gives the pair 14,000 bytes over that.
-# PHN_MAXB (tools/regress.d/phone.sh) is the cap of the release as a whole; this ceiling holds the pair to its own share, so that room under the cap that other work leaves is not used up
-# by it unseen. Raise or drop it with the change that moves the base.
+# PHN_MAXB (tools/regress.d/phone.sh) is the cap of the release as a whole; these ceilings hold each feature to its own share, so that room under the cap that other work leaves is
+# not used up by it unseen. Raise or drop a share with the change that moves it; the shares must sum to no more than the cap.
 BASE_PAGE_BYTES=597362    # wc -c starchorus.html before the radio pair (feat-0.2 at 690de58, after the large-text fix)
 MAX_PAIR_BYTES=14000      # what the pair may add to it
+MAX_SCOPE_BYTES=12000     # what the Scope (the phone-mode fan) may add
+MAX_ALERTS_BYTES=1200     # what the alerts' ring and legend may add
+MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 624562, under the release cap of 625000
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.
@@ -107,22 +110,23 @@ c2=$(sec_grepc 36 37 "$MIN_SLICE_INTERACTION" 'THEME\.\|TK\[\|TD\.') || c2=NOSLI
 c3=$(sec_grepc 31 36 "$MIN_SLICE_SPRITES_INT" '#[0-9a-fA-F]\{6\}') || c3=NOSLICE; rowif "hex literals in 31–35 = $c3" [ "$c3" = 0 ]
 rowif "no Google Fonts" [ "$(g 'fonts.googleapis')" = 0 ]
 rowif "upload notice present" [ "$(g 'Everything runs in your browser — nothing is uploaded.')" = 1 ]
-# the pair's page ceiling, and the judge of it on dummies (the exact ceiling passes, one byte more fails, a size that is no number fails; as with le/ge above, "fails" is any status but 0,
+# the page ceiling (the base plus every share), and the judge of it on dummies (the exact ceiling passes, one byte more fails, a size that is no number fails; as with le/ge above, "fails" is any status but 0,
 # since a test of a text that is no number ends with 2)
-pair_bytes_ok() { [ "$1" -le $((BASE_PAGE_BYTES + MAX_PAIR_BYTES)) ] 2>/dev/null; }
+page_bytes_ok() { [ "$1" -le "$MAX_PAGE_BYTES" ] 2>/dev/null; }
 pbn=0; pbbad=0
 pb() {   # pb pass|fail SIZE
-  pbn=$((pbn + 1)); pair_bytes_ok "$2"; pbr=$?
+  pbn=$((pbn + 1)); page_bytes_ok "$2"; pbr=$?
   if [ "$1" = pass ]; then [ "$pbr" = 0 ]; else [ "$pbr" != 0 ]; fi || { pbbad=$((pbbad + 1)); echo "    page ceiling case $pbn: want $1 for '$2' (status $pbr)"; }
 }
-pb pass "$((BASE_PAGE_BYTES + MAX_PAIR_BYTES))"
-pb fail "$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + 1))"
+pb pass "$MAX_PAGE_BYTES"
+pb fail "$((MAX_PAGE_BYTES + 1))"
 pb pass "$BASE_PAGE_BYTES"
+pb pass "$((BASE_PAGE_BYTES + MAX_PAIR_BYTES))"   # the pair's old ceiling, now inside the new one
 pb fail ""
 pb fail "x"
 rowif "page ceiling judge on dummies ($((pbn - pbbad))/$pbn as expected)" [ "$pbbad" = 0 ]
 PG_SZ=$(wc -c < "$H" | tr -d ' ')
-rowif "page size $PG_SZ bytes ≤ $((BASE_PAGE_BYTES + MAX_PAIR_BYTES)) (the base of $BASE_PAGE_BYTES plus the pair's ceiling of $MAX_PAIR_BYTES; $((PG_SZ - BASE_PAGE_BYTES)) over the base)" pair_bytes_ok "$PG_SZ"
+rowif "page size $PG_SZ bytes ≤ $MAX_PAGE_BYTES (the base of $BASE_PAGE_BYTES plus the shares: pair $MAX_PAIR_BYTES, Scope $MAX_SCOPE_BYTES, alerts $MAX_ALERTS_BYTES; $((PG_SZ - BASE_PAGE_BYTES)) over the base)" page_bytes_ok "$PG_SZ"
 # §11.0 global criterion (MUSS BLEIBEN 12). The first row is anchored on the fallback STATEMENT in
 # normalizeDoc, not on the bare string: "YOU ARE HERE" also occurs in demoData and in the S.centerLabel
 # default, so a whole-file count of the string survives the deletion of the fallback itself.

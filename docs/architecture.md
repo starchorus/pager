@@ -2701,7 +2701,7 @@ open questions with the identifiers V-1 … V-13 from `tools/device-probe.sh` (V
 line of the Pager is measured only as 'at least 40' (`docs/device-notes.md`, M6; the 50-digit line and the line with the middle dot are not yet run). The fallback for a shorter line (the
 figure leaves the summary, the hub row reads 'Bluetooth (23)') is not built. Until M6 has passed, the Bluetooth setting stays off by default and the release pass does not switch it on.
 
-**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 620,000 bytes,
+**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 625,000 bytes,
 and the pair was held to the share of that which the rest of the release left it). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
 there, and no row proves them:
 
