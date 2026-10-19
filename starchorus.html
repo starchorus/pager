@@ -6186,6 +6186,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
   rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');
+  rows.push('<div class="legrow note" id="leg-scope" data-kind="scope" hidden>lanes = band, channel · arcs = signal (dBm) · not direction, not range</div>');
   rows.push(block("derived"));
   rows.push(derivedRow("leg-nebula", "nebula", "channel overlap (derived, width unknown → 20 MHz)"));
   rows.push(derivedRow("leg-groups", "groups", "same ESSID"));
@@ -6221,7 +6222,7 @@ function legendVisibility() {   // D10: a mark's row exists exactly while that m
   vis("leg-crowding", st.apsTotal > 0);
   vis("leg-deviation", S.sky.dev.length > 0);
   vis("leg-ghost", S.base.ghosts + S.base.ghostsCl > 0);   // station ghosts share the mark
-  vis("leg-height", S.ui.view === "3d");
+  vis("leg-height", S.ui.view === "3d"); vis("leg-scope", scopeOn);
   const anyDerived = ["nebula", "groups", "devices", "merge", "probes", "arc", "crowding", "deviation", "ghost"].some(k => { const e = el("leg-" + k); return e && !e.hidden; });
   vis("leg-block-derived", anyDerived);
   vis("leg-block-look", S.ui.view === "3d");

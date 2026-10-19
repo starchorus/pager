@@ -141,7 +141,8 @@ def rand(v):
     d = json.loads(v); want = {"cloud": ["cloud", "6/41/1/162/6,162,1"], "show": ["show", "6/162/0/162/6,162,0"], "hide": ["hide", "6/23/0/23/6,23,0"], "back": ["cloud", "6/41/1/162/6,162,1"], "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 def legend(v):
-    d = json.loads(v); want = {"legendScope": [False] * 6, "legendSky": [True] * 6, "view": ["3d", True], "card": ["detail", "half", True], "errors": []}
+    d = json.loads(v); want = {"legendScope": [False] * 6, "legendSky": [True] * 6, "view": ["3d", True], "card": ["detail", "half", True], "errors": [],
+            "rowOn": [True, "lanes = band, channel · arcs = signal (dBm) · not direction, not range"], "rowOff": [False]}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 def direction(v):
     t = json.loads(v)
@@ -340,8 +341,10 @@ o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 SCP_EVY='(async()=>{const I=STARCHORUS._internals,S=I.S,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};
 const vis=id=>{const e=E(id);return !!e&&!e.hidden};
 STARCHORUS.setToggles({nebula:true,groups:true,devices:true,deviceLinks:true,merge:true,essMerge:true});await W(300);
+o.rowOn=[vis("leg-scope"),(E("leg-scope")||{}).textContent];
 o.legendScope=["leg-nebula","leg-groups","leg-devices","leg-merge","leg-crowding","leg-block-derived"].map(vis);
 STARCHORUS.setToggles({scope:false});await W(300);
+o.rowOff=[vis("leg-scope")];
 o.legendSky=["leg-nebula","leg-groups","leg-devices","leg-merge","leg-crowding","leg-block-derived"].map(vis);
 STARCHORUS.setToggles({scope:true});await W(300);
 STARCHORUS.setView("3d");await W(600);
@@ -517,7 +520,7 @@ scp_row "scope with U: bar and sheet hidden, strip and foot shown, the pill (44 
 # ---- the legend and the 3D view: the derived rows are not drawn in the Scope (D10), and a saved 3D view does not fly the camera on a tap
 scp_run legend "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844
 SCP_R=$(scp_j legend "$(scp_ev "$SCP_T-legend.json")")
-scp_row "scope: the legend hides the derived rows (nebula, groups, devices, merge, crowding and their head) while it is on and shows them again off; with a saved 3D view a tap still picks the blip and the detail opens at half without a camera tween" "$SCP_R"
+scp_row "scope: the legend hides the derived rows (nebula, groups, devices, merge, crowding and their head) while it is on and shows them again off, and has its own row 'scope' (the two captions in one line) only while it is on; with a saved 3D view a tap still picks the blip and the detail opens at half without a camera tween" "$SCP_R"
 
 # ---- no direction, no distance in any word the Scope shows (the captions say 'not direction' and 'not range' and are taken out first)
 scp_run words "$SCP_EVT2" "$F/devices.json" "$SCP_Q" 390 844
@@ -643,4 +646,9 @@ scp_mut ticks 's/if (t\[0\] - w < lx + 3) continue; //' || SCP_MB="$SCP_MB ticks
 # a lane too narrow to nudge in: the nudge turns over and puts a point outside its lane
 scp_mut nudge 's/ \&\& l.k1 - l.k0 > 2 \* f \/ t//' || SCP_MB="$SCP_MB nudge(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")" != ok ] || SCP_MB="$SCP_MB nudge"; }
+# a legend row of a kind the legend check does not know, and one that never shows
+scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP_MB="$SCP_MB legendkind(no copy)"
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
+scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")" != ok ] || SCP_MB="$SCP_MB legendrow"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]

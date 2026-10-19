@@ -13,7 +13,7 @@
 // since no row shows a Bluetooth address, an activity share or a station rate on the fixtures of this run (tools/regress.d/legend.sh drives them on radio-pair.json).
 // Ornaments (glow/bloom/halo, star highlight, WarGames bubble ticks) are not part of a swatch, by definition.
 (async () => {
-  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","bt","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","activity","traffic","alert","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height"];
+  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","bt","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","activity","traffic","alert","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height","scope"];
   const RINGS = {"sec-open":[[1.5,""]],"sec-wep":[[1.5,""]],"sec-wpa":[[1,""]],"sec-wpa2":[[1,""],[1,""]],"sec-wpa3":[[1.5,""]],"sec-owe":[[1,""]],"sec-enterprise":[[1,"5,2"]],"sec-wpa3-transition":[[1.5,""],[1.5,""]],"sec-tkip-weak":[[1,"1,3"]],"sec-unknown":[],"hidden":[[1,"4,4"]]};
   const DERIVED = ["nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost"];
   const want = (t) => { const x = t.render.clientShape === "cross"; return {
@@ -52,7 +52,7 @@
     if (by("band-unknown").visible) bad.push(th + ": Band ? visible without unknown-band star");
     // D10: a row exists exactly while the mark can be drawn (toggle AND data)
     const rule = { nebula: tg.nebula && st.interferencePairs > 0, groups: tg.groups && st.groups > 0, devices: tg.deviceLinks && st.devices > 0, merge: tg.essMerge && st.essMerged > 0,
-      probes: tg.affinity && st.affinity > 0, crowding: st.apsTotal > 0, deviation: st.deviations > 0, ghost: st.baseline.ghosts + (st.baseline.ghostsCl || 0) > 0, height: tg.view === "3d", "client-random": STARCHORUS.legendRows().length > 0 && !!by("client-random").visible === true };
+      probes: tg.affinity && st.affinity > 0, crowding: st.apsTotal > 0, deviation: st.deviations > 0, ghost: st.baseline.ghosts + (st.baseline.ghostsCl || 0) > 0, height: tg.view === "3d", scope: false, "client-random": STARCHORUS.legendRows().length > 0 && !!by("client-random").visible === true };
     for (const k of Object.keys(rule)) if (k !== "client-random" && !!by(k).visible !== !!rule[k]) bad.push(th + ": " + k + " visible " + !!by(k).visible + " != " + !!rule[k]);
     if (!by("client-random").visible) bad.push(th + ": randomized row hidden although the fixture has randomized clients");
     if (by("client-random").cnt == null || by("client-random").cnt < 1) bad.push(th + ": randomized count " + by("client-random").cnt);
