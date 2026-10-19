@@ -146,6 +146,13 @@ def direction(v):
     for a in ("not direction", "never a direction", "not range", "arcs = signal (dBm)"): t = t.replace(a, "")
     h = re.findall(r"(?i)\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther)\b|°", t)
     return ["claims: %s" % h] if h else []
+def lamps(v):
+    d = json.loads(v); bad = []
+    if not (isinstance(d.get("n"), list) and len(d["n"]) == 4 and d["n"][0] >= 10 and d["n"] == [d.get("want")] * 4): bad.append("lamps per AP %s, the strip has %s" % (d.get("n"), d.get("want")))
+    if d.get("label") != [None, None, None, None]: bad.append("the strip took a counter's label %s" % d.get("label"))
+    if d.get("bar") != [8, True]: bad.append("the bar's counter %s" % d.get("bar"))
+    if d.get("errors") != 0: bad.append("errors %s" % d.get("errors"))
+    return bad
 def perf(v, n, ms):
     d = json.loads(v); bad = []
     if d[0] != int(n): bad.append("blips %s want %s" % (d[0], n))
@@ -316,6 +323,17 @@ SCP_EVB='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wai
 let n=0;for(const M of [S.aps,S.clients,S.clouds])for(const nd of M.values())if(nd.sc&&nd.sc.st===SC.st)n++;
 SC.ph=0.5;const t=[];for(let i=0;i<60;i++){S.dirty=true;const t0=performance.now();STARCHORUS.frame();t.push(performance.now()-t0)}SC.ph=null;
 return JSON.stringify([n,+(t.reduce((a,b)=>a+b,0)/t.length).toFixed(2),+Math.max(...t).toFixed(1),STARCHORUS.errors().length])})()'
+# WarGames, the Air drawer: its per-AP lamp strip keeps one lamp per access point after a poll, a second load and the key; the bar's eight capture lamps are a different set
+SCP_EVM='(async()=>{const S=STARCHORUS._internals.S,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};
+const key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubbles:true}));
+const st=()=>{const s=document.querySelector("#lamp-strip .lamps");return s?[s.querySelectorAll("i[data-bssid]").length,s.getAttribute("aria-label")]:[-1,"no strip"]};
+STARCHORUS.setTheme("wargames");await W(500);key("q");await W(700);const a=st(),want=STARCHORUS.lampStrip().lamps.length;
+await STARCHORUS.pollNow();await W(700);const b=st();
+key("q");await W(300);key("q");await W(700);const c=st();
+STARCHORUS.setTheme("foundation");await W(300);STARCHORUS.setTheme("wargames");await W(700);const d=st();
+o.n=[a[0],b[0],c[0],d[0]];o.want=want;o.label=[a[1],b[1],c[1],d[1]];
+const bl=E("scope-lamps");o.bar=[bl.children.length,/^capture counter/.test(bl.getAttribute("aria-label")||"")];
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 
 # ---- geometry, lanes, captions, text size, overlaps and the sideways scroll: 4 phone sizes x 3 themes (devices.json)
 for SCP_Z in 390x844 375x812 430x932 812x375; do
@@ -434,6 +452,11 @@ rowif "scope: a frame at wave phase 0.5 costs at most 3, 4 and 6 ms of JS for 5,
 runq "$F/many-clients.json" "?spin=0&intro=0&scope=1" "$SCP_T-net" --width 390 --height 844 --mobile --wait 12 --fps 0 --eval 'STARCHORUS.errors().length' >/dev/null 2>&1
 SCP_NV=$(net_verdict "$SCP_T-net.json" - 2); SCP_NC=$?
 rowif "scope: runtime network with the Scope on: $SCP_NV" [ "$SCP_NC" = 0 ]
+# ---- WarGames' Air drawer: the lamp strip of access points keeps its lamps (and has no counter's label) when the Scope's second set of lamps is rendered
+scp_run lamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844
+SCP_R=$(scp_j lamps "$(scp_ev "$SCP_T-lamps.json")")
+scp_row "scope (WarGames, Air drawer): '#lamp-strip .lamps' keeps one lamp per access point after the key, a poll, a second key and a theme round, and takes no 'capture counter' label; the bar's eight capture lamps are their own set" "$SCP_R"
+
 
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
@@ -466,4 +489,7 @@ scp_mut caption 's/^not direction<\/span><span id="sc-ps">/ahead of you<\/span><
 # a request in the Scope's code
 scp_mut post 's/^function renderScope() {$/function renderScope() { fetch("\/x", { method: "POST" });/' || SCP_MB="$SCP_MB post(no copy)"
 [ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?spin=0&intro=0&scope=1" "$SCP_T-mnet" --width 390 --height 844 --mobile --wait 8 --fps 0 --eval 'STARCHORUS.errors().length' >/dev/null 2>&1; H=$SCP_HK; net_verdict "$SCP_T-mnet.json" - 2 >/dev/null && SCP_MB="$SCP_MB post"; }
+# the lamps loop over every .lamps again (the Air drawer's strip is overwritten by the counter's lamps)
+scp_mut lamps 's/document.querySelectorAll("#lamps,#scope-lamps")/document.querySelectorAll(".lamps")/' || SCP_MB="$SCP_MB lamps(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j lamps "$(scp_ev "$SCP_T-mlamps.json")")" != ok ] || SCP_MB="$SCP_MB lamps"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]

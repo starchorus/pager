@@ -7079,7 +7079,7 @@ function renderCaption() {
 function lampsObj() { const lo = THEME.chrome.lamps, n = lo.count, v = S.captureSeq % (1 << n), bits = []; for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); return { value: v, bits, frozen: captureStale(), shown: !!lo.show }; }
 function renderLamps() {   // IMSAI-style lamps = the capture counter in binary; a stale feed freezes them; the Scope's bar has a second set
   const o = lampsObj();
-  for (const l of document.querySelectorAll(".lamps")) {
+  for (const l of document.querySelectorAll("#lamps,#scope-lamps")) {
     l.hidden = !o.shown; if (!o.shown) continue;
     if (l.childElementCount !== o.bits.length) { l.textContent = ""; for (let i = 0; i < o.bits.length; i++) l.appendChild(document.createElement("i")); }
     Array.prototype.forEach.call(l.children, (e, i) => e.classList.toggle("on", o.bits[i] === 1));
