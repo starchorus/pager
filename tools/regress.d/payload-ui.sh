@@ -56,6 +56,12 @@
 #                 => the Settings rows, 15b and the web-page row red (rows, locked, staysoff ...), nothing else; pl_applykeys without 'traffic bluetooth' =>
 #                 only 15b red (a:restarted, a:value, a:spin, b:flipback: leaving Settings restarts nothing); RIGHT from Stations going to Air in the
 #                 Overview => the Overview row red (list, views, keys, reading, walk, walkcursor, btblock ...).
+# The Alerts row (section 15c; GUARDS AGAINST an install without its question, one that is not the README's three steps or leaves a half script in
+#                 the firmware's alert tree, a remove that takes more than our payload.sh and our empty directory, a second path under the alert tree,
+#                 a row that ignores STARCHORUS_ALERTS, and an argument or plain path that reaches the tree or a UI command). NEGATIVE PROBES: the
+#                 question taken out of pl_alert_install => a:c2, d:none red; its chmod taken out => a:calls, f:chmod:*, i:real red (cp keeps the
+#                 source's mode, so only the notes of the calls see it); the cleanup after a failed install taken out => f:cp/chmod/mv:clean, i:real red;
+#                 the lock taken off the row => e:rows, e:p1, e2:rows red; and the three mutants of i: (a recursive remove, a second path, a glob remove).
 # NOT PROVEN:     nothing on the device: the real UI commands, PROMPT_QR's argument order and exit status, the visible line width, BusyBox ash
 #                 (dash, if present, as a second POSIX shell for the headless start), /proc (the stand-ins answer through `ps`, a
 #                 fake uptime and a fake net/tcp). docs/device-notes.md §7 records what the device itself settled (M1 to M7, measured
@@ -318,7 +324,7 @@ pui_run() {   # pui_run PATH [VAR=VALUE...] SHELL PAYLOAD [ARG...] -> PUI_RC (12
   # instead of each waiting the full 20 s -- a payload that blocks cannot make the drop-in take minutes.
   if [ "$PUI_ABORT" = 1 ]; then PUI_RC=124; : > "$PUI_T/out"; : > "$PUI_LOG"; return; fi
   python3 -c "$PUI_TO" "$PUI_T/out" env -i PATH="$pui_rp" STARCHORUS_DIR="$PUI_D" PUI_LOG="$PUI_LOG" PUI_ANS="$PUI_ANS" PUI_T="$PUI_T" \
-    STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@"; PUI_RC=$?
+    STARCHORUS_ALERT_TREE="$PUI_T/alerts" STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@"; PUI_RC=$?
   [ "$PUI_RC" = 124 ] && PUI_ABORT=1
   cat "$PUI_LOG" >> "$PUI_ALL" 2>/dev/null; : > "$PUI_LOG"
 }
@@ -381,7 +387,7 @@ pui_term() {   # pui_term FILE PATTERN PATH [VAR=VALUE...] SHELL PAYLOAD -> PUI_
   pui_tf=$1; pui_tpat=$2; pui_rp=$3; shift 3
   : > "$PUI_LOG"
   PUI_TR=$(python3 -I -c "$PUI_TM" "$PUI_T/out" "$pui_tf" "$pui_tpat" env -i PATH="$pui_rp" STARCHORUS_DIR="$PUI_D" PUI_LOG="$PUI_LOG" \
-    PUI_ANS="$PUI_ANS" PUI_T="$PUI_T" STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@")
+    PUI_ANS="$PUI_ANS" PUI_T="$PUI_T" STARCHORUS_ALERT_TREE="$PUI_T/alerts" STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@")
   PUI_TRC=${PUI_TR% *}; PUI_TDT=${PUI_TR#* }
   cat "$PUI_LOG" >> "$PUI_ALL" 2>/dev/null; : > "$PUI_LOG"
   tail -n "+$PUI_MARK" "$PUI_ALL" > "$PUI_T/case.log"; PUI_MARK=$(($(wc -l < "$PUI_ALL") + 1))
@@ -425,7 +431,7 @@ pui_eof() {   # pui_eof FILE PATTERN PATH [VAR=VALUE...] SHELL PAYLOAD -> PUI_ER
   pui_tf=$1; pui_tpat=$2; pui_rp=$3; shift 3
   : > "$PUI_LOG"
   PUI_TR=$(python3 -I -c "$PUI_TE" "$pui_tf" "$pui_tpat" env -i PATH="$pui_rp" STARCHORUS_DIR="$PUI_D" PUI_LOG="$PUI_LOG" \
-    PUI_ANS="$PUI_ANS" PUI_T="$PUI_T" STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@")
+    PUI_ANS="$PUI_ANS" PUI_T="$PUI_T" STARCHORUS_ALERT_TREE="$PUI_T/alerts" STARCHORUS_PROC="$PUI_T/proc" STARCHORUS_MARKER="$PUI_T/started" "$@")
   PUI_ERC=${PUI_TR% *}; PUI_EDT=${PUI_TR#* }
   cat "$PUI_LOG" >> "$PUI_ALL" 2>/dev/null; : > "$PUI_LOG"
   tail -n "+$PUI_MARK" "$PUI_ALL" > "$PUI_T/case.log"; PUI_MARK=$(($(wc -l < "$PUI_ALL") + 1))
@@ -787,14 +793,14 @@ pui_ans "=Settings" "=Vendor Names: ON" "=Vendor Names: OFF" "=Channel Load: OFF
   "!2" "=Show Last: 1 h" "=All (may be slow)" "=Port: 8199" "=1471" "=Port: 8199" "=8300" "r:2:Port: 8300" "!2"
 pui_run_ui "$PUI_UIP" sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
-pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
-pui_is flipcursor [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Vendor Names: OFF')" = 1 ]
+pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is flipcursor [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s' 'Show Last: 1 h' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Vendor Names: OFF')" = 1 ]
 pui_is l8a [ "$(pui_x LOG 'Vendor names: device makers.')" = 1 ]
 pui_is l8bc [ "$(pui_x LOG 'Channel load: busy time per')/$(pui_x LOG 'channel, in Air quality.')" = 1/1 ]
 pui_is custom [ "$(pui_x LIST_PICKER 'Refresh: 45 s' '10 s' '30 s' '1 min' '2 min' '10 s')" = 1 ]
 pui_is window [ "$(pui_x LIST_PICKER 'Show Last: 1 h' '2 min' '10 min' '1 h' '6 h' 'All (may be slow)' '1 h')" = 2 ]
 pui_is e7 [ "$(pui_x NUMBER_PICKER Port 8199)/$(pui_x ERROR_DIALOG 'Use 1024 to 65535, not 1471.')" = 2/1 ]
-pui_is last [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 1 min' 'Show Last: All' 'Vendor Names: ON' 'Channel Load: ON' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Port: 8300')" = 1 ]
+pui_is last [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 1 min' 'Show Last: All' 'Vendor Names: ON' 'Channel Load: ON' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8300' 'Reset to Defaults' 'Port: 8300')" = 1 ]
 pui_is file [ "$(LC_ALL=C sort "$PUI_D/settings.conf" | tr '\n' ' ')" = "interval=60 port=8300 survey=on vendor=on window=0 " ]
 pui_is noapply [ "$(pui_logc '^START_SPINNER')/$(pui_logc 'Settings applied')" = 0/0 ]
 pui_is back [ "$(pui_x "$PUI_STOP" Settings)" = 1 ]
@@ -810,11 +816,11 @@ PUI_BAD=""; pui_new
 pui_ans "=Settings" "=Traffic: OFF" "=Bluetooth: OFF" "=Traffic: ON" "=Bluetooth: ON" "=Traffic: OFF" "!2" "!2"
 pui_run_ui "$PUI_UIP" sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
-pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
-pui_is traffic_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Traffic: ON')" = 2 ]   # after the first and after the last flip
-pui_is bluetooth_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: ON' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: ON')" = 1 ]
-pui_is traffic_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: ON' 'Port: 8199' 'Reset to Defaults' 'Traffic: OFF')" = 1 ]
-pui_is bluetooth_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: OFF')" = 1 ]
+pui_is rows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is traffic_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Traffic: ON')" = 2 ]   # after the first and after the last flip
+pui_is bluetooth_on [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON' 'Bluetooth: ON' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: ON')" = 1 ]
+pui_is traffic_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: ON' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Traffic: OFF')" = 1 ]
+pui_is bluetooth_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Bluetooth: OFF')" = 1 ]
 pui_is l8d [ "$(pui_x LOG 'Traffic: channel activity and frame rates.')" = 2 ]
 pui_is l8e [ "$(pui_x LOG 'Bluetooth: passive LE scan, 5 s per refresh.')" = 1 ]
 # L8e names the window the collector will use: STARCHORUS_BT_WINDOW as the collector reads it (9; 07 is 7; 4, 16 and text are 5)
@@ -832,7 +838,7 @@ pui_is nocol pui_nocol
 pui_new
 pui_ans "=Settings" "=Traffic: ON (locked)" "=Bluetooth: OFF (locked)" "!2" "!2"
 pui_run_ui "$PUI_UIP" STARCHORUS_TRAFFIC=1 STARCHORUS_BLUETOOTH=0 sh "$PUI_PL"
-pui_is lockedrows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON (locked)' 'Bluetooth: OFF (locked)' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is lockedrows [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: ON (locked)' 'Bluetooth: OFF (locked)' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
 pui_is p1t [ "$(pui_x PROMPT 'Set by STARCHORUS_TRAFFIC.\nUnset it to change it here.')" = 1 ]
 pui_is p1b [ "$(pui_x PROMPT 'Set by STARCHORUS_BLUETOOTH.\nUnset it to change it here.')" = 1 ]
 pui_is lockedfile [ ! -e "$PUI_D/settings.conf" ]
@@ -865,6 +871,162 @@ pui_is cli:env [ "$(pui_env STARCHORUS_BLUETOOTH)/$(pui_env STARCHORUS_TRAFFIC)"
 pui_run "$PUI_HL" sh "$PUI_PL" stop
 rowif "payload ui: Traffic and Bluetooth rows after Channel Load flip in place, L8d/L8e, lock with P1, restart the collector once on leaving, set bluetooth on (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
+# ---- 15c · the 'Alerts' row after Bluetooth: ON while our payload.sh is in our one directory of the firmware's alert tree, OFF while it is
+#             not. A press asks first (C2 to install, C3 to remove). Install = the README's steps (mkdir -p, cp, chmod +x) through a temporary file
+#             and a rename: the file is byte-identical to the companion beside the payload and executable, no .tmp is left, L8f; No (or a cancel)
+#             installs nothing and does not even create the tree. Remove takes our payload.sh and our directory if it is empty (a file of somebody
+#             else's in it stays, and so does the firmware's own parent directory), L8g. A failed step is E14 / E15 with no .tmp and no empty
+#             directory of ours left. A companion that is not beside the payload is E13, before any question; _PAYLOAD_HOME finds it when the payload
+#             runs from a copy elsewhere (the device runs it from /tmp). STARCHORUS_ALERTS in the environment locks the row (P1 naming it). The tree
+#             is $PUI_T/alerts (STARCHORUS_ALERT_TREE, set for every run); stand-ins for mkdir, cp, chmod, mv, rm and rmdir under $PUI_T/alb note
+#             each call in alert.cmds and fail on demand (alert.fail.NAME) for a path of the tree. The static row pins every line of the payload that
+#             names the directory (a new or changed one is red), with three planted mutants as controls.
+mkdir -p "$PUI_T/alb"
+cat > "$PUI_T/alb/tpl" <<'PUI_ALB'
+#!/bin/sh
+# stand-in for a tool the Alerts row calls: notes the call (alert.cmds), fails when alert.fail.NAME exists and an argument is a path of the alert tree, else the real tool
+n=$(basename "$0"); tb=$(printf '\t'); l=$n; for a; do l=$l$tb$a; done
+printf '%s\n' "$l" >> "$PUI_T/alert.cmds"
+if [ -e "$PUI_T/alert.fail.$n" ]; then case "$*" in *"$PUI_T/alerts"*) exit 1 ;; esac; fi
+exec REAL "$@"
+PUI_ALB
+for pui_t in mkdir cp chmod mv rm rmdir; do
+  pui_p=$(command -v "$pui_t" 2>/dev/null) && case $pui_p in /*) sed "s|REAL|$pui_p|" "$PUI_T/alb/tpl" > "$PUI_T/alb/$pui_t"; chmod +x "$PUI_T/alb/$pui_t" ;; esac
+done
+PUI_ALP="$PUI_T/ui:$PUI_T/alb:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys"   # the device UI stand-ins, then the stand-ins above
+PUI_AT="$PUI_T/alerts/deauth_flood_detected/starchorus"
+PUI_AC="$R/library/user/reconnaissance/starchorus/alert-deauth.sh"
+pui_alx() {   # pui_alx ALERTS_ROW CURSOR -> how many Settings lists had the default rows, that Alerts row and the cursor on CURSOR
+  pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' "$1" 'Port: 8199' 'Reset to Defaults' "$2"
+}
+pui_not() { ! "$@"; }   # the negation of a command, for pui_is
+pui_alclean() { [ -z "$(find "$PUI_T/alerts" -name '*.tmp' 2>/dev/null)" ] && [ ! -e "$PUI_AT" ]; }   # no .tmp anywhere in the tree and no directory of ours
+pui_alnew() { rm -rf "$PUI_T/alerts"; rm -f "$PUI_T/alert.cmds" "$PUI_T/alert.fail."*; pui_new; }   # no tree, no notes, a fresh payload directory
+pui_alins() { [ -x "$PUI_AT/payload.sh" ] && cmp -s "$PUI_AC" "$PUI_AT/payload.sh"; }               # our payload.sh is there, executable, the companion byte for byte
+pui_alcalls() {   # -> the notes that name the tree on one line (the tree, the companion's directory and the tab shown as AT, SRC and a space)
+  { grep -F "$PUI_T/alerts" "$PUI_T/alert.cmds" 2>/dev/null || :; } | tr '\t' ' ' | sed -e "s|$PUI_AT|AT|g" -e 's|[^ ]*/alert-deauth.sh|SRC|' | tr '\n' '|'
+}
+pui_altree() { if [ -d "$PUI_T/alerts" ]; then (cd "$PUI_T/alerts" && find . | LC_ALL=C sort | tr '\n' ' '); else echo none; fi; }
+# a. OFF -> yes: the row flips to ON with the cursor on it, C2 once, exactly the notes below, L8f, nothing else written
+PUI_BAD=""; pui_alnew
+pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is a:rc [ "$PUI_RC" = 0 ]
+pui_is a:off [ "$(pui_alx 'Alerts: OFF' 'Web Page: ON')" = 1 ]
+pui_is a:c2 [ "$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? Manage it on\\nthe firmware's Alerts page.")/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/1 ]
+pui_is a:on [ "$(pui_alx 'Alerts: ON' 'Alerts: ON')" = 1 ]
+pui_is a:file pui_alins
+pui_is a:calls [ "$(pui_alcalls)" = "rm -f AT/payload.sh.tmp|mkdir -p AT|cp SRC AT/payload.sh.tmp|chmod +x AT/payload.sh.tmp|mv -f AT/payload.sh.tmp AT/payload.sh|" ]
+pui_is a:tree [ "$(pui_altree)" = ". ./deauth_flood_detected ./deauth_flood_detected/starchorus ./deauth_flood_detected/starchorus/payload.sh " ]
+pui_is a:log [ "$(pui_x LOG "Alerts: the firmware's reports are noted.")/$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^START_SPINNER')" = 1/0/0 ]
+pui_is a:nosettings [ ! -e "$PUI_D/settings.conf" ]
+pui_is a:nocol pui_nocol
+# b. ON -> a No (an answer of 0, then a cancel): nothing asked twice, nothing touched, no log
+rm -f "$PUI_T/alert.cmds"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=0" "=Alerts: ON" "!2" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is b:on [ "$(pui_alx 'Alerts: ON' 'Web Page: ON')/$(pui_alx 'Alerts: ON' 'Alerts: ON')" = 1/2 ]
+pui_is b:c3 [ "$(pui_x CONFIRMATION_DIALOG "Remove the alert\\ncompanion?")/$(pui_logc '^CONFIRMATION_DIALOG')" = 2/2 ]
+pui_is b:kept pui_alins
+pui_is b:calls [ -z "$(pui_alcalls)" ]
+pui_is b:nolog [ "$(pui_logc '^LOG	Alerts:')/$(pui_logc '^ERROR_DIALOG')" = 0/0 ]
+# c. ON -> yes, with a file of somebody else's in our directory: our payload.sh goes, the directory and the file stay; then yes without it: the directory goes too, the firmware's parent stays
+printf 'not ours\n' > "$PUI_AT/other.txt"; rm -f "$PUI_T/alert.cmds"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is c:off [ "$(pui_alx 'Alerts: OFF' 'Alerts: OFF')" = 1 ]
+pui_is c:calls [ "$(pui_alcalls)" = "rm -f AT/payload.sh AT/payload.sh.tmp|rmdir AT|" ]
+pui_is c:tree [ "$(pui_altree)" = ". ./deauth_flood_detected ./deauth_flood_detected/starchorus ./deauth_flood_detected/starchorus/other.txt " ]
+pui_is c:log [ "$(pui_x LOG 'Alerts: companion removed.')/$(pui_logc '^ERROR_DIALOG')" = 1/0 ]
+rm -f "$PUI_AT/other.txt"; mkdir -p "$PUI_AT"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; rm -f "$PUI_T/alert.cmds"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is c2:tree [ "$(pui_altree)" = ". ./deauth_flood_detected " ]
+pui_is c2:calls [ "$(pui_alcalls)" = "rm -f AT/payload.sh AT/payload.sh.tmp|rmdir AT|" ]
+# d. OFF -> a No: not even the tree is made
+pui_alnew
+pui_ans "=Settings" "=Alerts: OFF" "=0" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is d:none [ "$(pui_altree)/$(pui_alcalls)/$(pui_logc '^LOG	Alerts:')" = "none//0" ]
+# e. locked: STARCHORUS_ALERTS in the environment (0 and 1 both count as set); P1 names it, no question, nothing written
+pui_alnew
+pui_ans "=Settings" "=Alerts: OFF (locked)" "!2" "!2"
+pui_run_ui "$PUI_ALP" STARCHORUS_ALERTS=0 sh "$PUI_PL"
+pui_is e:rows [ "$(pui_alx 'Alerts: OFF (locked)' 'Web Page: ON')" = 1 ]
+pui_is e:p1 [ "$(pui_x PROMPT 'Set by STARCHORUS_ALERTS.\nUnset it to change it here.')/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/0 ]
+pui_is e:none [ "$(pui_altree)/$(pui_alcalls)" = "none/" ]
+mkdir -p "$PUI_AT"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; pui_new
+pui_ans "=Settings" "=Alerts: ON (locked)" "!2" "!2"
+pui_run_ui "$PUI_ALP" STARCHORUS_ALERTS=1 sh "$PUI_PL"
+pui_is e2:rows [ "$(pui_alx 'Alerts: ON (locked)' 'Web Page: ON')/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/0 ]
+pui_is e2:kept pui_alins
+# f. a failed step: E14 and nothing left (no .tmp, no empty directory of ours), the row still OFF; a failed remove: E15, the file stays
+for pui_f in mkdir cp chmod mv; do
+  pui_alnew; : > "$PUI_T/alert.fail.$pui_f"
+  pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
+  pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+  pui_is "f:$pui_f:e14" [ "$(pui_x ERROR_DIALOG 'Could not install the\nalert companion.')/$(pui_logc '^LOG	Alerts:')" = 1/0 ]
+  pui_is "f:$pui_f:row" [ "$(pui_alx 'Alerts: OFF' 'Alerts: OFF')" = 1 ]
+  pui_is "f:$pui_f:clean" pui_alclean
+done
+pui_alnew; mkdir -p "$PUI_AT"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; : > "$PUI_T/alert.fail.rm"
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is f:rm:e15 [ "$(pui_x ERROR_DIALOG 'Could not remove the\nalert companion.')/$(pui_logc '^LOG	Alerts:')" = 1/0 ]
+pui_is f:rm:kept pui_alins
+# g. no companion beside the payload: E13 before any question, nothing written; _PAYLOAD_HOME finds one when the payload runs from a copy elsewhere
+pui_alnew; mkdir -p "$PUI_T/nocomp"; cp "$PUI_PL" "$PUI_T/nocomp/payload.sh"
+pui_ans "=Settings" "=Alerts: OFF" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_T/nocomp/payload.sh"
+pui_is g:e13 [ "$(pui_x ERROR_DIALOG 'alert-deauth.sh is not\nbeside the payload.')/$(pui_logc '^CONFIRMATION_DIALOG')/$(pui_altree)" = 1/0/none ]
+pui_alnew
+pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$(dirname "$PUI_AC")" sh "$PUI_T/nocomp/payload.sh"
+pui_is g:home pui_alins
+rm -rf "$PUI_T/nocomp"
+# h. plain and argument paths: no UI command, no tree, and no settings key behind the row
+pui_alnew
+for pui_c in status get "get alerts" "set alerts on"; do
+  # shellcheck disable=SC2086   # the command words are split on purpose
+  pui_run_ui "$PUI_ALP" sh "$PUI_PL" $pui_c
+  case $pui_c in "get alerts"|"set alerts on") pui_ex=2 ;; *) pui_ex=0 ;; esac
+  pui_is "h:$pui_c" [ "$PUI_RC/$(wc -l < "$PUI_T/case.log" | tr -d ' ')/$(pui_altree)" = "$pui_ex/0/none" ]
+done
+pui_run_ui "$PUI_ALP" STARCHORUS_PAYLOAD_PLAIN=1 sh "$PUI_PL"
+pui_is h:plain [ "$PUI_RC/$(wc -l < "$PUI_T/case.log" | tr -d ' ')/$(pui_altree)/$(pui_alcalls)" = "0/0/none/" ]
+pui_run "$PUI_HL" sh "$PUI_PL" stop
+pui_run "$PUI_HL" sh "$PUI_PL" get
+pui_is h:nokey [ "$PUI_RC/$(grep -c 'alert' "$PUI_T/out")" = 0/0 ]
+# i. static: every line of the payload that names the directory, read as code (comments and trailing comments dropped, blanks squeezed), is on a pinned list; the
+# default path is spelt once; three mutants (a recursive remove of the directory, a second path under the alert tree, a glob remove) are red, the real file is green
+pui_alpin() {   # pui_alpin FILE -> 0 iff the lines of FILE that name PL_ALERT_DIR are exactly the pinned ones and the default path is spelt once
+  sed -e '/^[[:space:]]*#/d' -e 's/[[:space:]]#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g' "$1" > "$PUI_T/alcode.txt"
+  [ "$(grep -c '/root/payloads/alerts' "$PUI_T/alcode.txt")" = 1 ] || return 1
+  grep 'PL_ALERT_DIR' "$PUI_T/alcode.txt" > "$PUI_T/alseen.txt"
+  cmp -s "$PUI_T/alseen.txt" "$PUI_T/alpin.txt"
+}
+cat > "$PUI_T/alpin.txt" <<'PUI_ALPIN'
+PL_ALERT_DIR=${STARCHORUS_ALERT_TREE:-/root/payloads/alerts}/deauth_flood_detected/starchorus
+pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
+rm -f "$PL_ALERT_DIR/payload.sh.tmp"
+if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
+&& chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null; then
+rm -f "$PL_ALERT_DIR/payload.sh.tmp"; rmdir "$PL_ALERT_DIR" 2>/dev/null
+rm -f "$PL_ALERT_DIR/payload.sh" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null
+rmdir "$PL_ALERT_DIR" 2>/dev/null
+PUI_ALPIN
+pui_is i:real pui_alpin "$PUI_PL"
+# shellcheck disable=SC2016   # sed programs: the payload's own text, not to be expanded here
+sed 's|rmdir "\$PL_ALERT_DIR" 2>/dev/null$|rm -rf "$PL_ALERT_DIR" 2>/dev/null|' "$PUI_PL" > "$PUI_T/alm1.sh"
+sed 's|^pl_alert_on() {|PL_ALERT_X=/root/payloads/alerts/other; pl_alert_on() {|' "$PUI_PL" > "$PUI_T/alm2.sh"
+# shellcheck disable=SC2016   # (as above)
+sed 's|rm -f "\$PL_ALERT_DIR/payload.sh" "\$PL_ALERT_DIR/payload.sh.tmp"|rm -f "$PL_ALERT_DIR/"*|' "$PUI_PL" > "$PUI_T/alm3.sh"
+pui_is i:mut1 pui_not pui_alpin "$PUI_T/alm1.sh"
+pui_is i:mut2 pui_not pui_alpin "$PUI_T/alm2.sh"
+pui_is i:mut3 pui_not pui_alpin "$PUI_T/alm3.sh"
+pui_is i:mutdiff [ "$(cmp -s "$PUI_PL" "$PUI_T/alm1.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm2.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm3.sh" && echo same)" = "" ]
+rowif "payload ui: Alerts row: ON/OFF by our file in the alert tree; install after C2 (mkdir -p, cp, chmod +x through a rename: byte-identical, executable, no .tmp, L8f), No installs nothing; Remove after C3 takes our file and our empty directory only (L8g); E13/E14/E15; locked by STARCHORUS_ALERTS; plain paths touch nothing; every line naming the tree pinned, three mutants red (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+
 # ---- 16 · locked rows: a key the environment sets reads "(locked)", A shows P1 naming that variable and writes nothing,
 #            the cursor stays; the longest locked label fits 28 characters; Reset asks (C1): No keeps everything and the
 #            cursor, Yes deletes the file and puts the cursor on row 1
@@ -872,12 +1034,12 @@ PUI_BAD=""; pui_new "port=8300" "vendor=off"
 pui_ans "=Settings" "=Refresh: 45 s (locked)" "=Reset to Defaults" "!1" "=Reset to Defaults" "=1" "!2" "!2"
 pui_run_ui "$PUI_UIP" STARCHORUS_INTERVAL=45 STARCHORUS_MAX_AGE=86399 sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
-pui_is locked [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Refresh: 45 s (locked)')" = 1 ]
+pui_is locked [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8300' 'Reset to Defaults' 'Refresh: 45 s (locked)')" = 1 ]
 pui_is p1 [ "$(pui_x PROMPT 'Set by STARCHORUS_INTERVAL.\nUnset it to change it here.')" = 1 ]
 pui_is nosub [ "$(pui_logc '^LIST_PICKER	Refresh: ')" = 0 ]
 pui_is c1 [ "$(pui_x CONFIRMATION_DIALOG 'Reset all settings?')" = 2 ]
-pui_is nokeeps [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8300' 'Reset to Defaults' 'Reset to Defaults')" = 1 ]
-pui_is reset [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
+pui_is nokeeps [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: OFF' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8300' 'Reset to Defaults' 'Reset to Defaults')" = 1 ]
+pui_is reset [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 45 s (locked)' 'Show Last: 86399 s (locked)' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 8199' 'Reset to Defaults' 'Web Page: ON')" = 1 ]
 pui_is file [ ! -e "$PUI_D/settings.conf" ]
 rowif "payload ui: locked rows show P1 and write nothing; Reset asks, No keeps, Yes resets with the cursor on row 1 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
@@ -921,7 +1083,7 @@ pui_is srv [ "$(pui_srv 18601)" = 1 ]
 pui_tcp 18601
 pui_ans "=Settings" "=Web Page: ON" "=Web Page: OFF" "!2" "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
 pui_is e4 [ "$(pui_x ERROR_DIALOG "$PUI_E4")" = 1 ]
-pui_is staysoff [ "$(pui_x LIST_PICKER Settings 'Web Page: OFF' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Port: 18601' 'Reset to Defaults' 'Web Page: OFF')" = 2 ]
+pui_is staysoff [ "$(pui_x LIST_PICKER Settings 'Web Page: OFF' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 18601' 'Reset to Defaults' 'Web Page: OFF')" = 2 ]
 pui_is filef [ "$(sed -n 's/^page=//p' "$PUI_D/settings.conf")" = off ]
 pui_is srvoff [ "$(pui_srv 18601)" = 0 ]
 # Start with the port still taken: E4 after Start (collecting goes on), RUNNING offers "Start Web Page", which fails the same way

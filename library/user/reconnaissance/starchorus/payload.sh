@@ -58,7 +58,13 @@
 #   pid to go, kill -9 (identity-checked) and 2 s more.
 #   Settings: every change is saved at once; leaving with B applies what changed while the collector runs (collector
 #   keys: restart of the collector only, marker kept; port: restart of the page server only). Nothing is asked except
-#   Reset to Defaults. A key set in the environment is shown "(locked)" and is not changed here.
+#   Reset to Defaults and the Alerts row (below). A key set in the environment is shown "(locked)" and is not changed here.
+#   Alerts: ON when the companion alert payload (alert-deauth.sh, beside this file) is in the firmware's alert tree, OFF when
+#   it is not. A press asks first and then installs it (mkdir -p, cp, chmod +x: the steps the README gives for doing it by
+#   hand, the copy through a temporary file and a rename so that the firmware never finds half a script) or, when it is
+#   ON, removes our payload.sh and our empty directory and nothing else. That is the only place this payload writes outside
+#   its own directories, and the only action it takes on the alert tree: it never switches an alert on or off in the
+#   firmware. The row is "(locked)" while STARCHORUS_ALERTS is set in the environment (it names the collector's switch).
 #   Debounce: right after a spinner or the Overview, a Start, Stop or B that comes back within 0.6 s (/proc/uptime) is
 #   taken for a queued press and ignored; the menu is drawn again. At most three in a row: a picker that keeps failing
 #   at once ends the payload instead of being drawn for ever.
@@ -88,7 +94,8 @@
 #
 # TESTS ONLY: STARCHORUS_PROC (default /proc: uptime, net/tcp, PID/cmdline, PID/stat) and STARCHORUS_MARKER (default
 # /tmp/starchorus.started) point the payload at stand-ins; STARCHORUS_FIRST_CAP (tenths of a second, default 200) is how long
-# Start waits for the first capture before it opens the Overview anyway.
+# Start waits for the first capture before it opens the Overview anyway; STARCHORUS_ALERT_TREE (default /root/payloads/alerts)
+# is the firmware's alert tree that the Alerts row installs into and reads.
 #
 # POSIX sh on purpose (BusyBox ash on the device, dash/sh in the tests): no local, no arrays, no eval.
 
@@ -112,6 +119,7 @@ PL_ENV=""
 [ -z "${STARCHORUS_BLUETOOTH:+x}" ] || PL_ENV="$PL_ENV bluetooth"
 [ -z "${STARCHORUS_TRAFFIC:+x}" ] || PL_ENV="$PL_ENV traffic"
 [ -z "${STARCHORUS_PAGE:+x}" ] || PL_ENV="$PL_ENV page"
+[ -z "${STARCHORUS_ALERTS:+x}" ] || PL_ENV="$PL_ENV alerts"   # no settings key behind it: the collector's switch, which only locks the Alerts row
 STARCHORUS_PORT=${STARCHORUS_PORT:-8199}
 STARCHORUS_BIND=${STARCHORUS_BIND:-auto}                  # payload only: the page server's address (see BIND above)
 export STARCHORUS_DIR STARCHORUS_PORT
@@ -133,6 +141,7 @@ PL_CR=$(printf '\r')
 PL_PROC=${STARCHORUS_PROC:-/proc}                         # tests only (see TESTS ONLY above)
 PL_MARK=${STARCHORUS_MARKER:-/tmp/starchorus.started}     # R7: the epoch of the last Start; tmpfs, so a reboot clears it
 PL_PIDDIR=${STARCHORUS_PIDDIR:-$STARCHORUS_DIR}           # where the collector keeps its pidfiles (its own default: OUTDIR)
+PL_ALERT_DIR=${STARCHORUS_ALERT_TREE:-/root/payloads/alerts}/deauth_flood_detected/starchorus   # the firmware's alert tree: ours is this one directory
 
 pl_has() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }   # pl_has "WORD LIST" WORD
 pl_bit() { if [ "$1" = on ]; then echo 1; else echo 0; fi; }
@@ -906,7 +915,7 @@ pl_web_flow() {
 pl_envvar() {   # pl_envvar KEY -> the environment variable behind a settings key
     case $1 in window) echo STARCHORUS_MAX_AGE ;; interval) echo STARCHORUS_INTERVAL ;; port) echo STARCHORUS_PORT ;;
         vendor) echo STARCHORUS_VENDOR ;; survey) echo STARCHORUS_SURVEY ;; page) echo STARCHORUS_PAGE ;;
-        bluetooth) echo STARCHORUS_BLUETOOTH ;; traffic) echo STARCHORUS_TRAFFIC ;; esac
+        bluetooth) echo STARCHORUS_BLUETOOTH ;; traffic) echo STARCHORUS_TRAFFIC ;; alerts) echo STARCHORUS_ALERTS ;; esac
 }
 pl_lock() { pl_has "$PL_ENV" "$1" && printf ' (locked)'; return 0; }                # " (locked)" when the environment sets KEY
 pl_sw() { if [ "$(pl_value "$1")" = on ]; then echo ON; else echo OFF; fi; }      # R1: an ON/OFF value flips with one press
@@ -930,6 +939,41 @@ pl_set_page() {   # Web Page: while RUNNING the flip applies at once; while STOP
     case $pl_sr in 0) ;; 1) pl_e3; return 0 ;; *) pl_e4; return 0 ;; esac   # nothing saved, the row stays OFF
     pl_save page on || { stop_servers; return 0; }
     pl_l2
+}
+
+# ---- Alerts (2.5a): the companion alert payload in the firmware's alert tree. The row reads ON while our payload.sh is in our one
+# directory of that tree and OFF while it is not; a press asks, then installs or removes. Nothing else touches the tree: no other
+# path, nothing of the firmware's own alerts, and no switch that enables or disables one (that stays on the firmware's Alerts page).
+pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
+pl_alert_sw() { if pl_alert_on; then echo ON; else echo OFF; fi; }
+pl_alert_src() {   # -> 0 and PL_ALSRC = alert-deauth.sh in the payload directory (the places pl_install looks in); 1 when there is none
+    PL_ALSRC=
+    for pl_ad in "${_PAYLOAD_HOME:-}" "$PL_HOME" /root/payloads/user/reconnaissance/starchorus /mmc/root/payloads/user/reconnaissance/starchorus; do
+        [ -n "$pl_ad" ] && [ -f "$pl_ad/alert-deauth.sh" ] && { PL_ALSRC=$pl_ad/alert-deauth.sh; return 0; }
+    done
+    return 1
+}
+pl_alert_install() {
+    pl_alert_src || { ui_err "alert-deauth.sh is not\nbeside the payload."; return 0; }                                  # E13
+    ui_confirm "Install the alert\ncompanion? Manage it on\nthe firmware's Alerts page." || return 0                      # C2
+    # the README's three steps; the copy goes through a temporary file of the same directory and a rename, made executable first
+    rm -f "$PL_ALERT_DIR/payload.sh.tmp"
+    if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
+        && chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null; then
+        ui_log "Alerts: the firmware's reports are noted."                                                                 # L8f
+    else
+        rm -f "$PL_ALERT_DIR/payload.sh.tmp"; rmdir "$PL_ALERT_DIR" 2>/dev/null   # an empty directory of ours is not left behind
+        ui_err "Could not install the\nalert companion."                                                                  # E14
+    fi
+    return 0
+}
+pl_alert_remove() {   # our payload.sh (and a temporary file of an interrupted install) and our directory if it is empty: nothing else
+    ui_confirm "Remove the alert\ncompanion?" || return 0                                                                 # C3
+    rm -f "$PL_ALERT_DIR/payload.sh" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null
+    rmdir "$PL_ALERT_DIR" 2>/dev/null
+    if pl_alert_on; then ui_err "Could not remove the\nalert companion."                                                   # E15
+    else ui_log "Alerts: companion removed."; fi                                                                           # L8g
+    return 0
 }
 
 pl_set_list() {   # pl_set_list KEY TITLE ROW... -> sub-list of presets; the cursor on the current value (row 1 if custom)
@@ -961,6 +1005,7 @@ pl_settings() {
             "Channel Load: $(pl_sw survey)$(pl_lock survey)" \
             "Traffic: $(pl_sw traffic)$(pl_lock traffic)" \
             "Bluetooth: $(pl_sw bluetooth)$(pl_lock bluetooth)" \
+            "Alerts: $(pl_alert_sw)$(pl_lock alerts)" \
             "Port: $STARCHORUS_PORT$(pl_lock port)" \
             "Reset to Defaults") || break
         case $pl_c in
@@ -971,6 +1016,7 @@ pl_settings() {
             "Channel Load: "*) pl_scur="Channel Load:"; pl_k=survey ;;
             "Traffic: "*)      pl_scur="Traffic:"; pl_k=traffic ;;
             "Bluetooth: "*)    pl_scur="Bluetooth:"; pl_k=bluetooth ;;
+            "Alerts: "*)       pl_scur="Alerts:"; pl_k=alerts ;;
             "Port: "*)         pl_scur="Port:"; pl_k=port ;;
             *)                 pl_scur="Reset to Defaults"; pl_k=reset ;;
         esac
@@ -989,6 +1035,7 @@ pl_settings() {
                       elif pl_save traffic on; then ui_log "Traffic: channel activity and frame rates."; fi ;;   # L8d
             bluetooth) if [ "$STARCHORUS_BLUETOOTH" = 1 ]; then pl_save bluetooth off
                        elif pl_save bluetooth on; then ui_log "Bluetooth: passive LE scan, $(pl_btwin) s per refresh."; fi ;;   # L8e (the window the collector will use)
+            alerts)   if pl_alert_on; then pl_alert_remove; else pl_alert_install; fi ;;                       # C2, C3
             port)     if pl_n=$(ui_num Port "$STARCHORUS_PORT"); then
                           if ! pl_valid port "$pl_n"; then ui_err "Use 1024 to 65535, not 1471."               # E7
                           elif [ "$pl_n" != "$STARCHORUS_PORT" ]; then pl_save port "$pl_n"; fi

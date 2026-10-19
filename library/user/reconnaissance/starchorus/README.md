@@ -114,7 +114,11 @@ installation above untouched. To take a newer package, replace this directory, d
 
 The firmware tells a payload when it hears many deauth/disassoc frames for an access point (its alert `deauth_flood_detected`). `alert-deauth.sh`, beside
 `payload.sh` in this directory, is the companion that records those reports for Starchorus. It is no payload of its own, which is why it is not called
-`payload.sh`; the Settings menu does not install it yet. Until it does, copy it to the firmware's alert tree by hand and make it executable:
+`payload.sh`. The easy way is the Settings row 'Alerts': OFF while the companion is not in the firmware's alert tree, ON while it is. A press asks first ('Install the
+alert companion?') and then makes `/root/payloads/alerts/deauth_flood_detected/starchorus`, copies `alert-deauth.sh` there as `payload.sh` (through a temporary file and a
+rename, so that the firmware never finds half a script) and makes it executable; on an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh`
+and the directory if it is empty, and nothing else. The row never switches an alert on or off in the firmware, and it is locked while `STARCHORUS_ALERTS` is set in the
+environment. The same installation by hand is:
 
 ```sh
 ssh root@<device> 'mkdir -p /root/payloads/alerts/deauth_flood_detected/starchorus'
@@ -122,7 +126,7 @@ scp -O alert-deauth.sh root@<device>:/root/payloads/alerts/deauth_flood_detected
 ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh'
 ```
 
-Then check on the firmware's Alerts page that it is listed and switched on: whether a copied alert needs the `chmod` and starts enabled has not been tried on a device
+Either way, check on the firmware's Alerts page that it is listed and switched on: whether a copied alert needs the `chmod` and starts enabled has not been tried on a device
 yet. For each report the file appends one line to `/root/loot/starchorus-alerts/alerts.log` (a directory of its own, outside the one the page server serves) (the time, `deauth`, and the access point, source, destination and client
 addresses, tab separated, lower case, `-` where there is none), keeps the last 2,000 lines, and writes no message text. The collector shows the lines of the last
 `STARCHORUS_ALERT_WINDOW` seconds on the page as 'many deauth/disassoc frames heard for this AP'. The report has no channel, no signal strength and no count of
@@ -169,12 +173,14 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
 - **Stop** asks nothing. It stops the collector and the page server and waits until the collector
   has really ended.
 - **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Traffic',
-  'Bluetooth', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default; switching one
+  'Bluetooth', 'Alerts', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default; switching one
   on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
   scan, 5 s per refresh.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
   short list ('Show Last' also offers 'All (may be slow)'), 'Port' a number entry. Every change is
   saved at once. While Starchorus runs, 'Web Page' takes effect at once, and the other changes are
-  applied when you leave Settings, without a question. Only 'Reset to Defaults' asks first. A
+  applied when you leave Settings, without a question. Only 'Reset to Defaults' and 'Alerts' ask first
+  ('Alerts' is ON while the companion alert payload is installed in the firmware's alert tree; a press
+  asks, then installs it or, when it is ON, removes it: see Alerts (optional) below). A
   setting fixed by an environment variable shows '(locked)' and is not changed here.
 
 Key B always goes back one level. On the main menu it leaves the payload; whatever runs keeps

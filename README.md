@@ -301,9 +301,10 @@ Running', worked out afresh each time it is drawn: 'Start' and 'Settings' while 
 the page server is not up), 'Stop' and 'Settings' while it runs. Nothing starts on launch. 'Start'
 and 'Stop' ask nothing and show a spinner while they work; 'Start' keeps its spinner up until the first
 scan has been written (up to 20 seconds) and then opens the Overview, from which key B goes up one
-level, to the list of screens, and B there returns to the menu. Only 'Reset to Defaults' asks; key B goes back, and leaving the
+level, to the list of screens, and B there returns to the menu. Only 'Reset to Defaults' and 'Alerts' (see Alerts below) ask; key B goes back, and leaving the
 menu stops nothing. Settings holds 'Web Page', 'Refresh' (interval), 'Show Last' (window), 'Vendor
-Names', 'Channel Load' (channel occupancy), 'Traffic' and 'Bluetooth' (both off by default), 'Port' and 'Reset to Defaults'; a change made while
+Names', 'Channel Load' (channel occupancy), 'Traffic' and 'Bluetooth' (both off by default), 'Alerts' (ON while the companion alert payload is
+installed in the firmware's alert tree), 'Port' and 'Reset to Defaults'; a change made while
 Starchorus runs is applied on leaving Settings. Three settings are environment variables only, with
 no row in the menu: `STARCHORUS_OWN` (the device's own radios), `STARCHORUS_DASHBOARD` (`0` keeps the
 Overview from opening after 'Start') and `STARCHORUS_COLLECTOR` (`0` starts no collector). A pid
@@ -335,8 +336,16 @@ has stopped writing). On the development machine,
 
 The Pager's firmware can tell a payload when it hears many deauth/disassoc frames for an access point (its alert `deauth_flood_detected`). Starchorus shows
 that with a companion alert payload, `alert-deauth.sh`, which sits beside `payload.sh` in the payload directory but is no payload of its own (it is not named
-`payload.sh`, so that the payload library's updater does not take it for one). The Settings menu does not install it yet. Until it does, install it by hand, from
-the repository:
+`payload.sh`, so that the payload library's updater does not take it for one).
+
+The easy way is the Settings row 'Alerts' on the Pager: it reads OFF while the companion is not in the firmware's alert tree and ON while it is. A press asks
+first ('Install the alert companion?') and then does what the by-hand route below does, in `/root/payloads/alerts/deauth_flood_detected/starchorus`: it makes
+the directory, copies `alert-deauth.sh` there as `payload.sh` (through a temporary file and a rename, so that the firmware never finds half a script) and makes it
+executable. On an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh` and, if it is empty, that directory, and nothing else. The row
+needs `alert-deauth.sh` beside the payload's `payload.sh` (the Hak5 package has it there; after `tools/install.sh` or a copy by hand, copy it there with `scp -O
+library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/`; without it the row says so and writes nothing), and
+it is locked while `STARCHORUS_ALERTS` is set in the environment. It never switches an alert on or off in the firmware: that stays on the firmware's own Alerts page, where you should
+look afterwards. By hand, from the repository, the same installation is:
 
 ```sh
 ssh root@<device> 'mkdir -p /root/payloads/alerts/deauth_flood_detected/starchorus'
@@ -344,8 +353,8 @@ scp -O library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/roo
 ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh'
 ```
 
-Then look at the firmware's Alerts page. Whether a copied alert needs the `chmod`, and whether it starts enabled, has not been tried on a device yet, so check that
-it is listed and switched on. To remove it, switch it off there or delete that directory. The firmware's own alert (its dialogue, its sound or vibration, if you set
+Whether a copied alert needs the `chmod`, and whether it starts enabled, has not been tried on a device yet, so check on the firmware's Alerts page that it is listed
+and switched on. To remove it, use the row again, or switch it off there, or delete that directory. The firmware's own alert (its dialogue, its sound or vibration, if you set
 them) is not changed.
 
 For each report the file appends one line to `alerts.log` in `/root/loot/starchorus-alerts`, a directory of its own outside the one the page server serves: the time, `deauth`, and the access point, source, destination and client
