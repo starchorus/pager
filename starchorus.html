@@ -2497,7 +2497,7 @@ function scopePlace(wave) {
       const ap = n.kind === "ap", r = scR(g, n.rssi ?? -85), t = r * thv(g, r), px = ap ? n.basePx * SCOPE.size : n.basePx, f = px + 3, h = hash(n.id + "sc");
       const ideal = l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * (!ap ? h : n.band === "unknown" ? 0.8 + 0.2 * h : scU(n.band, n.channel))) * (l.k1 - l.k0);
       let k = ideal, q = scXY(g, r, k);
-      for (let j = 1; j < 9 && n.kind !== "client" && done.some(p => hyp(p[0] - q[0], p[1] - q[1]) < p[2] + f + 2); j++) q = scXY(g, r, k = clamp(ideal + (j & 1 ? 1 : -1) * (j + 1 >> 1) * (2 * f + 2) / t, l.k0 + f / t, l.k1 - f / t));
+      for (let j = 1; j < 9 && n.kind !== "client" && l.k1 - l.k0 > 2 * f / t && done.some(p => hyp(p[0] - q[0], p[1] - q[1]) < p[2] + f + 2); j++) q = scXY(g, r, k = clamp(ideal + (j & 1 ? 1 : -1) * (j + 1 >> 1) * (2 * f + 2) / t, l.k0 + f / t, l.k1 - f / t));
       n.sc = { k, r, x: q[0], y: q[1], px, st: SC.st, nw: wave ? !n.sc || SC.cs < 0 : !!n.sc && n.sc.nw, q: (g.rFar - r) / (g.rFar - g.rNear) };
       if (n.kind !== "client") done.push([q[0], q[1], f]);
     }
@@ -4664,9 +4664,10 @@ function drawScopeBg(c) {
   c.strokeStyle = THEME.line.ring; for (const d of LAYOUT.rings) ring(scR(g, d));
   c.strokeStyle = THEME.line.baseline; c.setLineDash(SC.lv === "live" ? [] : [4, 4]); ring(g.rFar); ring(g.rNear); edge(-1); edge(1); c.setLineDash([]);
   c.font = TD.fontLabel; c.textAlign = "center";
+  let lx = -1e9;
   for (const l of g.lanes) {
     const tk = SCOPE.ticks[l.key], wpx = Math.abs(scXY(g, g.rFar, l.k1)[0] - scXY(g, g.rFar, l.k0)[0]), p = scXY(g, g.rFar + (tk ? 26 : 10), (l.k0 + l.k1) / 2), nm = l.key === "sta" ? THEME.copy.scope.strip[1] : l.key === "6" && SC.unk ? "6 · ?" : ENCODING.band[l.key].legend;
-    c.fillStyle = THEME.ink.muted; for (const ch of tk || []) { const t = scXY(g, g.rFar + 8, l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * scU(l.key, ch)) * (l.k1 - l.k0)); c.fillText(ch, t[0], t[1]); }
+    c.fillStyle = THEME.ink.muted; for (const ch of tk || []) { const t = scXY(g, g.rFar + 8, l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * scU(l.key, ch)) * (l.k1 - l.k0)), w = textWidth(c, c.font, ch) / 2; if (t[0] - w < lx + 3) continue; lx = t[0] + w; c.fillText(ch, t[0], t[1]); }
     c.fillStyle = THEME.ink.secondary; for (const t of [nm, nm.split(" ")[0]]) { const s = TD.upper ? t.toUpperCase() : t; if (textWidth(c, c.font, s) <= wpx + 8) { c.fillText(s, p[0], p[1]); break; } }
   }
   c.textAlign = "left"; c.fillStyle = THEME.ink.muted;

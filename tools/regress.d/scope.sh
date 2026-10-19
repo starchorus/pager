@@ -161,6 +161,18 @@ def note(v):   # 568x320: Whitehall has no room for the fan and says so; the oth
     want = {"whitehall": "none|note|true|true", "foundation": "fan|-|true|true", "wargames": "fan|-|true|true", "whitehall2": "none|note|true|true",
             "text": "Too little room for the scope: turn the phone upright", "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
+def ticks(v):
+    d = json.loads(v); bad = []
+    for t in TH:
+        x = d.get(t)
+        if not x: bad.append(t + ": none"); continue
+        if x["touch"]: bad.append("%s: ticks touch %s" % (t, x["touch"]))
+        if x["n"] < 3: bad.append("%s: only %s ticks" % (t, x["n"]))
+        if x["bgMin"] < 13 or x["hudMin"] < 13: bad.append("%s: canvas text of %s / %s px" % (t, x["bgMin"], x["hudMin"]))
+    return bad + (["errors"] if d.get("errors") != 0 else [])
+def nudge(v):
+    d = json.loads(v); want = {"out": "none", "n": 4, "errors": 0}
+    return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 def ring3d(v):
     d = json.loads(v); want = {"blend": ["3d", 1], "labels": "foundation:0:0:0 wargames:0:0:0 whitehall:0:0:0", "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
@@ -369,6 +381,24 @@ SCP_EVN='(async()=>{const I=STARCHORUS._internals,SC=I.SC,W=STARCHORUS.wait,E=i=
 const st=()=>{const n=E("sc-no"),ft=R(E("scope-foot")),sp=R(E("scope-strip"));return [SC.g?"fan":"none",!n.hidden&&n.getClientRects().length>0?"note":"-",ft.top>=sp.bottom-0.5&&ft.bottom<=innerHeight+0.5&&ft.left>=0&&ft.right<=innerWidth+0.5,document.documentElement.scrollWidth===innerWidth].join("|")};
 for(const t of ["whitehall","foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(700);o[o[t]?t+"2":t]=st()}
 o.text=E("sc-no").textContent;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+# four strong 6 GHz networks at 320 px: the lane near the Pager is a few pixels wide, so the nudge would turn over; each point stays inside its lane
+SCP_EVC='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wait,o={};
+const mk=(g,aps)=>({source:"recon-db",generated:g,center:{label:"T",interval:30},aps,unassociated:[]});
+const ap=(n,ch,rssi)=>({bssid:"02:00:00:00:00:0"+n,ssid:"N"+n,band:"6",channel:ch,rssi,security:"WPA3"});
+STARCHORUS.load(mk(1000,[ap(1,5,-34),ap(2,7,-35),ap(3,9,-36),ap(4,11,-37)]),"c");await W(500);
+const l6=SC.g.lanes.find(l=>l.key==="6"),out=[];
+for(const n of S.aps.values()){const s=n.sc;if(!s||s.st!==SC.st)continue;if(s.k<l6.k0-1e-9||s.k>l6.k1+1e-9)out.push(n.ssid+":"+s.k.toFixed(3))}
+o.out=out.join(",")||"none";o.n=[...S.aps.values()].filter(n=>n.sc&&n.sc.st===SC.st).length;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+# the text the Scope draws on #bg and #hud: ticks that do not touch, and no canvas label under 13 px
+SCP_EVK='(async()=>{const S=STARCHORUS._internals.S,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={},rec=[];
+for(const id of ["bg","hud"]){const c=E(id).getContext("2d"),f=c.fillText;c.fillText=function(t,x,y){rec.push([id,String(t),x,y,this.measureText(String(t)).width,this.font]);return f.apply(this,arguments)}}
+const px=r=>parseFloat(/(\d+(?:\.\d+)?)px/.exec(r[5])[1]);
+for(const t of ["wargames","whitehall","foundation"]){rec.length=0;STARCHORUS.setTheme(t);await W(500);S.dirty=true;STARCHORUS.frame();
+ const bg=rec.filter(r=>r[0]==="bg"),hud=rec.filter(r=>r[0]==="hud");
+ const tk=bg.slice(bg.map(r=>r[1]).lastIndexOf("1")).filter(r=>/^\d+$/.test(r[1])).sort((a,b)=>a[2]-b[2]),touch=[];   // the ticks of the last rebuild: its first tick is the "1"
+ for(let i=1;i<tk.length;i++)if(tk[i][2]-tk[i][4]/2<tk[i-1][2]+tk[i-1][4]/2)touch.push(tk[i-1][1]+" "+tk[i][1]);
+ o[t]={n:tk.length,touch:touch.join(","),bgMin:Math.min(...bg.map(px)),hudMin:hud.length?Math.min(...hud.map(px)):99}}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 
 # ---- geometry, lanes, captions, text size, overlaps and the sideways scroll: 4 phone sizes x 3 themes (devices.json)
 for SCP_Z in 390x844 375x812 430x932 812x375; do
@@ -515,6 +545,17 @@ scp_run note "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320
 SCP_R=$(scp_j note "$(scp_ev "$SCP_T-note.json")")
 scp_row "scope 568x320: Whitehall has no fan and the foot says 'Too little room for the scope: turn the phone upright' (inside the screen, clear of the strip), Foundation and WarGames have the fan and no note, Whitehall again has the note" "$SCP_R"
 
+# ---- a lane narrower than two blips (the 6 lane near the Pager at 320 px): a crowd of strong networks keeps its places in the lane, the overlap is accepted
+scp_run nudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568
+SCP_R=$(scp_j nudge "$(scp_ev "$SCP_T-nudge.json")")
+scp_row "scope 320x568: four strong 6 GHz networks (-34 to -37 dBm, channels 5 to 11) each lie inside the 6 lane, though it is narrower than two of them" "$SCP_R"
+
+# ---- the canvas text: ticks do not touch each other (320x568 and 390x844) and no label on #bg or #hud is under 13 px
+for SCP_Z in 320x568 390x844; do
+  scp_run "ticks-$SCP_Z" "$SCP_EVK" "$F/devices.json" "$SCP_Q" "${SCP_Z%x*}" "${SCP_Z#*x}"
+  SCP_R=$(scp_j ticks "$(scp_ev "$SCP_T-ticks-$SCP_Z.json")")
+  scp_row "scope $SCP_Z, 3 themes: the channel ticks do not touch, and no text drawn on #bg (ticks, lane names, ring labels) or #hud (labels) is under 13 px" "$SCP_R"
+done
 
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
@@ -562,4 +603,10 @@ scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePha
 # a note that never shows
 scp_mut note 's/el("sc-no").hidden = L >= SCOPE.minL;/el("sc-no").hidden = true;/' || SCP_MB="$SCP_MB note(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mnote "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320; [ "$(scp_j note "$(scp_ev "$SCP_T-mnote.json")")" != ok ] || SCP_MB="$SCP_MB note"; }
+# ticks that touch
+scp_mut ticks 's/if (t\[0\] - w < lx + 3) continue; //' || SCP_MB="$SCP_MB ticks(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mticks "$SCP_EVK" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j ticks "$(scp_ev "$SCP_T-mticks.json")")" != ok ] || SCP_MB="$SCP_MB ticks"; }
+# a lane too narrow to nudge in: the nudge turns over and puts a point outside its lane
+scp_mut nudge 's/ \&\& l.k1 - l.k0 > 2 \* f \/ t//' || SCP_MB="$SCP_MB nudge(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")" != ok ] || SCP_MB="$SCP_MB nudge"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
