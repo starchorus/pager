@@ -36,7 +36,7 @@
 # S9 one jq     : the Overview starts one jq process per screen render (--once: the one health probe on first use plus the
 #                screen's program; interactive: the probe once, then one program per CHANGED capture and none while the file is
 #                unchanged, a draw of it again by key A included); GEN moves only with `generated`. Driven by a stand-in
-#                WAIT_FOR_INPUT that answers A four times, the capture swapped at its third call (after the draw that call was armed
+#                WAIT_FOR_INPUT that answers A four times, the capture swapped at its third call (after the draw the call before led to
 #                with: the stand-in waits for that frame), then B (the stand-in LIST_PICKER leaves with exit 0): 3 jq, 5 renders,
 #                GEN 1 1 1 2 2, "Reading..." twice (the first draw and the one on the new capture), one stat probe, and no `timeout`
 #                before WAIT_FOR_INPUT: a logging stand-in `timeout` in front of jq sees the two program runs and nothing else. The replaced capture has the same size and lands in the same minute as the
@@ -49,7 +49,7 @@
 #                under the limit can be too slow: one killed from outside (exit 137, as by the out-of-memory killer) without it (--once never
 #                sets a limit, whether or not the box has a `timeout`) is no data, the waiting line, as it always was; the same 137 from a run
 #                under `timeout` is the slow verdict (a stand-in jq that exits 137 and the logging stand-in `timeout`).
-# S11 strikes   : three junk or empty answers in a row that come back within 1 s of their arm (or on a box with no clock) end the Overview (rc 0,
+# S11 strikes   : three junk or empty answers in a row that come back within 1 s of their wait being opened (or on a box with no clock) end the Overview (rc 0,
 #                one draw, three waits, no list); a known key in between starts the count again, and so does an answer that took 1 s or more
 #                (a slow UI is waited out, however often: no quitting to the menu by itself; 99 hundredths count, 100 do not); BACK, Escape and a
 #                lower-case b are B and a lower-case a is A, so none of them is a strike; the same words padded with spaces, a tab and a CR are the same keys. S12 updown: UP and DOWN cause no draw, no exit and no strike. S13 leftright: RIGHT and LEFT step
@@ -60,29 +60,36 @@
 # S14 notimeout : no code line of either copy puts `timeout` before WAIT_FOR_INPUT, and exactly one code line calls it (a killed UI command
 #                can leave a waiter in the UI daemon that swallows the next press); a detector self-check keeps the row from going green blind.
 # S15 armed     : the wait is open BEFORE the draw is (measured on the device, 16 October 2026: a press made while no wait is open is lost, and B
-#                is then taken by the Pager UI), and the draw ENDS with the first key (a wait takes one key, and a draw that went on would run
-#                with none open). A stand-in jq sleeps 2 s on the screen's program; the key stand-in answers the moment it has started
-#                ("@" words): the answer is taken and acted on at once (A: the screen again; B: the list; RIGHT: the next screen; UP: the same
-#                screen again, because its draw was cut), the jq of the ended draw is ended too and nothing of it is kept (the program runs
-#                again), also under a `timeout` that does not pass a signal on (the children of the `timeout` are ended first).
+#                is then taken by the Pager UI), and a draw ENDS for a key that asks for another screen. A stand-in jq sleeps 2 s on the screen's
+#                program; the key stand-in answers the moment it has started ("@" words): the answer is taken and acted on at once. B: the list;
+#                RIGHT, LEFT: the next / previous screen; the jq of the ended draw is ended too and nothing of it is kept (the next screen's
+#                program runs), also under a `timeout` that does not pass a signal on (the children of the `timeout` are ended first). A and UP
+#                are taken as well but leave the draw running (0.1.1 ended it on any key and drew the screen again): one whole draw, its jq not ended.
 # S16 frame     : every draw ends with `Last scan HH:MM:SS (N s ago)` (UTC, from `generated`) and `A: Refresh   B: Back`, the summary also with
 #                the page's address; older than three intervals the red `No new scan for N min.` takes the place of the time; with no capture
 #                since Start: the waiting line, the keys, no time, and one program run however often the screen is drawn (D5). The Bluetooth screen of
 #                radio-pair (fresh `generated`) ends with the same Last scan line and the keys, twelve lines at most: that line is the specification's
 #                'Last scan' of that screen (it dates the capture, not a scan window of its own; `--once` prints a screen without the frame).
 # S17 nopending: no waiter is left behind by a way out that is not a signal: B out of the list, three strikes, the payload gone after a key
-#                (a stand-in kills the fake payload while it answers) and gone before the first arm. The stand-in writes its pid to a file and
-#                kill -0 must fail for each; one pid per wait, so the row cannot pass on a run that never waited; and no Overview run of
-#                this drop-in leaves its temp dir (starchorus-ov.*) behind.
+#                (a stand-in kills the fake payload while it answers; the key reader has opened its next wait by then, which the exit ends) and
+#                gone before the first wait. The stand-in writes its pid to a file and kill -0 must fail for each; one pid per wait, so the row
+#                cannot pass on a run that never waited; and no Overview run of this drop-in leaves its temp dir (starchorus-ov.*) behind.
 # S18 trap      : the Overview ended by a signal while a stand-in waiter is pending (it holds for 30 s): TERM (exit 143) when the screen is
 #                drawn and the shell waits in take, HUP (129) likewise, TERM during the draw (the shell waits for its jq in `wait`, so its trap
 #                runs at once and ends the jq too); the waiter is gone within a second (3 s allowed for the draw), the temp dir is
 #                removed. The waiter must have been running and the dir there at the moment of the signal. Under sh and, when installed, dash.
 # S19 parent    : parent_gone starts no process (no sed or cut: a stand-in notes every one, against a control run) and reads the parent from
 #                field 4 of the shell's own stat file (a fake proc directory), also with a command name that holds spaces and brackets;
-#                another parent ends the Overview before it arms or draws; a stat file without a number there does not.
-# S20 keyerr    : a key file that cannot be written: an error dialog at the start (a read-only temp dir), a named failure later (the key file
-#                made read-only while the waiter runs), exit 1 in both, and not three empty answers; the temp dir is removed.
+#                another parent ends the Overview before it waits or draws; a stat file without a number there does not.
+# S20 keyerr    : a queue that cannot be written: an error dialog at the start (a read-only temp dir), a named failure later (the queue file
+#                made read-only while the key reader runs), exit 1 in both, and not three empty answers; the temp dir is removed.
+# S21 queue     : keys pressed in one draw are kept, in order, and none is lost: the UI as measured on the device (M1: a press is lost where no wait
+#                is open) with a presser that presses 0.1 s apart (RIGHT then B; X X A X X B; LEFT RIGHT RIGHT B). S22 aanswered: an A during a draw
+#                is answered by the finished draw (one screen, one jq run, however many A), an A after the screen draws it again. S23 bcut: a B
+#                during a draw ends it, the list opens, no wait is open while it shows. S24 lrcut: LEFT and RIGHT during a draw end it and switch
+#                screens; several in one draw skip the screens between. S25 udquiet: UP and DOWN during a draw change nothing and leave no residue.
+#                S26 reader: no waiter left by the key reader after A Up B, the payload gone at the second key, TERM and HUP with the third wait
+#                held, TERM 0 to 80 ms after the start; ov_cleanup holds no $!. S27 probe: the first draw's health probe ends on B, Left, Right.
 # The radio pair (Bluetooth screen, activity bars): S1 and S2 carry the new helper checks and the end-to-end checks of screen_bluetooth and screen_bands
 #                (so an edit of btlist, btco, bar8 or actbar, or one that lets a record of the wrong type through, is red there), S5 names them so they cannot
 #                be dropped, S9 counts one jq for the new screen, S13 walks eight screens and draws the Bluetooth screen of radio-pair whole.
@@ -337,26 +344,32 @@ else row "display no-regex pin: $DST_S8/$DST_X8 copies as expected" FAIL; DST_KE
 # ---- stand-ins of the device for S9 to S16 (generated): its LOG, LIST_PICKER and WAIT_FOR_INPUT, so that the script takes its device path
 # (it detects the device by LIST_PICKER), a counting "jq" in front of the real one, and the missing "stat".
 #   WAIT_FOR_INPUT answers one word of STARCHORUS_KEYS per call ("-", or no word left, = no answer at once, as a broken key path would
-#   behave). The Overview starts it in the BACKGROUND before it draws, and a draw ends with the first key that has come (it prints
-#   nothing more and ends the jq that is running), so WHEN the stand-in answers decides what a row sees. A plain word is a press made
-#   after the screen is complete, as a person's is: the stand-in first waits until the frame of the draw it was armed for is out, when
-#   that pass draws at all (the first, after A, a, LEFT or RIGHT, after a row was picked from the list, and after an early Up, Down or
-#   junk word that ended a draw: a pass that follows Up, Down or junk that came late draws nothing). Frames are counted in
+#   behave). The Overview's key reader calls it again as soon as it has an answer, and a draw ends only for a B, Left or Right that has
+#   come (it prints nothing more and ends the jq that is running), so WHEN the stand-in answers decides what a row sees. A plain word is
+#   a press made after the screen is complete, as a person's is: the stand-in first waits until the frame of the draw that the call
+#   before led to is out, when there is one (the first call, after A, a, LEFT or RIGHT, after a row was picked from the list, and after
+#   an early word of any kind: the draw it came in goes on, or is cut and the next screen is drawn, and either ends in a frame; after a
+#   plain Up, Down or junk word there is no draw and it answers at once). Frames are counted in
 #   STARCHORUS_OUT, the Overview's output, against the count at the end of the call before. A word with a leading "!" is a press made at
 #   once, wherever the draw is; one with a leading "@" a press made at "Reading...": it waits until the jq stand-in has started the
-#   screen's program (STARCHORUS_JQ_STARTED exists) and answers then. Both end the draw they come in; rows that use them make the draw
-#   long (the "sleepjq" stand-in), so that the answer lands inside it every time. It records its pid (one line per call) in
-#   STARCHORUS_PIDS. At call number STARCHORUS_SWAP_AT it replaces the capture atomically (copy, then rename), as the collector does
+#   screen's program (STARCHORUS_JQ_STARTED exists) and answers then, so that several "@" words are several keys in one draw. Rows
+#   that use them make the draw long (the "sleepjq" stand-in), so that the answers land inside it every time. It records its pid (one
+#   line per call) in STARCHORUS_PIDS. At call number STARCHORUS_SWAP_AT it replaces the capture atomically (copy, then rename), as the collector does
 #   (STARCHORUS_SWAP_TARGET: the file that is replaced when the Overview reads it through a link), after the wait for the frame, so the
 #   swap falls between two draws and not into one. STARCHORUS_GAPS (a file, one number of hundredths of a second per call) moves the
 #   uptime file under STARCHORUS_PROC on by that much before it answers, so the script sees a key that took that long.
 #   STARCHORUS_PAD=1: every answer comes padded as a device may print it, spaces and a tab around the word and a CR at the end.
 #   STARCHORUS_HOLD_AT=N: call N never answers, it becomes `sleep 30` (the same pid), a waiter nobody presses a key for.
 #   STARCHORUS_KILL_AT=N with STARCHORUS_KILL_PID (a file): call N ends that process (the fake payload), and waits until it is gone,
-#   before it answers. STARCHORUS_SABOTAGE_AT=N: call N makes the Overview's key file read-only (the shell cannot write the answer, as
-#   on a full file system), then answers.
+#   before it answers. STARCHORUS_SABOTAGE_AT=N: call N makes the Overview's queue file read-only (the reader cannot append the answer,
+#   as on a full file system), then answers.
+#   STARCHORUS_UISIM=DIR: the UI as measured (M1), instead of the words of STARCHORUS_KEYS: a call registers itself (DIR/open holds its
+#   pid) and waits for a press to be handed to it (DIR/press); the presser, a background process of the row, presses each key of its
+#   list at the delay given, and a key that finds no wait open is lost and noted in DIR/lost. Rows that use it ask: is a key pressed in
+#   a gap between two waits kept? A reader that opens its next wait at once finds one open every time.
 #   LIST_PICKER writes its arguments to the UI log and answers a line of STARCHORUS_PICKS (no line = exit 0 and no answer, a cancel); an
-#   answer marks that the next pass draws (the wait for the frame). ERROR_DIALOG writes its text to the UI log.
+#   answer marks that the next pass draws (the wait for the frame). It also notes how many of the pids in STARCHORUS_PIDS are alive
+#   (waits open while the list shows) in STARCHORUS_UI_LOG.open. ERROR_DIALOG writes its text to the UI log.
 #   Four "timeout" stand-ins live in directories of their own and join the PATH only where a row asks for one (macOS has no timeout):
 #   tmolog logs the command word and runs the command, tmokill also ends the command after the time and answers 124 as GNU and BusyBox
 #   do, tmofork runs the command as a child and waits for it, and does NOT end it when it is itself ended (the worst case of the
@@ -381,15 +394,17 @@ cat > "$DST_D/sleepjq/jq" <<'DSTSLEEP'
 # started (STARCHORUS_JQ_STARTED is touched; the "@" key words wait for that), notes its pid in STARCHORUS_JQ_PIDS, sleeps
 # STARCHORUS_JQ_SLEEP seconds (1 by default) and then runs the real jq. A TERM ends it at once and is noted in
 # STARCHORUS_JQ_STARTED.killed (the sleep is waited for, so the trap runs now and not after the sleep); a sleep that is ended from
-# outside (the Overview ends the children of a `timeout` first) ends it too. The health probe (no "-r") does not sleep.
+# outside (the Overview ends the children of a `timeout` first) ends it too. The health probe ("-n", no "-r") does not sleep, unless
+# STARCHORUS_JQ_PSLEEP gives it a time: it then starts, notes its pid and is ended like a program run.
 echo x >> "${STARCHORUS_JQ_COUNT:?}"
-case " $* " in *" -r "*)
+nap=; case " $* " in *" -r "*) nap=${STARCHORUS_JQ_SLEEP:-1} ;; *" -n "*) nap=${STARCHORUS_JQ_PSLEEP:-} ;; esac
+if [ -n "$nap" ]; then
   [ -z "${STARCHORUS_JQ_PIDS:-}" ] || echo "$$" >> "$STARCHORUS_JQ_PIDS"
   [ -z "${STARCHORUS_JQ_STARTED:-}" ] || : > "$STARCHORUS_JQ_STARTED"
-  sleep "${STARCHORUS_JQ_SLEEP:-1}" & sp=$!
+  sleep "$nap" & sp=$!
   trap '[ -z "${STARCHORUS_JQ_STARTED:-}" ] || : > "$STARCHORUS_JQ_STARTED.killed"; kill "$sp" 2>/dev/null; exit 143' TERM
-  wait "$sp" || { [ -z "${STARCHORUS_JQ_STARTED:-}" ] || : > "$STARCHORUS_JQ_STARTED.killed"; exit 143; } ;;
-esac
+  wait "$sp" || { [ -z "${STARCHORUS_JQ_STARTED:-}" ] || : > "$STARCHORUS_JQ_STARTED.killed"; exit 143; }
+fi
 exec "${STARCHORUS_REAL_JQ:?}" "$@"
 DSTSLEEP
 cat > "$DST_D/killjq/jq" <<'DSTKILL'
@@ -406,6 +421,9 @@ cat > "$DST_D/dev9/LIST_PICKER" <<'DSTPICK'
 #!/bin/sh
 # generated by tools/regress.d/display-selftest.sh -- the arguments to the UI log, then the answer of line N of STARCHORUS_PICKS, if any
 { printf 'PICKER'; for a in "$@"; do printf '|%s' "$a"; done; echo; } >> "${STARCHORUS_UI_LOG:-/dev/null}"
+if [ -n "${STARCHORUS_PIDS:-}" ] && [ -r "$STARCHORUS_PIDS" ] && [ -n "${STARCHORUS_UI_LOG:-}" ]; then   # how many waits are open while the list shows
+  o=0; while read -r p; do if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then o=$((o + 1)); fi; done < "$STARCHORUS_PIDS"; echo "$o" >> "$STARCHORUS_UI_LOG.open"
+fi
 n=$(cat "${STARCHORUS_PICKS_N:-/dev/null}" 2>/dev/null || echo 0); n=$((n + 1)); [ -z "${STARCHORUS_PICKS_N:-}" ] || echo "$n" > "$STARCHORUS_PICKS_N"
 a=; [ -z "${STARCHORUS_PICKS:-}" ] || a=$(sed -n "${n}p" "$STARCHORUS_PICKS")
 [ -z "$a" ] || { : > "${STARCHORUS_CALLS:?}.picked"; printf '%s\n' "$a"; }   # a row was picked: the next pass draws
@@ -420,13 +438,23 @@ DSTERR
 cat > "$DST_D/dev9/WAIT_FOR_INPUT" <<'DSTWAIT'
 #!/bin/sh
 # generated by tools/regress.d/display-selftest.sh -- see the comment above it there
+if [ -n "${STARCHORUS_UISIM:-}" ]; then   # the UI model: registered first, so that the gap between two waits is as short as it can be; a press is handed to the wait that is open
+  echo "$$" > "$STARCHORUS_UISIM/open"
+  echo "$$" >> "${STARCHORUS_PIDS:-/dev/null}"
+  n=$(cat "${STARCHORUS_CALLS:?}" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STARCHORUS_CALLS"
+  echo "WAIT $n" >> "${STARCHORUS_UI_LOG:-/dev/null}"
+  trap 'rm -f "$STARCHORUS_UISIM/open"; exit 143' TERM
+  while [ ! -s "$STARCHORUS_UISIM/press" ]; do sleep 0.01 & wait $!; done
+  k=$(cat "$STARCHORUS_UISIM/press"); rm -f "$STARCHORUS_UISIM/press" "$STARCHORUS_UISIM/open"
+  echo "$k"; exit 0
+fi
 echo "$$" >> "${STARCHORUS_PIDS:-/dev/null}"
 n=$(cat "${STARCHORUS_CALLS:?}" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STARCHORUS_CALLS"
 echo "WAIT $n" >> "${STARCHORUS_UI_LOG:-/dev/null}"
 [ "$n" != "${STARCHORUS_HOLD_AT:-0}" ] || exec sleep 30
 k=$(sed -n "${n}p" "${STARCHORUS_KEYS:?}")
 pk=; [ "$n" -le 1 ] || pk=$(sed -n "$(($n - 1))p" "$STARCHORUS_KEYS")
-# when is the press made: "!" at once, "@" once the jq of the screen's program runs, else after the draw this wait was armed for
+# when is the press made: "!" at once, "@" once the jq of the screen's program runs, else after the draw the call before led to
 when=late; case $k in '!'*) when=now; k=${k#!} ;; '@'*) when=jq; k=${k#@} ;; esac
 pwhen=late; case $pk in '!'*) pwhen=now; pk=${pk#!} ;; '@'*) pwhen=jq; pk=${pk#@} ;; esac
 fc() { grep -c '^LOG A: Refresh   B: Back$' "${STARCHORUS_OUT:?}"; }
@@ -446,7 +474,7 @@ if [ "$n" = "${STARCHORUS_KILL_AT:-0}" ]; then
   p=$(cat "${STARCHORUS_KILL_PID:?}"); kill "$p" 2>/dev/null
   w=0; while kill -0 "$p" 2>/dev/null && [ "$w" -lt 100 ]; do sleep 0.05; w=$((w + 1)); done
 fi
-if [ "$n" = "${STARCHORUS_SABOTAGE_AT:-0}" ]; then for d in "${TMPDIR:-/tmp}"/starchorus-ov.*/key; do chmod 444 "$d" 2>/dev/null; done; fi
+if [ "$n" = "${STARCHORUS_SABOTAGE_AT:-0}" ]; then for d in "${TMPDIR:-/tmp}"/starchorus-ov.*/queue; do chmod 444 "$d" 2>/dev/null; done; fi
 if [ -n "${STARCHORUS_GAPS:-}" ] && [ -r "${STARCHORUS_PROC:-/nonexistent}/uptime" ]; then
   g=$(sed -n "${n}p" "$STARCHORUS_GAPS"); g=${g:-0}
   read -r u _ < "$STARCHORUS_PROC/uptime"; i=${u%%.*}; f=${u#*.}; cs=$((i * 100 + ${f#0} + g))
@@ -510,12 +538,26 @@ echo "$$" > "${STARCHORUS_KILL_PID:?}"
 STARCHORUS_PARENT_PID=$$ sh "$@"
 exit $?
 DSTPAYLOAD
+cat > "$DST_D/presser" <<'DSTPRESS'
+#!/bin/sh
+# generated by tools/regress.d/display-selftest.sh -- presser SIMDIR TRIGGER "DELAY:KEY DELAY:KEY ...": the person at the keys, for the UI model of the
+# WAIT_FOR_INPUT stand-in (STARCHORUS_UISIM). It waits until the file TRIGGER exists (15 s at most), then presses each key DELAY seconds after the
+# one before. A key goes to the wait that is open (SIMDIR/open holds the pid of a live process) and is lost, and noted in SIMDIR/lost, when none is.
+sim=$1; trig=$2; spec=$3
+n=0; while [ ! -e "$trig" ] && [ "$n" -lt 1500 ]; do sleep 0.01; n=$((n + 1)); done
+for p in $spec; do
+  sleep "${p%%:*}"; k=${p#*:}
+  o=$(cat "$sim/open" 2>/dev/null)
+  if [ -n "$o" ] && kill -0 "$o" 2>/dev/null; then echo "$k" > "$sim/press.new" && mv "$sim/press.new" "$sim/press"
+  else echo "$k" >> "$sim/lost"; fi
+done
+DSTPRESS
 cat > "$DST_D/dev9/stat" <<'DSTSTAT'
 #!/bin/sh
 echo "$*" >> "${STARCHORUS_STAT_LOG:?}"
 exit 1
 DSTSTAT
-chmod +x "$DST_D/cnt/jq" "$DST_D/slowjq/jq" "$DST_D/sleepjq/jq" "$DST_D/killjq/jq" "$DST_D/dev9/LOG" "$DST_D/dev9/LIST_PICKER" "$DST_D/dev9/WAIT_FOR_INPUT" "$DST_D/dev9/ERROR_DIALOG" "$DST_D/dev9/stat" "$DST_D/payload" \
+chmod +x "$DST_D/cnt/jq" "$DST_D/slowjq/jq" "$DST_D/sleepjq/jq" "$DST_D/killjq/jq" "$DST_D/dev9/LOG" "$DST_D/dev9/LIST_PICKER" "$DST_D/dev9/WAIT_FOR_INPUT" "$DST_D/dev9/ERROR_DIALOG" "$DST_D/dev9/stat" "$DST_D/payload" "$DST_D/presser" \
          "$DST_D/tmolog/timeout" "$DST_D/tmokill/timeout" "$DST_D/tmofork/timeout" "$DST_D/rodir/mktemp" "$DST_D/forkcnt/sed" "$DST_D/forkcnt/cut"
 
 # dst_ov TAG COPY "KEYS" [VAR=value ...]: the Overview of COPY on the device path against the stand-ins, one answer per word of KEYS. Files
@@ -524,22 +566,36 @@ chmod +x "$DST_D/cnt/jq" "$DST_D/slowjq/jq" "$DST_D/sleepjq/jq" "$DST_D/killjq/j
 # TMPDIR of the run: the Overview's own temp dir lives there, and DST_OVLEFT adds up what a run left in it). The PATH is $DST_OVPATH in front of
 # the stand-ins; the extra VAR=value words go to the script's environment last, so they override; the shell is $DST_OVSH, else sh.
 # STARCHORUS_PROC points at an empty directory unless a row says otherwise: no /proc/uptime, no clock, so a Linux dev machine's own uptime
-# cannot make the script judge an answer by time. Exit status in DST_RC.
+# cannot make the script judge an answer by time. Exit status in DST_RC. DST_OVDL (seconds): a deadline; an Overview that has not ended by
+# then is ended with TERM (and KILL a moment later) and the status is 124, so a row whose Overview waits for a key that never comes (a
+# press that was lost) ends as a failure and not as a hang.
 DST_OVLEFT=0; DST_OVRUNS=0
 dst_ovleft() { _dst_c=0; for _dst_f in "$1"/starchorus-ov.*; do [ -e "$_dst_f" ] && _dst_c=$((_dst_c + 1)); done; echo "$_dst_c"; }   # dst_ovleft DIR: Overview temp dirs in DIR
-dst_ov() {
-  _o_t=$1; _o_c=$2; _o_k=$3; shift 3
-  # shellcheck disable=SC2086   # one answer per word, on purpose
-  printf '%s\n' $_o_k > "$DST_D/$_o_t.keys"
-  rm -f "$DST_D/$_o_t.calls" "$DST_D/$_o_t.pids"; : > "$DST_D/$_o_t.ui"; : > "$DST_D/$_o_t.jq"; : > "$DST_D/$_o_t.stat"
-  rm -rf "$DST_D/$_o_t.tmp"; mkdir -p "$DST_D/$_o_t.tmp"
-  cp "${DST_OVSRC:-$F/many-clients.json}" "$DST_D/$_o_t.json"
+dst_ovrun() {   # the Overview itself, in the environment of dst_ov (_o_t, _o_c are its)
   env PATH="${DST_OVPATH:+$DST_OVPATH:}$DST_D/dev9:$DST_D/cnt:$PATH" STARCHORUS_REAL_JQ="$DST_JQ" STARCHORUS_JQ_COUNT="$DST_D/$_o_t.jq" \
       STARCHORUS_KEYS="$DST_D/$_o_t.keys" STARCHORUS_CALLS="$DST_D/$_o_t.calls" STARCHORUS_UI_LOG="$DST_D/$_o_t.ui" \
       STARCHORUS_OUT="$DST_D/$_o_t.out" STARCHORUS_PIDS="$DST_D/$_o_t.pids" TMPDIR="$DST_D/$_o_t.tmp" \
       STARCHORUS_STAT_LOG="$DST_D/$_o_t.stat" STARCHORUS_JSON="$DST_D/$_o_t.json" STARCHORUS_DIR="$DST_D/none" \
-      STARCHORUS_PROC="$DST_D/noproc" "$@" "${DST_OVSH:-sh}" "$_o_c" > "$DST_D/$_o_t.out" 2>&1
-  DST_RC=$?
+      STARCHORUS_PROC="$DST_D/noproc" "$@" "${DST_OVSH:-sh}" "$_o_c"
+}
+dst_ov() {
+  _o_t=$1; _o_c=$2; _o_k=$3; shift 3
+  # shellcheck disable=SC2086   # one answer per word, on purpose
+  printf '%s\n' $_o_k > "$DST_D/$_o_t.keys"
+  rm -f "$DST_D/$_o_t.calls" "$DST_D/$_o_t.pids" "$DST_D/$_o_t.ui.open"; : > "$DST_D/$_o_t.ui"; : > "$DST_D/$_o_t.jq"; : > "$DST_D/$_o_t.stat"
+  rm -rf "$DST_D/$_o_t.tmp"; mkdir -p "$DST_D/$_o_t.tmp"
+  cp "${DST_OVSRC:-$F/many-clients.json}" "$DST_D/$_o_t.json"
+  if [ -z "${DST_OVDL:-}" ]; then
+    dst_ovrun "$@" > "$DST_D/$_o_t.out" 2>&1
+    DST_RC=$?
+  else
+    dst_ovrun "$@" > "$DST_D/$_o_t.out" 2>&1 &
+    _o_p=$!; _o_w=0
+    while kill -0 "$_o_p" 2>/dev/null && [ "$_o_w" -lt $((DST_OVDL * 10)) ]; do sleep 0.1; _o_w=$((_o_w + 1)); done
+    if kill -0 "$_o_p" 2>/dev/null; then
+      kill "$_o_p" 2>/dev/null; sleep 0.5; kill -9 "$_o_p" 2>/dev/null; wait "$_o_p" 2>/dev/null; DST_RC=124
+    else wait "$_o_p"; DST_RC=$?; fi
+  fi
   DST_OVRUNS=$((DST_OVRUNS + 1)); DST_OVLEFT=$((DST_OVLEFT + $(dst_ovleft "$DST_D/$_o_t.tmp")))
 }
 dst_alive() {   # dst_alive FILE: how many of the pids listed in FILE (one per line) are still there
@@ -654,7 +710,7 @@ for DST_E in $DST_COPIES; do
   DST_A=$(dst_views "$DST_D/s11b-$DST_G.out"); DST_AW=$(dst_ui WAIT "s11b-$DST_G"); DST_AP=$(dst_ui PICKER "s11b-$DST_G")
   if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP" != 0/ss/6/1 ]; then DST_L11="$DST_L11 two strikes, A, two strikes, B: rc $DST_RC, screens '$DST_A' (want ss), $DST_AW waits (want 6), $DST_AP lists (want 1);"; fi
   # with a clock (the WAIT_FOR_INPUT stand-in moves /proc/uptime on by STARCHORUS_GAPS hundredths per wait; the display judges the time from the
-  # arm to the end of the wait, which the waiter's own clock gives it). The first wait is an A that took 1.5 s: it redraws from the cache, so
+  # the wait being opened to its end, which the key reader's own clock gives it). The first wait is an A that took 1.5 s: it redraws from the cache, so
   # nothing is read, and the answers after it are judged by their own time alone.
   # tag|keys|gaps|waits|screens|lists
   for DST_Q in "slowempty|A - - - - - - B|150 150 150 150 150 150 150 150|8|ss|1" "slowjunk|A X Y Z Q X B|150 150 150 150 150 150 150|7|ss|1" \
@@ -792,24 +848,26 @@ done
 if [ "$DST_S14" = "$DST_X14" ]; then row "display notimeout: no code line puts timeout before WAIT_FOR_INPUT, one code line calls it ($DST_X14 copies)" PASS
 else row "display notimeout: $DST_S14/$DST_X14 copies as expected" FAIL; DST_KEEP=1; fi
 
-# ---- S15 armed: the key wait is open before the draw is, and the draw ends with the first key. A jq stand-in sleeps 2 s on the screen's program, and the
-# key stand-in answers with a "@" word, the moment that program has started: a press at "Reading...", whenever the machine happens to be
-# slow or fast. Four things follow from the design, and each is looked at: (1) the answer is taken (the wait was open while the draw ran): A gives a
-# second draw, B opens the list, RIGHT draws the next screen; (2) the draw it came in ended: its jq was ended (the stand-in notes
-# .killed; it would have run 1 s more) and no heading of that screen is printed; (3) nothing of that run was kept: the same screen's program runs
-# again in the draw that follows (a cut run is no verdict on the capture), so A shows 3 jq (the probe, the ended run, the second run) and not 2;
-# (4) an Up that came in a draw that was cut draws that screen again, as no half screen is to stay as the last thing on the console.
-# (6) the ended draw prints no more once the key has come: no "Waiting for the first scan." (what a screen says when its jq has nothing to show, and
-# that is what an ended jq looks like to it) and no frame, so the frames are those of the whole draws alone.
-# tag|keys|screens|waits|lists|jq processes|Reading... lines|frames. The probe and a program run are one jq each; "Reading..." comes once per draw
-# that has to run jq (the ended draw has it too; RIGHT's second screen has a program of its own).
+# ---- S15 armed: the key wait is open before the draw is, and a draw ends for a key that asks for another screen. A jq stand-in sleeps 2 s on the screen's
+# program, and the key stand-in answers with a "@" word, the moment that program has started: a press at "Reading...", whenever the machine happens to be
+# slow or fast. Five things follow from the design, and each is looked at: (1) the answer is taken (the wait was open while the draw ran): B opens the
+# list, RIGHT draws the next screen, and A and UP are taken as well, without a second draw; (2) the draw a B or a RIGHT came in ended: its jq was ended (the
+# stand-in notes .killed; it would have run 1 s more) and no heading of that screen is printed; (3) nothing of that run was kept: the next screen's program
+# runs in the draw that follows, so RIGHT shows 3 jq (the probe, the ended run, the run for the next screen); (4) an A or an Up that came in a draw does not
+# end it (0.1.1 ended the draw on any key and drew the screen again): the draw is whole, its jq is not ended, there is one run and no second draw
+# ("Reading..." once, one frame) and the B after it, pressed once that draw is complete, opens the list; (6) the ended draw prints no more once the key has
+# come: no "Waiting for the first scan." (what a screen says when its jq has nothing to show, and that is what an ended jq looks like to it) and no frame,
+# so the frames are those of the whole draws alone.
+# tag|keys|screens|waits|lists|jq processes|Reading... lines|frames|jq of the first draw ended. The probe and a program run are one jq each; "Reading..."
+# comes once per draw that has to run jq (the ended draw has it too; RIGHT's second screen has a program of its own).
 DST_S15=0; DST_X15=0
 for DST_E in $DST_COPIES; do
   DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X15=$((DST_X15 + 1)); DST_L15=""
-  for DST_Q in "A|@A B|s|2|1|3|2|1" "B|@B|-|1|1|2|1|0" "RIGHT|@RIGHT B|t|2|1|3|2|1" "UP|@UP B|s|2|1|3|2|1"; do
+  for DST_Q in "A|@A B|s|2|1|2|1|1|no" "B|@B|-|1|1|2|1|0|yes" "RIGHT|@RIGHT B|t|2|1|3|2|1|yes" "UP|@UP B|s|2|1|2|1|1|no" "LEFT|@LEFT B|a|2|1|3|2|1|yes"; do
     DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
     DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
-    DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); [ "$DST_QV" != - ] || DST_QV=
+    DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f9)
+    [ "$DST_QV" != - ] || DST_QV=
     DST_TG="s15-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
     DST_OVPATH="$DST_D/sleepjq"
     dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
@@ -817,15 +875,15 @@ for DST_E in $DST_COPIES; do
     DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG")
     DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq"); DST_AB=$(dst_cnt 'LOG Reading...' "$DST_D/$DST_TG.out"); DST_AD=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AD=yes
     DST_AN=$(dst_cnt 'LOG Waiting for the first scan.' "$DST_D/$DST_TG.out"); DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out")
-    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AB/$DST_AD/$DST_AN/$DST_AF" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QB/yes/0/$DST_QF" ]; then
-      DST_L15="$DST_L15 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), the jq of the first draw ended: $DST_AD (want yes), waiting lines $DST_AN (want 0), frames $DST_AF (want $DST_QF);"
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AB/$DST_AD/$DST_AN/$DST_AF" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QB/$DST_QD/0/$DST_QF" ]; then
+      DST_L15="$DST_L15 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), the jq of the first draw ended: $DST_AD (want $DST_QD), waiting lines $DST_AN (want 0), frames $DST_AF (want $DST_QF);"
     fi
   done
   # (5) a jq that is under a `timeout` which does not pass the signal on is ended all the same (the children of the `timeout` first), and so is the
-  # `timeout`: neither is there when the Overview ends; one run, A at "Reading..." then B
+  # `timeout`: neither is there when the Overview ends; one run, RIGHT at "Reading..." then B
   DST_TG="s15-$DST_G-tree"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed" "$DST_D/$DST_TG.jqp" "$DST_D/$DST_TG.tmp.pids"
   DST_OVPATH="$DST_D/tmofork:$DST_D/sleepjq"
-  dst_ov "$DST_TG" "$DST_C" "@A B" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_PIDS="$DST_D/$DST_TG.jqp" STARCHORUS_TMO_PIDS="$DST_D/$DST_TG.tmp.pids" STARCHORUS_JQ_SLEEP=3
+  dst_ov "$DST_TG" "$DST_C" "@RIGHT B" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_PIDS="$DST_D/$DST_TG.jqp" STARCHORUS_TMO_PIDS="$DST_D/$DST_TG.tmp.pids" STARCHORUS_JQ_SLEEP=3
   DST_OVPATH=
   DST_NJ=$(grep -c . "$DST_D/$DST_TG.jqp"); DST_AL=$(dst_alive "$DST_D/$DST_TG.jqp"); DST_NT=$(grep -c . "$DST_D/$DST_TG.tmp.pids"); DST_AT=$(dst_alive "$DST_D/$DST_TG.tmp.pids")
   DST_AD=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AD=yes
@@ -834,7 +892,7 @@ for DST_E in $DST_COPIES; do
   fi
   if [ -z "$DST_L15" ]; then DST_S15=$((DST_S15 + 1)); else echo "    armed, $DST_G copy:$DST_L15"; fi
 done
-if [ "$DST_S15" = "$DST_X15" ]; then row "display armed: the wait is open before the draw, a key at Reading... ends that draw (its jq is ended and not kept, also under a timeout that passes no signal on) and is acted on at once; an Up that cut a draw draws it again ($DST_X15 copies)" PASS
+if [ "$DST_S15" = "$DST_X15" ]; then row "display armed: the wait is open before the draw, a B, Left or Right at Reading... ends that draw (its jq is ended and not kept, also under a timeout that passes no signal on) and is acted on at once; an A or an Up leaves it running and asks for nothing more ($DST_X15 copies)" PASS
 else row "display armed: $DST_S15/$DST_X15 copies as expected" FAIL; DST_KEEP=1; fi
 
 # ---- S16 frame: every draw ends with the time of its scan (UTC, from `generated`) and its age, then `A: Refresh   B: Back`, and the summary alone
@@ -900,7 +958,8 @@ else row "display frame: $DST_S16/$DST_X16 copies as expected" FAIL; DST_KEEP=1;
 # must fail for every one of them; as many pids as waits, so a run that never waited proves nothing; and no Overview run of this drop-in leaves
 # its temp dir behind (every run above too: DST_OVLEFT adds them up). tag|keys|screens|waits: (a) A, then B out of the list, (b) three empty answers
 # at once (the strikes), (c) the payload gone after the first key: a fake payload runs the Overview as its child and the stand-in ends the payload
-# while it answers (the Overview must stop after that one wait, with no second waiter), (d) the payload gone before the first arm (a pid that is dead).
+# while it answers (the Overview must stop at that key; the key reader has opened its next wait by then, so there are two waits, and the second,
+# still pending, is ended by the Overview's exit: two pids, none alive), (d) the payload gone before the first wait (a pid that is dead).
 DST_S17=0; DST_X17=0
 for DST_E in $DST_COPIES; do
   DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X17=$((DST_X17 + 1)); DST_L17=""
@@ -913,7 +972,8 @@ for DST_E in $DST_COPIES; do
       DST_L17="$DST_L17 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want $DST_QV), $DST_AW waits (want $DST_QW), $DST_NP pids (want $DST_QW), $DST_AL still there (want 0);"
     fi
   done
-  # (c) the payload ends during the first wait; the Overview is a child of the fake payload and goes on alone
+  # (c) the payload ends during the first wait; the Overview is a child of the fake payload and goes on alone. The reader has started its second wait
+  # before the shell has taken the key and asked after the payload: it is pending when the Overview exits, and the exit must end it
   DST_TG="s17-$DST_G-gone"; DST_PF="$DST_D/$DST_TG.payload"; : > "$DST_PF"; DST_SAVE=$DST_OVLEFT
   DST_OVSH="$DST_D/payload"
   dst_ov "$DST_TG" "$DST_C" "A B" STARCHORUS_KILL_PID="$DST_PF" STARCHORUS_KILL_AT=1 2> /dev/null   # the shell's "Terminated" notice for the fake payload goes nowhere
@@ -922,8 +982,8 @@ for DST_E in $DST_COPIES; do
   DST_OVLEFT=$((DST_SAVE + $(dst_ovleft "$DST_D/$DST_TG.tmp")))
   DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG")
   DST_NP=$(grep -c . "$DST_D/$DST_TG.pids"); DST_AL=$(dst_alive "$DST_D/$DST_TG.pids")
-  if [ "$DST_A/$DST_AW/$DST_AP/$DST_NP/$DST_AL" != s/1/0/1/0 ]; then
-    DST_L17="$DST_L17 [payload gone after the first key] screens '$DST_A' (want s), $DST_AW waits (want 1), $DST_AP lists (want 0), $DST_NP pids (want 1), $DST_AL still there (want 0);"
+  if [ "$DST_A/$DST_AW/$DST_AP/$DST_NP/$DST_AL" != s/2/0/2/0 ]; then
+    DST_L17="$DST_L17 [payload gone after the first key] screens '$DST_A' (want s), $DST_AW waits (want 2), $DST_AP lists (want 0), $DST_NP pids (want 2), $DST_AL still there (want 0);"
   fi
   # (d) the payload is gone before the first arm: no draw, no wait
   DST_DEAD=$(sh -c 'echo $$')
@@ -935,7 +995,7 @@ for DST_E in $DST_COPIES; do
   if [ -z "$DST_L17" ]; then DST_S17=$((DST_S17 + 1)); else echo "    nopending, $DST_G copy:$DST_L17"; fi
 done
 if [ "$DST_S17" = "$DST_X17" ] && [ "$DST_OVLEFT" = 0 ]; then
-  row "display nopending: no waiter left after B out, three strikes, the payload gone after a key or before the first arm; no temp dir left by any of $DST_OVRUNS Overview runs ($DST_X17 copies)" PASS
+  row "display nopending: no waiter left after B out, three strikes, the payload gone after a key or before the first wait; no temp dir left by any of $DST_OVRUNS Overview runs ($DST_X17 copies)" PASS
 else row "display nopending: $DST_S17/$DST_X17 copies as expected, $DST_OVLEFT temp dir(s) left by $DST_OVRUNS runs" FAIL; DST_KEEP=1; fi
 
 # ---- S18 trap: the Overview ended by a signal while a waiter is pending. The stand-in holds its first wait for 30 s (it becomes `sleep 30`, same pid),
@@ -956,11 +1016,11 @@ dst_hupok() {   # dst_hupok SHELL [relaunch] -> 0 when a HUP trap works in SHELL
   else "$1" -c 'trap "exit 129" HUP; kill -HUP $$; exit 0' 2>/dev/null; fi
   dst_rc=$?; [ "$dst_rc" = 129 ]
 }
-dst_s18_start() {   # dst_s18_start SHELL COPY: the Overview of S18 in the background, its pid in DST_P
+dst_s18_start() {   # dst_s18_start SHELL COPY: the Overview of S18 in the background, its pid in DST_P; the call that holds is number DST_HOLD (1 by default)
   [ -z "$DST_HUPX" ] || set -- python3 "$DST_D/hupdfl.py" "$@"
   env PATH="$DST_PA" STARCHORUS_REAL_JQ="$DST_JQ" STARCHORUS_JQ_COUNT="$DST_D/$DST_TG.jq" \
       STARCHORUS_KEYS="$DST_D/$DST_TG.keys" STARCHORUS_CALLS="$DST_D/$DST_TG.calls" STARCHORUS_UI_LOG="$DST_D/$DST_TG.ui" \
-      STARCHORUS_OUT="$DST_D/$DST_TG.out" STARCHORUS_PIDS="$DST_D/$DST_TG.pids" TMPDIR="$DST_D/$DST_TG.tmp" STARCHORUS_HOLD_AT=1 \
+      STARCHORUS_OUT="$DST_D/$DST_TG.out" STARCHORUS_PIDS="$DST_D/$DST_TG.pids" TMPDIR="$DST_D/$DST_TG.tmp" STARCHORUS_HOLD_AT="${DST_HOLD:-1}" \
       STARCHORUS_STAT_LOG="$DST_D/$DST_TG.stat" STARCHORUS_JSON="$DST_D/$DST_TG.json" STARCHORUS_DIR="$DST_D/none" \
       STARCHORUS_PROC="$DST_D/noproc" "$@" > "$DST_D/$DST_TG.out" 2>&1 &
   DST_P=$!
@@ -985,7 +1045,7 @@ for DST_X in $DST_SHELLS; do
       DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"; [ "$DST_QV" != draw ] || DST_PA="$DST_D/sleepjq:$DST_PA"
       dst_s18_start "$DST_XP" "$DST_C"
       DST_W=0
-      while [ "$DST_W" -lt 200 ]; do   # the waiter is armed, and the screen is drawn (idle) or its jq program is running (draw)
+      while [ "$DST_W" -lt 200 ]; do   # the reader's wait is open, and the screen is drawn (idle) or its jq program is running (draw)
         if [ -s "$DST_D/$DST_TG.pids" ]; then
           if [ "$DST_QV" = idle ]; then grep -qxF 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out" && break
           else [ "$(grep -c x "$DST_D/$DST_TG.jq")" -ge 2 ] && break; fi
@@ -1010,9 +1070,9 @@ if [ "$DST_S18" = "$DST_N18" ]; then row "display trap: TERM and HUP while a wai
 else row "display trap: $DST_S18/$DST_N18 copy and shell combinations as expected ($DST_X18 runs)" FAIL; DST_KEEP=1; fi
 
 # ---- S19 parent: parent_gone starts no process (the old one ran sed and cut each time it was asked, twice per key, between a key being taken
-# and the next wait being armed) and reads the parent from field 4 of the stat file of its own shell. A fake proc directory (STARCHORUS_PROC) holds
+# and the next draw or nap) and reads the parent from field 4 of the stat file of its own shell. A fake proc directory (STARCHORUS_PROC) holds
 # self/stat with the parent the row wants: the payload's own pid (the Overview goes on) or another (it was handed over and ends before it draws or
-# arms anything). `sed` and `cut` stand-ins note every process started for them. The summary's own template line starts a few (that is the draw,
+# waits for anything). `sed` and `cut` stand-ins note every process started for them. The summary's own template line starts a few (that is the draw,
 # not the loop), so the count of a run with STARCHORUS_PARENT_PID set to a live process is compared with a control run of the same keys without it:
 # the same number, not one more per check. A command name with spaces and a bracket in it ("(a b) c)") is read right, and a stat file that has no
 # number in field 4 does not end the Overview (a dev machine has no /proc: the Overview then goes by the kill -0 alone).
@@ -1049,13 +1109,13 @@ done
 if [ "$DST_S19" = "$DST_X19" ]; then row "display parent: parent_gone starts no process and takes the parent from field 4 of the shell's own stat file; another parent ends it before it draws ($DST_X19 copies)" PASS
 else row "display parent: $DST_S19/$DST_X19 copies as expected" FAIL; DST_KEEP=1; fi
 
-# ---- S20 keyerr: the key file cannot be written. (a) At the start: the temp dir is read-only (a `mktemp` stand-in makes it so), the Overview says
-# "Overview could not start." in an error dialog, exits 1, arms and draws nothing, and the dir is gone. (b) Later: the stand-in makes the key file read-only
-# at its first wait, so the waiter's answer cannot be written and the file stays empty; that is not an empty answer (three of them would
+# ---- S20 keyerr: the queue cannot be written. (a) At the start: the temp dir is read-only (a `mktemp` stand-in makes it so), the Overview says
+# "Overview could not start." in an error dialog, exits 1, starts no reader and draws nothing, and the dir is gone. (b) Later: the stand-in makes the queue file read-only
+# at its first wait, so the reader's answer cannot be written and the queue stays empty; that is not an empty answer (three of them would
 # be three strikes, and the Overview would end in silence) but a failure, named in an error dialog: "Overview could not read a key.", exit 1,
 # no second wait. A read-only file is only a fault for a user who is not root, so the row is skipped for root.
 DST_S20=0; DST_X20=0
-if [ "$(id -u 2>/dev/null)" = 0 ]; then notcov "display keyerr: a key file that cannot be written (the row needs a user who is not root)"; else
+if [ "$(id -u 2>/dev/null)" = 0 ]; then notcov "display keyerr: a queue that cannot be written (the row needs a user who is not root)"; else
 for DST_E in $DST_COPIES; do
   DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X20=$((DST_X20 + 1)); DST_L20=""
   DST_TG="s20-$DST_G-start"; DST_OVPATH="$DST_D/rodir"
@@ -1074,9 +1134,316 @@ for DST_E in $DST_COPIES; do
   fi
   if [ -z "$DST_L20" ]; then DST_S20=$((DST_S20 + 1)); else echo "    keyerr, $DST_G copy:$DST_L20"; fi
 done
-if [ "$DST_S20" = "$DST_X20" ] && [ "$DST_OVLEFT" = 0 ]; then row "display keyerr: a key file that cannot be written is an error at the start or a named failure later, not three empty answers ($DST_X20 copies)" PASS
+if [ "$DST_S20" = "$DST_X20" ] && [ "$DST_OVLEFT" = 0 ]; then row "display keyerr: a queue that cannot be written is an error at the start or a named failure later, not three empty answers ($DST_X20 copies)" PASS
 else row "display keyerr: $DST_S20/$DST_X20 copies as expected, $DST_OVLEFT temp dir(s) left" FAIL; DST_KEEP=1; fi
 fi
 
+# ---- S21 queue: keys pressed in one draw are kept, in the order they were pressed, and none is lost. This row runs the UI as measured on the device (M1,
+# docs/device-notes.md section 7): a press reaches a wait that is open and is LOST when none is. A jq stand-in sleeps 2 s on the screen's program; the presser
+# starts when it has started and presses each key 0.1 s after the one before, so the keys fall into one draw and into the gap between one wait and the next (a
+# fork and an exec for a key reader that opens its next wait at once; 0.2 s and a jq to end for a shell that opens one wait per draw, whose second press is lost).
+# Cases: (rightb) RIGHT, B: the list opens on the screen that RIGHT asked for ("Strongest Networks"), and no screen is drawn; (order) X X A X X B: two strikes,
+# an A, two strikes, a B; in that order there are never three strikes in a row, so the list opens, where a queue that mixed the order up (X X X X A) would end the
+# Overview at the third X; (three) LEFT, RIGHT, RIGHT, B: three steps and then the list on the screen they lead to. Every press must be taken: nothing in DIR/lost.
+# tag|presses|waits|list default
+DST_S21=0; DST_X21=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X21=$((DST_X21 + 1)); DST_L21=""
+  for DST_Q in "rightb|0:RIGHT 0.1:B|2|Strongest Networks" "order|0:X 0.1:X 0.1:A 0.1:X 0.1:X 0.1:B|6|Summary" "three|0:LEFT 0.1:RIGHT 0.1:RIGHT 0.1:B|4|Strongest Networks"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QP=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f4)
+    DST_TG="s21-$DST_G-$DST_QT"; rm -rf "$DST_D/$DST_TG.sim" "$DST_D/$DST_TG.st"; mkdir -p "$DST_D/$DST_TG.sim"
+    "$DST_D/presser" "$DST_D/$DST_TG.sim" "$DST_D/$DST_TG.st" "$DST_QP" & DST_PR=$!
+    DST_OVPATH="$DST_D/sleepjq"; DST_OVDL=15
+    dst_ov "$DST_TG" "$DST_C" "-" STARCHORUS_UISIM="$DST_D/$DST_TG.sim" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
+    DST_OVPATH=; DST_OVDL=
+    { kill "$DST_PR"; wait "$DST_PR"; } 2>/dev/null
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG")
+    DST_AD=$(grep '^PICKER' "$DST_D/$DST_TG.ui" | sed -n 1p); DST_AD=${DST_AD##*|}
+    DST_LO=$(tr '\n' ' ' 2>/dev/null < "$DST_D/$DST_TG.sim/lost"); DST_LO=${DST_LO% }
+    if [ "$DST_RC/$DST_AW/$DST_AP/$DST_AD/$DST_A/$DST_LO" != "0/$DST_QW/1/$DST_QD//" ]; then
+      DST_L21="$DST_L21 [$DST_QT: presses $DST_QP] rc $DST_RC, $DST_AW waits (want $DST_QW), $DST_AP lists (want 1), list on '$DST_AD' (want '$DST_QD'), screens '$DST_A' (want none), presses lost '$DST_LO' (want none);"
+    fi
+  done
+  if [ -z "$DST_L21" ]; then DST_S21=$((DST_S21 + 1)); else echo "    queue, $DST_G copy:$DST_L21"; fi
+done
+if [ "$DST_S21" = "$DST_X21" ]; then row "display queue: keys pressed 0.1 s apart in one draw are all taken and acted on in the order they came (RIGHT then B opens the list on the next screen; X X A X X B does not end on three strikes; LEFT RIGHT RIGHT B; $DST_X21 copies)" PASS
+else row "display queue: $DST_S21/$DST_X21 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S22 aanswered: an A pressed during a draw is answered by that draw once it is finished: one draw, one jq run, no second screen, however many A there are
+# (0.1.1 ended the draw on the A and drew the screen again, which started jq again, so on a slow capture an impatient A never showed a screen). The "@" words
+# press at "Reading..." (the jq stand-in sleeps 2 s on the program); the plain word after them is pressed once the screen is complete. An A pressed then, and not
+# before, draws the screen again: from the cache, with no jq. tag|keys|screens|waits|lists|jq processes|Reading... lines|frames|jq ended
+DST_S22=0; DST_X22=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X22=$((DST_X22 + 1)); DST_L22=""
+  for DST_Q in "one|@A B|s|2|1|2|1|1|no" "three|@A @A @A B|s|4|1|2|1|1|no" "later|@A A B|ss|3|1|2|1|2|no"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f9)
+    DST_TG="s22-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
+    DST_OVPATH="$DST_D/sleepjq"
+    dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
+    DST_OVPATH=
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG"); DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq")
+    DST_AB=$(dst_cnt 'LOG Reading...' "$DST_D/$DST_TG.out"); DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out")
+    DST_AE=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AE=yes
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AB/$DST_AF/$DST_AE" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QB/$DST_QF/$DST_QD" ]; then
+      DST_L22="$DST_L22 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), frames $DST_AF (want $DST_QF), jq ended: $DST_AE (want $DST_QD);"
+    fi
+  done
+  if [ -z "$DST_L22" ]; then DST_S22=$((DST_S22 + 1)); else echo "    aanswered, $DST_G copy:$DST_L22"; fi
+done
+if [ "$DST_S22" = "$DST_X22" ]; then row "display aanswered: an A pressed during a draw is answered by the finished draw (one screen, one jq run, whether one A or three); an A after the screen draws it again from the cache ($DST_X22 copies)" PASS
+else row "display aanswered: $DST_S22/$DST_X22 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S23 bcut: a B pressed during a draw ends it at once and goes up: the jq of the draw is ended (the stand-in notes it), nothing of the screen is printed, the list
+# opens on that screen, and no wait is open while it shows (the key reader ended itself on the B; a wait open under the list would share the picker's keys: the
+# picker stand-in counts the live pids of STARCHORUS_PIDS into UI_LOG.open). Cases: (b) the B alone; (upab) Up, A, B in one draw: the Up is ignored, the A is
+# answered by nothing (the draw it came in is cut by the B), the B wins; (idle) a B pressed once the screen is complete: the draw is whole, then the list.
+# tag|keys|screens|waits|lists|jq processes|Reading... lines|frames|jq ended|waits open at the list
+DST_S23=0; DST_X23=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X23=$((DST_X23 + 1)); DST_L23=""
+  for DST_Q in "b|@B|-|1|1|2|1|0|yes|0" "upab|@UP @A @B|-|3|1|2|1|0|yes|0" "idle|B|s|1|1|2|1|1|no|0"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f9)
+    DST_QO=$(printf '%s' "$DST_Q" | cut -d'|' -f10); [ "$DST_QV" != - ] || DST_QV=
+    DST_TG="s23-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
+    DST_OVPATH="$DST_D/sleepjq"
+    dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
+    DST_OVPATH=
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG"); DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq")
+    DST_AB=$(dst_cnt 'LOG Reading...' "$DST_D/$DST_TG.out"); DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out")
+    DST_AE=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AE=yes
+    DST_AO=$(tr '\n' ' ' 2>/dev/null < "$DST_D/$DST_TG.ui.open"); DST_AO=${DST_AO% }
+    DST_AD=$(grep '^PICKER' "$DST_D/$DST_TG.ui" | sed -n 1p); DST_AD=${DST_AD##*|}
+    DST_AN=$(dst_cnt 'LOG Waiting for the first scan.' "$DST_D/$DST_TG.out")
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AB/$DST_AF/$DST_AE/$DST_AO/$DST_AD/$DST_AN" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QB/$DST_QF/$DST_QD/$DST_QO/Summary/0" ]; then
+      DST_L23="$DST_L23 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), frames $DST_AF (want $DST_QF), jq ended: $DST_AE (want $DST_QD), waits open at the list '$DST_AO' (want $DST_QO), list on '$DST_AD' (want Summary), waiting lines $DST_AN (want 0);"
+    fi
+  done
+  if [ -z "$DST_L23" ]; then DST_S23=$((DST_S23 + 1)); else echo "    bcut, $DST_G copy:$DST_L23"; fi
+done
+if [ "$DST_S23" = "$DST_X23" ]; then row "display bcut: a B pressed during a draw ends it at once (its jq is ended, nothing of the screen is printed) and opens the list, with no wait open while it shows; an Up and an A before it change nothing ($DST_X23 copies)" PASS
+else row "display bcut: $DST_S23/$DST_X23 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S24 lrcut: LEFT and RIGHT pressed during a draw end it at once and switch screens, in the order of the list and round its ends. Two or more in one draw skip the
+# screens between: they are not drawn at all (no heading, no frame), the last is drawn whole, and the list a B opens next has its cursor on it. How many jq runs and
+# "Reading..." lines the skipped screens cost depends on whether the second press is in the queue before the shell looks (a few milliseconds apart), so those two
+# are counted for a single press only ("x" = not looked at). tag|keys|screens|waits|lists|list default|jq processes|Reading... lines|frames
+DST_S24=0; DST_X24=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X24=$((DST_X24 + 1)); DST_L24=""
+  for DST_Q in "right|@RIGHT B|t|2|1|Strongest Networks|3|2|1" "left|@LEFT B|a|2|1|Air Quality|3|2|1" "twice|@RIGHT @RIGHT B|b|3|1|Bands & Security|x|x|1" \
+               "round|@LEFT @RIGHT @RIGHT B|t|4|1|Strongest Networks|x|x|1"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f8); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f9)
+    DST_TG="s24-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
+    DST_OVPATH="$DST_D/sleepjq"
+    dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
+    DST_OVPATH=
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG"); DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq")
+    DST_AB=$(dst_cnt 'LOG Reading...' "$DST_D/$DST_TG.out"); DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out")
+    DST_AE=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AE=yes
+    DST_AD=$(grep '^PICKER' "$DST_D/$DST_TG.ui" | sed -n 1p); DST_AD=${DST_AD##*|}
+    [ "$DST_QJ" != x ] || DST_AJ=x; [ "$DST_QB" != x ] || DST_AB=x
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AD/$DST_AJ/$DST_AB/$DST_AF/$DST_AE" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QD/$DST_QJ/$DST_QB/$DST_QF/yes" ]; then
+      DST_L24="$DST_L24 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), list on '$DST_AD' (want '$DST_QD'), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), frames $DST_AF (want $DST_QF), jq of the first draw ended: $DST_AE (want yes);"
+    fi
+  done
+  if [ -z "$DST_L24" ]; then DST_S24=$((DST_S24 + 1)); else echo "    lrcut, $DST_G copy:$DST_L24"; fi
+done
+if [ "$DST_S24" = "$DST_X24" ]; then row "display lrcut: LEFT and RIGHT pressed during a draw end it at once and switch screens, round the ends; several in one draw skip the screens between, which are not drawn ($DST_X24 copies)" PASS
+else row "display lrcut: $DST_S24/$DST_X24 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S25 udquiet: UP and DOWN pressed during a draw change nothing: the draw runs to its end, whole (its jq is not ended), nothing is drawn again, they are no strikes
+# (five of them in a row would be, were they counted), and they are not left in the queue: an A pressed after the screen is complete draws it once more, from the
+# cache, exactly as if they had never come. tag|keys|screens|waits|lists|jq processes|Reading... lines|frames|jq ended
+DST_S25=0; DST_X25=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X25=$((DST_X25 + 1)); DST_L25=""
+  for DST_Q in "updown|@UP @DOWN @UP @DOWN @UP B|s|6|1|2|1|1|no" "thena|@UP @DOWN A B|ss|4|1|2|1|2|no"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QB=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f9)
+    DST_TG="s25-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
+    DST_OVPATH="$DST_D/sleepjq"
+    dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_SLEEP=2
+    DST_OVPATH=
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG"); DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq")
+    DST_AB=$(dst_cnt 'LOG Reading...' "$DST_D/$DST_TG.out"); DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out")
+    DST_AE=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AE=yes
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AB/$DST_AF/$DST_AE" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QB/$DST_QF/$DST_QD" ]; then
+      DST_L25="$DST_L25 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), Reading... $DST_AB (want $DST_QB), frames $DST_AF (want $DST_QF), jq ended: $DST_AE (want $DST_QD);"
+    fi
+  done
+  if [ -z "$DST_L25" ]; then DST_S25=$((DST_S25 + 1)); else echo "    udquiet, $DST_G copy:$DST_L25"; fi
+done
+if [ "$DST_S25" = "$DST_X25" ]; then row "display udquiet: UP and DOWN pressed during a draw leave it running and change nothing: one whole draw, no strike, no residue (a later A draws once more from the cache) ($DST_X25 copies)" PASS
+else row "display udquiet: $DST_S25/$DST_X25 copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S26 reader: no waiter is left behind by the key reader, however the Overview ends, and the cleanup names the pids the reader knows. The reader has a wait open at
+# every moment a key is not being answered, so each way out is tried with a wait pending after keys that were answered (S17 and S18 do it with the first wait only):
+# (a) A, Up, B: the reader ends itself on the B; three waits, none alive, none open while the list shows; (b) the payload gone at the second key: the third wait, opened
+# by the reader at once, is pending when the Overview exits, and the exit ends it; (c) TERM, and HUP as S18 does it (its relauncher under nohup, kept), with the third wait
+# held for 30 s: all three pids gone within a second, the temp dir removed, exit 143 and 129, under sh and, when installed, dash; (d) TERM 0 to 80 ms after the start,
+# whatever the Overview is doing then (setting its traps, making its directory, forking the reader): it ends, and no waiter and no directory are left; (e) ov_cleanup
+# holds no `$!`: it takes the reader's pid from OV_RPID and its wait from the file the reader writes (a text check, with a detector self-check); (f) the shell
+# killed with KILL, where no cleanup runs: when the reader's pending wait ends, the reader finds its shell gone, opens no other wait and ends.
+DST_S26=0; DST_X26=0; DST_Y26=0; DST_HUPNOTE26=""
+dst_fn() { awk -v n="$1" 'index($0, n "() {") == 1 { f = 1 } f { print } f && /^}/ { exit }'; }   # dst_fn NAME: the text of that shell function from a script on stdin
+# shellcheck disable=SC2016   # the planted text is literal script text
+DST_PL=$(printf '%s\n' 'ov_cleanup() {' '    ov_last=$!' '}' | dst_fn ov_cleanup | dst_code | grep -c '\$!')
+# shellcheck disable=SC2016
+DST_PC=$(printf '%s\n' 'ov_cleanup() {' '    # not $! here' '    kill "$OV_RPID"' '}' | dst_fn ov_cleanup | dst_code | grep -c '\$!')
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X26=$((DST_X26 + 1)); DST_L26=""
+  # (a) the reader ends itself on the B: three waits, all gone, none open while the list shows
+  DST_TG="s26-$DST_G-b"
+  dst_ov "$DST_TG" "$DST_C" "A UP B"
+  DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_NP=$(grep -c . "$DST_D/$DST_TG.pids"); DST_AL=$(dst_alive "$DST_D/$DST_TG.pids")
+  DST_AO=$(tr '\n' ' ' 2>/dev/null < "$DST_D/$DST_TG.ui.open"); DST_AO=${DST_AO% }
+  if [ "$DST_RC/$DST_A/$DST_AW/$DST_NP/$DST_AL/$DST_AO" != "0/ss/3/3/0/0" ]; then
+    DST_L26="$DST_L26 [A, Up, B] rc $DST_RC, screens '$DST_A' (want ss), $DST_AW waits (want 3), $DST_NP pids (want 3), $DST_AL still there (want 0), waits open at the list '$DST_AO' (want 0);"
+  fi
+  # (b) the payload ends during the second wait (the stand-in ends it as it answers); the reader's third wait is pending then
+  DST_TG="s26-$DST_G-gone"; DST_PF="$DST_D/$DST_TG.payload"; : > "$DST_PF"; DST_SAVE=$DST_OVLEFT
+  DST_OVSH="$DST_D/payload"
+  dst_ov "$DST_TG" "$DST_C" "A A B" STARCHORUS_KILL_PID="$DST_PF" STARCHORUS_KILL_AT=2 2> /dev/null
+  DST_OVSH=
+  DST_W=0; while [ "$(dst_ovleft "$DST_D/$DST_TG.tmp")" != 0 ] && [ "$DST_W" -lt 100 ]; do sleep 0.05; DST_W=$((DST_W + 1)); done
+  DST_OVLEFT=$((DST_SAVE + $(dst_ovleft "$DST_D/$DST_TG.tmp")))
+  DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG")
+  DST_NP=$(grep -c . "$DST_D/$DST_TG.pids"); DST_AL=$(dst_alive "$DST_D/$DST_TG.pids")
+  if [ "$DST_A/$DST_AW/$DST_AP/$DST_NP/$DST_AL" != ss/3/0/3/0 ]; then
+    DST_L26="$DST_L26 [payload gone at the second key] screens '$DST_A' (want ss), $DST_AW waits (want 3), $DST_AP lists (want 0), $DST_NP pids (want 3), $DST_AL still there (want 0);"
+  fi
+  # (e) the text of ov_cleanup
+  DST_CF=$(dst_code < "$DST_C" | dst_fn ov_cleanup)
+  DST_CB=$(printf '%s\n' "$DST_CF" | grep -c '\$!'); DST_CR=$(printf '%s\n' "$DST_CF" | grep -c 'OV_RPID'); DST_CW=$(printf '%s\n' "$DST_CF" | grep -c 'OV_WPF')
+  if [ "$DST_PL" != 1 ] || [ "$DST_PC" != 0 ] || [ "$DST_CB" != 0 ] || [ "$DST_CR" -lt 1 ] || [ "$DST_CW" -lt 1 ]; then
+    DST_L26="$DST_L26 [ov_cleanup text] the detector finds the planted \$! $DST_PL times (want 1) and the commented one $DST_PC (want 0); \$! in ov_cleanup $DST_CB (want 0), OV_RPID lines $DST_CR and OV_WPF lines $DST_CW (want at least 1 each);"
+  fi
+  if [ -z "$DST_L26" ]; then DST_S26=$((DST_S26 + 1)); else echo "    reader, $DST_G copy:$DST_L26"; fi
+done
+# (c) TERM and HUP with the reader's third wait held, and (d) TERM early, under each shell the runner has
+for DST_X in $DST_SHELLS; do
+  DST_XP=$(command -v "$DST_X"); case $DST_XP in /*) ;; *) DST_XP=$DST_SH ;; esac
+  DST_HUPX=""; DST_HUPQ="HUP|129"
+  if dst_hupok "$DST_XP"; then :
+  elif dst_hupok "$DST_XP" relaunch; then DST_HUPX=1; DST_HUPNOTE26="$DST_HUPNOTE26; HUP put back to default for $DST_X, the runner had it ignored"
+  else DST_HUPQ=""; DST_HUPNOTE26="$DST_HUPNOTE26; HUP case not run for $DST_X: the runner has it ignored and python3 could not put it back"; fi
+  for DST_E in $DST_COPIES; do
+    DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_L26=""; DST_X26=$((DST_X26 + 1))
+    # shellcheck disable=SC2086   # DST_HUPQ is one word or none
+    for DST_Q in "TERM|143" $DST_HUPQ; do
+      DST_QS=${DST_Q%%|*}; DST_QR=${DST_Q#*|}; DST_Y26=$((DST_Y26 + 1)); DST_TG="s26-$DST_G-$DST_X-held-$DST_QS"
+      printf '%s\n' A A > "$DST_D/$DST_TG.keys"
+      rm -f "$DST_D/$DST_TG.calls" "$DST_D/$DST_TG.pids"; : > "$DST_D/$DST_TG.ui"; : > "$DST_D/$DST_TG.jq"; : > "$DST_D/$DST_TG.stat"; : > "$DST_D/$DST_TG.out"
+      rm -rf "$DST_D/$DST_TG.tmp"; mkdir -p "$DST_D/$DST_TG.tmp"; cp "$F/many-clients.json" "$DST_D/$DST_TG.json"
+      DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"; DST_HOLD=3
+      dst_s18_start "$DST_XP" "$DST_C"
+      DST_HOLD=
+      DST_W=0
+      while [ "$DST_W" -lt 200 ]; do   # two keys answered, the draws for them out, the third wait pending (held for 30 s)
+        if [ "$(cat "$DST_D/$DST_TG.pids" 2>/dev/null | grep -c .)" -ge 3 ] && [ "$(grep -c '^LOG A: Refresh   B: Back$' "$DST_D/$DST_TG.out")" -ge 3 ]; then break; fi
+        sleep 0.05; DST_W=$((DST_W + 1))
+      done
+      DST_UP=$(dst_alive "$DST_D/$DST_TG.pids"); DST_TB=$(dst_ovleft "$DST_D/$DST_TG.tmp")
+      kill -"$DST_QS" "$DST_P" 2>/dev/null
+      DST_W=0; while [ "$(dst_alive "$DST_D/$DST_TG.pids")" != 0 ] && [ "$DST_W" -lt 10 ]; do sleep 0.1; DST_W=$((DST_W + 1)); done
+      DST_GONE=$(dst_alive "$DST_D/$DST_TG.pids")
+      if [ "$DST_GONE" != 0 ]; then while read -r DST_WP; do [ -z "$DST_WP" ] || kill "$DST_WP" 2>/dev/null; done < "$DST_D/$DST_TG.pids"; fi
+      { wait "$DST_P"; DST_RC=$?; } 2>/dev/null; DST_TA=$(dst_ovleft "$DST_D/$DST_TG.tmp"); DST_NP=$(grep -c . "$DST_D/$DST_TG.pids")
+      if [ "$DST_UP/$DST_TB/$DST_NP/$DST_GONE/$DST_RC/$DST_TA" != "1/1/3/0/$DST_QR/0" ]; then
+        DST_L26="$DST_L26 [$DST_X $DST_QS, third wait held] waiters running at the signal $DST_UP (want 1), temp dir there $DST_TB (want 1), $DST_NP pids (want 3), still there within a second $DST_GONE (want 0), exit $DST_RC (want $DST_QR), temp dir left $DST_TA (want 0);"
+        kill -9 "$DST_P" 2>/dev/null
+      fi
+    done
+    # (d) TERM at 0 to 80 ms after the start: the first wait is held (30 s), so the Overview is alive until the signal
+    for DST_DL in 0 0.005 0.01 0.02 0.04 0.08; do
+      DST_Y26=$((DST_Y26 + 1)); DST_TG="s26-$DST_G-$DST_X-early-$DST_DL"
+      printf '%s\n' A > "$DST_D/$DST_TG.keys"
+      rm -f "$DST_D/$DST_TG.calls" "$DST_D/$DST_TG.pids"; : > "$DST_D/$DST_TG.ui"; : > "$DST_D/$DST_TG.jq"; : > "$DST_D/$DST_TG.stat"; : > "$DST_D/$DST_TG.out"
+      rm -rf "$DST_D/$DST_TG.tmp"; mkdir -p "$DST_D/$DST_TG.tmp"; cp "$F/many-clients.json" "$DST_D/$DST_TG.json"
+      DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"; DST_HOLD=1
+      {   # a shell that the signal reaches before its traps are set dies of it, and the shell running this row prints a notice for that
+        dst_s18_start "$DST_XP" "$DST_C"
+        DST_HOLD=
+        sleep "$DST_DL"; kill -TERM "$DST_P" 2>/dev/null
+        DST_W=0; while kill -0 "$DST_P" 2>/dev/null && [ "$DST_W" -lt 30 ]; do sleep 0.1; DST_W=$((DST_W + 1)); done
+        DST_ENDED=1; if kill -0 "$DST_P" 2>/dev/null; then DST_ENDED=0; kill -9 "$DST_P" 2>/dev/null; fi
+        wait "$DST_P"
+      } 2>/dev/null
+      DST_W=0; while [ "$(dst_alive "$DST_D/$DST_TG.pids")" != 0 ] && [ "$DST_W" -lt 10 ]; do sleep 0.1; DST_W=$((DST_W + 1)); done
+      DST_GONE=$(dst_alive "$DST_D/$DST_TG.pids")
+      if [ "$DST_GONE" != 0 ]; then while read -r DST_WP; do [ -z "$DST_WP" ] || kill "$DST_WP" 2>/dev/null; done < "$DST_D/$DST_TG.pids"; fi
+      DST_TA=$(dst_ovleft "$DST_D/$DST_TG.tmp")
+      if [ "$DST_ENDED/$DST_GONE/$DST_TA" != "1/0/0" ]; then
+        DST_L26="$DST_L26 [$DST_X, TERM ${DST_DL} s after the start] ended by itself $DST_ENDED (want 1), waiters still there $DST_GONE (want 0), temp dir left $DST_TA (want 0);"
+      fi
+    done
+    # (f) the shell killed with KILL, where no cleanup runs: the reader's third wait is pending. When it ends (a press: the stand-in is ended), the reader finds its
+    # shell gone, opens no other wait and ends, so a reader that outlives its shell takes one more key at most and not every key from then on
+    DST_Y26=$((DST_Y26 + 1)); DST_TG="s26-$DST_G-$DST_X-kill"
+    printf '%s\n' A A > "$DST_D/$DST_TG.keys"
+    rm -f "$DST_D/$DST_TG.calls" "$DST_D/$DST_TG.pids"; : > "$DST_D/$DST_TG.ui"; : > "$DST_D/$DST_TG.jq"; : > "$DST_D/$DST_TG.stat"; : > "$DST_D/$DST_TG.out"
+    rm -rf "$DST_D/$DST_TG.tmp"; mkdir -p "$DST_D/$DST_TG.tmp"; cp "$F/many-clients.json" "$DST_D/$DST_TG.json"
+    DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"; DST_HOLD=3
+    dst_s18_start "$DST_XP" "$DST_C"
+    DST_HOLD=
+    DST_W=0
+    while [ "$DST_W" -lt 200 ]; do
+      if [ "$(cat "$DST_D/$DST_TG.pids" 2>/dev/null | grep -c .)" -ge 3 ] && [ "$(grep -c '^LOG A: Refresh   B: Back$' "$DST_D/$DST_TG.out")" -ge 3 ]; then break; fi
+      sleep 0.05; DST_W=$((DST_W + 1))
+    done
+    DST_HP=$(sed -n 3p "$DST_D/$DST_TG.pids" 2>/dev/null); DST_RP=$(ps -o ppid= -p "${DST_HP:-0}" 2>/dev/null | tr -d ' ')
+    kill -9 "$DST_P" 2>/dev/null; { wait "$DST_P"; } 2>/dev/null
+    kill "$DST_HP" 2>/dev/null
+    DST_W=0; while [ -n "$DST_RP" ] && kill -0 "$DST_RP" 2>/dev/null && [ "$DST_W" -lt 30 ]; do sleep 0.1; DST_W=$((DST_W + 1)); done
+    DST_RG=1; if [ -z "$DST_RP" ] || kill -0 "$DST_RP" 2>/dev/null; then DST_RG=0; kill -9 "$DST_RP" 2>/dev/null; fi
+    sleep 0.3; DST_NP=$(grep -c . "$DST_D/$DST_TG.pids"); DST_AL=$(dst_alive "$DST_D/$DST_TG.pids")
+    if [ "$DST_RG" = 1 ] && [ "$DST_AL" != 0 ]; then while read -r DST_WP; do [ -z "$DST_WP" ] || kill "$DST_WP" 2>/dev/null; done < "$DST_D/$DST_TG.pids"; fi
+    rm -rf "$DST_D/$DST_TG.tmp"
+    if [ "$DST_RG/$DST_NP/$DST_AL" != "1/3/0" ]; then
+      DST_L26="$DST_L26 [$DST_X, shell killed with KILL, third wait ended] the reader ended by itself $DST_RG (want 1), $DST_NP waits in all (want 3), still there $DST_AL (want 0);"
+    fi
+    if [ -z "$DST_L26" ]; then DST_S26=$((DST_S26 + 1)); else echo "    reader, $DST_G copy under $DST_X:$DST_L26"; fi
+  done
+done
+if [ "$DST_S26" = "$DST_X26" ]; then row "display reader: no waiter left by the key reader after A Up B, the payload gone at the second key, TERM and HUP with the third wait held, TERM 0 to 80 ms after the start; ov_cleanup holds no \$! ($DST_X26 copy and shell combinations, $DST_Y26 signal runs, $DST_SHELLS$DST_HUPNOTE26)" PASS
+else row "display reader: $DST_S26/$DST_X26 copy and shell combinations as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S27 probe: the health probe of the first draw is a draw like the others: it runs in the background with a watcher, and a B, Left or Right ends it at once; an A or
+# an Up does not. A probe that was ended is no answer and is asked again with the next draw (jq_healthy keeps nothing of it). The jq stand-in sleeps 2 s in the probe
+# (STARCHORUS_JQ_PSLEEP) and 1 s on a program, and says it has started when the probe has. Cases: (b) B in the probe: one jq (the probe, ended), no program, no screen,
+# the list; (right) RIGHT in the probe: it is ended, and the top screen asks again (a second probe, then the top program: three jq in all); (a) A in the probe: the probe
+# finishes and the program runs. tag|keys|screens|waits|lists|jq processes|jq ended|frames
+DST_S27=0; DST_X27=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X27=$((DST_X27 + 1)); DST_L27=""
+  for DST_Q in "b|@B|-|1|1|1|yes|0" "right|@RIGHT B|t|2|1|3|yes|1" "a|@A B|s|2|1|2|no|1"; do
+    DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QV=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QL=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QJ=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QD=$(printf '%s' "$DST_Q" | cut -d'|' -f7); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f8); [ "$DST_QV" != - ] || DST_QV=
+    DST_TG="s27-$DST_G-$DST_QT"; rm -f "$DST_D/$DST_TG.st" "$DST_D/$DST_TG.st.killed"
+    DST_OVPATH="$DST_D/sleepjq"
+    dst_ov "$DST_TG" "$DST_C" "$DST_QK" STARCHORUS_JQ_STARTED="$DST_D/$DST_TG.st" STARCHORUS_JQ_PSLEEP=2 STARCHORUS_JQ_SLEEP=1
+    DST_OVPATH=
+    DST_A=$(dst_views "$DST_D/$DST_TG.out"); DST_AW=$(dst_ui WAIT "$DST_TG"); DST_AP=$(dst_ui PICKER "$DST_TG"); DST_AJ=$(grep -c x "$DST_D/$DST_TG.jq")
+    DST_AF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out"); DST_AE=no; [ ! -e "$DST_D/$DST_TG.st.killed" ] || DST_AE=yes
+    DST_AM=$(grep -c 'jq incomplete' "$DST_D/$DST_TG.out")
+    if [ "$DST_RC/$DST_A/$DST_AW/$DST_AP/$DST_AJ/$DST_AE/$DST_AF/$DST_AM" != "0/$DST_QV/$DST_QW/$DST_QL/$DST_QJ/$DST_QD/$DST_QF/0" ]; then
+      DST_L27="$DST_L27 [$DST_QT: keys $DST_QK] rc $DST_RC, screens '$DST_A' (want '$DST_QV'), $DST_AW waits (want $DST_QW), $DST_AP lists (want $DST_QL), $DST_AJ jq (want $DST_QJ), a jq ended: $DST_AE (want $DST_QD), frames $DST_AF (want $DST_QF), 'jq incomplete' lines $DST_AM (want 0);"
+    fi
+  done
+  if [ -z "$DST_L27" ]; then DST_S27=$((DST_S27 + 1)); else echo "    probe, $DST_G copy:$DST_L27"; fi
+done
+if [ "$DST_S27" = "$DST_X27" ]; then row "display probe: the health probe of the first draw ends at once on a B, Left or Right and is asked again with the next draw; an A lets it finish, and an ended probe leaves no 'jq incomplete' line ($DST_X27 copies)" PASS
+else row "display probe: $DST_S27/$DST_X27 copies as expected" FAIL; DST_KEEP=1; fi
+
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
-unset -f dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code
+unset -f dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn

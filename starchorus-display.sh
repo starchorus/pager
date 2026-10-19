@@ -33,19 +33,21 @@
 # The payload runs it as a child process and hands it three variables: STARCHORUS_SINCE (the epoch of the last Start: a
 # capture generated before it counts as no data, so the screen never shows an earlier run's file), STARCHORUS_PAGE_URL
 # (ADDR:PORT of the page, for the last line of the summary; empty = no page) and STARCHORUS_PARENT_PID (the payload: asked
-# once per pass, after every answer and so before the next arm, and again when the list returns, so an Overview whose payload has
-# gone ends at its next key press, not before: it waits for a key with no time limit; the payload gives it no stdout for that reason,
-# so it holds none of the payload's pipes while it waits). Without them it behaves as it always did.
+# after every key the Overview takes and again when the list returns, so an Overview whose payload has gone ends at its next key
+# press, not before: it waits for keys with no time limit; the payload gives it no stdout for that reason, so it holds none of
+# the payload's pipes while it waits). Without them it behaves as it always did.
 #
-# KEYS. Nothing on the screen moves by itself: there is no timer and no live summary. The Overview ARMS one WAIT_FOR_INPUT in the
-# background BEFORE it draws, the shell draws while it waits, and then takes the answer: a press during "Reading..." is kept, ends
-# the draw and is acted on at once, with the next wait armed straight after (see The key wait below and docs/display-paths.md).
-# Every press acts at once and means the same on every screen:
-#   A  the same screen again          B  one level up: screen -> the list "Overview" -> exit 0, back to the payload's menu
-#   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, bluetooth, air)
-#   UP / DOWN  ignored (the console's own scrolling), the wait is armed again at once and nothing is drawn (the screen is drawn
-#              again only when the draw they came in was cut, so no half screen stays)
-#   anything else, or no answer, that comes back within 1 s of its arm: a strike, three in a row end it (a slower one is only waited out)
+# KEYS. Nothing on the screen moves by itself: there is no timer and no live summary. A KEY READER runs WAIT_FOR_INPUT in the
+# background, again and again, from the first screen until the Overview ends (the list excepted, see The key reader below), and
+# appends every answer to a queue; the shell draws while the reader waits and takes the keys from the queue in the order they were
+# pressed (docs/display-paths.md). A press during "Reading..." is therefore kept, whatever the key, and means the same on every screen:
+#   A  the same screen again. An A pressed during a draw is answered by that draw once it is finished: no second draw, no second jq
+#   B  one level up: screen -> the list "Overview" -> exit 0, back to the payload's menu. It ends a draw that is running, at once
+#   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, bluetooth, air). They end a
+#              draw that is running, at once
+#   UP / DOWN  ignored (the console's own scrolling), also during a draw, which they leave running; nothing is drawn for them
+#   anything else, or no answer, that comes back within 1 s of its wait being opened: a strike, three in a row end it (a slower one
+#              is only waited out)
 # A draw that has to run jq prints "Reading..." first (see BUSY); jq runs under a `timeout` (see JQ_TMO); a capture that takes
 # longer gets the two lines of nodata() instead of numbers, and the verdict is cached per capture like a result (a run that a key
 # has ended is no result and is not kept). STARCHORUS_PROC (a stand-in for /proc: the uptime and the stat file of this shell) and
@@ -68,10 +70,11 @@ GEN=0; LASTG=
 # unlike LOG, which clashes with macOS /usr/bin/log on a dev machine.
 if [ "${STARCHORUS_DISPLAY_PLAIN:-0}" != 1 ] && command -v LIST_PICKER >/dev/null 2>&1; then ONDEV=1; else ONDEV=0; fi
 
-# OV_GATE names the key file while a draw runs (draw sets it and clears it again), else it is empty; see draw.
+# OV_GATE is 1 while a draw of the Overview runs (draw sets it and clears it again), else empty; ov_cut then says whether the draw
+# has been ended by a key (see draw).
 OV_GATE=
 log() {  # log [red|blue] "text..."  -- red = an alarm, blue = a heading (that is the whole palette)
-    [ -s "$OV_GATE" ] && return 0   # the draw is over (see draw)
+    ov_cut && return 0   # the draw is over (see draw)
     case "$1" in red|blue) color=$1; shift ;; *) color= ;; esac
     if [ "$ONDEV" = 1 ]; then LOG ${color:+"$color"} "$*"; else printf '%s\n' "$*"; fi
 }
@@ -95,76 +98,191 @@ uptime_cs() {
     UT=$((ut_a * 100 + ${ut_f#0}))
 }
 
-# The key wait. The Overview keeps a WAIT_FOR_INPUT open while a screen or "Reading..." is on the console: arm() starts it, take()
-# collects the answer. Why a wait is armed before the draw, as measured on the device (docs/device-notes.md section 7): a press made
-# while no wait is open is LOST, not queued (M1), and B pressed then is taken by the Pager UI itself and leaves the payload view
-# (M2); a wait started in the background does receive its key while the foreground writes LOG lines (M3). Nothing is buffered, so a
-# key that came back during a draw was pressed on purpose, at "Reading...", and is acted on as soon as that draw has ended.
-# A wait takes ONE key. A draw that went on after it would run with no wait open for the rest of its time (up to the 20 s of jq,
-# then every LOG line), and a second press in that time, B again because nothing seems to happen, would be lost or leave the payload
-# view (M1, M2). So the draw does not go on: log() prints nothing once the key file holds an answer, a jq that is still running is
-# ended (ov_jq), and take and the next arm follow at once. What stays unarmed is short: the start up to the first arm, and the stretch
-# from a key being answered to the next wait being registered with the UI (the watcher's 0.2 s while a jq runs, two forks for the
-# waiter, the UI's own time to take the request); a press that falls there is lost. docs/display-paths.md lists them.
-# A wait is never put under `timeout`: killing a UI command can leave a waiter in the UI daemon that swallows the next press.
+# The key reader. A reader (ov_reader, a background subshell) keeps a WAIT_FOR_INPUT open from the first screen on: it starts one, takes its
+# answer, appends the answer to the queue and starts the next at once, so a press made while a screen or "Reading..." is being drawn is
+# kept, in order, whatever the key is. Why the waits must be open, as measured on the device (docs/device-notes.md section 7): a press made
+# while no wait is open is LOST, not buffered (M1), and B pressed then is taken by the Pager UI itself and leaves the payload view (M2); a
+# wait started in the background does receive its key while the foreground writes LOG lines (M3). A wait takes ONE key. 0.1.1 opened one wait
+# per draw and so had to end the draw on any key, to get the next wait open before a second press; the reader needs no such rule, and what
+# ends a draw now is only a key that asks for another screen (below). What stays unopened is short: the start up to the first wait, the
+# stretch from an answer to the next wait being registered with the UI (a fork and an exec for the new wait, then the UI's own time), and the
+# list. The list is a wait of its own, and nothing measured says how the UI shares a key between a picker and a wait, so the reader ends
+# itself on a B and the shell starts another when the list returns.
 #
-# The waiter is a subshell that starts WAIT_FOR_INPUT as a background child of its own (answer to OV_RAW) and, when that has ended,
-# leaves one line in OV_KEYF: "UPTIME KEY". UPTIME is /proc/uptime in hundredths of a second at that moment ("-" without a clock),
-# KEY is what WAIT_FOR_INPUT printed (empty for no answer). Why a child inside the subshell and not `k=$(WAIT_FOR_INPUT)` there:
-# a TERM to the subshell must reach WAIT_FOR_INPUT itself. A shell runs its traps only between commands, so a subshell that sits
-# in a command substitution cannot pass the signal on; it would die and leave the real waiter behind, still registered with the
-# UI daemon, where it takes the next press. Waiting in `wait` it can, at once. The subshell's trap only notes the signal (`sig`)
-# and the code after the fork and after the wait acts on it, so a TERM that lands between the fork and the child's pid being known
-# is not lost either. The subshell has no stdin, stdout or stderr of its own, so it holds none of the payload's pipes, and it clears
-# the EXIT trap it inherits (ov_cleanup would otherwise delete the temp dir as soon as the first answer came in).
-# KEY_CS, the time from the arm to the end of the wait, is what the strike rule judges: it comes from the waiter's own clock, so a
-# long draw between the arm and the take cannot make an answer that came at once look slow. STRIKE_CS is one second.
+# The queue is an append-only file in the private temp dir (OV_QUE), a line per answer, "CS RAW": CS is how long that wait was open in
+# hundredths of a second, by the reader's own clock ("-" where there is none), RAW what WAIT_FOR_INPUT printed. The shell reads it by line
+# number (OV_QN lines are taken). A file and not a FIFO for three reasons: the shell has to look into the queue without taking from it (a draw
+# must know whether a B, Left or Right is waiting, and every read from a FIFO takes); a writer to a FIFO blocks until somebody has the other
+# end open, which would tie the reader's life to the shell's reads, where a file can be appended to whether or not anyone is reading; and a
+# file needs no mkfifo applet, which was not looked for on the device. The device's /tmp is RAM: a line is about ten bytes and exists only for
+# a key that was pressed; the queue starts again from nothing each time the reader is started (after a B, when everything in it has been
+# taken and nothing is writing), and the directory goes with the Overview. A reader whose waits come back with nothing known three times in
+# a row, each within STRIKE_CS, ends itself, as the shell would (the strike rule in the main loop), so a broken key path leaves three lines
+# and not a busy loop's worth.
+#
+# Two numbers tell the shell what the reader has done, in one small file (OV_CNT) that the reader rewrites after each append: "LINES
+# ENDERS", the lines appended so far and how many of them are a B, Left or Right (the keys that end a draw). The shell holds the counts of
+# what it has taken (OV_QN, OV_NC), so a key is waiting when LINES is more than OV_QN, and a draw is cut when ENDERS is more than OV_NC
+# (ov_cut). Counting what was appended against what was taken leaves no flag for the one side to set and the other to clear, and so no
+# order in which the two can step on each other: a count read as half-written is only a miss, and the next look finds it.
+#
+# A key taken with OV_QN at or below OV_QC (the lines there were when the draw finished its block, see draw) was pressed during that
+# draw. An A among those is answered by the draw, whole or cut, and asks for nothing more; Up and Down are ignored where they come. A key
+# taken above OV_QC was pressed after the screen was complete: an A then draws it again.
+#
+# The reader is a subshell that starts WAIT_FOR_INPUT as a background child of its own (answer to OV_RAW) and waits for it. Why a child
+# and not `k=$(WAIT_FOR_INPUT)` there: a TERM to the reader must reach WAIT_FOR_INPUT itself. A shell runs its traps only between commands,
+# so a subshell that sits in a command substitution cannot pass the signal on; it would die and leave the real waiter behind, still
+# registered with the UI daemon, where it takes the next press (the payload's menu would lose its key). Waiting in `wait` it can act at
+# once. Its trap notes the signal (`rd_sig`) and ends the wait it has open, and the code before the fork, after it and after the wait acts
+# on the note, so a TERM that lands between the check and the `wait` (where the trap would run before `wait` blocks, and nothing would
+# wake it) or between the fork and the child's pid being known is not lost either. A TERM that lands just after the reader was forked, while
+# it still has the traps of the shell and not yet its own, can be lost all the same; ov_cleanup therefore also leaves a mark that the reader
+# looks for (ov_orphan). The reader writes the child's pid to OV_WPF while the wait is open, so that
+# ov_cleanup can end the waiter even if the reader itself was killed from outside. The reader has no stdin, stdout or stderr of its own, so it
+# holds none of the payload's pipes, and it replaces the EXIT trap it inherits (ov_cleanup would otherwise delete the temp dir as soon as
+# the reader ended); its own EXIT trap leaves a mark in OV_RDONE, which tells the shell that nothing more will come: with the queue empty
+# that is a failure (the file system is full, the reader was killed), named as such, and not an answer.
+# A wait is never put under `timeout`: killing a UI command can leave a waiter in the UI daemon that swallows the next press.
 KEY=; KEY_CS=; KEY_ERR=; STRIKE_CS=100
-OV_TMP=; OV_KEYF=; OV_RAW=; OV_JQO=; OV_WPID=; OV_ARM=; OV_ARMING=; OV_JPID=; OV_WTCH=
+OV_TMP=; OV_QUE=; OV_CNT=; OV_RAW=; OV_JQO=; OV_RDONE=; OV_WPF=; OV_QUIT=; OV_RPID=; OV_JPID=; OV_WTCH=
+OV_QN=0; OV_NC=0; OV_QC=0; CN_L=0; CN_E=0; NK=; QL=; ov_sig=
 CR=$(printf '\r'); TAB=$(printf '\t')
-arm() {
-    : > "$OV_KEYF"
-    uptime_cs; OV_ARM=$UT
-    OV_ARMING=1   # see ov_cleanup
-    (
-        trap - EXIT; ow=; sig=
-        trap 'sig=1' TERM INT HUP
-        WAIT_FOR_INPUT > "$OV_RAW" 2>/dev/null & ow=$!
-        [ -z "$sig" ] || { kill "$ow" 2>/dev/null; exit 143; }
-        wait "$ow"
-        [ -z "$sig" ] || { kill "$ow" 2>/dev/null; wait "$ow" 2>/dev/null; exit 143; }
-        ok=; read -r ok < "$OV_RAW"
-        uptime_cs; printf '%s %s\n' "${UT:--}" "$ok" > "$OV_KEYF"
-    ) > /dev/null 2>&1 < /dev/null &
-    OV_WPID=$!; OV_ARMING=
+# ov_nap: the Overview's one nap, 0.2 s (a whole second where the sleep applet has no fractions): the shell looks at the queue no oftener
+# than that between draws, and the watcher of a running jq (ov_jq) at the same pace
+ov_nap() { sleep 0.2 2>/dev/null || sleep 1; }
+# ov_counts -> CN_L, CN_E: the numbers in OV_CNT as the reader last wrote them. The file is rewritten, so a read that lands between its
+# truncation and its write finds nothing (status 1) and the caller looks again. The shell's own read: no process.
+ov_counts() {
+    oc_l=; oc_e=
+    read -r oc_l oc_e 2>/dev/null < "$OV_CNT" || return 1
+    case $oc_l in ''|*[!0-9]*) return 1 ;; esac
+    case $oc_e in ''|*[!0-9]*) return 1 ;; esac
+    CN_L=$oc_l; CN_E=$oc_e
 }
-# take -> KEY: A, B, UP, DOWN, LEFT or RIGHT as WAIT_FOR_INPUT printed it (BACK and Escape count as B, as in other payloads of the
-# library; a lower-case a or b as the capital), else empty; KEY_CS as above (empty without a clock). Waits for the waiter armed last
-# (at once when it has answered during the draw), clears OV_WPID, and strips spaces, tabs and CR from the answer with the shell's own
-# expansions (no process per key). KEY_ERR=1: the waiter has ended and left nothing in the key file (the file system is full, or the
-# waiter was killed from outside): that is no answer, and the Overview says so instead of counting it as a strike.
-take() {
-    [ -z "$OV_WPID" ] || wait "$OV_WPID" 2>/dev/null
-    OV_WPID=
-    KEY=; KEY_CS=; KEY_ERR=; tk_t=; tk_k=
-    if [ -s "$OV_KEYF" ]; then read -r tk_t tk_k < "$OV_KEYF" || :; else KEY_ERR=1; fi
+# ov_cut: status 0 while a draw runs and a B, Left or Right that the shell has not taken yet is in the queue. Those three end a draw, as
+# they leave the screen; A, Up and Down do not.
+ov_cut() { [ "$OV_GATE" = 1 ] && ov_counts && [ "$CN_E" -gt "$OV_NC" ]; }
+# keyname RAW -> NK: A, B, UP, DOWN, LEFT or RIGHT as WAIT_FOR_INPUT printed it (BACK and Escape count as B, as in other payloads of the
+# library; a lower-case a or b as the capital), else empty. Spaces, tabs and CR are stripped with the shell's own expansions (no process per
+# key). The reader and the shell both use it, so they cannot disagree on what a B is.
+keyname() {
+    kn_s=$1
     while :; do
-        case $tk_k in
-            *" "*) tk_k=${tk_k%%" "*}${tk_k#*" "} ;;
-            *"$TAB"*) tk_k=${tk_k%%"$TAB"*}${tk_k#*"$TAB"} ;;
-            *"$CR"*) tk_k=${tk_k%%"$CR"*}${tk_k#*"$CR"} ;;
+        case $kn_s in
+            *" "*) kn_s=${kn_s%%" "*}${kn_s#*" "} ;;
+            *"$TAB"*) kn_s=${kn_s%%"$TAB"*}${kn_s#*"$TAB"} ;;
+            *"$CR"*) kn_s=${kn_s%%"$CR"*}${kn_s#*"$CR"} ;;
             *) break ;;
         esac
     done
-    case $tk_t in
-        ''|*[!0-9]*) ;;
-        *) case $OV_ARM in ''|*[!0-9]*) ;; *) KEY_CS=$((tk_t - OV_ARM)) ;; esac ;;
+    case $kn_s in
+        A|a) NK=A ;;
+        B|b|BACK|Escape) NK=B ;;
+        UP|DOWN|LEFT|RIGHT) NK=$kn_s ;;
+        *) NK= ;;
     esac
-    case $tk_k in
-        A|a) KEY=A ;;
-        B|b|BACK|Escape) KEY=B ;;
-        UP|DOWN|LEFT|RIGHT) KEY=$tk_k ;;
-    esac
+}
+# ov_orphan: status 0 when the reader has nothing left to serve (it runs in the reader, where rd_main is the pid of the shell that
+# started it): ov_cleanup has left its mark (OV_QUIT), or the temp dir is gone, or the shell has died (killed with KILL, where no
+# cleanup runs). Why not the signal alone: a subshell resets its traps just after the fork, and a TERM that lands in that gap runs
+# the handler it inherited and is then forgotten, so a reader forked an instant before the shell's TERM went on to open a wait nobody
+# would end (seen under dash, TERM about 4 ms after the start). The mark is written before the TERM is sent, so a reader that missed
+# the signal finds the mark at its next look, before it opens a wait and again before it blocks in `wait`. A reader whose shell was
+# killed without a cleanup ends at its next answer instead of opening another wait, so it can take one more key, as a one-shot waiter
+# did, and not every key until the device restarts.
+ov_orphan() { [ -e "$OV_QUIT" ] || [ ! -e "$OV_CNT" ] || ! kill -0 "$rd_main" 2>/dev/null; }
+# ov_reader: the body of the reader (started by ov_rstart as a background job). One round: a wait, its answer, a line in the queue, the
+# counts, and the next wait. It ends after a B (the list follows), after the third answer in a row that was nothing known and came back
+# within STRIKE_CS (or with no clock to tell), when a line cannot be appended, and on TERM, INT or HUP.
+ov_reader() {
+    rd_sig=; rd_w=; rd_main=$$; rd_n=0; rd_e=0; rd_junk=0
+    trap 'rd_sig=1; [ -z "$rd_w" ] || kill "$rd_w" 2>/dev/null' TERM INT HUP
+    trap 'printf x 2>/dev/null > "$OV_RDONE"' EXIT
+    [ -z "$ov_sig" ] || exit 143   # a signal that came before the traps above was noted in the copy of ov_sig this subshell was born with
+    ov_counts && { rd_n=$CN_L; rd_e=$CN_E; }
+    while :; do
+        if [ -n "$rd_sig" ] || ov_orphan; then exit 143; fi
+        uptime_cs; rd_t=$UT
+        WAIT_FOR_INPUT > "$OV_RAW" 2>/dev/null & rd_w=$!
+        printf '%s\n' "$rd_w" > "$OV_WPF"
+        if [ -n "$rd_sig" ] || ov_orphan; then kill "$rd_w" 2>/dev/null; exit 143; fi
+        wait "$rd_w"
+        rd_x=$rd_w; rd_w=
+        if [ -n "$rd_sig" ]; then kill "$rd_x" 2>/dev/null; wait "$rd_x" 2>/dev/null; exit 143; fi
+        : > "$OV_WPF"
+        rd_k=; read -r rd_k < "$OV_RAW"
+        uptime_cs; rd_c=-
+        case $rd_t in ''|*[!0-9]*) ;; *) case $UT in ''|*[!0-9]*) ;; *) rd_c=$((UT - rd_t)) ;; esac ;; esac
+        printf '%s %s\n' "$rd_c" "$rd_k" >> "$OV_QUE" || exit 1
+        keyname "$rd_k"
+        rd_n=$((rd_n + 1))
+        case $NK in B|LEFT|RIGHT) rd_e=$((rd_e + 1)) ;; esac
+        printf '%s %s\n' "$rd_n" "$rd_e" > "$OV_CNT"
+        case $NK in
+            B) exit 0 ;;
+            '') case $rd_c in
+                    -) rd_junk=$((rd_junk + 1)) ;;
+                    *) if [ "$rd_c" -lt "$STRIKE_CS" ]; then rd_junk=$((rd_junk + 1)); else rd_junk=0; fi ;;
+                esac
+                [ "$rd_junk" -lt 3 ] || exit 0 ;;
+            *) rd_junk=0 ;;
+        esac
+    done
+}
+# ov_trap_exit: TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup
+ov_trap_exit() { trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP; }
+# ov_rstart: start the key reader. Everything in the queue has been taken by now and nothing is writing to it (the reader of the round
+# before ended on a B, and the first round has none), so the queue and its counts begin again from nothing. TERM, INT and HUP are only
+# noted while the reader is forked and its pid stored (ov_sig), and acted on once OV_RPID is known: ov_cleanup then ends the reader by
+# its pid and not by a guess from `$!`, which before the fork is the pid of some earlier job.
+ov_rstart() {
+    rs_l=; rs_e=; ov_counts && { rs_l=$CN_L; rs_e=$CN_E; }
+    if [ "$rs_l" = "$OV_QN" ] && [ "$rs_e" = "$OV_NC" ]; then
+        : > "$OV_QUE"; printf '0 0\n' > "$OV_CNT"; OV_QN=0; OV_NC=0; OV_QC=0
+    fi
+    : > "$OV_RDONE"; : > "$OV_WPF"
+    ov_sig=
+    trap 'ov_sig=143' TERM; trap 'ov_sig=130' INT; trap 'ov_sig=129' HUP
+    ov_reader > /dev/null 2>&1 < /dev/null &
+    OV_RPID=$!
+    ov_trap_exit
+    [ -z "$ov_sig" ] || exit "$ov_sig"
+}
+# ov_rstop: the reader that ended itself on a B is gone before the list opens (so no wait is open while it shows); `wait` reaps it
+ov_rstop() { [ -z "$OV_RPID" ] || { wait "$OV_RPID" 2>/dev/null; OV_RPID=; }; }
+# ov_qnext -> QL: the first line of the queue that the shell has not taken (OV_QN counts the lines it has), and OV_QN moves on past it;
+# status 1 if there is none. A last line without its newline, which the reader has not finished, is not read.
+ov_qnext() {
+    qn_i=0; QL=
+    while IFS= read -r qn_l; do
+        qn_i=$((qn_i + 1))
+        [ "$qn_i" -gt "$OV_QN" ] || continue
+        QL=$qn_l; OV_QN=$qn_i
+        return 0
+    done < "$OV_QUE"
+    return 1
+}
+# ov_await -> KEY: waits for the next key of the queue, napping (ov_nap) while there is none, and takes it. KEY is A, B, UP, DOWN, LEFT or
+# RIGHT as keyname makes it, else empty (a strike); KEY_CS is the time that wait was open (empty without a clock). KEY_ERR=1: the reader has
+# ended and left nothing: no answer and no key, a failure, and the Overview says so instead of counting it as a strike. The counts are
+# looked at again once the reader's end is seen, because it writes them before it ends. A B, Left or Right taken is counted in OV_NC, which
+# ends the cut of the draw it came in (ov_cut).
+ov_await() {
+    KEY=; KEY_CS=; KEY_ERR=; aw_ok=
+    while :; do
+        if ov_counts && [ "$CN_L" -gt "$OV_QN" ] && ov_qnext; then aw_ok=1; break; fi
+        if [ -s "$OV_RDONE" ]; then
+            if ov_counts && [ "$CN_L" -gt "$OV_QN" ] && ov_qnext; then aw_ok=1; else KEY_ERR=1; ov_rstop; fi
+            break
+        fi
+        ov_nap
+    done
+    [ -n "$aw_ok" ] || return 0
+    aw_t=${QL%% *}; aw_k=${QL#* }
+    case $aw_t in ''|*[!0-9]*) ;; *) KEY_CS=$aw_t ;; esac
+    keyname "$aw_k"; KEY=$NK
+    case $KEY in B|LEFT|RIGHT) OV_NC=$((OV_NC + 1)) ;; esac
 }
 # ov_kids PID -> the pids of PID's children, one per line: /proc/*/stat field 4 is the parent, read after the LAST ")" (the command
 # in field 2 may hold one); `ps` where there is no /proc (a dev machine).
@@ -190,25 +308,28 @@ ov_kill() {
     [ -z "$ok_k" ] || kill $ok_k 2>/dev/null
     kill "$1" 2>/dev/null
 }
-# ov_cleanup: the EXIT trap of the Overview (set where it starts). Ends a waiter that is still pending (the subshell hands the TERM on
-# to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, and removes the temp dir. Normal exits come after take and find
-# nothing pending; this is for TERM, INT and HUP, which reach the trap through `exit`, and for any exit the loop did not plan. A signal
-# that lands after the waiter was forked and before its pid was stored (OV_ARMING) finds it in $!.
+# ov_cleanup: the EXIT trap of the Overview (set where it starts). Leaves its mark for the reader, then ends the key reader and the wait it
+# has open (the reader hands the TERM on to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, and removes the temp dir. A normal exit after a B finds no
+# reader (it ended itself on that B); an exit after a key that found the payload gone, three strikes in the queue's order, or a TERM, INT
+# or HUP, finds one with a wait open. The reader is known by the pid ov_rstart stored (it defers a signal until then), and its wait by the
+# pid the reader wrote to OV_WPF, so nothing here guesses from `$!`: should the reader itself have been killed from outside, its wait is
+# still ended.
 ov_cleanup() {
-    ov_last=$!
-    [ -n "$OV_WPID" ] || [ "$OV_ARMING" != 1 ] || OV_WPID=$ov_last
-    [ -z "$OV_WPID" ] || kill "$OV_WPID" 2>/dev/null
+    [ -z "$OV_QUIT" ] || printf x 2>/dev/null > "$OV_QUIT"   # first: the mark the reader looks for (see ov_orphan), then the signals
+    [ -z "$OV_RPID" ] || kill "$OV_RPID" 2>/dev/null
+    cl_w=; [ ! -s "$OV_WPF" ] || read -r cl_w < "$OV_WPF"
+    case $cl_w in ''|*[!0-9]*) ;; *) kill "$cl_w" 2>/dev/null ;; esac
     [ -z "$OV_WTCH" ] || kill "$OV_WTCH" 2>/dev/null
     [ -z "$OV_JPID" ] || ov_kill "$OV_JPID"
     [ -z "$OV_TMP" ] || rm -rf "$OV_TMP"
 }
 
 # parent_gone -> 0 when STARCHORUS_PARENT_PID names the payload that started us and it has ended (or we were handed over
-# to another parent): the Overview then ends too, instead of drawing over whatever the device shows next. It is asked once per
-# pass, after every take (so before the next arm), and once more when the list returns, which can take as long as a person likes;
-# an Overview whose payload has gone therefore ends at its next key press. No process is started for it: it runs between a key
-# being taken and the next wait being armed, which must not take long. The parent of this shell is field 4 of /proc/self/stat (the
-# file is read by the shell's own `read`, so "self" is this shell), taken after the last ") ".
+# to another parent): the Overview then ends too, instead of drawing over whatever the device shows next. It is asked after every
+# key the shell takes from the queue, and once more when the list returns, which can take as long as a person likes; an Overview whose
+# payload has gone therefore ends at its next key press (the reader has opened another wait by then, which ov_cleanup ends). No process
+# is started for it: it runs between a key being taken and the next draw or nap, which must not take long. The parent of this shell is
+# field 4 of /proc/self/stat (the file is read by the shell's own `read`, so "self" is this shell), taken after the last ") ".
 # STARCHORUS_PROC (test hook) names another /proc directory.
 parent_gone() {
     case ${STARCHORUS_PARENT_PID:-} in ''|*[!0-9]*) return 1 ;; esac
@@ -282,29 +403,30 @@ fingerprint() {
     if [ "$FP_MODE" = stat ]; then stat -L -c '%Y %s %i' "$JSON" 2>/dev/null; else ls -linL "$JSON" 2>/dev/null; fi
 }
 
-# ov_jq PROGRAM -> fx_out (what jq printed) and, as the status, the one of `timeout` or of jq. The Overview runs jq in the background
-# with its output in a file, and the shell waits for it in `wait` (a TERM is therefore handled at once). A watcher looks at the key
-# file every 0.2 s (a whole second where the sleep applet has no fractions); once the waiter armed for this draw has its answer, it
-# ends the jq and what `timeout` started for it (ov_kill; see draw). FX_CUT=1 says the run ended for that reason: fetch then keeps
-# nothing, so the next draw of the screen reads the capture again. A run that failed while a key had come counts as cut too, whatever
-# its status (143 or 137 for a jq that was ended; a `timeout` that fired at that moment is not worth a verdict). The watcher leaves by
-# itself when the jq is gone (its pid does not exist once `wait` has reaped it) and is ended here as well.
+# ov_jq LIMIT JQ-ARGS... -> fx_out (what jq printed) and, as the status, the one of `timeout` or of jq. Runs jq with those arguments under
+# `timeout LIMIT` (without it where LIMIT is empty): the screens' programs run under the cap, the health probe without one. The Overview
+# runs jq in the background with its output in a file, and the shell waits for it in `wait` (a TERM is therefore handled at once). A
+# watcher looks at the queue's counts every 0.2 s (ov_nap); once a B, Left or Right is waiting (ov_cut), it ends the jq and what `timeout`
+# started for it (ov_kill; see draw). FX_CUT=1 says the run ended for that reason: fetch then keeps nothing, so the next draw of the screen
+# reads the capture again. A run that failed while such a key had come counts as cut too, whatever its status (143 or 137 for a jq that
+# was ended; a `timeout` that fired at that moment is not worth a verdict). The watcher leaves by itself when the jq is gone (its pid does
+# not exist once `wait` has reaped it) and is ended here as well.
 ov_jq() {
-    FX_CUT=0
-    if [ -n "$JQ_TMO" ]; then timeout "$JQ_TMO" jq -r "$JQLIB$SINCE_JQ$1" "$JSON" > "$OV_JQO" 2>/dev/null &
-    else jq -r "$JQLIB$SINCE_JQ$1" "$JSON" > "$OV_JQO" 2>/dev/null &
+    FX_CUT=0; oj_t=$1; shift
+    if [ -n "$oj_t" ]; then timeout "$oj_t" jq "$@" > "$OV_JQO" 2>/dev/null &
+    else jq "$@" > "$OV_JQO" 2>/dev/null &
     fi
     OV_JPID=$!; oj_p=$!
     (
         trap - EXIT
-        while kill -0 "$oj_p" 2>/dev/null && [ ! -s "$OV_KEYF" ]; do sleep 0.2 2>/dev/null || sleep 1; done
-        [ ! -s "$OV_KEYF" ] || ov_kill "$oj_p"
+        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap; done
+        if ov_cut; then ov_kill "$oj_p"; fi
     ) > /dev/null 2>&1 < /dev/null &
     OV_WTCH=$!
     wait "$OV_JPID" 2>/dev/null; oj_rc=$?
     kill "$OV_WTCH" 2>/dev/null; wait "$OV_WTCH" 2>/dev/null
     OV_JPID=; OV_WTCH=
-    if [ "$oj_rc" != 0 ] && [ -s "$OV_KEYF" ]; then FX_CUT=1; return "$oj_rc"; fi
+    if [ "$oj_rc" != 0 ] && ov_cut; then FX_CUT=1; return "$oj_rc"; fi
     fx_out=$(cat "$OV_JQO" 2>/dev/null)
     return "$oj_rc"
 }
@@ -327,12 +449,12 @@ fetch() {
     fx_key="$JSON|$(fingerprint)"
     eval "fx_ck=\${CK_$1-} fx_out=\${CO_$1-} fx_vd=\${CV_$1-}"
     if [ "$fx_key" = "$JSON|" ] || [ "$fx_ck" != "$fx_key" ]; then
-        [ ! -s "$OV_GATE" ] || return 1   # the draw is over (see draw)
+        ov_cut && return 1   # the draw is over (see draw)
         busy
         fx_lim=0
         if [ "$OV_LIVE" = 1 ]; then
             [ -z "$JQ_TMO" ] || fx_lim=1
-            ov_jq "$2"; fx_rc=$?
+            ov_jq "$JQ_TMO" -r "$JQLIB$SINCE_JQ$2" "$JSON"; fx_rc=$?
             [ "$FX_CUT" != 1 ] || return 1   # a cut run is no verdict (see draw)
         else
             fx_out=$(jq -r "$JQLIB$SINCE_JQ$2" "$JSON" 2>/dev/null); fx_rc=$?
@@ -686,7 +808,9 @@ def clouds: rndfree as $R
 # the output empty, so the comparison fails. The probe covers the JQLIB helpers plus add / group_by / sort_by (called outside
 # JQLIB by the summary, top and bands filters); --selftest probes each builtin on its own.
 # The probe runs once per process (on first use: the first summary, top or bands screen) and the answer is kept
-# in JQ_OK, so a draw of the same screen again costs no extra process.
+# in JQ_OK, so a draw of the same screen again costs no extra process. In the Overview it runs like the program of a screen (ov_jq,
+# without the cap): in the background, with a watcher, so that a B, Left or Right during the first draw ends it at once; a probe that was
+# ended is no answer, JQ_OK stays empty and the next draw asks again. Outside the Overview (--once, --selftest) it is a plain call.
 # jq_warn is the one place that turns a failed probe into a red line, called first thing in those three
 # screens; when the probe passes it prints nothing.
 JQ_PROBE='[(" 5 GHz" | bandnorm), ("6g" | bandnorm), ("WPA2/WPA3" | sectag), ("" | sectag), (null | isopenwep),
@@ -696,9 +820,16 @@ JQ_PROBE_WANT='["5","6","WPA3","Open",true,3,"b"]'
 JQ_OK=
 jq_healthy() {
     if [ -z "$JQ_OK" ]; then
-        [ ! -s "$OV_GATE" ] || return 0   # the draw is over (see draw): no probe now
+        ov_cut && return 0   # the draw is over (see draw): no probe now
         busy
-        if [ "$(jq -n -c "$JQLIB$JQ_PROBE" 2>/dev/null)" = "$JQ_PROBE_WANT" ]; then JQ_OK=1; else JQ_OK=0; fi
+        if [ "$OV_LIVE" = 1 ]; then
+            ov_jq "" -n -c "$JQLIB$JQ_PROBE"
+            [ "$FX_CUT" != 1 ] || return 0   # a probe that a key ended says nothing about jq
+            jh_out=$fx_out
+        else
+            jh_out=$(jq -n -c "$JQLIB$JQ_PROBE" 2>/dev/null)
+        fi
+        if [ "$jh_out" = "$JQ_PROBE_WANT" ]; then JQ_OK=1; else JQ_OK=0; fi
     fi
     [ "$JQ_OK" = 1 ]
 }
@@ -1049,7 +1180,7 @@ frame() {
 # layers so a failing jq shows WHICH piece is wrong: (1) one probe per jq builtin / syntax form the
 # filters use, each on its own line; (2) a small table of bandnorm / secupper / isopenwep / sectag inputs
 # (modelled on the oracle in tools/regress.d/jq-noregex.sh, far smaller), with the Bluetooth and activity helpers; (3) the jq_healthy
-# probe and screen_summary, screen_bands and screen_bluetooth over a tiny embedded fixture. INFO lines are informational and never change the verdict.
+# probe and screen_summary, screen_bands and screen_bluetooth over a tiny embedded fixture; (4) the key names the Overview's key reader uses (keyname: padded answers, BACK, Escape, lower case). INFO lines are informational and never change the verdict.
 # The one file it writes is that fixture (mktemp); a trap removes it again, also on INT/TERM.
 ST_N=0; ST_FAIL=0; ST_TMP=
 st_pass() { ST_N=$((ST_N + 1)); printf '[display-selftest]   PASS: %s\n' "$1"; }
@@ -1096,6 +1227,10 @@ st_has() {  # st_has NAME TEXT grep-args...: PASS iff grep finds its pattern in 
     st_name=$1; st_text=$2; shift 2
     if printf '%s\n' "$st_text" | grep "$@" >/dev/null 2>&1; then st_pass "$st_name"
     else st_fail "$st_name  (got: $(printf '%s\n' "$st_text" | grep -E '^(APs |Open/WEP|No open/WEP|jq incomplete)' | tr '\n' '|'))"; fi
+}
+st_key() {  # st_key NAME RAW WANT: keyname (the key reader's) turns RAW into WANT: A, B, UP, DOWN, LEFT, RIGHT, or nothing
+    keyname "$2"
+    if [ "$NK" = "$3" ]; then st_pass "$1"; else st_fail "$1  (got '$NK', want '$3')"; fi
 }
 st_verdict() {
     if [ "$ST_FAIL" -eq 0 ]; then printf '[display-selftest] SELFTEST: ALL PASS (%s checks)\n' "$ST_N"; return 0; fi
@@ -1245,6 +1380,16 @@ ST_JSON
     else
         st_fail "screen_summary end-to-end (no temp file for the fixture)"
     fi
+    # (4) the key reader's names. Pure shell, no jq: the reader and the shell both turn what WAIT_FOR_INPUT printed into a key with keyname, which strips
+    # spaces, tabs and CR with parameter expansions that the device's shell has to get right (the stand-ins of the regression run only prove them on a
+    # laptop's); BACK and Escape count as B and a lower-case a or b as the capital; any other word, an empty answer included, is no key (a strike)
+    st_key "keyname: BACK is B" "BACK" B
+    st_key "keyname: Escape is B" "Escape" B
+    st_key "keyname: a lower-case b is B" "b" B
+    st_key "keyname: a lower-case a is A" "a" A
+    st_key "keyname: spaces, a tab and a CR around the word are stripped" " $TAB RIGHT $TAB$CR" RIGHT
+    st_key "keyname: a word nobody knows is no key" "left" ""
+    st_key "keyname: an empty answer is no key" "" ""
     st_verdict
 }
 
@@ -1268,19 +1413,21 @@ if [ "$1" = "--once" ]; then
 fi
 
 # draw VIEW: one screen as its block of LOG lines and, last, its frame. A draw that has to run jq says "Reading..." first (busy(),
-# once per draw). It runs with a key wait already open (arm). The wait takes one key, so the draw ends with it: while a draw runs,
-# OV_GATE names the key file, and once that file holds an answer log() prints nothing, fetch() and jq_healthy() start no jq, a jq
-# that is running is ended (ov_jq), frame is not started and a cut draw keeps no verdict. The status is 1 for a draw that was ended
-# that way, 0 for a whole one: the loop draws a screen again after a key that asked for nothing (Up, Down, a strike) only when its
-# draw was cut, so no half screen is left as the last thing on the console. R_gen and R_interval are cleared first: a screen that
-# has nothing to show (waiting, slow) must not borrow the time of the screen before.
+# once per draw). It runs with the key reader's wait already open. A draw ends early for a key that asks for another screen: while a
+# draw runs OV_GATE is 1, and once a B, Left or Right is waiting in the queue (ov_cut) log() prints nothing, fetch() and jq_healthy()
+# start no jq, a jq that is running is ended (ov_jq), frame is not started and a cut draw keeps no verdict. An A, Up or Down does not
+# end it: the draw finishes, and an A that came in it is answered by it (OV_QC, below). OV_QC is the number of lines the queue held when
+# the block was done, before the frame: a key taken with OV_QN at or below it was pressed during this draw, and one above it after the
+# screen was complete, because the frame is the last thing printed. The count is read before the frame on purpose, so that a press made
+# the moment the frame is out is certainly a later one. R_gen and R_interval are cleared first: a screen that has nothing to show
+# (waiting, slow) must not borrow the time of the screen before.
 draw() {
     OV_BUSY=0; FX_SLOW=0; unset R_gen R_interval
-    OV_GATE=$OV_KEYF
+    [ "$OV_LIVE" != 1 ] || OV_GATE=1
     render "$1"
-    [ -s "$OV_KEYF" ] || frame "$1"
+    ov_counts && OV_QC=$CN_L
+    ov_cut || frame "$1"
     OV_GATE=
-    [ ! -s "$OV_KEYF" ]
 }
 
 # The screens in the order of the list and of Left / Right, wrapping round at both ends. step sets view to the neighbour,
@@ -1307,59 +1454,60 @@ view_of() {
     esac
 }
 
-# The Overview. On the device the first things that happen are the traps, the private temp dir and the first arm, and only then the
-# first line (before any jq call, so the screen still answers at once): the wait is registered while the heading goes out, not after
-# it, which is the one stretch the start can keep unarmed. Every pass of the loop is arm, draw, take (see The key wait), with
-# parent_gone asked once per pass and again after the list. The first pass draws the summary; after that nothing is drawn unless a
-# key asks for it. The keys are as in the header; anything else is a strike when it came back within 1 s of its arm (STRIKE_CS) or
-# when there is no clock to tell, and the third in a row ends the Overview: an empty answer at once means the key path is broken,
-# and this must not become a busy loop. The same answer after a real wait (a second or more) is a UI that took its time: the wait is
-# simply opened again and the count starts over. The list "Overview" is a wait of its own, so no waiter is armed while it is up; when
-# it returns, the next pass arms, then draws. Every exit is after a take or through ov_cleanup. No menu of its own: starting and
-# stopping belong to the payload.
+# The Overview. On the device the first things that happen are the traps, the private temp dir and the key reader's first wait, and only
+# then the first line (before any jq call, so the screen still answers at once): the wait is registered while the heading goes out, not
+# after it, which is the one stretch the start can keep unopened. The reader (see The key reader) runs from then on; every pass of the loop
+# is draw (when something asks for one), then take the next key from the queue, napping until there is one, with parent_gone asked after
+# each key and again after the list. The first pass draws the summary; after that nothing is drawn unless a key asks for it. The keys are as
+# in the header: A draws again, unless it came during a draw (OV_QC, see draw), which answers it; Left and Right step and draw; Up and Down
+# ask for nothing; anything else is a strike when it came back within 1 s of its wait being opened (STRIKE_CS) or when there is no clock
+# to tell, and the third in a row ends the Overview: an empty answer at once means the key path is broken, and this must not become a busy
+# loop (the reader stops on the same third answer, so the queue cannot fill up meanwhile). The same answer after a real wait (a second or
+# more) is a UI that took its time: the count starts over. A B ends the reader (it ended itself on that B) and opens the list "Overview",
+# which is a wait of its own, so no wait of the reader's is open while it is up; when it returns, a new reader starts and the screen is
+# drawn. Every exit is through ov_cleanup. No menu of its own: starting and stopping belong to the payload.
 command -v jq >/dev/null 2>&1 || { log blue "Overview"; err_dialog "Overview needs jq."; exit 1; }
 view=summary
-[ "$ONDEV" = 1 ] || { log blue "Overview"; draw summary; exit 0; }   # dev fallback: one screen, no keys, nothing armed
-# The key file lives in a private temp dir (umask 077 makes it 0700 with no process of its own) that the EXIT trap removes. The traps
-# come first, so no signal can find a dir they would not clean up; TERM, INT and HUP end the Overview through `exit`, which runs
-# ov_cleanup. Both files are written once, here, so that a file system with no room left is an error at the start and not three
-# empty answers later (take names the same failure later on).
+[ "$ONDEV" = 1 ] || { log blue "Overview"; draw summary; exit 0; }   # dev fallback: one screen, no keys, no reader
+# The queue and its files live in a private temp dir (umask 077 makes it 0700 with no process of its own) that the EXIT trap removes. The
+# traps come first, so no signal can find a dir they would not clean up; TERM, INT and HUP end the Overview through `exit`, which runs
+# ov_cleanup. The files are written once, here, so that a file system with no room left is an error at the start and not three empty
+# answers later (ov_await names the same failure later on).
 trap ov_cleanup EXIT
-trap 'exit 143' TERM
-trap 'exit 130' INT
-trap 'exit 129' HUP
+ov_trap_exit
 OV_TMP=$(umask 077 && mktemp -d "${TMPDIR:-/tmp}/starchorus-ov.XXXXXX" 2>/dev/null) || {
     OV_TMP=
     log blue "Overview"
     err_dialog "Overview could not start."
     exit 1
 }
-OV_KEYF=$OV_TMP/key; OV_RAW=$OV_TMP/raw; OV_JQO=$OV_TMP/jq
-{ printf x > "$OV_KEYF" && printf x > "$OV_RAW" && printf x > "$OV_JQO"; } 2>/dev/null || {
+OV_QUE=$OV_TMP/queue; OV_CNT=$OV_TMP/count; OV_RAW=$OV_TMP/raw; OV_JQO=$OV_TMP/jq; OV_RDONE=$OV_TMP/done; OV_WPF=$OV_TMP/wpid; OV_QUIT=$OV_TMP/quit
+{ printf x > "$OV_QUE" && printf '0 0\n' > "$OV_CNT" && printf x > "$OV_RAW" && printf x > "$OV_JQO" && printf x > "$OV_RDONE" && printf x > "$OV_WPF"; } 2>/dev/null || {
     log blue "Overview"
     err_dialog "Overview could not start."
     exit 1
 }
+: > "$OV_QUE"; : > "$OV_RDONE"; : > "$OV_WPF"
 OV_LIVE=1; bad=0; again=1; first=1
 parent_gone && exit 0
+ov_rstart
 while :; do
-    arm
     [ -z "$first" ] || { log blue "Overview"; first=; }
-    ov_cut=0
-    [ "$again" = 0 ] || draw "$view" || ov_cut=1
-    take
+    [ "$again" = 0 ] || draw "$view"
+    ov_await
     parent_gone && exit 0
     [ -z "$KEY_ERR" ] || { err_dialog "Overview could not read a key."; exit 1; }
-    again=1
+    again=0
     case $KEY in
-        A) bad=0 ;;
-        LEFT|RIGHT) bad=0; step "$KEY" ;;
-        UP|DOWN) bad=0; again=$ov_cut ;;
+        A) bad=0; [ "$OV_QN" -le "$OV_QC" ] || again=1 ;;
+        LEFT|RIGHT) bad=0; step "$KEY"; again=1 ;;
+        UP|DOWN) bad=0 ;;
         B) bad=0; row_of
+           ov_rstop
            sel=$(pick "Overview" "Summary" "Strongest Networks" "Bands & Security" "Devices & Merges" "Probe Requests" "Stations" "Bluetooth" "Air Quality" "$ROW") || exit 0
            parent_gone && exit 0
-           view_of "$sel" || exit 0 ;;
-        *) again=$ov_cut
-           if [ -z "$KEY_CS" ] || [ "$KEY_CS" -lt "$STRIKE_CS" ]; then bad=$((bad + 1)); [ "$bad" -lt 3 ] || exit 0; else bad=0; fi ;;
+           view_of "$sel" || exit 0
+           ov_rstart; again=1 ;;
+        *) if [ -z "$KEY_CS" ] || [ "$KEY_CS" -lt "$STRIKE_CS" ]; then bad=$((bad + 1)); [ "$bad" -lt 3 ] || exit 0; else bad=0; fi ;;
     esac
 done

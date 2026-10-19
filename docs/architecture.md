@@ -2544,15 +2544,16 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   SIGKILL leaves its tools to their dead-man timers and to the next start's sweep.
 - The receiver is never held on a channel or a BSSID; there is no radio-controlling command in the code.
 - `starchorus-display.sh` uses only the device's display commands `LOG`, `LIST_PICKER`, `ERROR_DIALOG` and
-  `WAIT_FOR_INPUT` (`docs/device-notes.md` §7). The display arms one `WAIT_FOR_INPUT` in the background, without a time limit,
-  before it draws, and takes its answer when the draw is over, so a press during `Reading...` is kept (a press made while no wait is open
-  is lost: `docs/device-notes.md` §7, M1). The wait takes one key, so the first key ends the draw (nothing more is printed, the `jq` that
-  is running is ended) and the next wait is armed at once; a press that falls between one wait ending and the next being registered is
-  still lost. The list of screens is its own wait, with none armed. The answer travels through a file
-  in a private temporary directory, which also holds the output of the screen's `jq` and which the display removes when it ends, and an
-  exit trap ends a wait that is still pending. It sends a signal only to processes it started itself: the waiter, its `jq` (and what
+  `WAIT_FOR_INPUT` (`docs/device-notes.md` §7). The display keeps a key reader running from its first screen on: a background process that runs a `WAIT_FOR_INPUT`, without a time limit,
+  takes its answer, appends it to a queue and opens the next wait at once, so a press during `Reading...` is kept, in order (a press made while
+  no wait is open is lost: `docs/device-notes.md` §7, M1). A B, Left or Right ends the draw that is running (nothing more is printed, the `jq` that
+  is running is ended); an A, Up or Down lets it finish, and an A pressed during it is answered by it. The reader ends itself on a B, so no wait
+  is open while the list of screens, a wait of its own, shows; a press that falls between one wait ending and the next being registered, or
+  between a B and the list, is still lost. The queue is an append-only file in a private temporary directory, read by line number, which also
+  holds the reader's counts, the pid of its wait and the output of the screen's `jq` and which the display removes when it ends; an exit trap
+  ends the reader and its wait. It sends a signal only to processes it started itself: the reader, its wait, its `jq` (and what
   `timeout` started for it) and the watcher of that `jq`.
-  Nothing on the display redraws by itself; no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
+  Nothing on the display redraws by itself (between draws the shell naps 0.2 s at a time and looks at two small files); no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
   `timeout` exists). No upload, no location query.
 - Static check (`tools/passivity-check.sh`, with mutation probe `tools/passivity-mutate.sh`): calls of the AP service CLI
   and of the device's transmitting or upload commands, across the collector, both `starchorus-display.sh`, both `payload.sh`

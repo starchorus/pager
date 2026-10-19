@@ -70,17 +70,18 @@
 # is killed, as a WAIT_FOR_INPUT does while nobody presses a key (the "ovpipe" row and the TERM row of "nopending" use it), "z"
 # blocks for 4 s and then says B (a waiter that an Overview must not have left pending: the "nopending" rows); past the last line a
 # picker exits 2 (cancel) and WAIT_FOR_INPUT says B, so no run can wait for input. WAIT_FOR_INPUT is blocking like the device's,
-# one call per key, but the Overview runs it as a background child that writes into its own key file and arms it BEFORE the draw
-# (a press made while no wait is open is lost: measured on the device, 16 October 2026), so its call may land before or among
-# the LOG lines of the draw it was armed for: the rows count the waits (pui_x, pui_used) and never read a wait's place in the
-# log. A draw ends with the first key that has come (a wait takes one key), so WHEN a stand-in answers decides what a row sees.
-# A plain answer is a press made after the screen is complete, as a person's is: the stand-in waits until the frame of the draw it
-# was armed for is out (`A: Refresh   B: Back`, counted in the log against the count when the call before ended), when that pass
-# draws at all: the first one, after A, a, LEFT or RIGHT, after a row was picked from the list, and after an early answer that ended
-# a draw. A pass after Up, Down, an unknown word or an empty answer draws nothing and its stand-in does not wait. A leading "i"
-# is a press made at once, wherever the draw is; a leading "j" a press made at `Reading...`: the stand-in waits until the jq
-# stand-in under $PUI_T/jqs has started the program run ($PUI_T/jq.started exists) and answers then. Both end the draw they come in
-# (rows that use "j" make the draw long, so that it is cut every time). Every call writes its log line with one write, and a
+# one call per key, but the Overview's key reader runs it as a background child that writes into its own file and calls it again the
+# moment it has an answer (a press made while no wait is open is lost: measured on the device, 16 October 2026), so its call may land
+# before or among the LOG lines of the draw it follows: the rows count the waits (pui_x, pui_used) and never read a wait's place in
+# the log. A B, Left or Right ends the draw that is running and an A, Up or Down does not, so WHEN a stand-in answers decides what a
+# row sees. A plain answer is a press made after the screen is complete, as a person's is: the stand-in waits until the frame of the
+# draw that the call before led to is out (`A: Refresh   B: Back`, counted in the log against the count when the call before ended),
+# when there is one: the first call, after A, a, LEFT or RIGHT, after a row was picked from the list, and after an early answer, whose
+# draw goes on or is cut for the next screen. After a plain Up, Down, an unknown word or an empty answer there is no draw and the
+# stand-in does not wait. A leading "i" is a press made at once, wherever the draw is; a leading "j" a press made at `Reading...`:
+# the stand-in waits until the jq stand-in under $PUI_T/jqs has started the program run ($PUI_T/jq.started exists) and answers
+# then. A B, Left or Right ends the draw it comes in, an A, Up or Down does not (rows that use "j" make the draw long, so that the
+# answer lands inside it every time). Every call writes its log line with one write, and a
 # WAIT_FOR_INPUT notes its pid in $PUI_T/wait.pids, so that a row can see whether a waiter outlived the Overview. A jq under
 # $PUI_T/jqs takes two seconds before it reads a capture file: it says it has started (jq.started, and a line in jq.starts), is
 # ended at once by a TERM (jq.killed) and otherwise notes how many WAIT_FOR_INPUT calls had been logged by the time it woke and
@@ -1013,23 +1014,23 @@ rowif "payload ui: no jq: no Overview row, E11 at Start; a leftover page server 
 
 # ---- 21 · the Overview contract, on the real starchorus-display.sh. Every press acts at once and means the same everywhere (A = this
 #            screen again, B = one level up, Left/Right = the neighbouring screen, Up/Down = nothing). A key wait (WAIT_FOR_INPUT, run as
-#            a background child that writes into a key file in a private temp directory) is armed BEFORE every draw and taken after
-#            it, so a wait is open while a screen or `Reading...` is drawn: a press made while none is open is lost, not buffered, and
-#            B is then taken by the Pager UI itself (M1 and M2, measured on the device, 16 October 2026). The wait takes one key,
-#            so a draw ends with the first key that has come (it prints nothing more and ends its jq) and that key is acted on at
-#            once, with the next wait armed straight after: a press at `Reading...` is kept (no settle rule), and a second press
-#            there does not find the rest of a long draw unarmed. The list (LIST_PICKER) is its own wait, with no waiter armed while
-#            it shows. No `timeout` in front of a UI command. When the Overview ends no
-#            waiter and no temp directory is left: after a key it exits only once the waiter has answered, and a TERM ends the
-#            waiter through its traps. The first LOG line is blue Overview (it follows the first arm, so the stand-in's own
-#            WAIT_FOR_INPUT line may come first), then the screen; each screen ends with
+#            a background child of the key reader, which appends every answer to a queue in a private temp directory and calls it
+#            again at once) is open while a screen or `Reading...` is drawn: a press made while none is open is lost, not buffered, and
+#            B is then taken by the Pager UI itself (M1 and M2, measured on the device, 16 October 2026). A draw ends for a key that
+#            asks for another screen, B, Left or Right (it prints nothing more and ends its jq), and that key is acted on at once; an
+#            A, Up or Down leaves it running, and an A that came in it is answered by it: a press at `Reading...` is kept (no settle
+#            rule) and a second press there finds the next wait open. The list (LIST_PICKER) is its own wait, and the reader ends
+#            itself on the B that opens it. No `timeout` in front of a UI command. When the Overview ends no
+#            waiter and no temp directory is left: the reader's pending wait is ended by the exit trap, and a TERM ends the
+#            waiter through the reader's traps. The first LOG line is blue Overview (it follows the reader's start, so the stand-in's
+#            own WAIT_FOR_INPUT line may come first), then the screen; each screen ends with
 #            `Last scan HH:MM:SS (N s ago)` (the red `No new scan for N min.` instead when it is old) and `A: Refresh   B: Back`, the
 #            summary also with the page's address; B on a screen opens the list of eight (the default is the screen B came from), B
 #            there ends the Overview with exit 0; no own menu; `Reading...` before a screen that runs jq; anything else than the known
-#            keys is a strike when its wait ended within a second of the arm, three strikes in a row end it (a slow answer is only
+#            keys is a strike when its wait ended within a second of being opened, three strikes in a row end it (a slow answer is only
 #            waited out and resets the count); SINCE newer than the capture -> "Waiting for the first scan."; the payload gone before
-#            a draw -> it ends without a line and without arming, and the payload gone while it waits -> it ends at that key, without a
-#            second wait (killed then, the payload's stdout still reaches EOF at once); no jq -> E11.
+#            a draw -> it ends without a line and without a wait, and the payload gone while it waits -> it ends at that key (the
+#            reader's next wait is open by then and the exit ends it; killed then, the payload's stdout still reaches EOF at once); no jq -> E11.
 #            The waiter answers in the background, so a row reads the waits as a count (pui_x, pui_used), never as a place in the log.
 #            The stand-in answers after the screen is complete unless a row says otherwise (see the header: "i" and "j"), so the
 #            draws a row sees are whole and the rows below are deterministic; the rows `armed` and `armed2` are the ones that
@@ -1112,17 +1113,17 @@ jq --argjson g "$PUI_G" '.generated = $g' "$F/field-probes.json" > "$PUI_T/fresh
 pui_ans "q=B" "!3"
 pui_ovrun STARCHORUS_JSON="$PUI_T/fresh.json" sh "$PUI_DS"
 pui_is fresh [ "$PUI_RC/$(pui_lre "^Last scan $PUI_GT [(][0-9]+ s ago[)]\$")/$(pui_logc 'No new scan')/$(pui_tok)" = "0/1/0/O R S L F P" ]
-# armed before the draw, and the draw ends with the first key. A jq that takes two seconds to read the capture (the stand-in under PUI_OVS) finds a
-# wait already open, and the answer ("j": a press at `Reading...`, made the moment that jq has started) is acted on at once, with no settle rule
-# and nothing dropped: A. The draw it came in is over (its jq is ended: jq.killed, one line of jq.starts so far, no heading of that screen, no
-# frame), the screen is drawn again from scratch (a cut run is kept as no verdict: the jq runs a second time, 2 starts) and the B after it,
-# pressed once that draw is complete, opens the list. The temp directory of the Overview, which exists by then, is private (drwx------).
+# open before the draw, and a draw ends only for a key that asks for another screen. A jq that takes two seconds to read the capture (the stand-in under
+# PUI_OVS) finds the key reader's wait already open, and the answer ("j": a press at `Reading...`, made the moment that jq has started) is taken with no
+# settle rule and nothing dropped: A. The draw it came in goes on (0.1.1 ended it and drew the screen again): its jq is not ended (no jq.killed, one
+# line of jq.starts), the screen is drawn whole once, and the A is answered by that draw; the B after it, pressed once the screen is complete, opens the
+# list. The reader's second wait was open while the jq slept (jq.waits). The temp directory of the Overview, which exists by then, is private (drwx------).
 PUI_OVPATH=$PUI_OVS
 pui_ans "j=A" "=B" "!3"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" sh "$PUI_DS"
 PUI_OVPATH=""
-pui_is armed [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_lt Reading...)/$(pui_logc '^LOG	blue	Starchorus  ~')/$(pui_logc '^LOG	A: Refresh   B: Back$')/$(pui_logc '^LIST_PICKER')/$(pui_lt 'Waiting for the first scan.')" = "0/3/2/2/1/1/1/0" ]
-pui_is armedjq [ "$(wc -l < "$PUI_T/jq.starts" | tr -d ' ')/$([ -e "$PUI_T/jq.killed" ] && echo killed)/$(wc -l < "$PUI_T/jq.waits" | tr -d ' ')/$(awk '{ print ($1 >= 1) ? "open" : "none" }' "$PUI_T/jq.waits")" = "2/killed/1/open" ]
+pui_is armed [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_lt Reading...)/$(pui_logc '^LOG	blue	Starchorus  ~')/$(pui_logc '^LOG	A: Refresh   B: Back$')/$(pui_logc '^LIST_PICKER')/$(pui_lt 'Waiting for the first scan.')" = "0/3/2/1/1/1/1/0" ]
+pui_is armedjq [ "$(wc -l < "$PUI_T/jq.starts" | tr -d ' ')/$([ -e "$PUI_T/jq.killed" ] && echo killed)/$(wc -l < "$PUI_T/jq.waits" | tr -d ' ')/$(awk '{ print ($1 >= 2) ? "open" : "none" }' "$PUI_T/jq.waits")" = "1//1/open" ]
 pui_is tmpmode [ "$(sort -u "$PUI_T/jq.mode" 2>/dev/null)" = "drwx------" ]
 # B at `Reading...` opens the list at once: the draw ends, the jq is ended, nothing is drawn that screen, and the picker's cancel ends it
 PUI_OVPATH=$PUI_OVS
@@ -1130,12 +1131,12 @@ pui_ans "j=B" "!3"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" sh "$PUI_DS"
 PUI_OVPATH=""
 pui_is armed2 [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_logc '^LOG	blue	Starchorus  ~')/$(pui_logc '^LOG	A: Refresh   B: Back$')/$(pui_logc '^LIST_PICKER')/$(wc -l < "$PUI_T/jq.starts" | tr -d ' ')/$([ -e "$PUI_T/jq.killed" ] && echo killed)/$(pui_lt 'Waiting for the first scan.')" = "0/2/1/0/0/1/1/killed/0" ]
-# Up and Down are the console's own: six of them in a row change nothing, draw nothing, are no strikes, and the wait is armed again at
-# once (the B after them still opens the list)
+# Up and Down are the console's own: six of them in a row change nothing, draw nothing, are no strikes, and the reader's next wait is open
+# already (the B after them still opens the list)
 pui_ans "=UP" "=DOWN" "=UP" "=DOWN" "=UP" "=DOWN" "=B" "!3"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" sh "$PUI_DS"
 pui_is updown [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/8/7/O R S N F P" ]
-# anything else than the known keys is a strike when its wait ended within a second of the arm (the fake clock: a queued answer, "q",
+# anything else than the known keys is a strike when its wait ended within a second of being opened (the fake clock: a queued answer, "q",
 # takes 0.2 s), and three of them in a row end the Overview with exit 0, never a busy loop: unknown words, and empty answers (a UI that
 # has gone gives those). Three waits, one draw, the list never opened; the fourth answer is never asked for.
 pui_ans "q=X" "q=Y" "q=Z" "=B" "!3"
@@ -1153,9 +1154,9 @@ pui_is strikesslow [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/8/7/O R S N
 pui_ans "=A" "=B"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_SINCE=9999999999 sh "$PUI_DS"
 pui_is waiting [ "$PUI_RC/$(pui_lt 'Waiting for the first scan.')/$(pui_logc 'No new scan')/$(pui_logc 'Last scan')/$(pui_logc 'APs ')/$(pui_tok)" = "0/2/0/0/0/O R G F G F P" ]
-# the payload gone before the first draw: nothing is drawn, not even the heading, and no wait is armed (parent_gone comes first); the
-# payload gone while the Overview waits ("x" in the answer ends it just before the key comes): it ends at that key, draws nothing more
-# and arms nothing more
+# the payload gone before the first draw: nothing is drawn, not even the heading, and no wait is opened (parent_gone comes first); the
+# payload gone while the Overview waits ("x" in the answer ends it just before the key comes): it ends at that key and draws nothing
+# more; the reader had opened its next wait by then (two waits, the second never answered), and the exit ends it: none is left alive
 ( sh -c 'exit 0' & echo $! > "$PUI_T/dead.pid" ); sleep 1
 pui_ans "=A"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_PARENT_PID="$(cat "$PUI_T/dead.pid")" sh "$PUI_DS"
@@ -1163,7 +1164,8 @@ pui_is orphan [ "$PUI_RC/$(wc -l < "$PUI_T/case.log" | tr -d ' ')/$(pui_used)" =
 ( sleep 60 >/dev/null 2>&1 & echo $! > "$PUI_T/parent.pid" )
 pui_ans "x=A" "=A"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_PARENT_PID="$(cat "$PUI_T/parent.pid")" sh "$PUI_DS"
-pui_is orphankey [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/1/1/O R S N F" ]
+pui_is orphankey [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/2/2/O R S N F" ]
+pui_is "orphankey:gone" pui_nopids
 kill "$(cat "$PUI_T/parent.pid")" 2>/dev/null
 # no waiter left behind. A stand-in waiter that blocks for 4 s ("z") stands for one that would still be pending: after three strikes,
 # and after B and a cancelled list, the Overview ends without ever asking for the next wait, so every waiter it started has ended
@@ -1212,7 +1214,7 @@ PUI_UIW='WAIT_FOR_INPUT|LIST_PICKER|NUMBER_PICKER|CONFIRMATION_DIALOG|ERROR_DIAL
 pui_is notimeout [ "$(sed -e '/^[[:space:]]*#/d' -e 's/[[:space:]]#.*//' "$PUI_DS" "$R/library/user/reconnaissance/starchorus/starchorus-display.sh" | grep -cE "(^|[^A-Za-z_])timeout[^|;&]*($PUI_UIW)([^A-Za-z_]|\$)")/$(cat "$PUI_T/timeout.log" 2>/dev/null | awk -F'\t' -v w="^($PUI_UIW)\$" '$2 ~ w { n++ } END { print n + 0 }')" = 0/0 ]
 # the settle rule is gone from both copies, comments included (nothing is buffered, so there is nothing to settle)
 pui_is nosettlecode [ "$(cat "$PUI_DS" "$R/library/user/reconnaissance/starchorus/starchorus-display.sh" | grep -c 'SETTLE')" = 0 ]
-rowif "payload ui: Overview contract: first line, one footer, hub of eight (Bluetooth between Stations and Air Quality), the Bluetooth screen, A/B/Left/Right, Up/Down nothing, key wait armed before the draw, no settle rule, strikes, red stale line, waiting, no timeout, no waiter or temp dir left behind, orphan, payload stdout free after a TERM, E11 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+rowif "payload ui: Overview contract: first line, one footer, hub of eight (Bluetooth between Stations and Air Quality), the Bluetooth screen, A/B/Left/Right, Up/Down nothing, the key reader's wait open before the draw and kept open through it, an A at Reading... answered by the draw, no settle rule, strikes, red stale line, waiting, no timeout, no waiter or temp dir left behind, orphan, payload stdout free after a TERM, E11 (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 [ -z "$PUI_NOFIX" ] || notcov "payload ui: the eight screens walked on radio-pair, the Bluetooth screen whole (needs tests/fixtures/radio-pair.json)"
 
 # ---- 22 · bind: set/get/reset like port; refusals (0.0.0.0 included: every interface is spelt `all`); the environment

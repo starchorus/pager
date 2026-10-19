@@ -759,7 +759,7 @@ reads that settle the design (A1, A2, A10, A15 of §2b) came first. Segments of 
 Traffic on; the ticks are the CPU time of the collector's children per cycle (`cutime` and `cstime` of the loop), the tools' own ticks were read
 from `/proc` once a second while they ran. The result in one line: the design is passive as built (V-13 and V-3 below), the tools cost what
 the brief said, and the parse, the polling and the AP service's command-line client cost more than the budget; the switches stay off by default
-and the levers are listed after the table. The installed collector's own self-test on the device passed in full on 19 October 2026 (460 checks; on 18 October three rows had failed on the 512-KiB parse cap, the 3-s readiness wait under load and a BusyBox exit code). In a crowded hall the parse is held to a size and a time limit, so the cycle can lengthen but the
+and the levers are listed after the table. The installed collector's own self-test on the device passed in full as of 19 October 2026 (460 checks; on 18 October three rows had failed on the 512-KiB parse cap, the 3-s readiness wait under load and a BusyBox exit code). In a crowded hall the parse is held to a size and a time limit, so the cycle can lengthen but the
 Wi-Fi document is never held back by it.
 
 | Row | Procedure | Pass | Measured (18 October 2026) |
@@ -861,7 +861,7 @@ browser loading the page from the 0.1.1 server (the browser check of 13 October 
 | `ERROR_DIALOG "text"` | error dialogue | payload on a failure (not installed, could not start or stop, no web server, port in use, invalid port, setting not saved, version difference); Overview when `jq` is missing |
 | `PROMPT "text"` | a message until it is dismissed | payload: a setting locked by the environment; the QR text when `PROMPT_QR` is missing or fails |
 | `PROMPT_QR …` | a QR code with a message (firmware 1.1.1 and later, as reported: this project has no method or date of its own for that boundary and has not tried an older firmware) | payload: 'Open on Phone' (an exit after a person's time counts as leaving it; a command that is absent or returns within 0.6 s gets the PROMPT) |
-| `WAIT_FOR_INPUT` | waits for any key and prints its name (`A`, `B`, `UP`, `DOWN`, `LEFT`, `RIGHT`); no time limit is documented, and none is used | Overview: one wait, started in the background before each draw and collected when the draw is over; the wait takes one key and that key ends the draw, so a press during `Reading...` is kept and the next wait follows at once (M1 to M3, §7); nothing redraws by itself; A draws the screen again, B goes up one level, Left and Right step through the screens, Up and Down are ignored |
+| `WAIT_FOR_INPUT` | waits for any key and prints its name (`A`, `B`, `UP`, `DOWN`, `LEFT`, `RIGHT`); no time limit is documented, and none is used | Overview: a key reader runs it in the background again and again, from the first screen until the Overview ends (it ends itself on a B, so none is open while the list shows), and queues every answer; a press during `Reading...` is kept, in order, and the next wait is open the moment an answer is in (M1 to M3, §7; before 0.2.0 one wait per draw, which any key ended); nothing redraws by itself; A draws the screen again (an A pressed during a draw is answered by it), B goes up one level, Left and Right step through the screens, Up and Down are ignored; B, Left and Right end a draw at once |
 
 **Measured on the device (14 October 2026).** `LIST_PICKER` prints the chosen option's exact text
 and exits 0; key B gives exit 3 and no output. Four rows are visible at a time, and a row of up to 28
@@ -889,40 +889,37 @@ The Overview `starchorus-display.sh` is the on-device view: eight screens from `
 (the summary, strongest networks, bands and security, devices and merges, probe requests,
 stations, Bluetooth, air quality) as LOG lines. The payload runs it as a child process at nice 19 and hands it
 the time of the last Start, so it never shows a capture from before it ('Waiting for the first
-scan.'). It has no menu of its own, and starting and stopping belong to the payload. Before it draws a
-screen it starts one `WAIT_FOR_INPUT` in the background, with no time limit, and it collects the
-answer when the draw is over, so a wait is open while a screen or 'Reading...' is drawn. That order
-follows from the measurements below: a press made while no wait is open is lost (M1) and B is then
-taken by the Pager's own UI (M2), whereas a wait started in the background still receives a key while
-the foreground writes LOG lines (M3). A press made during 'Reading...' is therefore kept. A wait takes
-one key, so that key also ends the draw: the shell prints nothing more, ends the `jq` that is running
-and acts on the key at once, with the next wait started straight after. A draw that went on would run
-with no wait open for the rest of its time (up to the 20 seconds of the `jq`, then every line of the
-block), and a second press in that time, B again because nothing seems to happen, would be lost or,
-for B, leave the payload's view. Three stretches are still without a wait, and a press that falls in
-one is lost (M1) and, for B, may leave the payload's view (M2): the start, from the Overview's first
-line of code to its first wait (the traps are set and the temporary directory is made); the time from
-a key being answered to the next wait being registered with the UI (while a `jq` runs, the shell sees
-the key at the next look of its watcher, every 0.2 s; then it ends the `jq`, takes the key, asks
-whether the payload is still there, which starts no process, and starts the waiter, which is two
-processes before `WAIT_FOR_INPUT` itself runs, and the UI takes the request in its own time), so even
-the first line of a draw can be written before its wait exists; and the list, which is a wait of its
-own. None of them was timed on the device. The first two are a fraction of a second at most (the
-watcher's 0.2 s and a few process starts), not the seconds of a draw, but they exist, and this
-document does not claim that B can never leave the payload's view. The
-wait writes its answer into a file in a private temporary directory (`mktemp -d`, mode 700) that the
-Overview removes when it ends, with the output of its `jq` in a second file there. An exit trap also
-ends a wait that is still pending (after a TERM, say), so none is left behind. A file that cannot be
-written (the file system is full) is reported as 'Overview could not read a key.' and not counted as
-empty answers. Nothing redraws by itself, and no UI command is ever put under `timeout`; only its own
-`jq` is (`timeout 20`, where `timeout` exists: a read that takes longer ends as 'This scan took over
-20 s to read.', and 'Try Settings > Show Last: 1 h.' follows). The keys: A draws the screen again; B
-goes up one level (a screen, then the `LIST_PICKER` 'Overview' with its eight rows, then exit 0 to the
-payload's menu); Left and Right step through the screens, round the ends; Up and Down are ignored (a
-new wait is started at once, nothing is drawn, unless the draw they came in was cut: then the screen
-is drawn again); BACK and Escape count as B and a lower-case a or b as the capital; any other answer is
-a strike when its wait ended within a second of being started, and three strikes in a row end the
-Overview; a slower answer is only waited out and the wait is started again. Each draw ends with the frame, `Last scan 12:04:31 (42 s ago)` (the red 'No new scan for 4 min.' when the
+scan.'). It has no menu of its own, and starting and stopping belong to the payload. From the first screen on it keeps a key reader running: a background process that starts `WAIT_FOR_INPUT`, with no time limit, takes its answer,
+appends it to a queue and starts the next wait at once, so a wait is open while a screen or 'Reading...' is drawn and a press made then is kept,
+in the order it came. That follows from the measurements below: a press made while no wait is open is lost (M1) and B is then taken by the
+Pager's own UI (M2), whereas a wait started in the background still receives a key while the foreground writes LOG lines (M3). A wait takes
+one key; before 0.2.0 the Overview opened one wait per draw and for that reason ended the draw on any key, so that the next wait could be
+opened before a second press: an A at 'Reading...' drew the screen again and started `jq` again, and on a slow capture an impatient A never
+showed a screen. Now the keys differ: B, Left and Right end a draw at once (nothing more is printed, the `jq` that is running is ended), A, Up and
+Down let it finish, and an A that was pressed during the draw is answered by the finished draw, with no second draw and no second `jq`. Keys
+pressed in one draw are acted on in the order they came (two Right go two screens on and the screen between is not drawn). Four stretches are
+still without a wait, and a press that falls in one is lost (M1) and, for B, may leave the payload's view (M2): the start, from the Overview's
+first line of code to the reader's first wait (the traps are set, the temporary directory is made, the reader is forked); the time from an
+answer to the next wait being registered with the UI (the reader writes the line and starts `WAIT_FOR_INPUT` again, which is a process start,
+and the UI takes the request in its own time); the time after a B until the list is up, because the reader ends itself on a B (nothing measured
+says how the UI shares a key between a picker and a wait) and the shell, which looks at the queue every 0.2 s, has to see the B, end the draw
+and start the picker; and the list, which is a wait of its own. None of them was timed on the device. The first two are a fraction of a second
+at most; the third is up to 0.2 s and a picker's start, and between draws it is longer than it was in 0.1.1, where the shell took the answer the
+moment it was written; the document does not claim that B can never leave the payload's view. The queue is an append-only file in a private
+temporary directory (`mktemp -d`, mode 700), read by line number (a FIFO would be read destructively, and a writer to it blocks until somebody
+has the other end open); the device's `/tmp` is RAM, a line is about ten bytes and exists only for a key that was pressed, and the queue starts
+again from nothing each time the reader is started. The directory also holds the counts the reader keeps, the pid of the wait it has open, and
+the output of the screen's `jq`; the Overview removes it when it ends. An exit trap ends the reader and its wait (after a TERM, say, or when
+the payload has gone), by the pids the Overview and the reader stored, so none is left behind; a stray waiter would take the next key from the
+payload's menu. The trap leaves a mark first, which the reader looks for before it opens a wait and before it blocks (a TERM that reaches a forked reader in the instant after its fork can be lost: seen under `dash`, 4 ms after the start); an Overview killed with KILL runs no trap, and its reader ends at the answer of the wait it has open and opens no other, so it takes one key at most. A queue that cannot be written (the file system is full) is reported as 'Overview could not read a key.' and not counted as
+empty answers. Nothing redraws by itself, and no UI command is ever put under `timeout`; only its own `jq` is (`timeout 20`, where `timeout`
+exists: a read that takes longer ends as 'This scan took over 20 s to read.', and 'Try Settings > Show Last: 1 h.' follows). Between draws the
+shell naps 0.2 s at a time and looks at two small files with its own `read`; the one process it starts is the `sleep`. The keys: A draws the
+screen again; B goes up one level (a screen, then the `LIST_PICKER` 'Overview' with its eight rows, then exit 0 to the payload's menu); Left and
+Right step through the screens, round the ends; Up and Down are ignored, during a draw as well (nothing is drawn for them, and they are not left in
+the queue); BACK and Escape count as B and a lower-case a or b as the capital; any other answer is a strike when its wait ended within a second of
+being opened, and three strikes in a row end the Overview (the reader stops on the third as well, so a key path that answers nothing at once
+leaves three lines and no loop); a slower answer is only waited out and the count starts over. Each draw ends with the frame, `Last scan 12:04:31 (42 s ago)` (the red 'No new scan for 4 min.' when the
 capture is older than three intervals) and `A: Refresh   B: Back`. It recognises the device by the
 `LIST_PICKER` command (`LOG` alone will not do: macOS has `/usr/bin/log`). Without that command, or
 with `STARCHORUS_DISPLAY_PLAIN=1`, every command falls back to plain text on stdout;
@@ -940,18 +937,19 @@ waits for was measured on 16 October 2026 with a short lab payload that called o
 (`LOG`, `LIST_PICKER`, `START_SPINNER`, `STOP_SPINNER`, `CONFIRMATION_DIALOG`, `WAIT_FOR_INPUT`),
 wrote its timings to a file in `/tmp` and transmitted nothing. It was started twice on the Pager, with a
 person pressing the keys each test asked for; the first run stopped after test 3b, so M2 to M6 come
-from the second run alone (M1 and M7 from both). The Overview's order of work (the wait first, then
-the draw) rests on M1 to M3.
+from the second run alone (M1 and M7 from both). The Overview's order of work (a wait open first and kept
+open while it draws) rests on M1 to M3; the rows say what the Overview did with them in 0.1.1, and a dated
+sentence says what it does from 0.2.0.
 
 | ID | Question | Measured on 16 October 2026 | What the Overview does |
 |---|---|---|---|
-| M1 | Is a press made while no `WAIT_FOR_INPUT` is open (during a 5 s `sleep`, during a spinner) kept for the next wait? | No. The wait that followed a 5 s `sleep` returned only when the owner pressed again (86 s and 41 s after it was opened, in the two runs), and the wait after a 4 s spinner was the same (56 s and 5 s). A press that falls where no wait is open is lost, not buffered. | A wait is open while a screen or `Reading...` is drawn: it is started before the draw and collected when the draw is over. A press made during `Reading...` is kept and acted on at once: it takes that wait, ends the draw and the next wait is started straight after, and no key is dropped for having come early. A second press in the same draw finds the next wait open after a fraction of a second (the stretch between the two is described under the keys in §7), where a draw that went on after the first key left seconds without one. The Overview cannot help while the payload's 'Starting' spinner is up: a press made then is lost. |
-| M2 | What does B do while no wait is open? | The Pager's UI took it, and the view left the payload's log (the owner confirmed the change on the screen). | B reaches the Overview while a screen is drawn, because a wait is open, and a second B in the same draw reaches the next wait, which is started as soon as the first has ended the draw. A B that falls where no wait is open still leaves the payload's view: before the first wait, in the fraction of a second between one wait ending and the next being registered, and at the start of a draw, whose first line can be written before its wait exists (§7, the description of the Overview). |
-| M3 | Does a `WAIT_FOR_INPUT` started in the background receive a key while the foreground writes `LOG` lines? | Yes. DOWN arrived 3.2 s after the first of six lines that the foreground wrote, one a second. | This is what allows the wait to be started before the draw. |
+| M1 | Is a press made while no `WAIT_FOR_INPUT` is open (during a 5 s `sleep`, during a spinner) kept for the next wait? | No. The wait that followed a 5 s `sleep` returned only when the owner pressed again (86 s and 41 s after it was opened, in the two runs), and the wait after a 4 s spinner was the same (56 s and 5 s). A press that falls where no wait is open is lost, not buffered. | A wait is open while a screen or `Reading...` is drawn: it is started before the draw and collected when the draw is over. A press made during `Reading...` is kept and acted on at once: it takes that wait, ends the draw and the next wait is started straight after, and no key is dropped for having come early. A second press in the same draw finds the next wait open after a fraction of a second (the stretch between the two is described under the keys in §7), where a draw that went on after the first key left seconds without one. The Overview cannot help while the payload's 'Starting' spinner is up: a press made then is lost. From 0.2.0 (19 October 2026) a key reader keeps a wait open for the whole life of the Overview, not one per draw: it opens the next wait the moment an answer is in, so a press during `Reading...` is queued in order whatever the key, and only a B, Left or Right ends the draw; the stretch between an answer and the next wait being registered is one process start of the reader's, and no longer holds the shell ending a `jq` (not timed on the device). |
+| M2 | What does B do while no wait is open? | The Pager's UI took it, and the view left the payload's log (the owner confirmed the change on the screen). | B reaches the Overview while a screen is drawn, because a wait is open, and a second B in the same draw reaches the next wait, which is started as soon as the first has ended the draw. A B that falls where no wait is open still leaves the payload's view: before the first wait, in the fraction of a second between one wait ending and the next being registered, and at the start of a draw, whose first line can be written before its wait exists (§7, the description of the Overview). From 0.2.0 (19 October 2026) a second B in the same draw reaches the reader's next wait, which is open within a process start of the first answer. The reader ends itself on a B (so that no wait is open while the list shows), and a B pressed after the first and before the list is up finds no wait open and is lost, as before; between draws that stretch is up to 0.2 s longer than it was, because the shell looks at the queue at the pace of its nap (not timed on the device). |
+| M3 | Does a `WAIT_FOR_INPUT` started in the background receive a key while the foreground writes `LOG` lines? | Yes. DOWN arrived 3.2 s after the first of six lines that the foreground wrote, one a second. | This is what allows the wait to be started before the draw. This is still what the key reader rests on (19 October 2026): its wait is a background child, and it receives keys while the foreground draws. |
 | M4 | Does `LIST_PICKER` restore the console behind it? | Yes. The three marker lines written before a list were still on the console after it closed. | The list of screens opens from a screen without losing it. The log only grows, so a screen drawn again sits below the one before. |
-| M5 | Is the second press of a quick double press kept? | Not established. Test 7 asked for A twice in quick succession; the first wait returned RIGHT, not A, and the next wait, started at once, saw no key within 2 s, so it cannot be told whether a second press was made at all. | Nothing rests on it. The Overview takes a press that falls where no wait is open as lost (M1), and the next wait is started as soon as a key has been taken, which takes a fraction of a second. |
+| M5 | Is the second press of a quick double press kept? | Not established. Test 7 asked for A twice in quick succession; the first wait returned RIGHT, not A, and the next wait, started at once, saw no key within 2 s, so it cannot be told whether a second press was made at all. | Nothing rests on it. The Overview takes a press that falls where no wait is open as lost (M1), and the next wait is started as soon as a key has been taken, which takes a fraction of a second. From 0.2.0 (19 October 2026) the next wait is opened by the reader within a process start of an answer, not by the shell after it has ended a draw and taken the key. M5 stays unmeasured; the queue keeps a second press if the UI delivers it. |
 | M6 | How many characters fit on one console line? | At least 40: a line of forty digits stayed on one line. The stock theme's files say 50. **To be run (owner check, per command; it was to come before the Bluetooth figure went on the summary line, and the figure is on it already, so it is overdue):** a line of 50 digits, then a line holding the middle dot `·`. | Nothing depends on it: a draw taller than the screen scrolls, as the log always does. Whether a longer line wraps or is cut was not measured. The summary's APs line with the figure (`APs 12   ·   2.4:5  5:6  6:1  BT 23`) is 45 characters at the worst (three-digit counts, '256+'); if fewer than 45 stay on one line, the figure leaves the summary and the hub row of the Bluetooth screen reads 'Bluetooth (23)'; that fallback is not written (it is a change of both copies of the Overview that waits for this check). **Until M6 has passed, nothing switches the Bluetooth setting on by default**: it stays off in the payload and the collector, and the release pass does not change that, because a summary line that wraps or is cut on the Pager would show on every start. Every new line of the Bluetooth screen and of the Bands bars is at most 40 characters, ASCII separators only. |
-| M7 | After a `timeout`-killed `WAIT_FOR_INPUT`, does the next call still return the next press? Do Up and Down reach a waiting payload? | No stale waiter was seen: the next call returned the next press (1.1 s and 3.8 s after it was opened in the two runs, then 0.5 s and 2.1 s for the one after), but the evidence is weak, because the owner's presses were not timed against the kill. UP and DOWN reached a waiting payload (tests 3 and 4), and so did RIGHT; LEFT was not seen (test 9, meant for it, returned A twice). | No UI command is put under `timeout`, here or anywhere in the project: M7 is too weak to rely on. Up and Down are ignored: a new wait is started, nothing is drawn, no strike. |
+| M7 | After a `timeout`-killed `WAIT_FOR_INPUT`, does the next call still return the next press? Do Up and Down reach a waiting payload? | No stale waiter was seen: the next call returned the next press (1.1 s and 3.8 s after it was opened in the two runs, then 0.5 s and 2.1 s for the one after), but the evidence is weak, because the owner's presses were not timed against the kill. UP and DOWN reached a waiting payload (tests 3 and 4), and so did RIGHT; LEFT was not seen (test 9, meant for it, returned A twice). | No UI command is put under `timeout`, here or anywhere in the project: M7 is too weak to rely on. Up and Down are ignored: a new wait is started, nothing is drawn, no strike. From 0.2.0 (19 October 2026) Up and Down pressed during a draw leave it running and are dropped from the queue in their turn, with nothing drawn and no wait started for them (the reader's is open already). The exit trap ends a pending wait of the reader by killing it, on TERM, INT, HUP and when the payload has gone, as it ended the one wait before 0.2.0; after a B the reader has ended itself and nothing is killed. M7 is too weak to say what the UI service does with a killed wait, and the Overview needs a stray waiter ended whatever it does. |
 
 **Not measured.** Whether Up and Down also scroll the console while a wait is open (only the returned key was
 recorded); what Left, Right, Up and Down do while no wait is open (A was lost in M1 and B left the view in M2; the
@@ -959,8 +957,11 @@ others were not tried, and the Overview does not depend on them, because a wait 
 the stretches listed above); whether a quick double press is kept (M5 is inconclusive); the
 exit status of `WAIT_FOR_INPUT` on a cancel and any word it prints besides the six key names (the Overview takes
 BACK and Escape as B, a lower-case a or b as the capital, and any other answer, an empty one included, as a
-strike when it comes back within a second); how long a process takes to start; and where a line wider than 40
-characters wraps or is cut.
+strike when it comes back within a second); how long a process takes to start, and with it how long the key
+reader's next wait takes to be registered after an answer, and how long the shell takes to see a B and open
+the list; how the UI shares a key between a `LIST_PICKER` and a `WAIT_FOR_INPUT` that are open at once (the
+reader ends itself on a B so that the question does not arise); and where a line wider than 40 characters
+wraps or is cut.
 
 ---
 

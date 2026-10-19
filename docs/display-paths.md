@@ -175,8 +175,8 @@ on the device's 480×222 display, in place of the animated graphics. The payload
 nice 19: key B in the Overview goes up one level, and from the list of screens back to the payload's
 menu. It hands over the time of the last Start, so a capture from before it is never shown
 ('Waiting for the first scan.'), and its own pid, so that an Overview whose payload has gone ends at its next key press: it
-waits for a key with no time limit and looks at the pid once per pass, after an answer (which is also before the next wait is
-armed) and again when the list returns, without starting a process. The payload therefore gives it no stdout and no
+waits for keys with no time limit and looks at the pid after each key it takes from its queue (by which time its key reader has
+opened the next wait, which the exit ends) and again when the list returns, without starting a process. The payload therefore gives it no stdout and no
 stderr: the payload runner reads the payload's output until it ends, and an Overview left waiting behind a killed payload
 would otherwise keep it open. After 'Start' the payload keeps the 'Starting' spinner up until the first capture since that
 Start exists (up to 20 seconds; `STARCHORUS_FIRST_CAP` sets the wait in tenths of a second, default 200, and the wait ends
@@ -202,46 +202,79 @@ changes nothing in the device's interface; a firmware update does not touch it.
 | Bluetooth | `bluetooth` | the addresses of the last passive Bluetooth LE scan ('23 addresses (21 rotating, 2 fixed)'), the strongest by company over the last two minutes (at most seven lines: signal, company name, 'company id N' where only the id is known, 'company not advertised' for rotating addresses without manufacturer data, and the count; addresses, never devices; no names), the time of the last scan and, on a window that was void, ' - no valid scan now'. A capture without the array reads 'No Bluetooth in this scan.' and 'Turn it on in Settings > Bluetooth.'. Every line is at most 40 columns, ASCII separators only |
 | Air quality | `air` | crowding level; per band the three busiest channels with co-channel and adjacent-channel counts, the least occupied common channel and the estimated beacon share |
 
-The Overview moves only when a key is pressed. Every screen is drawn in the order ARM, DRAW, TAKE. ARM starts one
-`WAIT_FOR_INPUT` in the background, with no time limit (the payload was looked at when the last key was taken). DRAW prints `Reading...`
-when `jq` runs, the block and the frame, with that wait open. The wait takes one key, and a draw that went on after it would run with
-none open for the rest of its time, so the first key ends the draw: nothing more is printed, a `jq` that is running is ended (with the
-processes `timeout` started for it) and nothing it was reading is kept. TAKE collects the wait's answer (it is there at once if a key
-came during the draw), checks again that the payload is there, and acts on the key, and the next pass arms again straight away. A wait
-is therefore open while a screen or `Reading...` is drawn, which matters because a press made while none is open is lost, and B is then
-taken by the Pager's own UI and leaves the payload's view (M1 and M2 in [device-notes.md](device-notes.md) §7, measured on the device on
-16 October 2026). It does not make every moment safe, and a press that falls into one of these is lost and, for B, may leave the
-payload's view: (1) the start, from the first line of the script's code to the first wait: the traps are set and the temporary
-directory is made; (2) the time from a key being answered to the next wait being registered with the UI: while a `jq` runs the shell
-sees the key at the next look of its watcher (every 0.2 s), then it ends the `jq`, takes the key, asks whether the payload is still
-there (no process), and starts the waiter, which is two processes before `WAIT_FOR_INPUT` itself runs, and the UI takes the request in
-its own time, so the first line of a draw can be written before its wait exists; (3) the list, which is a wait of its own: no wait is
-armed while it shows, and when it returns the Overview checks the payload, arms, then draws. None of them was timed on the device. (1)
-and (2) are a fraction of a second at most, not the seconds of a draw, but this document does not claim that B can never leave the
-payload's view. Nothing redraws by itself, and nothing but the wait runs once a screen is drawn. No UI command is ever put under
-`timeout`: killing the client of a command might leave its request pending in the UI service, which could then take the next press (M7
-saw no such effect, on weak evidence, and the Overview has no need to find out). It has no Start, Stop or Exit of its own. The states,
-and what each key does in them:
+The Overview moves only when a key is pressed. A **key reader** runs `WAIT_FOR_INPUT` in the background, with no time limit, again and
+again from the first screen until the Overview ends (the list excepted, below), and appends every answer to a queue, a file in the
+Overview's private temporary directory with a line per answer. The shell draws a screen, then takes the keys from the queue in the order
+they were pressed. A press made while a draw runs, `Reading...` included, is therefore kept. That matters because a press made while no wait
+is open is lost, and B is then taken by the Pager's own UI and leaves the payload's view (M1 and M2 in [device-notes.md](device-notes.md) §7,
+measured on the device on 16 October 2026). A wait takes one key, so the reader opens the next the moment it has an answer. Until 0.1.1 the
+Overview opened one wait per draw and for that reason ended the draw on any key, so that a second press would find a wait open: an A pressed
+at `Reading...` drew the same screen again and started `jq` again, which on a slow capture ('Show Last: All') meant that an impatient A never
+showed a screen. The reader makes that unnecessary. What a key does to a draw that is running now depends on the key:
+
+| Key pressed during a draw | What the draw does | Afterwards |
+|---|---|---|
+| B | ends at once: nothing more is printed, a `jq` that is running is ended (with the processes `timeout` started for it) and nothing it was reading is kept | the list opens, the cursor on this screen |
+| Left, Right | the same | the previous / next screen is drawn |
+| A | goes on to its end | the finished draw is its answer: no second draw and no second `jq` |
+| Up, Down | goes on to its end | ignored (the console scrolls); no strike, and nothing of them is left in the queue |
+| anything else | goes on to its end | a strike (below), counted in its place in the order |
+
+Keys pressed in one draw are taken in the order they were pressed, and a B, Left or Right ends the draw the moment it is in the queue:
+Right and Left in one draw go one screen on and back, two Right go two screens on and the screen between is not drawn at all (no heading, no
+`Reading...`, no `jq`), and an A before a B changes nothing. 'During a draw' means before the frame began to print: the frame is the last
+thing a draw prints, and a press made after it is a press on a complete screen, which A answers by drawing it again (from the cache when the
+capture is unchanged).
+
+The reader does not make every moment safe, and a press that falls into one of these is lost and, for B, may leave the payload's view: (1) the
+start, from the first line of the script's code to the reader's first wait: the traps are set, the temporary directory is made and the reader
+is forked; (2) the stretch from an answer to the next wait being registered with the UI: the reader writes the line and its counts and starts
+`WAIT_FOR_INPUT` again, which is one process start and the UI taking the request in its own time (in 0.1.1 this stretch also held the shell's
+look at the key file, every 0.2 s while a `jq` ran, and the end of the `jq`); (3) after a B: the reader ends itself on a B, so that no wait of
+its own is open while the list shows (nothing measured says how the UI shares a key between a picker and a wait), and the list is not up
+until the shell has looked at the queue, which it does every 0.2 s (while a `jq` runs, through the watcher of that `jq`; between draws, in a
+nap), then ended the draw and started the picker; in 0.1.1 the list opened the moment the answer was written when the shell was waiting for it,
+so this stretch is longer by up to 0.2 s between draws; (4) the list, which is a wait of its own: when it returns the Overview checks the
+payload, starts a new reader, then draws. None of them was timed on the device. (1) and (2) are a fraction of a second at most, (3) is up to
+a fifth of a second and a picker's start, and this document does not claim that B can never leave the payload's view. Nothing redraws by
+itself. Between draws the shell naps (`sleep 0.2`, or a whole second where the applet has no fractions) and reads two small files with its own
+`read`, so the one process it starts is the sleep, five times a second; the reader's wait is idle. No UI command is ever put under `timeout`:
+killing the client of a command might leave its request pending in the UI service, which could then take the next press (M7 saw no such effect,
+on weak evidence, and the Overview has no need to find out). It has no Start, Stop or Exit of its own. The states, and what each key does in them:
 
 | State | Shows | A | B | Left / Right | Up / Down |
 |---|---|---|---|---|---|
-| Arm, then Draw (any of the eight) | the wait is started, then `Reading...` while `jq` runs, the block, the frame | the first key ends the draw, then the same screen is drawn again (a cut draw keeps nothing: `jq` runs again) | the draw ends, then the list opens | the draw ends, then the previous / next screen is drawn | the draw ends and, because it was cut, the same screen is drawn again |
-| Screen (any of the eight), wait open | the finished draw | Arm, Draw: the same screen again | opens the list, the cursor on this screen | Arm, Draw: the previous / next screen | ignored: Arm again at once, nothing drawn |
-| Waiting, wait open | 'Waiting for the first scan.' and the frame | Arm, Draw: again, and reads the capture if one has come | opens the list | as on a screen | ignored |
-| List, no wait | `LIST_PICKER` titled `Overview` with the rows `Summary`, `Strongest Networks`, `Bands & Security`, `Devices & Merges`, `Probe Requests`, `Stations`, `Bluetooth`, `Air Quality` | Arm, Draw: the chosen screen | ends the Overview with exit 0: the payload's menu, the cursor on 'Overview' | the picker's own | the picker's own |
+| Draw (any of the eight), reader's wait open | `Reading...` while `jq` runs, the block, the frame | the finished draw answers it: no second draw | the draw ends at once, then the list opens | the draw ends at once, then the previous / next screen is drawn | the draw goes on; nothing is drawn for them |
+| Screen (any of the eight), wait open | the finished draw | Draw: the same screen again | opens the list, the cursor on this screen | Draw: the previous / next screen | ignored: nothing drawn |
+| Waiting, wait open | 'Waiting for the first scan.' and the frame | Draw: again, and reads the capture if one has come | opens the list | as on a screen | ignored |
+| List, no wait of the reader's | `LIST_PICKER` titled `Overview` with the rows `Summary`, `Strongest Networks`, `Bands & Security`, `Devices & Merges`, `Probe Requests`, `Stations`, `Bluetooth`, `Air Quality` | Draw: the chosen screen (a new reader first) | ends the Overview with exit 0: the payload's menu, the cursor on 'Overview' | the picker's own | the picker's own |
 
 Left and Right step through the screens in the order of the list and round its ends: Right on Air Quality shows the summary, and
 Left on the summary shows Air Quality. BACK and Escape count as B, and a lower-case a or b as the capital (the words other payloads of the library test for); any other
 answer, an empty one included, is a strike; three strikes in a row, each answered at
-once (its wait ended within a second of the arm, or there is no clock to tell), end the Overview with exit 0, so a broken key path
-never becomes a busy loop. The same answer after a real wait of a second or more is no strike: the UI took its time, a new wait is
-armed and the count starts over. The time is read from `/proc/uptime` without starting a process.
-A press made during a draw reaches the wait that was armed before it and is acted on at once: it was made on purpose at what the
-screen showed, so it is not dropped for having come early, and the draw it came in is over. Where no wait is open a press is lost (M1),
-which is why the wait is armed first. The wait writes into a file in a private temporary directory (mode 700), with the output of the
-screen's `jq` in a second file there; the directory is removed when the Overview ends, and an exit trap ends a wait that is still
-pending, so none is left behind. A file that cannot be written (the file system is full) is reported as 'Overview could not read a key.'
-and does not count as an empty answer.
+once (its wait ended within a second of being opened, or there is no clock to tell), end the Overview with exit 0, so a broken key path
+never becomes a busy loop: the reader counts the same strikes and ends itself on the third, so a key path that answers nothing at once
+leaves three lines in the queue and not a loop's worth. The same answer after a real wait of a second or more is no strike: the UI took its
+time, and the count starts over. The time is read from `/proc/uptime` without starting a process, by the reader, which stores how long each
+wait was open with its answer.
+A press made during a draw reaches the wait the reader has open and is queued, to be acted on in its turn: it was made on purpose at what
+the screen showed, so it is not dropped for having come early. Where no wait is open a press is lost (M1), which is why the reader opens
+the next wait the moment it has an answer. The queue is an append-only file, read by line number: the shell has to look into it without
+taking from it (a draw must know whether a B, Left or Right is waiting, and a read from a FIFO takes what it reads), a writer to a FIFO
+blocks until somebody has the other end open, and a file needs no `mkfifo`. The device's `/tmp` is RAM: a line is about ten bytes and exists
+only for a key that was pressed, and the queue starts again from nothing each time the reader is started, which is after every B. It lives
+in a private temporary directory (mode 700) with a small file of counts that the reader rewrites after each append (the lines so far and how
+many of them are a B, Left or Right: the shell compares them with what it has taken, so a draw is cut when there are more such keys than it
+has taken, and no flag has to be cleared), a file that holds the pid of the wait the reader has open, and the output of the screen's `jq`.
+The directory is removed when the Overview ends, and the exit trap ends the reader, by the pid the Overview stored when it forked it, and
+the wait it has open, by the pid the reader wrote down (so that the wait is ended even if the reader itself was killed from outside), so
+none is left behind: not after a B (the reader has ended itself), the payload gone, three strikes, TERM, INT or HUP. A signal that comes
+while the reader is being forked is held until its pid is known, and a TERM that reaches a reader in the instant after its fork can be lost
+(seen under `dash`, 4 ms after the start), so the exit trap leaves a mark in the directory before it signals, and the reader looks for the mark
+(and for its directory, and for its shell) before it opens a wait and again before it blocks. An Overview killed with KILL runs no exit trap and
+leaves its reader with one wait open; the reader ends at that wait's answer and opens no other, so it takes one key at most, where a reader that
+went on would take every key until the device restarts. A queue that cannot be written (the file system is full) is reported as
+'Overview could not read a key.' and does not count as an empty answer.
 
 Each draw prints `Reading...` (only when `jq` has to run), the block of the screen and, last, the frame: `Last scan 12:04:31 (42 s ago)`
 (the time of the capture's `generated` in UTC, as the page shows it; no line without a capture), then `A: Refresh   B: Back`, and on the
@@ -253,7 +286,10 @@ press A for the present state.
 Each screen reads the capture with a single `jq` process, run under `timeout 20` where the device has `timeout`
 (`STARCHORUS_JQ_CAP` moves the limit, for tests only). A scan that takes longer ends as the two lines `This scan took over 20 s to
 read.` and `Try Settings > Show Last: 1 h.`. What a read gave (the numbers, 'no data' or 'too slow') is kept for as long as the capture
-file is unchanged, so A on an unchanged capture runs no `jq` and only the age in the frame moves.
+file is unchanged, so A on an unchanged capture runs no `jq` and only the age in the frame moves. The health probe that the summary, top and
+bands screens make once per run (`jq_healthy`: one `jq` call on known values, without the cap) runs the same way, in the background with the
+same watcher, so a B, Left or Right in the first draw ends it as well; a probe that was ended says nothing about `jq` and is asked again at the
+next draw.
 
 Random clouds (the page's §8.8a) are counted by the same rule as on the page: randomised free addresses with a capture time
 (this device's own transmitters left out), heard at one signal (±3 dB) in bursts whose period stands clear of what unrelated
