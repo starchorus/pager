@@ -42,6 +42,11 @@ CTR_N=$(awk '/==== 34 RENDER LAYERS/,/==== 35 RENDER HUD/' "$H" | grep -c 'strok
 # the Scope (D22) draws its own rings in the same colour: one more, and in drawScopeBg only; the 2D and 3D loops stay exactly two
 CTR_S=$(awk '/^function drawScopeBg\(/,/^}/' "$H" | grep -c 'strokeStyle = THEME\.line\.ring')
 rowif "contrast: rings stroked with line.ring (2D+3D) = $((CTR_N - CTR_S)), and the Scope's = $CTR_S" [ "$((CTR_N - CTR_S))/$CTR_S" = 2/1 ]
+# the pin of 2/1 has a negative control: the same awk and grep over a copy of the page without the Scope's ring stroke read 2/0, and the pin refuses that
+sed '/^function drawScopeBg(/,/^}/ s/c\.strokeStyle = THEME\.line\.ring; //' "$H" > "out/$P-contrast-noring.html"
+CTR_N0=$(awk '/==== 34 RENDER LAYERS/,/==== 35 RENDER HUD/' "out/$P-contrast-noring.html" | grep -c 'strokeStyle = THEME\.line\.ring')
+CTR_S0=$(awk '/^function drawScopeBg\(/,/^}/' "out/$P-contrast-noring.html" | grep -c 'strokeStyle = THEME\.line\.ring')
+rowif "contrast: the ring pin refuses a page whose Scope has no line.ring stroke (it reads $((CTR_N0 - CTR_S0))/$CTR_S0, not 2/1)" [ "$((CTR_N0 - CTR_S0))/$CTR_S0" = 2/0 ]
 CTR_C=$(grep -c 'c.fillStyle = THEME.ink.secondary; c.fillText(TD.upper ? "CLIENTS"' "$H")
 CTR_P=$(sed -n '/^const CONTRAST_PAIRS/,/^window.STARCHORUS = /p' "$H" | grep -c 'Date\.now\|Math\.random\|performance\.now\|document\.\|getComputedStyle\|fetch(')
 rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P)" [ "$CTR_C/$CTR_P" = 1/0 ]

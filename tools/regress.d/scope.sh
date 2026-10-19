@@ -13,8 +13,10 @@
 #                 desktop, on by default, or lost on a reload; a 44 px button that is not there; chrome that overlaps, runs off the screen or sets text
 #                 under 13 px; the sky's controls that lose a state; a Scope that transmits, reads a clock, or draws from a random number.
 # NEGATIVE PROBE: one-line copies of the page (served to headless Chrome on 127.0.0.1 only): an outward wave, a frame every tick, a nudged radius, the
-#                 bands ignored, no Z, no snow, no storage, a direction caption, a POST: each turns exactly its row red (the unmutated page is the
-#                 control: the rows themselves). The static judges have dummies that must be flagged.
+#                 bands ignored, no Z, no snow, a direction caption, a POST, the lamps loop over every .lamps, no word fitting, the 3D ring labels, the
+#                 phosphor trail on idle frames, a note that never shows, a Bluetooth lane that overflows the fan, ticks that touch, a nudge that turns over
+#                 in a narrow lane, a legend row of the wrong kind or one that never shows: each turns exactly its row red (the unmutated page is the control: the rows themselves). The static
+#                 judges have dummies that must be flagged.
 # NOT PROVEN:     iOS WebKit, a real finger, the battery (the numbers are headless software raster: the frame cost row is a ceiling, not a phone's time);
 #                 that a newcomer does not read the fan as a field of view (docs/architecture.md §9.8b, the check on the phone); how the Scope looks at
 #                 a width the rows do not name; WarGames' persistence trail (the Scope draws a plain front there).
@@ -61,6 +63,10 @@ scp_share_ok() { [ "$1" -le $((SCP_BASE + SCP_CEIL)) ] 2>/dev/null; }
 SCP_JB=0; scp_share_ok $((SCP_BASE + SCP_CEIL)) || SCP_JB=1; scp_share_ok $((SCP_BASE + SCP_CEIL + 1)) && SCP_JB=1; scp_share_ok x && SCP_JB=1
 rowif "scope: the page grew by $((SCP_SZ - SCP_BASE)) bytes since 8e75fe4 (the Scope's share $MAX_SCOPE_BYTES, with the alerts' ring $MAX_ALERTS_BYTES and the fifth lane $MAX_SCOPE_BT_BYTES: $SCP_CEIL); the judge refuses one byte more or a size that is no number (bad: $SCP_JB)" [ "$SCP_JB" = 0 ] 2>/dev/null
 scp_share_ok "$SCP_SZ" || { row "scope: the page is over the Scope's, the alerts' and the fifth lane's shares together ($SCP_SZ bytes)" FAIL; }
+
+# the film names of the spec's rule 8 stay on the word denylist (the list is only ever added to; denylist-check --selftest pins its older entries)
+SCP_DW=$(grep -c -x -e nostromo -e weyland -e m314 tools/denylist-words.txt)
+rowif "scope: tools/denylist-words.txt carries nostromo, weyland and m314 ($SCP_DW of 3)" [ "$SCP_DW" = 3 ]
 
 # ---- the judge (Python, one place): each check takes the JSON a run returned and says "ok" or what is wrong
 cat > "$SCP_T/judge.py" <<'PY'
@@ -245,7 +251,7 @@ const key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubb
 const st=()=>[DE.dataset.phone,DE.dataset.scope,S.ui.scope,cs(E("t-scope"),"display"),cs(E("scope-strip"),"display"),cs(E("scope-foot"),"display")].join();
 await W(300);o.boot=st();key("z");await W(300);o.z=st();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-SCP_EVP='(async()=>{const E=i=>document.getElementById(i);E("t-scope").dispatchEvent(new MouseEvent("click",{bubbles:true}));await STARCHORUS.wait(700);return JSON.stringify([document.documentElement.dataset.scope,STARCHORUS.storageDump().scope])})()'
+SCP_EVP='(async()=>{const E=i=>document.getElementById(i);E("t-scope").dispatchEvent(new MouseEvent("click",{bubbles:true}));await STARCHORUS.wait(300);return JSON.stringify([document.documentElement.dataset.scope,STARCHORUS.storageDump().scope])})()'
 SCP_RD='JSON.stringify([document.documentElement.dataset.scope,STARCHORUS.getToggles().scope,(STARCHORUS.storageDump()||{}).scope])'
 SCP_EVA='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wait,o={};
 const mk=(g,aps,sta)=>({source:"recon-db",generated:g,center:{label:"T",interval:30},aps,unassociated:sta});
@@ -651,4 +657,4 @@ scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP
 [ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
 scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")" != ok ] || SCP_MB="$SCP_MB legendrow"; }
-rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
+rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
