@@ -271,9 +271,9 @@ b { font-weight: 600; }
 #masthead .plotclock::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--panel-fill); }
 #masthead .plotclock .hand { position: absolute; left: 50%; top: 50%; width: 1.5px; height: 17px; margin-left: -0.75px; margin-top: -17px; background: var(--chrome-ink); transform-origin: 50% 100%; z-index: 1; }
 #masthead .lamps { position: absolute; top: 30px; right: 14px; display: flex; gap: 3px; }
-#masthead .lamps i { width: 6px; height: 6px; border: 1px solid var(--ink-secondary); border-radius: 50%; display: block; }
-#masthead .lamps i.on { background: var(--chrome-ink); border-color: var(--chrome-ink); }
-#masthead .lamps[data-frozen="1"] { opacity: 0.4; }
+:is(#masthead, #bar) .lamps i { width: 6px; height: 6px; border: 1px solid var(--ink-secondary); border-radius: 50%; display: block; }
+:is(#masthead, #bar) .lamps i.on { background: var(--chrome-ink); border-color: var(--chrome-ink); }
+:is(#masthead, #bar) .lamps[data-frozen="1"] { opacity: 0.4; }
 #masthead .tag { margin-top: 6px; font-size: var(--size-hud); line-height: 1.5; color: var(--ink-secondary); }
 #masthead .motto {
   margin-top: 9px; font-size: 10px; line-height: 1.45; color: var(--ink-muted);
@@ -381,6 +381,14 @@ b { font-weight: 600; }
 #panels-pill { position: fixed; right: 20px; bottom: calc(var(--chrome-bot) + 20px); z-index: 16; display: none; align-items: center; gap: 8px; touch-action: none; }
 :root[data-panels="off"] #panels-pill { display: inline-flex; }
 :root[data-panels="off"][data-phone="on"][data-card="detail"] #panels-pill { display: none; }   /* the Detail card has its own close */
+/* the Scope (§9.8b) */
+#scope-strip{left:var(--sc-x);top:var(--sc-y);width:var(--sc-w);display:grid;grid:auto auto/none;grid-auto-flow:column;justify-content:space-between;justify-items:center;column-gap:4px;padding:5px 8px 6px}
+#scope-strip b{font:600 20px/26px var(--font-ui);white-space:nowrap;color:var(--ink-primary)}
+#scope-strip i{font:normal 13px/16px var(--font-ui);color:var(--ink-secondary);text-align:center}
+#scope-foot{position:fixed;left:var(--sc-x);width:var(--sc-w);text-align:center;font-size:13px;line-height:16px;color:var(--ink-secondary);text-transform:var(--text-transform);white-space:pre-line;pointer-events:none}
+#scope-foot{bottom:var(--sc-b);display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;column-gap:4px}
+#scope-foot .l{text-align:right}#scope-foot .r{text-align:left}#sc-rx{grid-column:1/-1;margin-top:3px;color:var(--ink-primary)}
+#bar .lamps{display:none;margin-left:auto}
 
 /* ==== 04 CONTROLS ==== */
 #controls { right: 20px; padding: 10px 13px; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }   /* gap and padding sized so the docked channel bar still fits at 1000×500 (D15) */
@@ -567,6 +575,13 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 :root[data-phone="on"] #intro .skip { right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
 :root[data-rm="1"] :is(.cursor, .dot, #panels-pill .dot) { animation: none; }   /* :is() lends the pill dot its id rank */
 :root[data-rm="1"] #crt, :root[data-rm="1"] #intro { display: none !important; }
+/* the Scope: its chrome, and the sky's controls at rest */
+:root:not([data-scope=on]) :is(#scope-strip,#scope-foot){display:none}
+:root[data-scope=on] :is(#bar-counts>*,#caption,#grp-layers,#cam,#t-view,#t-rotate,#t-spin){display:none!important}
+:root[data-scope=on] #bar .lamps{display:flex}
+:root[data-scope=on] #bar .ver{display:none}
+#t-scope{display:inline-flex;align-items:center;gap:6px}
+#sheet-row #t-scope{padding:0;width:44px;justify-content:center}#sheet-row .lbl{display:none}
 </style>
 </head>
 <body>
@@ -582,7 +597,11 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 <div id="classbar-top"></div>
 <div id="classbar-bot"></div>
 <div id="dtg"></div>
-<div id="bar" class="panel ph-only" role="group" aria-label="Status"><span id="bar-counts"><span class="bc"><b id="bar-ap">0</b><i>stars</i></span><span class="bc"><b id="bar-cl">0</b><i>satellites</i></span></span></div>
+<div id="bar" class="panel ph-only" role="group" aria-label="Status"><span id="bar-counts"><span class="bc"><b id="bar-ap">0</b><i>stars</i></span><span class="bc"><b id="bar-cl">0</b><i>satellites</i></span></span><div class="lamps" id="scope-lamps" role="img" hidden></div></div>
+<div id="scope-strip" class="panel ph-only" role="group" aria-label="Scope readout"></div>
+<div id="scope-foot" class="ph-only"><span class="l">lanes = band, channel
+not direction</span><span id="sc-ps"></span><span class="r">arcs = signal (dBm)
+not range</span><span id="sc-rx"></span></div>
 <button class="btn" id="panels-pill" aria-label="Show the panels"><span class="dot" id="pill-dot"></span><span id="pill-chip">Sample</span></button>
 
 <!-- ==== 11 MASTHEAD & STATS ==== -->
@@ -627,7 +646,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 <div id="sheet" class="panel ph-only" role="region" aria-label="Controls">
   <div id="sheet-head"><div id="sheet-grab" aria-hidden="true"></div><div id="sheet-row"><div id="sheet-lead"></div>
   <button class="btn" id="sheet-prev" hidden aria-label="Previous pinned node">‹</button><h2 id="sheet-title" hidden></h2><button class="btn" id="sheet-next" hidden aria-label="Next pinned node">›</button>
-  <button class="btn toggle" id="t-legend" aria-pressed="false">Legend</button><button class="btn" id="sheet-close" hidden aria-label="Close">×</button>
+  <button class="btn toggle ph-only" id="t-scope" aria-pressed="false" aria-label="Scope"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 16 3 5a12 12 0 0 1 12 0Z" fill="none" stroke="currentColor"/></svg><span class="lbl">Scope</span></button><button class="btn toggle" id="t-legend" aria-pressed="false">Legend</button><button class="btn" id="sheet-close" hidden aria-label="Close">×</button>
   <button class="btn" id="sheet-toggle" aria-expanded="false" aria-controls="sheet-body" aria-label="Expand the sheet">⌃</button></div></div>
   <div id="sheet-body"></div>
 </div>
@@ -834,6 +853,7 @@ const KEYS = [
   { key: "Y", desc: "Channel view: bars · spectrum · channel-by-time waterfall", btn: "t-chan" },
   { key: "B", desc: "Baseline diff: what is new, changed or not heard now against the saved baseline (Set / Clear)", btn: "t-baseline" },
   { key: "U", desc: "Hide or show the panels: the sky alone, with a status pill that brings them back", btn: "t-panels" },
+  { key: "Z", desc: "Scope (phone layout): received signal on arcs, band lanes by channel, never a direction", btn: "t-scope" },
   { key: "1 / 2 / 3 / 4", desc: "Band filter 2.4 / 5 / 6 GHz · Bluetooth" },
   { key: "← → ↑ ↓", desc: "Orbit camera (3D)" },
   { key: "+ / −", desc: "Zoom (3D) · zoom around the device (2D)" },
@@ -846,6 +866,8 @@ const KEYS = [
 const EDGE = { gapPx: 12, chanMinPx: 280, chanMaxPx: 640, detailMinPx: 160, smallPx: 720 };
 // D21 phone mode (§9.8): up to smallPx wide, or a phone on its side; ?phone=1|0 overrides. Drag, flick, room above the half sheet.
 const PHONE = { query: "(max-width: " + EDGE.smallPx + "px), (max-height: 460px) and (pointer: coarse)", gapPx: 8, halfFrac: 0.5, dragPx: 8, flickPxMs: 0.4, starClearPx: 24, centreClearPx: 30 };
+// D22 the Scope (§9.8b): radius = signal, lanes = bands, widths in k (the fan spans -1..1)
+const SCOPE = { rim: 52, near: 22, half: 30, minL: 120, lanes: [["2.4", 0.4372], ["5", 0.5684], ["6", 0.2623], ["sta", 0.6121]], gap: 0.04, pad: 0.08, size: 1.25, rest: 0.85, snow: [1600, 400], arcs: [[0, 2, 1], [7, 1.5, 0.45], [16, 1, 0.2]], ticks: { "2.4": [1, 6, 11], "5": [36, 100, 149] } };
 const POLL_MS = 5000, HISTORY_LEN = 60, HIST_KEEP_S = 300, STORAGE_KEY = "starchorus.ui.v1";
 // D3 liveness: a feed is stale after STALE_POLLS ticks of POLL_MS (30 s) without a new `generated`, or, with center.interval, after
 // max(floorS, mul × interval + slackS); a stale feed whose last OFFLINE_POLLS polls got no answer is 'Offline', not 'Stale'.
@@ -913,6 +935,7 @@ THEMES.foundation = {
     logonHead: ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], logonTail: ["…LOADING SKY"],
     bannerTop: "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM",
     signal: ["excellent", "good", "weak", "marginal"], skyVoice: "Compendium",
+    scope: { strip: ["Stars", "Satellites", "Clouds", "Brightest", "New"] },
     legendHeads: { measured: "Measured", derived: "Derived", operator: "Operator", look: "Look" } },
   surface: { base: "#05070d", deep: "#05070d", raised: "#0a1122",
     gradient: "radial-gradient(120% 120% at 50% 42%, #0a1122 0%, #080b16 46%, #05070d 100%)",
@@ -964,6 +987,7 @@ THEMES.wargames = {
     logonHead: ["STARCHORUS  ·  OBSERVATION TERMINAL", "LOGON: OBSERVER"], logonTail: ["…LOADING SKY"],
     bannerTop: "EXERCISE · STARCHORUS · NOT A GOVERNMENT SYSTEM",
     signal: ["MAX", "STRONG", "WEAK", "MIN"], skyVoice: "SKY SUMMARY",
+    scope: { strip: ["NETS", "STATIONS", "CLOUDS", "PEAK", "NEW"] },
     legendHeads: { measured: "Measured", derived: "Derived", operator: "Operator", look: "Look" } },
   surface: { base: "#000000", deep: "#000000", raised: "#000000", gradient: null, panelFill: "rgba(0,0,0,0.85)", panelBorder: "#0f234b",
     panelBlurPx: 0, panelRadiusPx: 0, panelShadow: "none" },
@@ -1016,6 +1040,7 @@ THEMES.whitehall = {
     logonHead: ["STARTEX", "STARCHORUS - PLOTTING TERMINAL", "CONNECTING TO FEED..."], logonTail: ["EXERCISE - NOT A GOVERNMENT SYSTEM", "...PLOTTING"],
     bannerTop: "EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM",
     signal: ["STRONG", "GOOD", "WEAK", "FAINT"], skyVoice: "SITREP",
+    scope: { strip: ["NETWORKS", "STATIONS", "CLOUDS", "STRONGEST", "NEW PLOTS"] },
     legendHeads: { measured: "Plots", derived: "Filter room · derived", operator: "Operator", look: "Look" } },
   surface: { base: "#0a0f0b", deep: "#070b08", raised: "#0c130d",
     gradient: "radial-gradient(120% 120% at 50% 44%, #0d160f 0%, #0a0f0b 52%, #070b08 100%)",
@@ -1191,11 +1216,11 @@ function parseColor(c) {
 }
 function rgbaOf(c, a) { const p = parseColor(c); return "rgba(" + p[0] + "," + p[1] + "," + p[2] + "," + (Math.round(p[3] * a * 1000) / 1000) + ")"; }
 function fontString(kind, t) {
-  const f = t.font, s = f.sizesPx;
+  const f = t.font, s = f.sizesPx, k = scopeOn ? 13 : 0;   // 13 px in the Scope
   switch (kind) {
-    case "label": return f.weight.label + " " + s.label + "px " + f.ui;
-    case "monoSmall": return "600 9px " + f.mono;
-    default: return "400 " + s.hud + "px " + f.ui;   // "hud"
+    case "label": return f.weight.label + " " + (k || s.label) + "px " + f.ui;
+    case "monoSmall": return "600 " + (k || 9) + "px " + f.mono;
+    default: return "400 " + (k || s.hud) + "px " + f.ui;   // "hud"
   }
 }
 function deriveStrings(t) {
@@ -1259,6 +1284,7 @@ function applyTheme(id, opts = {}) {
   renderSourceTruth();   // D4: chip, masthead, meta, legend claims and banner in the new theme's copy
   if (changed) renderCaption();
   updateStats();
+  if (changed && scopeOn) resize();
   S.dirty = true;
   // re-applying with an empty sprite cache bakes it now (a real switch clears without rebaking until the next frame)
   if (!changed && spriteCache.size === 0 && W > 0) render();
@@ -1570,7 +1596,7 @@ const S = {
   ui: { theme: "foundation", view: "2d", labels: true, orbits: true, links: true, paused: false,
         agg: true, vendor: false, nebula: true, groups: true, rotate: true, spin: true, crt: true, autoLod: true, help: false,
         deviceLinks: false, essMerge: false, affinity: true, observations: false, baselineDiff: false, inventory: false,
-        random: "cloud", panels: true, sheet: "peek", legendCard: false,   // §9.8: panels (saved), the sheet and its legend card (not)
+        random: "cloud", panels: true, scope: false, sheet: "peek", legendCard: false,   // §9.8: panels and the Scope (saved), the sheet and its legend card (not)
         filters: { "2.4": true, "5": true, "6": true, bt: true } },
   queryLocked: new Set(),
   view: { blend: 0, blendT: 0 },
@@ -1605,7 +1631,8 @@ let W = 0, H = 0, CX = 0, CY = 0, skyH = 0, skyR = { x: 0, y: 0, w: 0, h: 0 }, m
 const mqReduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
 let rmApi = null, reduceMotion = false;
 const mqPhone = window.matchMedia ? window.matchMedia(PHONE.query) : { matches: false };   // D21 (§37 applyPhone)
-let phoneOn = false;
+let phoneOn = false, scopeOn = false;
+const SC = { g: null, st: 0, sg: "", cs: -1, ri: -1, t0: -1e9, dur: 1.8, ph: null, lv: "live", sf: -1, unk: false };
 function updateReduceMotion() {
   reduceMotion = rmApi !== null ? rmApi : (mqReduce.matches || query.rm1);
   document.documentElement.dataset.rm = reduceMotion ? "1" : "0";
@@ -1614,7 +1641,7 @@ function updateReduceMotion() {
 function setReducedMotion(on) { rmApi = on == null ? null : !!on; updateReduceMotion(); S.dirty = true; return reduceMotion; }
 if (mqReduce.addEventListener) mqReduce.addEventListener("change", () => { updateReduceMotion(); S.dirty = true; });
 updateReduceMotion();
-const PERSIST_KEYS = ["theme", "view", "random", "labels", "orbits", "links", "agg", "vendor", "nebula", "groups", "rotate", "spin", "crt", "deviceLinks", "essMerge", "affinity", "observations", "baselineDiff", "inventory", "panels"];
+const PERSIST_KEYS = ["theme", "view", "random", "labels", "orbits", "links", "agg", "vendor", "nebula", "groups", "rotate", "spin", "crt", "deviceLinks", "essMerge", "affinity", "observations", "baselineDiff", "inventory", "panels", "scope"];
 function readStored() {
   const raw = safeStorage.get(STORAGE_KEY); if (!raw) return null;
   try { const o = JSON.parse(raw); return isObj(o) ? o : null; } catch (e) { return null; }
@@ -2445,6 +2472,41 @@ function layoutInfo() {
     overlapsPx: overlaps, clientsInStarZone: inStar, clientsInApHalo: inHalo, freeInOrbitZone: inOrbit,
     apMinGapPx: r3(apMinGapPx === Infinity ? 0 : apMinGapPx), apRadiusErrPx: r3(apRadiusErrPx), clusterCount: S.bubbles.size,
     settled: S.settlePhase === 0 && !S.settleCapped, iterations: settleIterTotal, labelsDrawn: S.labelsDrawn, labelCollisions: S.labelCollisions, labelsOutside: S.labelsOutside };
+}
+
+// §9.8b the Scope (D22), theme-free: the radius is the signal and never moves, the angle is a place in a lane, never a direction
+const thv = (g, r) => r * Math.sin(g.th) <= g.half ? g.th : Math.asin(g.half / r);
+const scXY = (g, r, k) => { const a = k * thv(g, r); return [g.ox + r * Math.sin(a), g.oy - r * Math.cos(a)]; };
+const scL = (c, f) => { c.beginPath(); for (let i = 0; i <= 40; i++) { const q = f(i / 40); c.lineTo(q[0], q[1]); } c.stroke(); };
+const scR = (g, d) => g.rNear + (1 - rssiT(d)) * (g.rFar - g.rNear);
+const scU = (b, ch) => ch == null ? 0.5 : clamp(b === "5" ? (ch - 32) / 145 : b === "6" ? 0.8 * (ch - 1) / 232 : (ch - 1) / 13, 0, 1);
+function scopeGeom() {
+  const b = skyBox(), set = (k, v) => DE.style.setProperty(k, Math.round(v) + "px");
+  set("--sc-x", b.x + 8); set("--sc-w", b.w - 16); set("--sc-y", b.y); set("--sc-b", H - b.y - b.h);
+  const ps = el("sc-ps").getBoundingClientRect(), top = b.y + el("scope-strip").offsetHeight + 4, py = ps.top + ps.height / 2, L = py - top - SCOPE.rim, rNear = Math.max(34, 0.18 * L), oy = py - SCOPE.near + rNear;
+  if (L < SCOPE.minL) return SC.g = null;
+  let k = -1;
+  const g = { b, top, py, oy, rNear, ox: b.x + b.w / 2, rFar: oy - top - SCOPE.rim, th: SCOPE.half * Math.PI / 180, half: b.w / 2 - 10, lanes: SCOPE.lanes.map(([key, w]) => { const l = { key, k0: k, k1: k += w }; k += SCOPE.gap; return l; }) };
+  return SC.g = g;
+}
+function scopePlace(wave) {
+  const g = SC.g, ls = { "2.4": [], "5": [], "6": [], sta: [] };
+  SC.st++; SC.unk = false;
+  for (const a of S.apOrder) if (S.ui.filters[a.band] !== false) ls[a.band in ls ? a.band : (SC.unk = true, "6")].push(a);
+  for (const c of S.clientOrder) if (!c.randOut) ls.sta.push(c);
+  if (S.ui.random === "cloud") ls.sta.push(...S.cloudOrder);
+  for (const l of g.lanes) {
+    const done = [];
+    for (const n of ls[l.key]) {
+      const ap = n.kind === "ap", r = scR(g, n.rssi ?? -85), t = r * thv(g, r), px = ap ? n.basePx * SCOPE.size : n.basePx, f = px + 3, h = hash(n.id + "sc");
+      const ideal = l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * (!ap ? h : n.band === "unknown" ? 0.8 + 0.2 * h : scU(n.band, n.channel))) * (l.k1 - l.k0);
+      let k = ideal, q = scXY(g, r, k);
+      for (let j = 1; j < 9 && n.kind !== "client" && done.some(p => hyp(p[0] - q[0], p[1] - q[1]) < p[2] + f + 2); j++) q = scXY(g, r, k = clamp(ideal + (j & 1 ? 1 : -1) * (j + 1 >> 1) * (2 * f + 2) / t, l.k0 + f / t, l.k1 - f / t));
+      n.sc = { k, r, x: q[0], y: q[1], px, st: SC.st, nw: wave ? !n.sc || SC.cs < 0 : !!n.sc && n.sc.nw, q: (g.rFar - r) / (g.rFar - g.rNear) };
+      if (n.kind !== "client") done.push([q[0], q[1], f]);
+    }
+  }
+  rebuildBackground();
 }
 
 // ==== 27 AGGREGATION ====
@@ -3845,7 +3907,7 @@ let lastT = 0, lastBudgetT = 0;
 function regulatorStart() {   // §6.5: start levels from this sky (every capture, both ways) + the governor's own offset S.perf.down → lod, dprStep
   const p = S.perf, mobile = phoneOn, last = RENDER.dprSteps.length - 1;
   const start = (k) => {   // [lod, dprStep] for k × the counts
-    const n = k * (S.apOrder.length + S.clientOrder.length), cap = Math.min(window.devicePixelRatio || 1, RENDER.maxDpr, (n > 500 || k * S.nFreeTotal > 600) ? 1.5 : 2, n > 900 ? 1.25 : 2, mobile ? RENDER.mobile.dprCap : 2);
+    const n = k * (S.apOrder.length + S.clientOrder.length), cap = Math.min(window.devicePixelRatio || 1, RENDER.maxDpr, (n > 500 || k * S.nFreeTotal > 600) ? 1.5 : 2, n > 900 ? 1.25 : 2, mobile ? (scopeOn ? 2 : RENDER.mobile.dprCap) : 2);
     const i = RENDER.dprSteps.findIndex(d => d <= cap);
     return [Math.min(3, (n > LOD.l3 ? 3 : n > LOD.l2 ? 2 : n > LOD.l1 ? 1 : 0) + (mobile ? RENDER.mobile.lodBias : 0)), i < 0 ? last : i];
   };
@@ -3998,6 +4060,17 @@ function step(dt, liveDt) {
   stepParticles(liveDt); stepFlares(dt);
   nodeEaseDt = dt; projectAll();
 }
+function scopeStep(dt, liveDt) {   // §9.8b the Scope's tick: the node lifecycle only, a wave per capture
+  stepNodes(dt, liveDt); stepClouds(dt);
+  const ri = S.replay ? S.replay.i : -1, wave = S.captureSeq !== SC.cs || ri !== SC.ri,
+    sg = wave || S.dirty ? [S.ingestSeq, S.ui.random, Object.values(S.ui.filters)].join() : SC.sg;
+  if (!SC.g || !(wave || sg !== SC.sg)) return;
+  if (wave) scopeWave();
+  scopePlace(wave); SC.sg = sg; SC.cs = S.captureSeq; SC.ri = ri; S.dirty = true;
+}
+function scopeWantsFrame() {
+  return !!SC.g && !reduceMotion && !S.ui.paused && S.fixedTime == null && (S.clock < SC.t0 + SC.dur + 1.5 || (SC.lv !== "live" && Math.floor(S.clock * 2) !== SC.sf));
+}
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
   if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) return true;
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
@@ -4022,8 +4095,8 @@ function tick(t) {
   }
   if (S.replay) replayTick(liveDt);
   budgetBegin(t);
-  step(dt, liveDt);
-  const animating = S.fixedTime == null && (S.moving || S.settling || S.cam.tween !== null || wargamesAnimating());
+  if (scopeOn) scopeStep(dt, liveDt); else step(dt, liveDt);
+  const animating = scopeOn ? scopeWantsFrame() : S.fixedTime == null && (S.moving || S.settling || S.cam.tween !== null || wargamesAnimating());
   if (S.dirty || animating) {
     render(); S.dirty = false; S.perf.rendered++;
     S.persistFade = S.persistOn ? RENDER.persistFadeFrames : 0;
@@ -4060,6 +4133,7 @@ function resize() {
   const sb = skyBox(); skyR = sb; CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
   maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac;
   inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
+  if (scopeOn) { scopeGeom(); SC.sg = ""; renderScope(); }
   resizeCanvases();
   rebuildBackground();
   S.layoutDirty = true;
@@ -4540,6 +4614,7 @@ function endFrame() { ctxSky.globalAlpha = 1; ctxHud.globalAlpha = 1; curAlpha =
 function render() {
   DC.drawImage = 0; DC.fillRect = 0; DC.stroke = 0; DC.fillText = 0; DC.cue = 0; DC.traffic = 0;
   beginFrame();
+  if (scopeOn) { drawScope(); endFrame(); return; }
   drawBackground(); drawRings(); drawShadows(); drawNebula(); drawConstellations();
   drawGlows(); drawEdges(); drawOrbits(); drawDeviceLinks();
   drawClients(); drawClouds(); drawBt(); drawBubbles(); drawStars();
@@ -4572,6 +4647,7 @@ function rebuildBackground() {
     for (let i = 0; i < n; i++) { const x = rnd() * W, y = rnd() * H, a = lerp(sf.alpha[0], sf.alpha[1], rnd()); ctx.globalAlpha = a; ctx.fillRect(x, y, 1, 1); }
     ctx.globalAlpha = 1;
   }
+  if (scopeOn) { drawScopeBg(ctx); return; }
   bgZoom = S.cam.zoom2d;
   if (tS !== 0) return;   // rings/grid/labels are baked into #bg only in 2D; 3D draws projected rings on #sky (drawRings)
   const z = bgZoom, R = maxRadius * z;   // the RSSI reference scales with zoom2d about the device, so rings and field always agree
@@ -4583,6 +4659,51 @@ function rebuildBackground() {
   if (g.dotStepPx > 0) { ctx.fillStyle = THEME.line.hairline; const st = g.dotStepPx; for (let x = CX % st; x < W; x += st) for (let y = CY % st; y < H; y += st) { const dx = x - CX, dy = y - CY; if (dx * dx + dy * dy <= R * R) ctx.fillRect(x, y, 1, 1); } }
   ctx.font = TD.fontHud; ctx.fillStyle = THEME.ink.muted; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   for (const dbm of LAYOUT.rings) { const r = rssiToRadius(dbm) * z; ctx.fillText(dbm + " dBm", CX + 3, CY - r - 3); }
+}
+// §9.8b the Scope's #bg; words are cut to fit, never shrunk
+function drawScopeBg(c) {
+  const g = SC.g; if (!g) return;
+  const edge = (k) => scL(c, t => scXY(g, g.rNear + (g.rFar - g.rNear) * t, k)), ring = (r) => scL(c, t => scXY(g, r, 2 * t - 1));
+  c.lineWidth = 1;
+  c.strokeStyle = THEME.line.hairline; for (const l of g.lanes.slice(1)) edge(l.k0 - SCOPE.gap / 2);
+  c.strokeStyle = THEME.line.ring; for (const d of LAYOUT.rings) ring(scR(g, d));
+  c.strokeStyle = THEME.line.baseline; c.setLineDash(SC.lv === "live" ? [] : [4, 4]); ring(g.rFar); ring(g.rNear); edge(-1); edge(1); c.setLineDash([]);
+  c.font = TD.fontLabel; c.textAlign = "center";
+  for (const l of g.lanes) {
+    const tk = SCOPE.ticks[l.key], wpx = Math.abs(scXY(g, g.rFar, l.k1)[0] - scXY(g, g.rFar, l.k0)[0]), p = scXY(g, g.rFar + (tk ? 26 : 10), (l.k0 + l.k1) / 2), nm = l.key === "sta" ? THEME.copy.scope.strip[1] : l.key === "6" && SC.unk ? "6 · ?" : ENCODING.band[l.key].legend;
+    c.fillStyle = THEME.ink.muted; for (const ch of tk || []) { const t = scXY(g, g.rFar + 8, l.k0 + (SCOPE.pad + (1 - 2 * SCOPE.pad) * scU(l.key, ch)) * (l.k1 - l.k0)); c.fillText(ch, t[0], t[1]); }
+    c.fillStyle = THEME.ink.secondary; for (const t of [nm, nm.split(" ")[0]]) { const s = TD.upper ? t.toUpperCase() : t; if (textWidth(c, c.font, s) <= wpx + 8) { c.fillText(s, p[0], p[1]); break; } }
+  }
+  c.textAlign = "left"; c.fillStyle = THEME.ink.muted;
+  LAYOUT.rings.forEach((d, i) => { const e = scXY(g, scR(g, d), 1), s = i ? String(d) : d + " dBm", w = textWidth(c, c.font, s), o = e[0] + 7 + w <= W - 4; c.fillText(s, o ? e[0] + 7 : e[0] - 5 - w, o ? e[1] + 4 : e[1] - 6); });
+}
+const wavePhase = () => SC.ph ?? (reduceMotion || S.ui.paused || S.fixedTime != null ? 1 : clamp((S.clock - SC.t0) / SC.dur, 0, 1));   // 1 = no wave
+function scopeWave() { SC.t0 = S.clock; SC.dur = clamp(2 * THEME.motion.fadeInMs, 1200, 1800) / 1000; }
+function drawScope() {   // §9.8b: the sky's own marks; one arc contracts per capture, never outward
+  const g = SC.g, ctx = ctxSky; if (!g) return;
+  const p = wavePhase(), rf = g.rFar - (g.rFar - g.rNear) * p, lv = SC.lv, cx = CX, cy = CY;
+  SC.sf = Math.floor(S.clock * 2);
+  for (const M of [S.aps, S.clients, S.clouds]) for (const n of M.values()) {
+    const s = n.sc;
+    if (!s || s.st !== SC.st || (s.nw && p < s.q)) { n.alphaDraw = 0; continue; }
+    n.sx = s.x; n.sy = s.y; n.px = s.px; n.fog = n.zc = 1;
+    n.alphaDraw = (n.target === 1 ? 1 : n.alpha) * (isForced(n.id) ? 1 : SCOPE.rest);
+  }
+  if (p < 1) {
+    ctx.strokeStyle = THEME.accent.selection;
+    for (const [d, w, al] of SCOPE.arcs) if (rf + d <= g.rFar + 1) { ctx.lineWidth = w; setAlpha(ctx, al); scL(ctx, t => scXY(g, rf + d, 2 * t - 1)); }
+    setAlpha(ctx, 1);
+  }
+  CX = g.ox; CY = g.py;
+  drawGlows(); drawClients(); drawClouds(); drawStars(); drawChangeCues(); drawRecvRing();
+  if (lv !== "live") {
+    const w = g.b.w, h = g.py - g.top, rnd = mulberry32(reduceMotion ? 1 : 1 + (SC.sf & 1));
+    ctx.fillStyle = THEME.ink.muted; setAlpha(ctx, 0.8);
+    for (let i = w * h / SCOPE.snow[lv === "stale" ? 0 : 1]; i-- > 0;) ctx.fillRect(g.b.x + (rnd() * w | 0), g.top + (rnd() * h | 0), 1, 1);
+    setAlpha(ctx, 1);
+  }
+  drawHud();
+  CX = cx; CY = cy;
 }
 let bg3dState = null, bgZoom = 1;
 function drawBackground() {
@@ -4872,7 +4993,7 @@ function drawClients() {
     if (c.alphaDraw <= 0.02) continue;
     const forced = isForced(c.id);
     let sx = c.sx, sy = c.sy, px = c.px, alpha = c.alphaDraw;
-    if (c.bubble != null && c.bubbleBlend > 0.001) {
+    if (c.bubble != null && c.bubbleBlend > 0.001 && !scopeOn) {
       if (c.bubbleBlend >= 0.98 && !forced) continue;
       const b = S.bubbles.get(c.bubble);
       if (b) { const s = smoothstep(0, 1, c.bubbleBlend); sx = lerp(c.sx, b.sx, s); sy = lerp(c.sy, b.sy, s); alpha = c.alphaDraw * (1 - c.bubbleBlend); px = c.px * (1 - 0.4 * c.bubbleBlend); }
@@ -5193,7 +5314,7 @@ function drawHud() {
   ctx.lineJoin = "round"; ctx.lineWidth = 2; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   // core text (fixed)
   {
-    const font = TD.fontHud, text = S.centerLabel, w = textWidth(ctx, font, text);   // D16: data strings are never transformed
+    const font = TD.fontHud, text = scopeOn ? "" : S.centerLabel, w = textWidth(ctx, font, text);   // D16: data strings are never transformed
     // one string that changes only with the source, so it is baked rather than re-rastered every frame: a fixed
     // post must not take a slot from the access point names. A pathological label longer than SPRITE_TEXT_MAX
     // keeps the counted fillText path, so no single string can bake a huge bitmap.
@@ -5246,7 +5367,7 @@ function drawHud() {
     let raw = ap.ssidKnown ?? ap.ssid; if (!raw) continue;
     if (carrier) raw = ssidBase(raw) && dev.memberIds.every(id => { const a = S.aps.get(id); return !a || ssidBase(apSsid(a)) === ssidBase(raw); }) ? raw.replace(/[-_ ]?(2\.?4|5|6)\s?g(hz)?$/i, "") : raw;
     let text = raw;
-    const enc = ENCODING.band[ap.band]; if (enc && !carrier) text += " · " + enc.suffix;   // device label: bands shown as facets instead
+    const enc = ENCODING.band[ap.band]; if (enc && !carrier && !scopeOn) text += " · " + enc.suffix;   // device label: bands shown as facets instead
     const w = textWidth(ctx, font, text), px = ap.px;
     const nFacet = carrier ? dev.bands.filter(b => b !== "unknown").length : 0, ext = carrier ? 5 + nFacet * 7 + 20 : 0;   // facets + ×n ride in the label's own rectangle
     const positions = [[ap.sx - (w + ext) / 2, ap.sy - px - 14], [ap.sx - (w + ext) / 2, ap.sy + px + 6], [ap.sx + px + 6, ap.sy - 6]];
@@ -5271,7 +5392,7 @@ function drawHud() {
         S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
       }
     }
-    if (ap.clientCount > 0 && lod < 3 && budget > 0) {
+    if (ap.clientCount > 0 && lod < 3 && budget > 0 && !scopeOn) {
       const bt = String(ap.clientCount), bf = TD.fontMonoSmall, bx = ap.sx + px + 2, by = ap.sy + px + 2;
       const bq = place([[bx, by]], 14, 12);
       if (bq) {
@@ -5299,7 +5420,7 @@ function drawHud() {
     });
   }
   // group labels at the constellation centroid (§8.6): ≥3 members, or any member hovered/locked
-  if (S.ui.groups && !trans) {
+  if (S.ui.groups && !trans && !scopeOn) {
     const gfont = "400 10px " + THEME.font.ui, hg = S.hover ? (S.aps.get(S.hover) || {}).groupKey : null;
     const glist = [];
     S.groups.forEach(g => { if (g.members.length < 2 || isEssFoldedSet(g.key)) return; const forced = g.key === hg; if (g.members.length < 3 && !forced) return; glist.push({ g, forced }); });
@@ -5352,15 +5473,15 @@ function hitRadius(n, touch) {
 }
 function nodeAt(mx, my, touch) {
   // §8.8a clouds take part in both hit tests
-  if (tS < 0.5) {
-    // 2D: nearest wins (clients/stars over bubbles)
+  if (tS < 0.5 || scopeOn) {
+    // 2D: nearest wins (clients/stars over bubbles); the Scope: as drawn
     let best = null, bd = Infinity;
-    const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd) { bd = d; best = n; } };
-    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
+    const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd && (!scopeOn || n.alphaDraw >= 0.25)) { bd = d; best = n; } };
+    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98 && !scopeOn) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
     if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
-    if (S.ui.filters.bt) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
+    if (S.ui.filters.bt && !scopeOn) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
     S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; near(n, hitRadius(n, touch)); });
-    S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
+    if (!scopeOn) S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
   }
   // 3D: projected hit-test from near to far, first covering wins
@@ -5387,7 +5508,7 @@ function select(id) {
   const n = nodeById(id); if (!n || n.kind === "bt") return null;   // no sheet for a mark in this release
   S.locked = id; S.dirty = true;
   const fc = S.aps.has(id) ? essOfFolded(id) : null; if (fc) expandEss(fc.id);   // §8.8 click a folded ESS node → expand 6 s
-  if (tS >= 0.5) flyTo(n);               // 3D: turn the node to the front + dolly in; the device stays centred
+  if (tS >= 0.5 && !scopeOn) flyTo(n);               // 3D: turn the node to the front + dolly in; the device stays centred
   return openDetail(id);
 }
 function deselect() {
@@ -5419,6 +5540,7 @@ canvasHud.addEventListener("pointerdown", (e) => {
 canvasHud.addEventListener("pointermove", (e) => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size >= 2) {                       // pinch
+    if (scopeOn) return;
     const p = Array.from(pointers.values()); const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1; const ratio = d / pinchBase;
     if (tS >= 0.5) { S.cam.distT = clamp(pinchDist0 / ratio, CFG3D.distMin, CFG3D.distMax); S.cam.tween = null; }
     else setZoom2d(pinchZoom0 * ratio);
@@ -5449,6 +5571,7 @@ canvasHud.addEventListener("pointercancel", endPointer);
 canvasHud.addEventListener("pointerleave", (e) => { if (!drag && pointers.size === 0) setHover(null); });
 canvasHud.addEventListener("wheel", (e) => {
   e.preventDefault();
+  if (scopeOn) return;
   const norm = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY;
   interacted();
   if (tS >= 0.5) { S.cam.distT = clamp(S.cam.distT * Math.exp(norm * CFG3D.wheelK), CFG3D.distMin, CFG3D.distMax); S.cam.tween = null; }
@@ -5476,6 +5599,7 @@ const KEY_ACT = { t: () => toggleTheme(), v: () => { setView(S.ui.view === "3d" 
   q: () => setDx("air"), j: () => setDx("time"), h: () => setDx("rec"), y: () => cycleChanMode(), u: () => setPanels(!S.ui.panels),
   "[": () => cyclePinned(-1), "]": () => cyclePinned(1), x: () => cycleRandom(),
   "1": () => toggleBand("2.4"), "2": () => toggleBand("5"), "3": () => toggleBand("6"), "4": () => toggleBand("bt") };
+KEY_ACT.z = () => { if (phoneOn) setToggle("scope", !S.ui.scope); };
 window.addEventListener("keydown", (e) => {
   const k = (e.key || "").toLowerCase();
   if (k === "escape") {
@@ -5544,6 +5668,7 @@ function setToggle(key, on) {
   if (key === "paused") { const b = el("t-pause"); if (b) b.textContent = on ? "Resume" : "Pause"; }
   if (key === "agg") { S.layoutDirty = true; settleLayout(LAYOUT.settleSyncIter); }
   if (key === "crt") applyCrt();
+  if (key === "scope") { applyScope(); resize(); }
   if (key === "observations" || key === "inventory") {   // one drawer at a time (see applyDrawer)
     if (on) { dropToggle(key === "observations" ? "inventory" : "observations"); S.homeOpen = false; S.dx = null; }
     applyDrawer();
@@ -5555,7 +5680,7 @@ function setToggle(key, on) {
   updateControlsLook(); updateStats(); S.dirty = true;
   return on;
 }
-const BTN_OF = { labels: "t-labels", orbits: "t-orbits", links: "t-links", paused: "t-pause", agg: "t-agg", vendor: "t-vendor", nebula: "t-nebula", groups: "t-groups", rotate: "t-rotate", spin: "t-spin", crt: "t-crt", deviceLinks: "t-devices", essMerge: "t-merge", affinity: "t-probes", observations: "t-obs", baselineDiff: "t-baseline", inventory: "t-inv" };
+const BTN_OF = { labels: "t-labels", orbits: "t-orbits", links: "t-links", paused: "t-pause", agg: "t-agg", vendor: "t-vendor", nebula: "t-nebula", groups: "t-groups", rotate: "t-rotate", spin: "t-spin", crt: "t-crt", deviceLinks: "t-devices", essMerge: "t-merge", affinity: "t-probes", observations: "t-obs", baselineDiff: "t-baseline", inventory: "t-inv", scope: "t-scope" };
 function syncPressed(id, on) { const b = el(id); if (b) { b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", String(!!on)); } }
 function syncButton(key, on) { syncPressed(BTN_OF[key], on); }
 function dropToggle(key) { if (S.ui[key]) { S.ui[key] = false; syncButton(key, false); } }   // flag and button only
@@ -5976,7 +6101,7 @@ function updateStats() {
   S._stats = { apsTotal, aps, free, assoc, clients, bands, bandsT, alarms, groups: ng, probing, bandUnknown, fresh, freshVis, freshCl, freshVisCl, randomized, randomisedFree: rndFree, clouds: nClouds, inClouds, randomHidden: hiddenRnd };
   if (cc && apsTotal > 0) el("n-crowd").title = skyTitle();
   updateLegendCounts();
-  renderObs(); renderInv(); renderHome(); renderTote(); renderAir(); renderTime(); renderRec();
+  renderObs(); renderInv(); renderHome(); renderTote(); renderAir(); renderTime(); renderRec(); renderScope();
   layoutEdges();
 }
 // §9.4 legend = the canvas marks: every colour is a mirrored token (var(--x) → CSS_MIRROR path) that the
@@ -6090,7 +6215,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
 }
 function legendVisibility() {   // D10: a mark's row exists exactly while that mark can be drawn (derived rows follow their toggle AND their data)
   const st = S._stats || { groups: 0, probing: 0, apsTotal: 0 };
-  const vis = (id, on) => { const e = el(id); if (e) e.hidden = !on; };
+  const vis = (id, on) => { const e = el(id); if (e) e.hidden = !on || (scopeOn && /^leg-(nebula|groups|devices|merge|probes|arc|crowding|deviation|ghost|bt)$/.test(id)); };
   vis("leg-nebula", S.ui.nebula && analyzer.pairs.length > 0);
   vis("leg-groups", S.ui.groups && st.groups > 0);
   vis("leg-devices", S.ui.deviceLinks && deviceClusterCount() > 0);
@@ -6705,8 +6830,21 @@ function applyPhone() {   // → true when the mode changed
     el("bar").className = "panel ph-only"; delete edgeState.sheet;
   }
   phCard = phDock = null; S.ui.sheet = "peek"; S.ui.legendCard = false;
+  applyScope();
   updateControlsLook();
   return true;
+}
+function applyScope() {
+  const on = phoneOn && S.ui.scope;
+  if (on !== scopeOn) { scopeOn = on; SC.cs = -1; SC.sg = ""; SC.g = null; TD = deriveStrings(THEME); clearSprites(); regulatorStart(); canvasHud.setAttribute("aria-label", on ? "Scope: signal on arcs, lanes by band and channel" : "Wireless sky"); }
+  DE.dataset.scope = on ? "on" : "off"; renderScope(); S.dirty = true;
+}
+function renderScope() {
+  if (!scopeOn) return;
+  const T = THEME.copy.scope, ls = liveness(), st = S._stats || {}, aps = S.apOrder.filter(a => S.ui.filters[a.band] !== false), cl = S.ui.random === "cloud" ? st.clouds | 0 : 0;
+  el("scope-strip").innerHTML = [aps.length, st.clients | 0, cl, aps.length ? aps[0].rssi + " dBm" : "—", eventsObj().newAps].map((v, i) => "<b>" + v + "</b><i>" + T.strip[i] + "</i>").join("");
+  el("sc-rx").textContent = copyFor("legRx") + (ls === "live" ? "" : " · " + modeChip.textContent);
+  if (ls !== SC.lv) { SC.lv = ls; resize(); }
 }
 function phoneCardOf() { const d = DE.dataset.drawer || "legend"; return S.ui.help ? "help" : !detail.hidden ? "detail" : d !== "legend" ? "drawer" : S.ui.legendCard ? "legend" : "controls"; }
 function setSheet(d) { if (phoneOn && /^(peek|half|full)$/.test(d)) { S.ui.sheet = d; layoutEdges(); } return S.ui.sheet; }
@@ -6727,13 +6865,15 @@ function phoneLayout(fromResize) {   // D21 the phone pass of layoutEdges(): the
   if (ds.banner === "on") { set("--ph-banner-t", el("classbar-top").offsetHeight + "px"); set("--ph-banner-b", el("classbar-bot").offsetHeight + "px"); set("--ph-top", Math.ceil(box("dtg").bottom) + "px"); }   // the banners wrap on a phone
   else for (const k of PH_VARS.slice(0, 3)) DE.style.removeProperty(k);
   const barEl = el("bar"), cnt = el("bar-counts"); barEl.classList.remove("tight", "tighter", "tightest");
-  for (const c of ["tight", "tighter", "tightest"]) { if (cnt.firstElementChild.getBoundingClientRect().left - box("bar-counts").left >= 4) break; barEl.classList.add(c); }   // closer letters, no words, no counts
+  for (const c of scopeOn ? [] : ["tight", "tighter", "tightest"]) { if (cnt.firstElementChild.getBoundingClientRect().left - box("bar-counts").left >= 4) break; barEl.classList.add(c); }   // closer letters, no words, no counts
   const bar = barEl.getBoundingClientRect(); set("--ph-bar-b", Math.ceil(bar.bottom) + "px");
   const card = phoneCardOf(), key = card + ":" + (card === "drawer" ? ds.drawer : card === "detail" ? detailShown : ""), ctl = card === "controls", title = el("sheet-title"), body = el("sheet-body"), tg = el("sheet-toggle");
   ds.card = card;   // first: the CSS shows this card before it is measured
   el("sheet-lead").hidden = el("t-legend").hidden = !ctl; title.hidden = el("sheet-close").hidden = ctl;
   title.textContent = card === "detail" ? detailTitle.textContent : PH_TITLE[card === "drawer" ? ds.drawer : card] || "";
   el("sheet-prev").hidden = el("sheet-next").hidden = !(card === "detail" && S.pinned.size >= 2);
+  const sc = el("t-scope"), row = el("sheet-row"), room = row.clientWidth - [...row.children].reduce((s, c) => s + (c === sc || !c.scrollWidth ? 0 : c.scrollWidth + 8), -8) >= 52;
+  sc.hidden = !ctl; if (room !== (sc.parentNode === row)) (room ? row : el("grp-look")).insertBefore(sc, room ? el("t-legend") : null);
   syncPressed("t-legend", S.ui.legendCard); el("sheet").setAttribute("aria-label", ctl ? "Controls" : title.textContent);
   const bottom = box("sheet").bottom, peek = el("sheet-head").offsetHeight, full = Math.min(peek + body.scrollHeight, Math.max(peek, Math.floor(bottom - bar.bottom - PHONE.gapPx)));
   const half = phDock === "side" ? full : Math.min(full, clamp(Math.floor(bottom - (bar.bottom + bottom - peek) / 2 - PHONE.centreClearPx), peek, Math.round(vh * PHONE.halfFrac)));   // clear of the device
@@ -6754,7 +6894,7 @@ function phoneLayout(fromResize) {   // D21 the phone pass of layoutEdges(): the
 function phDetailDetent(half, bottom) {   // half, or collapsed when the star would sit under it (3D: the camera turns it to the front)
   if (phDock === "side") return S.ui.sheet === "peek" ? "half" : S.ui.sheet;
   const n = nodeById(S.locked || detailShown);
-  return tS >= 0.5 || (n && n.sy >= bottom - half - PHONE.starClearPx) ? "peek" : "half";
+  return (tS >= 0.5 && !scopeOn) || (n && n.sy >= bottom - half - PHONE.starClearPx) ? "peek" : "half";
 }
 function skyBox() {   // the free rectangle for the sky
   if (!phoneOn) return { x: 0, y: 0, w: W, h: H };
@@ -6937,12 +7077,14 @@ function renderCaption() {
   }, 1600);
 }
 function lampsObj() { const lo = THEME.chrome.lamps, n = lo.count, v = S.captureSeq % (1 << n), bits = []; for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); return { value: v, bits, frozen: captureStale(), shown: !!lo.show }; }
-function renderLamps() {   // IMSAI-style lamps = the capture counter in binary; a stale feed stops counting, so the lamps freeze (and dim)
-  const l = el("lamps"); if (!l) return;
-  const o = lampsObj(); l.hidden = !o.shown; if (!o.shown) return;
-  if (l.childElementCount !== o.bits.length) { l.textContent = ""; for (let i = 0; i < o.bits.length; i++) l.appendChild(document.createElement("i")); }
-  Array.prototype.forEach.call(l.children, (e, i) => e.classList.toggle("on", o.bits[i] === 1));
-  l.dataset.frozen = o.frozen ? "1" : "0"; l.dataset.value = String(o.value); l.setAttribute("aria-label", THEME.copy.lamps + " " + o.value);
+function renderLamps() {   // IMSAI-style lamps = the capture counter in binary; a stale feed freezes them; the Scope's bar has a second set
+  const o = lampsObj();
+  for (const l of document.querySelectorAll(".lamps")) {
+    l.hidden = !o.shown; if (!o.shown) continue;
+    if (l.childElementCount !== o.bits.length) { l.textContent = ""; for (let i = 0; i < o.bits.length; i++) l.appendChild(document.createElement("i")); }
+    Array.prototype.forEach.call(l.children, (e, i) => e.classList.toggle("on", o.bits[i] === 1));
+    l.dataset.frozen = o.frozen ? "1" : "0"; l.dataset.value = String(o.value); l.setAttribute("aria-label", THEME.copy.lamps + " " + o.value);
+  }
 }
 function setSourcePanel() {   // §9.5: fixed templates; label/note only via esc() (max 80 chars)
   const k = S.replay ? "recorded" : S.sourceKind, ls = liveness(), stale = ls !== "live", chip = k === "live" ? ls : k;
@@ -6976,7 +7118,7 @@ function renderSourceTruth() {   // D4: every claim site; re-run on theme switch
   if (mastMotto) mastMotto.textContent = copyFor("motto");
   const la = el("leg-arc"), las = la && la.querySelector("span"); if (las) las.textContent = copyFor("legArc");
   const lr = el("leg-rx"); if (lr) lr.textContent = copyFor("legRx");
-  legendVisibility();
+  legendVisibility(); renderScope();
   const b = bannerLines(); el("classbar-top").textContent = b[0]; el("classbar-bot").textContent = b[1];
   const it = el("intro-text"); if (it && !introRunning && it.textContent) it.textContent = logonLines().join("\n");
 }
@@ -7445,7 +7587,7 @@ window.STARCHORUS = Object.freeze({
   phone: () => guard(() => Object.assign({ on: phoneOn, sky: { cx: r3(CX), cy: r3(CY), r: r3(maxRadius) } }, phoneOn ? layoutEdges().sheet : {})),   // §9.8
   setSheet: (d) => guard(() => setSheet(d)),
   setPanels: (on) => guard(() => setPanels(on)),
-  _internals: query.debug1 ? { S, THEMES, TK, TD, LAYOUT, AGG, CFG3D, RENDER, spriteCache, particles } : undefined,
+  _internals: query.debug1 ? { S, THEMES, TK, TD, LAYOUT, AGG, CFG3D, RENDER, spriteCache, particles, SC, SCOPE } : undefined,
 });
 
 // ==== 41 BOOT ====
@@ -7458,7 +7600,7 @@ S.labelsList = [];
   if (query.view === "2d" || query.view === "3d") { S.ui.view = query.view; S.queryLocked.add("view"); }
   if (RANDOM_MODES.indexOf(query.random) >= 0) { S.ui.random = query.random; S.queryLocked.add("random"); }
   for (const [v, key] of [[query.agg, "agg"], [query.crt, "crt"], [query.autolod, "autoLod"], [query.deviceLinks, "deviceLinks"], [query.essMerge, "essMerge"],
-    [query.affinity, "affinity"], [query.spin, "spin"], [query.baseline, "baselineDiff"], [query.obs, "observations"], [query.inv, "inventory"], [query.panels, "panels"]]) {
+    [query.affinity, "affinity"], [query.spin, "spin"], [query.baseline, "baselineDiff"], [query.obs, "observations"], [query.inv, "inventory"], [query.panels, "panels"], [query.scope, "scope"]]) {
     if (v === "0" || v === "1") { S.ui[key] = v === "1"; S.queryLocked.add(key); }
   }
   validateThemes();   // symmetric, once, all themes, before the first applyTheme

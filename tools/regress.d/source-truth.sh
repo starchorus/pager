@@ -127,8 +127,8 @@ if [ "$SRC_H" = '{"kind":"active","hint":true,"claim":false,"demo":"demo/demo/Sa
 else
   row "D4 detail hint/loadDemo/label [$SRC_H]" FAIL
 fi
-if [ "$SRC_K" = '{"sym":true,"n":62,"rxEqActive":true}' ]; then
-  row "D4 copy group symmetric (62 paths, rx = active, including signal, skyVoice, legendHeads, badge, crowdSign, lamps, logonListen, tote, clock, compendium, vault, lampStrip, caption)" PASS
+if [ "$SRC_K" = '{"sym":true,"n":63,"rxEqActive":true}' ]; then
+  row "D4 copy group symmetric (63 paths, rx = active, including signal, skyVoice, legendHeads, badge, crowdSign, lamps, logonListen, tote, clock, compendium, vault, lampStrip, caption, scope)" PASS
 else
   row "D4 copy group symmetric [$SRC_K]" FAIL
 fi
