@@ -1,0 +1,124 @@
+{
+ "generated": 1789300000,
+ "center": {
+  "label": "This device"
+ },
+ "source": "recon-db",
+ "alerts": [
+  {
+   "type": "deauth",
+   "t": 1789299962,
+   "ap": "02:00:5e:a1:00:01",
+   "n": 9
+  },
+  {
+   "type": "deauth",
+   "t": 1789299795,
+   "ap": "02:00:5e:a1:00:04",
+   "n": 4
+  },
+  {
+   "type": "deauth",
+   "t": 1789299590,
+   "ap": "02:00:5e:a1:00:77",
+   "n": 2
+  }
+ ],
+ "aps": [
+  {
+   "bssid": "02:00:5e:a1:00:01",
+   "ssid": "alert-a",
+   "channel": 1,
+   "band": "2.4GHz",
+   "freq": 2412,
+   "rssi": -41,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299995
+  },
+  {
+   "bssid": "02:00:5e:a1:00:02",
+   "ssid": "calm-b",
+   "channel": 6,
+   "band": "2.4GHz",
+   "freq": 2437,
+   "rssi": -52,
+   "security": "WPA2",
+   "clients": [
+    {
+     "mac": "3c:22:fb:a1:00:01",
+     "rssi": -57,
+     "last_seen": 1789299988
+    }
+   ],
+   "last_seen": 1789299990
+  },
+  {
+   "bssid": "02:00:5e:a1:00:03",
+   "ssid": "calm-c",
+   "channel": 11,
+   "band": "2.4GHz",
+   "freq": 2462,
+   "rssi": -60,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299985
+  },
+  {
+   "bssid": "02:00:5e:a1:00:04",
+   "ssid": "alert-b",
+   "channel": 36,
+   "band": "5GHz",
+   "freq": 5180,
+   "rssi": -48,
+   "security": "WPA2",
+   "clients": [],
+   "last_seen": 1789299980
+  },
+  {
+   "bssid": "02:00:5e:a1:00:05",
+   "ssid": "calm-e",
+   "channel": 100,
+   "band": "5GHz",
+   "freq": 5500,
+   "rssi": -66,
+   "security": "WPA3",
+   "clients": [
+    {
+     "mac": "8c:f5:a3:a1:00:02",
+     "rssi": -69,
+     "last_seen": 1789299970
+    }
+   ],
+   "last_seen": 1789299975
+  },
+  {
+   "bssid": "02:00:5e:a1:00:06",
+   "ssid": "calm-f",
+   "channel": 37,
+   "band": "6GHz",
+   "freq": 6135,
+   "rssi": -73,
+   "security": "WPA3",
+   "clients": [],
+   "last_seen": 1789299970
+  }
+ ],
+ "unassociated": [
+  {
+   "mac": "3c:22:fb:a1:00:10",
+   "rssi": -61,
+   "last_seen": 1789299980
+  },
+  {
+   "mac": "8c:f5:a3:a1:00:11",
+   "rssi": -70,
+   "last_seen": 1789299955
+  },
+  {
+   "mac": "24:6f:28:a1:00:12",
+   "rssi": -75,
+   "last_seen": 1789299910
+  }
+ ]
+}

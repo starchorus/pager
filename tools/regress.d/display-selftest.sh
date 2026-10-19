@@ -1719,6 +1719,96 @@ for DST_E in $DST_COPIES; do
 done
 if [ "$DST_S32" = "$DST_X32" ]; then row "display cleanpin: the first code line of ov_cleanup is trap '' TERM INT HUP, before any signal is sent, any nap and the removal ($DST_X32 copies)" PASS
 else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP=1; fi
+# ---- S31 alertline (0.2): the summary's alert line, "Many deauth/disassoc heard for N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
+# points the capture has (9 and 4 reports) and one for an address it has not, so the line says 2 APs (the page draws a note and a ring for those two and for no other). Per copy, under the
+# real and the device-like jq (which has no regex builtin): (a) the line is there once, exactly that text, directly after the open/WEP line, at most 40 columns, ASCII, and neutral (no
+# 'attack', no 'flood'); (b) a document without alerts[], with an empty one, with only the unknown address, with entries of the wrong shape (a count of 0 or a text, a type that is not deauth,
+# no address, an address that is no string or no address), with alerts[] that is a string or an object, shows no such line and the rest of the screen as before; the same access point
+# twice, in two spellings of its address, and 21 entries of which the last names a second access point (the page cuts at 20), say 1 AP, as do junk entries around one good one; every other
+# fixture shows no such line; (c) on the device path (a stand-in LOG that prints the colour word) the alert line is the only red line of the screen; (d) the interactive Overview, three draws
+# of the summary of a fresh capture (A A B), shows it three times, red, each directly before the frame, with the two jq runs any summary needs (the probe and the program): the alert adds no
+# jq run of its own, and nothing redraws by itself. NEGATIVE PROBES: the record taken out of JQ_SUMMARY or the call out of screen_summary => (a), (c), (d) red; the cut at 20 taken out of
+# alertaps => 'cap' red; the test that aps[] holds the address taken out => 'unknown' red; the type test taken out => 'junk' red; every unique taken out => 'dupes' red.
+DST_AJ="$F/alerts.json"
+if [ ! -s "$DST_AJ" ]; then notcov "display alert line (needs tests/fixtures/alerts.json)"
+else
+  DST_AL='Many deauth/disassoc heard for 2 APs'; DST_AL1='Many deauth/disassoc heard for 1 AP'
+  dst_alv() { jq -c "$2" "$DST_AJ" > "$DST_D/alv-$1.json"; }   # dst_alv NAME PROGRAM: alerts.json changed by PROGRAM
+  dst_alv noalerts 'del(.alerts)'
+  dst_alv empty '.alerts = []'
+  dst_alv unknown '.alerts = [.alerts[2]]'
+  dst_alv junk '.alerts = [1, "x", null, [], {"type":"other","ap":"02:00:5e:a1:00:01","n":3}, {"type":"deauth","ap":"02:00:5e:a1:00:01","n":0}, {"type":"deauth","ap":"02:00:5e:a1:00:01","n":"9"}, {"type":"deauth","n":3}, {"type":"deauth","ap":5,"n":3}, {"type":"deauth","ap":"nonsense","n":3}]'
+  dst_alv string '.alerts = "02:00:5e:a1:00:01"'
+  dst_alv object '.alerts = {"type":"deauth","ap":"02:00:5e:a1:00:01","n":3}'
+  dst_alv folded '.alerts = [{"type":"deauth","t":1,"ap":" 02-00-5E-A1-00-01 ","n":1}]'
+  dst_alv dupes '.alerts = [.alerts[0], .alerts[0], {"type":"deauth","t":1,"ap":"02-00-5E-A1-00-01","n":2}]'
+  # shellcheck disable=SC2016   # a jq program: its $a is jq's
+  dst_alv cap '.alerts as $a | .alerts = ([range(0; 20) | $a[0]] + [$a[1]])'
+  dst_alv mixed '.alerts = [1, "x", null, .alerts[1], .alerts[2]]'
+  DST_ALW="noalerts|-
+empty|-
+unknown|-
+junk|-
+string|-
+object|-
+folded|$DST_AL1
+dupes|$DST_AL1
+cap|$DST_AL1
+mixed|$DST_AL1"   # variant|the line wanted ("-" = none)
+  mkdir -p "$DST_D/alb"
+  # shellcheck disable=SC2016   # the stand-in's own "$1"/"$*" are meant literally
+  printf '#!/bin/sh\nc=; case "$1" in red|blue) c="[$1]"; shift;; esac; printf "LOG%%s %%s\\n" "$c" "$*"\n' > "$DST_D/alb/LOG"
+  printf '#!/bin/sh\nexit 0\n' > "$DST_D/alb/LIST_PICKER"; chmod +x "$DST_D/alb/LOG" "$DST_D/alb/LIST_PICKER"
+  DST_NOW28=$(date +%s); jq -c --argjson g "$DST_NOW28" '.generated = $g' "$DST_AJ" > "$DST_D/alv-live.json"
+  DST_S31=0; DST_X31=0
+  for DST_E in $DST_COPIES; do
+    DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X31=$((DST_X31 + 1)); DST_L31=""
+    for DST_N in 0 1; do
+      DST_TG="s31-$DST_G-$DST_N"
+      # (a) the line on alerts.json
+      dst_once "$DST_TG" "$DST_C" summary "$DST_AJ" "$DST_N"; DST_O="$DST_D/$DST_TG.out"
+      DST_A1=$(dst_cnt "$DST_AL" "$DST_O"); DST_A2=$(grep -ci 'deauth' "$DST_O")
+      DST_A3=$(awk -v l="$DST_AL" '$0 == l { print p } { p = $0 }' "$DST_O")
+      DST_A4=$(awk -v l="$DST_AL" '$0 == l && length($0) > 40' "$DST_O" | grep -c .)
+      DST_A5=$(grep -xF "$DST_AL" "$DST_O" | LC_ALL=C grep -c '[^ -~]'); DST_A6=$(grep -ci 'attack\|flood' "$DST_O")
+      [ "$DST_A1/$DST_A2/$DST_A3/$DST_A4/$DST_A5/$DST_A6" = "1/1/No open/WEP networks/0/0/0" ] \
+        || DST_L31="$DST_L31 alerts.json: line x$DST_A1 (want 1), 'deauth' x$DST_A2 (want 1), after '$DST_A3', $DST_A4 over 40 columns, $DST_A5 non-ASCII, $DST_A6 loaded words;"
+      # (b) the variants
+      while IFS= read -r DST_V; do
+        DST_VN=${DST_V%%|*}; DST_VW=${DST_V#*|}
+        dst_once "$DST_TG-$DST_VN" "$DST_C" summary "$DST_D/alv-$DST_VN.json" "$DST_N" < /dev/null; DST_O="$DST_D/$DST_TG-$DST_VN.out"
+        DST_B1=$(grep -ci 'deauth' "$DST_O"); DST_B2=$(grep -c '^APs 6 ' "$DST_O"); DST_B3=$(tail -n 1 "$DST_O"); DST_B4=$(grep -c 'jq incomplete' "$DST_O")
+        if [ "$DST_VW" = - ]; then
+          [ "$DST_B1/$DST_B2/$DST_B3/$DST_B4" = "0/1/No open/WEP networks/0" ] || DST_L31="$DST_L31 $DST_VN: 'deauth' x$DST_B1 (want 0), APs line x$DST_B2, last line '$DST_B3', marker x$DST_B4;"
+        else
+          [ "$DST_B1/$(dst_cnt "$DST_VW" "$DST_O")/$DST_B2/$DST_B3/$DST_B4" = "1/1/1/$DST_VW/0" ] || DST_L31="$DST_L31 $DST_VN: 'deauth' x$DST_B1 (want 1), wanted line x$(dst_cnt "$DST_VW" "$DST_O"), APs line x$DST_B2, last line '$DST_B3', marker x$DST_B4;"
+        fi
+      done <<DST_ALWEOF
+$DST_ALW
+DST_ALWEOF
+      # (c) the device path: the alert line is the only red one
+      PATH="$DST_D/alb:$DST_BIN:$PATH" STARCHORUS_NRX="$DST_N" STARCHORUS_REAL_JQ="$DST_JQ" sh "$DST_C" --once summary "$DST_AJ" > "$DST_D/$DST_TG.dev" 2>&1
+      DST_C1=$(grep -c '^LOG\[red\]' "$DST_D/$DST_TG.dev"); DST_C2=$(dst_cnt "LOG[red] $DST_AL" "$DST_D/$DST_TG.dev")
+      [ "$DST_C1/$DST_C2" = 1/1 ] || DST_L31="$DST_L31 device path: $DST_C1 red lines (want 1), the alert line red x$DST_C2 (want 1);"
+    done
+    # every other fixture shows none (real jq)
+    DST_D1=0; for DST_J in "$F"/*.json; do
+      [ "$DST_J" != "$DST_AJ" ] || continue
+      dst_once "s31-$DST_G-all" "$DST_C" summary "$DST_J" 0
+      [ "$(grep -ci 'deauth' "$DST_D/s31-$DST_G-all.out")" = 0 ] || DST_D1=$((DST_D1 + 1))
+    done
+    [ "$DST_D1" = 0 ] || DST_L31="$DST_L31 $DST_D1 other fixtures show an alert line;"
+    # (d) the interactive Overview
+    DST_OVSRC="$DST_D/alv-live.json"; dst_ov "s31-$DST_G-ov" "$DST_C" "A A B"; DST_OVSRC=; DST_O="$DST_D/s31-$DST_G-ov.out"
+    DST_E1=$(dst_views "$DST_O"); DST_E2=$(dst_cnt "LOG[red] $DST_AL" "$DST_O"); DST_E3=$(grep -c '^LOG\[red\]' "$DST_O")
+    DST_E4=$(grep -c x "$DST_D/s31-$DST_G-ov.jq"); DST_E5=$(awk -v l="LOG[red] $DST_AL" '$0 == l { f = 1; next } f { if ($0 ~ /^LOG Last scan /) n++; f = 0 } END { print n + 0 }' "$DST_O")
+    [ "$DST_RC/$DST_E1/$DST_E2/$DST_E3/$DST_E4/$DST_E5" = "0/sss/3/3/2/3" ] \
+      || DST_L31="$DST_L31 interactive: rc $DST_RC, screens '$DST_E1' (want sss), alert line red x$DST_E2 (want 3), red lines $DST_E3 (want 3), $DST_E4 jq (want 2), directly before the frame x$DST_E5 (want 3);"
+    if [ -z "$DST_L31" ]; then DST_S31=$((DST_S31 + 1)); else echo "    alert line, $DST_G copy:$DST_L31"; fi
+  done
+  if [ "$DST_S31" = "$DST_X31" ]; then row "display alert line: 'Many deauth/disassoc heard for 2 APs' after the open/WEP line (40 columns, ASCII, neutral), none without alerts[] or with junk, one AP per address (folded, cut at 20), none on the other fixtures, the only red line on the device path, three draws show it three times with 2 jq ($DST_X31 copies, each under the real and the device-like jq)" PASS
+  else row "display alert line: $DST_S31/$DST_X31 copies as expected" FAIL; DST_KEEP=1; fi
+fi
 
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
 unset -f dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first

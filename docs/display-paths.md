@@ -193,7 +193,7 @@ changes nothing in the device's interface; a firmware update does not touch it.
 
 | Screen | `--once` name | Content |
 |---|---|---|
-| Summary | `summary` | GEN and age of the capture, number of APs split by band (with `BT n`, the addresses of the last Bluetooth scan, on the same line when the capture has the array; `256+` at the cap), clients (free, how many of them randomised and in how many clouds, associated), freshness, channel crowding (level 1–5, busiest channel), number of searching stations, number of open/WEP networks (red) |
+| Summary | `summary` | GEN and age of the capture, number of APs split by band (with `BT n`, the addresses of the last Bluetooth scan, on the same line when the capture has the array; `256+` at the cap), clients (free, how many of them randomised and in how many clouds, associated), freshness, channel crowding (level 1–5, busiest channel), number of searching stations, number of open/WEP networks (red), and, when the capture carries `alerts[]`, one red line `Many deauth/disassoc heard for 2 APs` (the access points of `alerts[]` that the capture holds, each counted once, at most 20 entries read as the page reads them; at most 40 columns, ASCII; no other screen marks them, and it is as old as the capture it comes from) |
 | Strongest networks | `top` | the eight strongest networks by RSSI, with band and security; open and WEP networks in red |
 | Bands and security | `bands` | APs per band, each with the band's share of all channel activity as an 8-cell ASCII bar (`act ######-- 78%`) when the capture has activity, and the note 'act = share of frames heard (relative)' under the band lines only then; the count per security class; Open and WEP in red |
 | Devices and merges | `devices` | logical devices (at least two BSSIDs sharing the first five bytes, locally administered addresses excepted), merged SSIDs (one name under at least two devices), up to four examples |
@@ -309,8 +309,8 @@ Without a randomised station the lines are as before.
 
 **Output.** LOG lines only; the log is append-only. The first line, `Overview`, comes before any
 `jq` call, and a draw that runs `jq` begins with `Reading...`. The log only grows, so a screen drawn again sits below the one before it.
-Red stands only for an alarm (an open or WEP network, the 'jq incomplete' line, or the
-'No new scan' line), blue for headings. If the capture comes from the collector's
+Red stands only for an alarm (an open or WEP network, the 'jq incomplete' line, the
+'No new scan' line, or the one alert line of the summary), blue for headings. If the capture comes from the collector's
 active opt-in scan, the line `ACTIVE SCAN · the collector sent probe
 requests` replaces the passivity statement. An optional template line
 (`STARCHORUS_DISPLAY_TEMPLATE` or the first line of `$STARCHORUS_DIR/display.tpl`) substitutes

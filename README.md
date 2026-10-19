@@ -327,8 +327,8 @@ and Right step through the screens. Each screen
 ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
 A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again).
 Its only output is LOG lines. Red stands only
-for an alarm (an open or WEP network, the line 'jq incomplete', or 'No new scan' when the collector
-has stopped writing). On the development machine,
+for an alarm (an open or WEP network, the line 'jq incomplete', 'No new scan' when the collector
+has stopped writing, or the summary's one line 'Many deauth/disassoc heard for 2 APs' when the capture carries alerts, see Alerts). On the development machine,
 `sh starchorus-display.sh --once <screen> <file>` prints the same content as text; `<screen>` is
 `summary`, `top`, `bands`, `devices`, `probes`, `clients`, `bluetooth` or `air`.
 

@@ -57,7 +57,7 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
 MIN_SELFTEST=482          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (482 checks), 19 October 2026: the alert log's eleven cases are in)
 MIN_SECTIONS=42           # grep -c '==== [0-9]' starchorus.html                              (measured: 00..41)
-MIN_FIXTURES=14           # ls tests/fixtures/*.json | wc -l   (measured: 14)
+MIN_FIXTURES=15           # ls tests/fixtures/*.json | wc -l   (measured: 15)
 MIN_QUICK_DROPINS=6       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server mutation-probe)
 MIN_QUICK_ROWS=50         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 66; quick.sh's own rows are also asked for by name)
 MIN_DATA_ORACLE_CASES=122 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 140)

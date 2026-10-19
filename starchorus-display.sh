@@ -598,6 +598,10 @@ fi
 # address or frequency counts once on the page (the stronger entry, the later one), twice here; the collector writes neither. A numeric STRING in
 # rssi (bluetooth) or in freq or share (activity), "-60" for example, is a number on the page (numOrNull) and is skipped here, as is the rssi of the
 # Wi-Fi records above; the collector writes numbers only, and the parity rows use text that is no number at all ('loud', 'wide'), where both agree.
+# Alerts (the firmware's deauth/disassoc alert, additive in the capture): alertaps = how many access points the capture reports alerts for. alerts[] is cut
+# at 20 as the page cuts it; an entry counts when it is an object of type deauth with a numeric count above 0 (the page's own test); its address is folded as
+# the page folds one (pgmac), counted once however many entries name it, and counted only when aps[] holds that address, because the page draws its note and
+# its ring for an access point it knows and for no other. Nothing in an entry but its type, count and address is read, and the times of the reports are not.
 JQLIB='def _WS: ["\u0009","\u000A","\u000B","\u000C","\u000D","\u0020","\u0085","\u00A0","\u1680",
           "\u2000","\u2001","\u2002","\u2003","\u2004","\u2005","\u2006","\u2007","\u2008",
           "\u2009","\u200A","\u2028","\u2029","\u202F","\u205F","\u3000","\uFEFF"];
@@ -663,6 +667,9 @@ def sectag: secupper
            elif contains("WPA2") or contains("RSN") then "WPA2"
            elif contains("WPA") then "WPA"
            else "other" end;
+def alertaps: ([.aps[]? | select(type == "object" and .bssid != null) | .bssid | pgmac]) as $B
+  | [(.alerts | if type == "array" then .[0:20] else [] end)[] | select(type == "object" and .type == "deauth" and (.n | type) == "number" and .n > 0 and .ap != null)
+     | .ap | pgmac | select(length == 17)] | unique | map(. as $a | select([$B[] | select(. == $a)] | length > 0)) | length;
 def btlist: ((.bluetooth // null) | if type == "array" then [.[] | select(type == "object" and (.rssi | type) == "number")] | .[0:256] else null end);
 def btco: (.company_name | if type == "string" and (_trimws | length) > 0 then _trimws else null end) as $n
   | (.company | if type == "number" and . >= 0 and . <= 65535 and . == (. | round) then . else null end) as $c
@@ -907,6 +914,7 @@ JQ_SUMMARY='_D(
     _R("b24"; bandcnt($B; "2.4")), _R("b5"; bandcnt($B; "5")), _R("b6"; bandcnt($B; "6")),
     _R("probing"; [probers] | length),
     _R("bt"; btlist | if . == null then empty else length end),
+    _R("alaps"; alertaps),
     _R("center"; .center.label // "This device" | _chomp),
     _R("claim"; (.source // "") | tostring | ascii_downcase | contains("active")),
     _R("fresh"; (.generated | if type == "number" then . else null end) as $g | [.aps[] | apprep | tierof($g)] as $t
@@ -926,6 +934,14 @@ rnd_note() {
     case ${R_rnd:-} in ''|0|*[!0-9]*) return 0 ;; esac
     case ${R_ncl:-0} in 0|''|*[!0-9]*) RN=" ($R_rnd random)" ;; 1) RN=" ($R_rnd random, 1 cloud)" ;; *) RN=" ($R_rnd random, $R_ncl clouds)" ;; esac
 }
+# alert_line N -> the one red line for the access points the firmware has reported many deauth/disassoc frames for (alerts[]): nothing for 0, for an
+# empty record or for anything that is not a number. At most 40 columns, ASCII; red because it is an alarm, like the open/WEP line. Every screen
+# is drawn on a press and never by itself, so the line is as old as the capture it comes from (the frame under it says how old that is).
+alert_line() {
+    case ${1:-} in ''|0|*[!0-9]*) return 0 ;; esac
+    if [ "$1" = 1 ]; then al_w="1 AP"; else al_w="$1 APs"; fi
+    log red "Many deauth/disassoc heard for $al_w"
+}
 screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines, were printed instead)
     jq_warn
     if ! fetch summary "$JQ_SUMMARY"; then nodata; return 1; fi
@@ -943,6 +959,7 @@ screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines,
     log       "Crowding ${lvl:-1}/5 ($(crowd_word "${lvl:-1}"))${bz:+ · busiest $bz}"
     [ "${probing:-0}" -gt 0 ] && log "Probe requests: $probing client(s) naming a network"
     if [ "${open:-0}" -gt 0 ]; then log red "Open/WEP networks: $open"; else log "No open/WEP networks"; fi
+    alert_line "${R_alaps:-}"
     tpl_line "$aps" "$b24" "$b5" "$b6" "${open:-0}" "${lvl:-1}"
 }
 
@@ -1378,6 +1395,7 @@ display_selftest() {
  "bluetooth":[{"addr":"02:00:00:00:00:b1","addr_type":"random-resolvable","rssi":-50,"company":65535,"company_name":"Maker A"},
               {"addr":"02:00:00:00:00:b2","addr_type":"public","rssi":-60}],
  "activity":[{"freq":2412,"share":0.75},{"freq":5180,"share":0.25}],
+ "alerts":[{"type":"deauth","t":3,"ap":"02:00:00:00:00:03","n":2},{"type":"deauth","t":2,"ap":"02:00:00:00:00:01","n":5},{"type":"deauth","t":1,"ap":"02:00:00:00:00:99","n":7}],
  "aps":[{"bssid":"02:00:00:00:00:01","ssid":"Test-A","rssi":-40,"band":"2.4GHz","security":"WPA2/WPA3"},
         {"bssid":"02:00:00:00:00:02","ssid":"Test-B","rssi":-50,"band":" 5 GHz","security":"Open"},
         {"bssid":"02:00:00:00:00:03","ssid":"Test-C","rssi":-60,"band":"5","security":"WEP"},
@@ -1398,6 +1416,7 @@ ST_JSON
         st_has "screen_summary: band counts match the fixture (2.4:1 5:2 6:1)" "$st_out" -qF '2.4:1  5:2  6:1'
         st_has "screen_summary: open/WEP line matches the fixture (2)" "$st_out" -qxF 'Open/WEP networks: 2'
         st_has "screen_summary: the Bluetooth figure follows the band counts (BT 2)" "$st_out" -qxF 'APs 4   ·   2.4:1  5:2  6:1  BT 2'
+        st_has "screen_summary: the alert line counts the access points the capture holds (2 of 3 reports)" "$st_out" -qxF 'Many deauth/disassoc heard for 2 APs'
         st_has "screen_bands: a band's activity bar (2.4: 75 percent)" "$st_bd" -qxF '  2.4 GHz: 1 AP(s)  act ######-- 75%'
         st_has "screen_bands: the note that explains the bar" "$st_bd" -qxF 'act = share of frames heard (relative)'
         st_has "screen_bluetooth: addresses, rotating and fixed (2, 1, 1)" "$st_bt" -qxF '2 addresses (1 rotating, 1 fixed)'

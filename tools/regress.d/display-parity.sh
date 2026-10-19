@@ -113,19 +113,46 @@ else row "display busiest channel = the page's crowdingOf() on $DSP_BZN document
 # The alarms are the open/WEP lines, the ONE "jq incomplete" fault line of
 # jq_warn (the counts may be blank) and the ONE "No new scan" line (stale_line: the collector has not written for three of its
 # intervals; stamp(), which frame() calls, prints it at the end of every screen in place of the time of the scan): exactly those lines,
-# in exactly those functions, are allowed besides open/WEP.
+# in exactly those functions, are allowed besides open/WEP, and since 0.2 the ONE alert line (alert_line: the access points the firmware has reported many
+# deauth/disassoc frames for; red because it is an alarm like the open/WEP line). It is pinned the way the stale line is: exactly that text, once, inside alert_line.
 DSP_JQW='^jq_warn() { jq_healthy || log red "jq incomplete on this device -- counts may be blank. Run: sh starchorus-display.sh --selftest"; }$'
 # shellcheck disable=SC2016   # literal script text
 DSP_STL='    log red "No new scan for $st."'
-DSP_GREEN=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'green')
-DSP_RED=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'log red')
-DSP_REDJ=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c "$DSP_JQW")
-DSP_REDS=$(awk '/^stale_line\(\) *{/,/^}/' starchorus-display.sh | grep -cxF "$DSP_STL")
+# shellcheck disable=SC2016   # literal script text
+DSP_ALR='    log red "Many deauth/disassoc heard for $al_w"'
 # the top screen's alarm line is the one its jq filter marked with "!" from the security field, not a text search
 DSP_TOPR="'!'*) log red \"\${line#?}\" ;;"
-DSP_REDL=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep 'log red' | grep -v 'Open/WEP\|"Open:"' | grep -vF "$DSP_TOPR" | grep -vxF "$DSP_STL" | grep -cv "$DSP_JQW")
-if [ "$DSP_GREEN" = 0 ] && [ "$DSP_REDL" = 0 ] && [ "$DSP_REDJ" = 1 ] && [ "$DSP_REDS" = 1 ] && [ "$DSP_RED" -ge 5 ]; then row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line and the one stale-scan line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, $DSP_REDL not on an alarm)" PASS
-else row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line and the one stale-scan line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, $DSP_REDL not on an alarm)" FAIL; fi
+dsp_redcount() {   # dsp_redcount FILE -> DSP_GREEN, DSP_RED (all red calls), DSP_REDJ, DSP_REDS, DSP_REDA (the pinned lines) and DSP_REDL (red calls on no alarm) of a display script
+  DSP_GREEN=$(grep -v '^[[:space:]]*#' "$1" | grep -c 'green')
+  DSP_RED=$(grep -v '^[[:space:]]*#' "$1" | grep -c 'log red')
+  DSP_REDJ=$(grep -v '^[[:space:]]*#' "$1" | grep -c "$DSP_JQW")
+  DSP_REDS=$(awk '/^stale_line\(\) *{/,/^}/' "$1" | grep -cxF "$DSP_STL")
+  DSP_REDA=$(awk '/^alert_line\(\) *{/,/^}/' "$1" | grep -cxF "$DSP_ALR")
+  DSP_REDL=$(grep -v '^[[:space:]]*#' "$1" | grep 'log red' | grep -v 'Open/WEP\|"Open:"' | grep -vF "$DSP_TOPR" | grep -vxF "$DSP_STL" | grep -vxF "$DSP_ALR" | grep -cv "$DSP_JQW")
+}
+dsp_redok() { [ "$DSP_GREEN" = 0 ] && [ "$DSP_REDL" = 0 ] && [ "$DSP_REDJ" = 1 ] && [ "$DSP_REDS" = 1 ] && [ "$DSP_REDA" = 1 ] && [ "$DSP_RED" -ge 6 ]; }
+dsp_redcount starchorus-display.sh
+if dsp_redok; then row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line, the one stale-scan line and the one alert line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, alert line $DSP_REDA, $DSP_REDL not on an alarm)" PASS
+else row "display colours: no green anywhere ($DSP_GREEN), red only on the open/WEP lines, the one jq-incomplete line, the one stale-scan line and the one alert line ($DSP_RED red calls, jq line $DSP_REDJ, stale line $DSP_REDS, alert line $DSP_REDA, $DSP_REDL not on an alarm)" FAIL; fi
+# the controls of that pin: on copies of the display script, a red call anywhere else (in the bands screen, the alert's own wording changed, a second alert line, the alert line
+# outside its function) and a green call each turn it red, and the unchanged copy stays green; the numbers of the real file are taken again afterwards
+DSP_RCD="out/$P-dsp-redpin"; rm -rf "$DSP_RCD"; mkdir -p "$DSP_RCD"
+cp starchorus-display.sh "$DSP_RCD/ok.sh"
+awk '{ print } /^screen_bands\(\) *{/ { print "    log red \"stray\"" }' starchorus-display.sh > "$DSP_RCD/m1.sh"
+# shellcheck disable=SC2016   # sed program: the display script's own text, not to be expanded here
+sed 's|log red "Many deauth/disassoc heard for \$al_w"|log red "Flood heard for $al_w"|' starchorus-display.sh > "$DSP_RCD/m2.sh"
+awk '{ print } /^    log red "Many deauth\/disassoc heard for \$al_w"$/ { print }' starchorus-display.sh > "$DSP_RCD/m3.sh"
+sed 's|^alert_line() {|alert_lin2() {|' starchorus-display.sh > "$DSP_RCD/m4.sh"
+awk '{ print } /^screen_bands\(\) *{/ { print "    log green \"stray\"" }' starchorus-display.sh > "$DSP_RCD/m5.sh"
+DSP_RCB=""
+dsp_redcount "$DSP_RCD/ok.sh"; dsp_redok || DSP_RCB="$DSP_RCB ok"
+for DSP_RCM in m1 m2 m3 m4 m5; do
+  cmp -s starchorus-display.sh "$DSP_RCD/$DSP_RCM.sh" && DSP_RCB="$DSP_RCB $DSP_RCM-unchanged"
+  dsp_redcount "$DSP_RCD/$DSP_RCM.sh"; ! dsp_redok || DSP_RCB="$DSP_RCB $DSP_RCM-green"
+done
+dsp_redcount starchorus-display.sh
+if [ -z "$DSP_RCB" ]; then row "display colours bite: a red call elsewhere, the alert wording changed, a second alert line, the alert line outside its function and a green call each turn the pin red; the unchanged copy stays green" PASS
+else row "display colours bite: wrong on:$DSP_RCB" FAIL; fi
 # the same at run time, through the device path (stand-in LOG / LIST_PICKER that print the colour word): a WPA2/WPA3 network whose
 # SSID contains Open/OPEN/WEP is NOT red, an AP with security "" (open, as the summary counts it) and a WEP one ARE, and a newline
 # in an SSID cannot start a line of its own (it would otherwise forge a leading "!"); a text search in the shell would get all three wrong.

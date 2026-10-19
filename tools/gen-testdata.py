@@ -14,6 +14,8 @@ and with --extras "rate", "last_seen", "width", "phy" (APs) and "last_seen",
 "randomized" (clients). --legacy emits exactly the base contract, nothing else.
 --radio is the hand-built fixture of the 0.2 radio pair (bluetooth[], activity[], station "packets",
 a hidden network without a name); see build_radio_doc().
+--alerts is the hand-built fixture of the 0.2 alerts (alerts[]: two access points the firmware reported many
+deauth/disassoc frames for, and a report for an address the capture does not hold); see build_alerts_doc().
 --source iw-scan-ACTIVE mirrors the collector's ACTIVE opt-in scan (STARCHORUS_ALLOW_ACTIVE=1):
 APs only, no clients, its security words, no extras. --validate also checks "source"
 and the source-specific shape (none / iw-scan-ACTIVE) and rejects unknown keys.
@@ -566,6 +568,37 @@ def build_clouds_doc(generated, center):
             "aps": aps, "unassociated": un}
 
 
+# --------------------------------------------------------------------------- alerts fixture (0.2: the firmware's deauth/disassoc alert)
+# Six access points, all WPA2 or WPA3 (so the only red line the Overview may print is the alert's), two with a station and three free stations,
+# and alerts[] as the collector writes it: {type, t, ap, n}, newest first, the addresses in lower case. DOCUMENTED GROUND TRUTH
+# (tools/regress.d/alerts.sh and the Overview rows of tools/regress.d/display-selftest.sh read it):
+#
+#   02:00:5e:a1:00:01  "alert-a"  2.4 GHz ch 1    n 9, newest, 38 s before `generated`      <- alerted
+#   02:00:5e:a1:00:04  "alert-b"  5 GHz ch 36      n 4, 205 s before `generated`             <- alerted
+#   02:00:5e:a1:00:77  (not in aps[])              n 2, 410 s before `generated`             <- a report for an address the capture does not hold:
+#                                                  the page draws nothing for it and the Overview counts no access point for it
+#   alerted access points the page draws ........ 2   (the Overview says "Many deauth/disassoc heard for 2 APs")
+#   reports in alerts[] ........................ 3   (the sum of n over the two known access points: 13)
+ALERT_APS = ("02:00:5e:a1:00:01", "02:00:5e:a1:00:04")
+ALERT_AGES = (38, 205, 410)    # seconds before `generated`, newest first
+
+
+def build_alerts_doc(generated, center):
+    plan = [("2.4GHz", 1, -41, "WPA2", "alert-a"), ("2.4GHz", 6, -52, "WPA2", "calm-b"), ("2.4GHz", 11, -60, "WPA3", "calm-c"),
+            ("5GHz", 36, -48, "WPA2", "alert-b"), ("5GHz", 100, -66, "WPA3", "calm-e"), ("6GHz", 37, -73, "WPA3", "calm-f")]
+    aps = [fixed_ap("02:00:5e:a1:00:%02x" % n, ssid, band, ch, rssi, sec, last_seen=generated - 5 * n)
+           for n, (band, ch, rssi, sec, ssid) in enumerate(plan, 1)]
+    aps[1]["clients"] = [{"mac": "3c:22:fb:a1:00:01", "rssi": -57, "last_seen": generated - 12}]
+    aps[4]["clients"] = [{"mac": "8c:f5:a3:a1:00:02", "rssi": -69, "last_seen": generated - 30}]
+    unassoc = [{"mac": "3c:22:fb:a1:00:10", "rssi": -61, "last_seen": generated - 20},
+               {"mac": "8c:f5:a3:a1:00:11", "rssi": -70, "last_seen": generated - 45},
+               {"mac": "24:6f:28:a1:00:12", "rssi": -75, "last_seen": generated - 90}]
+    alerts = [{"type": "deauth", "t": generated - age, "ap": ap, "n": n}
+              for age, ap, n in zip(ALERT_AGES, ALERT_APS + ("02:00:5e:a1:00:77",), (9, 4, 2))]
+    return {"generated": generated, "center": {"label": center}, "source": "recon-db",
+            "alerts": alerts, "aps": aps, "unassociated": unassoc}
+
+
 # --------------------------------------------------------------------------- radio-pair fixture (0.2: Bluetooth, activity, traffic)
 # Hand-built, synthetic (locally administered addresses 02:00:00:00:NN:NN, placeholder names, the Bluetooth SIG's test company id 65535; P9).
 # DOCUMENTED GROUND TRUTH (tools/regress.d/radio-pair.sh pins it, R3's parity rows read it):
@@ -725,7 +758,7 @@ def build_clouds_mix_doc(kind, generated, center):
 
 # --------------------------------------------------------------------------- contract check
 REQUIRED_TOP = ("generated", "center", "source", "aps", "unassociated")
-OPT_TOP = {"note", "channels", "bluetooth", "activity"}   # additive optional top-level keys the collector emits (channels[] = hop info; bluetooth[] and activity[] are the radio pair, contract 3)
+OPT_TOP = {"note", "channels", "bluetooth", "activity", "alerts"}   # additive optional top-level keys the collector emits (channels[] = hop info; bluetooth[] and activity[] are the radio pair, contract 3; alerts[] the firmware's deauth/disassoc alert, 0.2)
 OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids", "bt_window", "bt_hold"}
 AP_KEYS = ("bssid", "ssid", "channel", "band", "freq", "rssi", "security", "clients")
 # akm/cipher/auth/responded_ssids exist on APs only (never on a station, P1); packets is accepted when a source reports it
@@ -735,6 +768,29 @@ BT_TYPES = ("public", "random-static", "random-resolvable", "random-nonresolvabl
 BT_KEYS = ("addr", "addr_type", "rssi", "reports", "last_seen")                                 # always written
 OPT_BT = {"company", "company_name", "name", "connectable"}                                      # written only when the advertisement has them
 IWSCAN_OPT_AP = {"vendor"}    # build_from_iwscan() emits no rate/last_seen/width/phy
+
+
+def validate_alerts(al):
+    """alerts[] (0.2): {type, t, ap, n} in that order, type "deauth", t a whole number of seconds, ap a lower-case MAC, n a whole count above 0;
+    at most 20, newest first, one entry per access point."""
+    if not isinstance(al, list):
+        return ["alerts must be an array"]
+    p = []
+    if len(al) > 20:
+        p.append("alerts: more than 20 entries")
+    for i, e in enumerate(al):
+        ok = (isinstance(e, dict) and list(e) == ["type", "t", "ap", "n"] and e["type"] == "deauth"
+              and all(isinstance(e[k], int) and not isinstance(e[k], bool) for k in ("t", "n")) and e["t"] >= 0 and e["n"] > 0
+              and isinstance(e["ap"], str) and re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", e["ap"]) is not None)
+        if not ok:
+            p.append("alerts[%d]: needs type deauth, a whole t >= 0, a lower-case MAC ap and a whole n > 0, in that order" % i)
+    ts = [e["t"] for e in al if isinstance(e, dict) and isinstance(e.get("t"), int)]
+    if ts != sorted(ts, reverse=True):
+        p.append("alerts must be sorted by t, newest first")
+    aps = [e["ap"] for e in al if isinstance(e, dict) and isinstance(e.get("ap"), str)]
+    if len(aps) != len(set(aps)):
+        p.append("alerts: one entry per access point")
+    return p
 
 
 def validate_bluetooth(bt):
@@ -833,6 +889,8 @@ def validate(doc, legacy=False):
         p += validate_bluetooth(doc["bluetooth"])
     if "activity" in doc:
         p += validate_activity(doc["activity"])
+    if "alerts" in doc:
+        p += validate_alerts(doc["alerts"])
     if "channels" in doc:
         if not isinstance(doc["channels"], list):
             p.append("channels must be an array")
@@ -943,6 +1001,8 @@ def main(argv=None):
                     help="the D1 freshness fixture (14 APs and 5 stations at hand-picked last_seen ages, see build_aged_doc)")
     ap.add_argument("--radio", action="store_true",
                     help="the radio-pair fixture (radio-pair.json: bluetooth[], activity[], station packets, a hidden network without a name; see build_radio_doc())")
+    ap.add_argument("--alerts", action="store_true",
+                    help="the alerts fixture (alerts.json: six access points, two of them alerted, and a report for an address the capture does not hold; see build_alerts_doc())")
     ap.add_argument("--devices", action="store_true",
                     help="emit the hand-built logical AP grouping fixture (devices.json, spec §8.8); see build_devices_doc()")
     ap.add_argument("--clouds", nargs="?", const="one", choices=("one", "two", "crowd", "strays", "wide", "dense", "drift", "same", "three", "long", "pair", "wander"),
@@ -996,6 +1056,8 @@ def main(argv=None):
         doc = build_devices_doc(args.generated, args.center)
     elif args.radio:
         doc = build_radio_doc(args.generated, args.center)
+    elif args.alerts:
+        doc = build_alerts_doc(args.generated, args.center)
     elif args.clouds == "one":
         doc = build_clouds_doc(args.generated, args.center)
     elif args.clouds:

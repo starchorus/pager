@@ -38,7 +38,7 @@ PROBE_RIPPLE = ("stats.aps", "stats.bands", "stats.groups", "essClusters()")   #
 FIELDS = ("apsTotal", "aps", "clients", "free", "assoc", "groups", "bands", "bandsTotal", "security", "alarms", "hidden", "devices", "essMerged")
 # Floors, only ever raised. The selftest holds every field of FIELDS to a case of its own; the judge holds the run to the floors.
 MIN_FIELDS = 13     # len(FIELDS); measure: sed -n 's/.*const KEYS = \[\(.*\)\];/\1/p' tools/evals/data-oracle.js | tr ',' '\n' | grep -c '"'   (the counters the eval reads: 13)
-MIN_FIXTURES = 14   # fixtures compared in a real run; measure: ls tests/fixtures/*.json | wc -l   (measured: 14, radio-pair.json included; a bundle that loses fixtures must not stay green)
+MIN_FIXTURES = 15   # fixtures compared in a real run; measure: ls tests/fixtures/*.json | wc -l   (measured: 15, radio-pair.json and alerts.json included; a bundle that loses fixtures must not stay green)
 
 
 # ---------------------------------------------------------------- the model: normalisation (what the page keeps of a document)
