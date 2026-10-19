@@ -123,7 +123,7 @@ ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchor
 ```
 
 Then check on the firmware's Alerts page that it is listed and switched on: whether a copied alert needs the `chmod` and starts enabled has not been tried on a device
-yet. For each report the file appends one line to `/root/loot/starchorus/alerts.log` (the time, `deauth`, and the access point, source, destination and client
+yet. For each report the file appends one line to `/root/loot/starchorus-alerts/alerts.log` (a directory of its own, outside the one the page server serves) (the time, `deauth`, and the access point, source, destination and client
 addresses, tab separated, lower case, `-` where there is none), keeps the last 2,000 lines, and writes no message text. The collector shows the lines of the last
 `STARCHORUS_ALERT_WINDOW` seconds on the page as 'many deauth/disassoc frames heard for this AP'. The report has no channel, no signal strength and no count of
 frames, and its source address is usually not the sender's, so it is a hint and not a diagnosis; whether the Pager's own deauth frames would raise it is not known.
@@ -148,8 +148,8 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
   opens on its summary. If the scan is late, it opens on 'Waiting for the first scan.', and key A looks
   again.
 - **Overview** opens on the summary. It starts its wait for a key, with no time limit, before it draws and
-  keeps one open while it draws, so a press made while 'Reading...' shows is kept (it ends that draw and is acted on at once); it never
-  redraws by itself.
+  keeps one open while it draws, so a press made while 'Reading...' shows is kept and acted on in its turn: B, Left and Right end that
+  draw at once, A, Up and Down let it finish, and an A pressed during a draw is answered by that draw; it never redraws by itself.
   Key A draws the screen again, key B goes up one level (a screen, then the list 'Overview', then this
   menu), and Left and Right step through the eight screens; Up and Down do nothing. The list offers
   'Summary', 'Strongest Networks', 'Bands & Security', 'Devices & Merges', 'Probe Requests', 'Stations',

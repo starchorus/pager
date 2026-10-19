@@ -217,7 +217,7 @@ showed a screen. The reader makes that unnecessary. What a key does to a draw th
 | B | ends at once: nothing more is printed, a `jq` that is running is ended (with the processes `timeout` started for it) and nothing it was reading is kept | the list opens, the cursor on this screen |
 | Left, Right | the same | the previous / next screen is drawn |
 | A | goes on to its end | the finished draw is its answer: no second draw and no second `jq` |
-| Up, Down | goes on to its end | ignored (the console scrolls); no strike, and nothing of them is left in the queue |
+| Up, Down | goes on to its end | ignored (whether the console scrolls for them while a wait is open was not measured, [device-notes.md](device-notes.md) §7); no strike, and nothing of them is left in the queue |
 | anything else | goes on to its end | a strike (below), counted in its place in the order |
 
 Keys pressed in one draw are taken in the order they were pressed, and a B, Left or Right ends the draw the moment it is in the queue:
@@ -228,8 +228,8 @@ capture is unchanged).
 
 The reader does not make every moment safe, and a press that falls into one of these is lost and, for B, may leave the payload's view: (1) the
 start, from the first line of the script's code to the reader's first wait: the traps are set, the temporary directory is made and the reader
-is forked; (2) the stretch from an answer to the next wait being registered with the UI: the reader writes the line and its counts and starts
-`WAIT_FOR_INPUT` again, which is one process start and the UI taking the request in its own time (in 0.1.1 this stretch also held the shell's
+is forked; (2) the stretch from an answer to the next wait being registered with the UI: the reader writes the line and its counts (the counts
+by renaming a finished file, which is one process start) and starts `WAIT_FOR_INPUT` again, which is one more process start and the UI taking the request in its own time (in 0.1.1 this stretch also held the shell's
 look at the key file, every 0.2 s while a `jq` ran, and the end of the `jq`); (3) after a B: the reader ends itself on a B, so that no wait of
 its own is open while the list shows (nothing measured says how the UI shares a key between a picker and a wait), and the list is not up
 until the shell has looked at the queue, which it does every 0.2 s (while a `jq` runs, through the watcher of that `jq`; between draws, in a
@@ -263,18 +263,23 @@ the next wait the moment it has an answer. The queue is an append-only file, rea
 taking from it (a draw must know whether a B, Left or Right is waiting, and a read from a FIFO takes what it reads), a writer to a FIFO
 blocks until somebody has the other end open, and a file needs no `mkfifo`. The device's `/tmp` is RAM: a line is about ten bytes and exists
 only for a key that was pressed, and the queue starts again from nothing each time the reader is started, which is after every B. It lives
-in a private temporary directory (mode 700) with a small file of counts that the reader rewrites after each append (the lines so far and how
+in a private temporary directory (mode 700) with a small file of counts that the reader replaces after each append (the lines so far and how
 many of them are a B, Left or Right: the shell compares them with what it has taken, so a draw is cut when there are more such keys than it
-has taken, and no flag has to be cleared), a file that holds the pid of the wait the reader has open, and the output of the screen's `jq`.
-The directory is removed when the Overview ends, and the exit trap ends the reader, by the pid the Overview stored when it forked it, and
-the wait it has open, by the pid the reader wrote down (so that the wait is ended even if the reader itself was killed from outside), so
-none is left behind: not after a B (the reader has ended itself), the payload gone, three strikes, TERM, INT or HUP. A signal that comes
+has taken, and no flag has to be cleared; the reader writes the new numbers to a file beside it and renames that onto the counts, so the shell
+finds the old numbers or the new and never an empty file), a file that holds the pid of the wait the reader has open (replaced the same way), and
+the output of the screen's `jq`. The directory is removed when the Overview ends, and the exit trap ends the reader, by the pid the Overview stored
+when it forked it, and the wait it has open, by the pid the reader wrote down (so that the wait is ended even if the reader itself was killed from
+outside), and waits for the reader to be gone, about two seconds at most, before it removes the directory (the reader's last act is to write a mark
+into it, which must not land in a directory that is being removed), so none is left behind: not after a B (the reader has ended itself), the payload
+gone, three strikes, TERM, INT or HUP. A signal that comes
 while the reader is being forked is held until its pid is known, and a TERM that reaches a reader in the instant after its fork can be lost
 (seen under `dash`, 4 ms after the start), so the exit trap leaves a mark in the directory before it signals, and the reader looks for the mark
 (and for its directory, and for its shell) before it opens a wait and again before it blocks. An Overview killed with KILL runs no exit trap and
 leaves its reader with one wait open; the reader ends at that wait's answer and opens no other, so it takes one key at most, where a reader that
-went on would take every key until the device restarts. A queue that cannot be written (the file system is full) is reported as
-'Overview could not read a key.' and does not count as an empty answer.
+went on would take every key until the device restarts. A queue or a count that cannot be written (the file system is full) is reported as
+'Overview could not read a key.' and does not count as an empty answer; so is a reader that has gone without leaving its mark, as when it is killed
+from outside (a KILL runs no trap): the Overview asks for the reader's pid as well as for the mark, since the mark alone would leave it waiting for
+a key for ever with no wait open.
 
 Each draw prints `Reading...` (only when `jq` has to run), the block of the screen and, last, the frame: `Last scan 12:04:31 (42 s ago)`
 (the time of the capture's `generated` in UTC, as the page shows it; no line without a capture), then `A: Refresh   B: Back`, and on the

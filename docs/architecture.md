@@ -2551,8 +2551,9 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   is running is ended); an A, Up or Down lets it finish, and an A pressed during it is answered by it. The reader ends itself on a B, so no wait
   is open while the list of screens, a wait of its own, shows; a press that falls between one wait ending and the next being registered, or
   between a B and the list, is still lost. The queue is an append-only file in a private temporary directory, read by line number, which also
-  holds the reader's counts, the pid of its wait and the output of the screen's `jq` and which the display removes when it ends; an exit trap
-  ends the reader and its wait. It sends a signal only to processes it started itself: the reader, its wait, its `jq` (and what
+  holds the reader's counts (replaced by a rename, never rewritten in place), the pid of its wait and the output of the screen's `jq` and which the display
+  removes when it ends; an exit trap ends the reader and its wait and waits for the reader (about 2 s at most) before it removes the directory. A reader that has gone without its mark
+  (killed, or with no room to write it) is found by its pid and ends the Overview with 'Overview could not read a key.'. It sends a signal only to processes it started itself: the reader, its wait, its `jq` (and what
   `timeout` started for it) and the watcher of that `jq`.
   Nothing on the display redraws by itself (between draws the shell naps 0.2 s at a time and looks at two small files); no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
   `timeout` exists). No upload, no location query.
@@ -2614,8 +2615,8 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   bash file with the Hak5 header (Title, Description, Author, Version) that is not named `payload.sh`, so that the library's UpdatePayloads takes it for no payload of its own; the Hak5 package carries it
   beside `payload.sh`, and until the Settings menu installs it the owner copies it by hand to `/root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh` and makes it executable (README, Alerts).
   The firmware runs it once per event of its alert `deauth_flood_detected` and hands the event over in environment variables only. **It reads** `_ALERT_DENIAL_AP_MAC_ADDRESS`,
-  `_ALERT_DENIAL_SOURCE_MAC_ADDRESS`, `_ALERT_DENIAL_DESTINATION_MAC_ADDRESS`, `_ALERT_DENIAL_CLIENT_MAC_ADDRESS`, `STARCHORUS_DIR` (default `/root/loot/starchorus`) and the clock; the
-  alert name and the message text, which the firmware also sets, are not used (the message is free text, and P9 keeps the log to times and addresses). **It writes** one line to `$STARCHORUS_DIR/alerts.log`,
+  `_ALERT_DENIAL_SOURCE_MAC_ADDRESS`, `_ALERT_DENIAL_DESTINATION_MAC_ADDRESS`, `_ALERT_DENIAL_CLIENT_MAC_ADDRESS`, `STARCHORUS_ALERT_DIR` (default `/root/loot/starchorus-alerts`, a directory of its own outside the one the page server serves; the firmware's run of the file sets nothing, so the installed copy uses the default, and the variable is an override for the tests) and the clock; the
+  alert name and the message text, which the firmware also sets, are not used (the message is free text, and P9 keeps the log to times and addresses). **It writes** one line to `$STARCHORUS_ALERT_DIR/alerts.log`,
   `EPOCH<TAB>deauth<TAB>AP<TAB>SOURCE<TAB>DESTINATION<TAB>CLIENT`: the four addresses in lower case, each `-` when it is unset or is not six pairs of hex digits, the file private (mode 600), kept to its last 2,000
   lines (`tail` into `alerts.log.<pid>`, then `mv`), the append and the cut under `flock -x` on `alerts.lock` in the same directory (without `flock`, or when its file cannot be opened, they run unlocked). The commands it
   starts are `date`, `tr`, `wc`, `tail`, `mv`, `mkdir`, `rm` and `flock`; it calls no UI command (`ALERT`, `LOG`, `VIBRATE`, `LED`, `RINGTONE` are the owner's choice and are not made), nothing of the AP service,

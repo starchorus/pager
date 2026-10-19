@@ -751,13 +751,13 @@ pl_ov_ok() { [ -r "$STARCHORUS_DIR/starchorus-display.sh" ] && command -v jq >/d
 
 # pl_overview -> 2.4: the Overview as a child process at nice 19 (no exec: B there comes back here). It gets the epoch of
 # the last Start (a capture older than that counts as no data), the page's address, and this payload's pid, so that it ends at
-# its next key press after the payload has gone: it waits for a key with no time limit and checks the pid when a key has been
-# taken (once per pass, so before it arms the next wait, and again when its list returns).
+# its next key press after the payload has gone: it waits for keys with no time limit and checks the pid after each key it takes
+# from its queue (by which time its key reader has opened the next wait, which its exit ends), and again when its list returns.
 # Its output goes to /dev/null for that reason: the payload runner reads the payload's stdout until EOF, so a child that keeps
 # it open hangs the runner (as a spinner left up does, see ui_spin_start), and an Overview left waiting behind a killed
 # payload would hold it open for as long as nobody presses a key. Nothing is lost: LOG and the pickers speak to the UI
 # service, not to stdout (ui_log discards LOG's own output for the same reason), and the display gets the answers itself: its
-# waiter, a background child that holds none of the payload's pipes either, leaves each key in a file in a private temp directory.
+# key reader, a background process that holds none of the payload's pipes either, appends each key to a queue in a private temp directory.
 pl_overview() {
     PL_CUR=Overview; PL_ARMED=1
     [ -r "$STARCHORUS_DIR/starchorus-display.sh" ] || return 0

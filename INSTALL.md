@@ -492,17 +492,26 @@ belong to the same build, so replace them with the rest.
 
 **Uninstall**
 
-The repository has no uninstaller; Starchorus lives entirely in the two folders created during
-installation.
+The repository has no uninstaller; Starchorus lives in the two folders created during installation,
+and in two more places if you also installed the optional alert companion by hand (its file in the alert tree, and its log directory)
+([README](README.md#alerts)).
 
 1. Stop Starchorus (above).
-2. Remove both folders:
+2. If you installed the alert companion, remove it first, so that no later alert can write its log again
+   (the firmware runs it for each alert, and it creates `/root/loot/starchorus-alerts` if that is missing):
 
    ```sh
-   ssh root@172.16.52.1 'rm -rf /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus'
+   ssh root@172.16.52.1 'rm -rf /root/payloads/alerts/deauth_flood_detected/starchorus'
    ```
 
-This deletes the collected `starchorus.json` and your saved settings as well, and cannot be undone.
+3. Remove both folders and the alert log directory (`alerts.log` and `alerts.lock`: the addresses of other people's equipment):
+
+   ```sh
+   ssh root@172.16.52.1 'rm -rf /root/loot/starchorus /root/loot/starchorus-alerts /root/payloads/user/reconnaissance/starchorus'
+   ```
+
+This deletes the collected `starchorus.json`, your saved settings and the alert log, and cannot be undone. The log's
+place is fixed (`/root/loot/starchorus-alerts`): the companion takes no directory from your environment.
 
 **Recovery, reset and system updates.** Starchorus lives under `/root`. As Hak5 documents it, a
 [firmware recovery](https://documentation.hak5.org/wifi-pineapple-pager/firmware-recovery) rewrites the boot flash only, so `/root` stays; a

@@ -348,10 +348,10 @@ Then look at the firmware's Alerts page. Whether a copied alert needs the `chmod
 it is listed and switched on. To remove it, switch it off there or delete that directory. The firmware's own alert (its dialogue, its sound or vibration, if you set
 them) is not changed.
 
-For each report the file appends one line to `alerts.log` in `/root/loot/starchorus`: the time, `deauth`, and the access point, source, destination and client
+For each report the file appends one line to `alerts.log` in `/root/loot/starchorus-alerts`, a directory of its own outside the one the page server serves: the time, `deauth`, and the access point, source, destination and client
 addresses, separated by tabs, in lower case, with `-` for an address the firmware did not give or gave as something that is not one. The copy in the alert tree
-runs without your environment, so for another directory edit the `DIR=` line of that copy; the collector reads `alerts.log` from its own `STARCHORUS_OUTDIR`, which the payload
-sets to `/root/loot/starchorus`. The file keeps the last 2,000 lines, does not write the message text the firmware sends along, and calls no display, sound, LED or vibration
+is run by the firmware, not from your shell, and without the payload's environment, so the place of the log is fixed rather than taken from `STARCHORUS_DIR` (which uhttpd or python3 serve whole where the Pager has one): `/root/loot/starchorus-alerts`, a directory of its own that no page server of the payload serves; the collector reads
+`alerts.log` from the same directory (`STARCHORUS_ALERT_DIR` moves both, for the tests only). The file keeps the last 2,000 lines, does not write the message text the firmware sends along, and calls no display, sound, LED or vibration
 command. The collector reads the lines of the last `STARCHORUS_ALERT_WINDOW` seconds (ten minutes), groups them by access point and writes `alerts[]`: the address, `n` (how many
 reports) and `t` (the newest), at most 20, newest first.
 
@@ -420,7 +420,7 @@ that cycle is built from recon.db and the collector says so once.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview), and where the companion alert `alert-deauth.sh` writes `alerts.log`. |
+| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview). The companion alert `alert-deauth.sh` does not use it: its log lives in `/root/loot/starchorus-alerts`, a directory of its own (see Alerts). |
 | `STARCHORUS_PORT` | `8199` | Port of the page server. |
 | `STARCHORUS_BIND` | `auto` | Address the page server listens on. `auto`: the IPv4 address of `br-lan` (USB-C and management Wi-Fi), otherwise `172.16.52.1` if an interface has it, otherwise `127.0.0.1` with a note. An IPv4 address: that address only. `all`: every interface, which makes the page and `starchorus.json` (every captured MAC address and SSID) reachable from every network the device is on. On-device payload: also the `bind` key. |
 | `STARCHORUS_MAX_AGE` | `3600` | On-device payload: window of the recon record in seconds (one hour); `0` = the whole record. The collector on its own uses `0`. |
