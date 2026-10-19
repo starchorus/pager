@@ -1719,20 +1719,22 @@ for DST_E in $DST_COPIES; do
 done
 if [ "$DST_S32" = "$DST_X32" ]; then row "display cleanpin: the first code line of ov_cleanup is trap '' TERM INT HUP, before any signal is sent, any nap and the removal ($DST_X32 copies)" PASS
 else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP=1; fi
-# ---- S31 alertline (0.2): the summary's alert line, "Many deauth/disassoc heard for N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
+# ---- S31 alertline (0.2): the summary's alert line, "Many deauth/disassoc frames for N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
 # points the capture has (9 and 4 reports) and one for an address it has not, so the line says 2 APs (the page draws a note and a ring for those two and for no other). Per copy, under the
 # real and the device-like jq (which has no regex builtin): (a) the line is there once, exactly that text, directly after the open/WEP line, at most 40 columns, ASCII, and neutral (no
 # 'attack', no 'flood'); (b) a document without alerts[], with an empty one, with only the unknown address, with entries of the wrong shape (a count of 0 or a text, a type that is not deauth,
 # no address, an address that is no string or no address), with alerts[] that is a string or an object, shows no such line and the rest of the screen as before; the same access point
-# twice, in two spellings of its address, and 21 entries of which the last names a second access point (the page cuts at 20), say 1 AP, as do junk entries around one good one; every other
-# fixture shows no such line; (c) on the device path (a stand-in LOG that prints the colour word) the alert line is the only red line of the screen; (d) the interactive Overview, three draws
+# twice, in two spellings of its address, and 21 entries of which the last names a second access point (the page cuts at 20), say 1 AP, as do junk entries around one good one; an alert
+# for an access point that center.own_bssids names (this device's own transmitter, which the page leaves out of its note and its ring) is not counted: both own => no line, one own
+# (in the dashed upper-case spelling) => 1 AP, and own_bssids with junk and a quiet access point in it => 2 APs, as without it; every other fixture shows no such line; (c) on the device path (a stand-in LOG that prints the colour word) the alert line is the only red line of the screen; (d) the interactive Overview, three draws
 # of the summary of a fresh capture (A A B), shows it three times, red, each directly before the frame, with the two jq runs any summary needs (the probe and the program): the alert adds no
 # jq run of its own, and nothing redraws by itself. NEGATIVE PROBES: the record taken out of JQ_SUMMARY or the call out of screen_summary => (a), (c), (d) red; the cut at 20 taken out of
-# alertaps => 'cap' red; the test that aps[] holds the address taken out => 'unknown' red; the type test taken out => 'junk' red; every unique taken out => 'dupes' red.
+# alertaps => 'cap' red; the test that aps[] holds the address taken out => 'unknown' red; the type test taken out => 'junk' red; every unique taken out => 'dupes' red; the
+# own-transmitter test taken out => 'own' and 'own1' red (a planted copy of each script, run in (e) below: it must print the line the real one does not).
 DST_AJ="$F/alerts.json"
 if [ ! -s "$DST_AJ" ]; then notcov "display alert line (needs tests/fixtures/alerts.json)"
 else
-  DST_AL='Many deauth/disassoc heard for 2 APs'; DST_AL1='Many deauth/disassoc heard for 1 AP'
+  DST_AL='Many deauth/disassoc frames for 2 APs'; DST_AL1='Many deauth/disassoc frames for 1 AP'
   dst_alv() { jq -c "$2" "$DST_AJ" > "$DST_D/alv-$1.json"; }   # dst_alv NAME PROGRAM: alerts.json changed by PROGRAM
   dst_alv noalerts 'del(.alerts)'
   dst_alv empty '.alerts = []'
@@ -1745,6 +1747,9 @@ else
   # shellcheck disable=SC2016   # a jq program: its $a is jq's
   dst_alv cap '.alerts as $a | .alerts = ([range(0; 20) | $a[0]] + [$a[1]])'
   dst_alv mixed '.alerts = [1, "x", null, .alerts[1], .alerts[2]]'
+  dst_alv own '.center.own_bssids = ["02:00:5e:a1:00:01", "02:00:5e:a1:00:04"]'
+  dst_alv own1 '.center.own_bssids = ["02-00-5E-A1-00-01"]'
+  dst_alv ownjunk '.center.own_bssids = [5, "nonsense", null, "02:00:5e:a1:00:03"]'
   DST_ALW="noalerts|-
 empty|-
 unknown|-
@@ -1754,7 +1759,10 @@ object|-
 folded|$DST_AL1
 dupes|$DST_AL1
 cap|$DST_AL1
-mixed|$DST_AL1"   # variant|the line wanted ("-" = none)
+mixed|$DST_AL1
+own|-
+own1|$DST_AL1
+ownjunk|$DST_AL"   # variant|the line wanted ("-" = none)
   mkdir -p "$DST_D/alb"
   # shellcheck disable=SC2016   # the stand-in's own "$1"/"$*" are meant literally
   printf '#!/bin/sh\nc=; case "$1" in red|blue) c="[$1]"; shift;; esac; printf "LOG%%s %%s\\n" "$c" "$*"\n' > "$DST_D/alb/LOG"
@@ -1798,6 +1806,14 @@ DST_ALWEOF
       [ "$(grep -ci 'deauth' "$DST_D/s31-$DST_G-all.out")" = 0 ] || DST_D1=$((DST_D1 + 1))
     done
     [ "$DST_D1" = 0 ] || DST_L31="$DST_L31 $DST_D1 other fixtures show an alert line;"
+    # (e) the control of the own-transmitter variants: a copy of the script without that test prints the line the real one does not, for both variants, under the real jq
+    DST_MO="$DST_D/s31-$DST_G-noown.sh"
+    # shellcheck disable=SC2016   # a sed program: the display script's own text, not to be expanded here
+    DST_MS='s/ and (\$own | index(\$a)) == null//'
+    sed "$DST_MS" "$DST_C" > "$DST_MO"; DST_MD=$(diff "$DST_C" "$DST_MO" | grep -c '^<')
+    dst_once "s31-$DST_G-mo0" "$DST_MO" summary "$DST_D/alv-own.json" 0 < /dev/null; dst_once "s31-$DST_G-mo1" "$DST_MO" summary "$DST_D/alv-own1.json" 0 < /dev/null
+    DST_ME0=$(dst_cnt "$DST_AL" "$DST_D/s31-$DST_G-mo0.out"); DST_ME1=$(dst_cnt "$DST_AL" "$DST_D/s31-$DST_G-mo1.out")
+    [ "$DST_MD/$DST_ME0/$DST_ME1" = 1/1/1 ] || DST_L31="$DST_L31 planted copy without the own-transmitter test: $DST_MD lines differ (want 1), 'own' prints the line x$DST_ME0 (want 1), 'own1' prints a line for two access points x$DST_ME1 (want 1);"
     # (d) the interactive Overview
     DST_OVSRC="$DST_D/alv-live.json"; dst_ov "s31-$DST_G-ov" "$DST_C" "A A B"; DST_OVSRC=; DST_O="$DST_D/s31-$DST_G-ov.out"
     DST_E1=$(dst_views "$DST_O"); DST_E2=$(dst_cnt "LOG[red] $DST_AL" "$DST_O"); DST_E3=$(grep -c '^LOG\[red\]' "$DST_O")
@@ -1806,7 +1822,7 @@ DST_ALWEOF
       || DST_L31="$DST_L31 interactive: rc $DST_RC, screens '$DST_E1' (want sss), alert line red x$DST_E2 (want 3), red lines $DST_E3 (want 3), $DST_E4 jq (want 2), directly before the frame x$DST_E5 (want 3);"
     if [ -z "$DST_L31" ]; then DST_S31=$((DST_S31 + 1)); else echo "    alert line, $DST_G copy:$DST_L31"; fi
   done
-  if [ "$DST_S31" = "$DST_X31" ]; then row "display alert line: 'Many deauth/disassoc heard for 2 APs' after the open/WEP line (40 columns, ASCII, neutral), none without alerts[] or with junk, one AP per address (folded, cut at 20), none on the other fixtures, the only red line on the device path, three draws show it three times with 2 jq ($DST_X31 copies, each under the real and the device-like jq)" PASS
+  if [ "$DST_S31" = "$DST_X31" ]; then row "display alert line: 'Many deauth/disassoc frames for 2 APs' after the open/WEP line (40 columns, ASCII, neutral), none without alerts[] or with junk, one AP per address (folded, cut at 20), none for the device's own transmitters (and a planted copy without that test prints it), none on the other fixtures, the only red line on the device path, three draws show it three times with 2 jq ($DST_X31 copies, each under the real and the device-like jq)" PASS
   else row "display alert line: $DST_S31/$DST_X31 copies as expected" FAIL; DST_KEEP=1; fi
 fi
 

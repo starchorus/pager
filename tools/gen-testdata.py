@@ -577,7 +577,7 @@ def build_clouds_doc(generated, center):
 #   02:00:5e:a1:00:04  "alert-b"  5 GHz ch 36      n 4, 205 s before `generated`             <- alerted
 #   02:00:5e:a1:00:77  (not in aps[])              n 2, 410 s before `generated`             <- a report for an address the capture does not hold:
 #                                                  the page draws nothing for it and the Overview counts no access point for it
-#   alerted access points the page draws ........ 2   (the Overview says "Many deauth/disassoc heard for 2 APs")
+#   alerted access points the page draws ........ 2   (the Overview says "Many deauth/disassoc frames for 2 APs")
 #   reports in alerts[] ........................ 3   (the sum of n over the two known access points: 13)
 ALERT_APS = ("02:00:5e:a1:00:01", "02:00:5e:a1:00:04")
 ALERT_AGES = (38, 205, 410)    # seconds before `generated`, newest first

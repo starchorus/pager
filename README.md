@@ -328,7 +328,7 @@ ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the keys ('
 A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again).
 Its only output is LOG lines. Red stands only
 for an alarm (an open or WEP network, the line 'jq incomplete', 'No new scan' when the collector
-has stopped writing, or the summary's one line 'Many deauth/disassoc heard for 2 APs' when the capture carries alerts, see Alerts). On the development machine,
+has stopped writing, or the summary's one line 'Many deauth/disassoc frames for 2 APs' when the capture carries alerts, see Alerts). On the development machine,
 `sh starchorus-display.sh --once <screen> <file>` prints the same content as text; `<screen>` is
 `summary`, `top`, `bands`, `devices`, `probes`, `clients`, `bluetooth` or `air`.
 
@@ -367,7 +367,8 @@ reports) and `t` (the newest), at most 20, newest first.
 What you see. On the page an access point named in `alerts[]` gets a second ring in the theme's alert colour (red in all three), which flickers in the theme's own way (a slow pulse in
 Foundation, a phosphor flicker in WarGames, a chalk blink in Whitehall, never faster than twice a second) and stands steady when the system asks for reduced motion;
 the legend then has a row, 'alert ring = many deauth/disassoc frames heard for this AP', and the Observations list its note, as before. The Overview's summary
-has one red line, 'Many deauth/disassoc heard for 2 APs'. Both count only access points the capture holds. Nothing in this is sent anywhere, there is no vibration and
+has one red line, 'Many deauth/disassoc frames for 2 APs'. Both count only access points the capture holds and leave out this device's own transmitters; the page also leaves out mobile hotspots (a name that
+speaks of a phone, an ad-hoc network), which the Overview does not recognise, so the Overview can count one more than the page draws. Nothing in this is sent anywhere, there is no vibration and
 no LED, and the firmware's own alert is left to the firmware.
 
 What this cannot tell you. A report carries no channel, no signal strength and no count of frames, so one line may stand for one burst or for many, and `n` counts reports, not frames.

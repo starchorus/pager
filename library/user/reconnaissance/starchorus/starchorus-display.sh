@@ -599,9 +599,12 @@ fi
 # rssi (bluetooth) or in freq or share (activity), "-60" for example, is a number on the page (numOrNull) and is skipped here, as is the rssi of the
 # Wi-Fi records above; the collector writes numbers only, and the parity rows use text that is no number at all ('loud', 'wide'), where both agree.
 # Alerts (the firmware's deauth/disassoc alert, additive in the capture): alertaps = how many access points the capture reports alerts for. alerts[] is cut
-# at 20 as the page cuts it; an entry counts when it is an object of type deauth with a numeric count above 0 (the page's own test); its address is folded as
-# the page folds one (pgmac), counted once however many entries name it, and counted only when aps[] holds that address, because the page draws its note and
-# its ring for an access point it knows and for no other. Nothing in an entry but its type, count and address is read, and the times of the reports are not.
+# at 20 as the page cuts it; an entry counts when it is an object of type deauth with a numeric count above 0 (a numeric STRING, "9", is a number on the page
+# and is skipped here, like the strings above; the collector writes numbers only); its address is folded as the page folds one (pgmac), counted once however
+# many entries name it, and counted only when aps[] holds that address and it is none of this device's own transmitters (center.own_bssids, read as the clouds
+# read them), because the page draws its note and its ring for an access point it knows and for no other, and not for its own. The page leaves out one more
+# kind, a mobile hotspot (an SSID that names a phone, or an ad-hoc network); this program reads no names for the count, so it counts one that the page does
+# not draw. Nothing in an entry but its type, count and address is read, and the times of the reports are not.
 JQLIB='def _WS: ["\u0009","\u000A","\u000B","\u000C","\u000D","\u0020","\u0085","\u00A0","\u1680",
           "\u2000","\u2001","\u2002","\u2003","\u2004","\u2005","\u2006","\u2007","\u2008",
           "\u2009","\u200A","\u2028","\u2029","\u202F","\u205F","\u3000","\uFEFF"];
@@ -668,8 +671,9 @@ def sectag: secupper
            elif contains("WPA") then "WPA"
            else "other" end;
 def alertaps: ([.aps[]? | select(type == "object" and .bssid != null) | .bssid | pgmac]) as $B
+  | ([.center.own_bssids[]? | select(type == "string") | pgmac] | .[0:16]) as $own
   | [(.alerts | if type == "array" then .[0:20] else [] end)[] | select(type == "object" and .type == "deauth" and (.n | type) == "number" and .n > 0 and .ap != null)
-     | .ap | pgmac | select(length == 17)] | unique | map(. as $a | select([$B[] | select(. == $a)] | length > 0)) | length;
+     | .ap | pgmac | select(length == 17)] | unique | map(. as $a | select([$B[] | select(. == $a)] | length > 0 and ($own | index($a)) == null)) | length;
 def btlist: ((.bluetooth // null) | if type == "array" then [.[] | select(type == "object" and (.rssi | type) == "number")] | .[0:256] else null end);
 def btco: (.company_name | if type == "string" and (_trimws | length) > 0 then _trimws else null end) as $n
   | (.company | if type == "number" and . >= 0 and . <= 65535 and . == (. | round) then . else null end) as $c
@@ -935,12 +939,13 @@ rnd_note() {
     case ${R_ncl:-0} in 0|''|*[!0-9]*) RN=" ($R_rnd random)" ;; 1) RN=" ($R_rnd random, 1 cloud)" ;; *) RN=" ($R_rnd random, $R_ncl clouds)" ;; esac
 }
 # alert_line N -> the one red line for the access points the firmware has reported many deauth/disassoc frames for (alerts[]): nothing for 0, for an
-# empty record or for anything that is not a number. At most 40 columns, ASCII; red because it is an alarm, like the open/WEP line. Every screen
-# is drawn on a press and never by itself, so the line is as old as the capture it comes from (the frame under it says how old that is).
+# empty record or for anything that is not a number. At most 40 columns ('Many deauth/disassoc frames for 20 APs' is 38), ASCII; red because it is an
+# alarm, like the open/WEP line. Every screen is drawn on a press and never by itself, so the line is as old as the capture it comes from (the frame
+# under it says how old that is).
 alert_line() {
     case ${1:-} in ''|0|*[!0-9]*) return 0 ;; esac
     if [ "$1" = 1 ]; then al_w="1 AP"; else al_w="$1 APs"; fi
-    log red "Many deauth/disassoc heard for $al_w"
+    log red "Many deauth/disassoc frames for $al_w"
 }
 screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines, were printed instead)
     jq_warn
@@ -1416,7 +1421,7 @@ ST_JSON
         st_has "screen_summary: band counts match the fixture (2.4:1 5:2 6:1)" "$st_out" -qF '2.4:1  5:2  6:1'
         st_has "screen_summary: open/WEP line matches the fixture (2)" "$st_out" -qxF 'Open/WEP networks: 2'
         st_has "screen_summary: the Bluetooth figure follows the band counts (BT 2)" "$st_out" -qxF 'APs 4   ·   2.4:1  5:2  6:1  BT 2'
-        st_has "screen_summary: the alert line counts the access points the capture holds (2 of 3 reports)" "$st_out" -qxF 'Many deauth/disassoc heard for 2 APs'
+        st_has "screen_summary: the alert line counts the access points the capture holds (2 of 3 reports)" "$st_out" -qxF 'Many deauth/disassoc frames for 2 APs'
         st_has "screen_bands: a band's activity bar (2.4: 75 percent)" "$st_bd" -qxF '  2.4 GHz: 1 AP(s)  act ######-- 75%'
         st_has "screen_bands: the note that explains the bar" "$st_bd" -qxF 'act = share of frames heard (relative)'
         st_has "screen_bluetooth: addresses, rotating and fixed (2, 1, 1)" "$st_bt" -qxF '2 addresses (1 rotating, 1 fixed)'
