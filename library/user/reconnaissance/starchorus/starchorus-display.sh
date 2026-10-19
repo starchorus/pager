@@ -45,7 +45,7 @@
 #   B  one level up: screen -> the list "Overview" -> exit 0, back to the payload's menu. It ends a draw that is running, at once
 #   LEFT / RIGHT  the previous / next screen, wrapping (summary, top, bands, devices, probes, clients, bluetooth, air). They end a
 #              draw that is running, at once
-#   UP / DOWN  ignored (the console's own scrolling), also during a draw, which they leave running; nothing is drawn for them
+#   UP / DOWN  ignored (whether the console scrolls for them was not measured), also during a draw, which they leave running; nothing is drawn for them
 #   anything else, or no answer, that comes back within 1 s of its wait being opened: a strike, three in a row end it (a slower one
 #              is only waited out)
 # A draw that has to run jq prints "Reading..." first (see BUSY); jq runs under a `timeout` (see JQ_TMO); a capture that takes
@@ -120,11 +120,16 @@ uptime_cs() {
 # a row, each within STRIKE_CS, ends itself, as the shell would (the strike rule in the main loop), so a broken key path leaves three lines
 # and not a busy loop's worth.
 #
-# Two numbers tell the shell what the reader has done, in one small file (OV_CNT) that the reader rewrites after each append: "LINES
+# Two numbers tell the shell what the reader has done, in one small file (OV_CNT) that the reader replaces after each append: "LINES
 # ENDERS", the lines appended so far and how many of them are a B, Left or Right (the keys that end a draw). The shell holds the counts of
 # what it has taken (OV_QN, OV_NC), so a key is waiting when LINES is more than OV_QN, and a draw is cut when ENDERS is more than OV_NC
 # (ov_cut). Counting what was appended against what was taken leaves no flag for the one side to set and the other to clear, and so no
-# order in which the two can step on each other: a count read as half-written is only a miss, and the next look finds it.
+# order in which the two can step on each other. The file is never rewritten in place: the reader writes the new numbers to a file beside it
+# and renames that onto OV_CNT (`mv -f`: one rename within one directory), so a look finds the numbers from before or the numbers from after,
+# and never the empty file that a truncating `>` leaves between its open and its write. That matters where the shell looks once and acts on
+# what it finds (a jq to end, a verdict to keep, the count of a finished block): a look that found nothing there would be a wrong decision,
+# not a miss that the next look makes good. The file with the pid of the reader's open wait (OV_WPF), which the cleanup reads in one shot,
+# is written the same way when a wait is opened; it is emptied in place when the wait has ended, and empty is then what it holds.
 #
 # A key taken with OV_QN at or below OV_QC (the lines there were when the draw finished its block, see draw) was pressed during that
 # draw. An A among those is answered by the draw, whole or cut, and asks for nothing more; Up and Down are ignored where they come. A key
@@ -141,8 +146,9 @@ uptime_cs() {
 # looks for (ov_orphan). The reader writes the child's pid to OV_WPF while the wait is open, so that
 # ov_cleanup can end the waiter even if the reader itself was killed from outside. The reader has no stdin, stdout or stderr of its own, so it
 # holds none of the payload's pipes, and it replaces the EXIT trap it inherits (ov_cleanup would otherwise delete the temp dir as soon as
-# the reader ended); its own EXIT trap leaves a mark in OV_RDONE, which tells the shell that nothing more will come: with the queue empty
-# that is a failure (the file system is full, the reader was killed), named as such, and not an answer.
+# the reader ended); its own EXIT trap leaves a mark in OV_RDONE (where the temp dir is still there), which tells the shell that nothing more
+# will come: with the queue empty that is a failure, named as such, and not an answer. A reader killed with KILL runs no trap and one on a
+# file system with no room left cannot write the mark, so ov_await asks for the reader's pid as well: a pid that is gone is the same failure.
 # A wait is never put under `timeout`: killing a UI command can leave a waiter in the UI daemon that swallows the next press.
 KEY=; KEY_CS=; KEY_ERR=; STRIKE_CS=100
 OV_TMP=; OV_QUE=; OV_CNT=; OV_RAW=; OV_JQO=; OV_RDONE=; OV_WPF=; OV_QUIT=; OV_RPID=; OV_JPID=; OV_WTCH=
@@ -151,8 +157,9 @@ CR=$(printf '\r'); TAB=$(printf '\t')
 # ov_nap: the Overview's one nap, 0.2 s (a whole second where the sleep applet has no fractions): the shell looks at the queue no oftener
 # than that between draws, and the watcher of a running jq (ov_jq) at the same pace
 ov_nap() { sleep 0.2 2>/dev/null || sleep 1; }
-# ov_counts -> CN_L, CN_E: the numbers in OV_CNT as the reader last wrote them. The file is rewritten, so a read that lands between its
-# truncation and its write finds nothing (status 1) and the caller looks again. The shell's own read: no process.
+# ov_counts -> CN_L, CN_E: the numbers in OV_CNT as the reader last wrote them. The reader replaces the file by a rename (see The key
+# reader), so a read finds a whole file, the old numbers or the new; status 1 is for a file that is not there or holds something else, and
+# the caller takes it as no news. The shell's own read: no process.
 ov_counts() {
     oc_l=; oc_e=
     read -r oc_l oc_e 2>/dev/null < "$OV_CNT" || return 1
@@ -194,18 +201,20 @@ keyname() {
 ov_orphan() { [ -e "$OV_QUIT" ] || [ ! -e "$OV_CNT" ] || ! kill -0 "$rd_main" 2>/dev/null; }
 # ov_reader: the body of the reader (started by ov_rstart as a background job). One round: a wait, its answer, a line in the queue, the
 # counts, and the next wait. It ends after a B (the list follows), after the third answer in a row that was nothing known and came back
-# within STRIKE_CS (or with no clock to tell), when a line cannot be appended, and on TERM, INT or HUP.
+# within STRIKE_CS (or with no clock to tell), when a line cannot be appended or its count cannot be stored, and on TERM, INT or HUP. Its
+# EXIT trap leaves the `done` mark only where the temp dir is still there: the cleanup waits for the reader before it removes the dir, but
+# not for ever, and a mark written into a dir that is being removed must not make a new one.
 ov_reader() {
     rd_sig=; rd_w=; rd_main=$$; rd_n=0; rd_e=0; rd_junk=0
     trap 'rd_sig=1; [ -z "$rd_w" ] || kill "$rd_w" 2>/dev/null' TERM INT HUP
-    trap 'printf x 2>/dev/null > "$OV_RDONE"' EXIT
+    trap '[ ! -d "$OV_TMP" ] || printf x 2>/dev/null > "$OV_RDONE"' EXIT
     [ -z "$ov_sig" ] || exit 143   # a signal that came before the traps above was noted in the copy of ov_sig this subshell was born with
     ov_counts && { rd_n=$CN_L; rd_e=$CN_E; }
     while :; do
         if [ -n "$rd_sig" ] || ov_orphan; then exit 143; fi
         uptime_cs; rd_t=$UT
         WAIT_FOR_INPUT > "$OV_RAW" 2>/dev/null & rd_w=$!
-        printf '%s\n' "$rd_w" > "$OV_WPF"
+        printf '%s\n' "$rd_w" > "$OV_WPF.new" && mv -f "$OV_WPF.new" "$OV_WPF"
         if [ -n "$rd_sig" ] || ov_orphan; then kill "$rd_w" 2>/dev/null; exit 143; fi
         wait "$rd_w"
         rd_x=$rd_w; rd_w=
@@ -218,7 +227,7 @@ ov_reader() {
         keyname "$rd_k"
         rd_n=$((rd_n + 1))
         case $NK in B|LEFT|RIGHT) rd_e=$((rd_e + 1)) ;; esac
-        printf '%s %s\n' "$rd_n" "$rd_e" > "$OV_CNT"
+        { printf '%s %s\n' "$rd_n" "$rd_e" > "$OV_CNT.new" && mv -f "$OV_CNT.new" "$OV_CNT"; } || exit 1
         case $NK in
             B) exit 0 ;;
             '') case $rd_c in
@@ -265,14 +274,18 @@ ov_qnext() {
 }
 # ov_await -> KEY: waits for the next key of the queue, napping (ov_nap) while there is none, and takes it. KEY is A, B, UP, DOWN, LEFT or
 # RIGHT as keyname makes it, else empty (a strike); KEY_CS is the time that wait was open (empty without a clock). KEY_ERR=1: the reader has
-# ended and left nothing: no answer and no key, a failure, and the Overview says so instead of counting it as a strike. The counts are
+# ended and left nothing: no answer and no key, a failure, and the Overview says so instead of counting it as a strike. The reader has ended
+# when it has left its mark (OV_RDONE) or when its pid is gone (`kill -0`, no process): a reader killed with KILL runs no trap, and one on a
+# full file system cannot write the mark, so the mark alone would leave the loop below napping for ever with no wait open. A child that has
+# died stays a zombie, and `kill -0` still finds it, until the shell collects it; dash and bash do that while the nap's sleep is waited for
+# (measured on a dev machine, not under BusyBox ash). The counts are
 # looked at again once the reader's end is seen, because it writes them before it ends. A B, Left or Right taken is counted in OV_NC, which
 # ends the cut of the draw it came in (ov_cut).
 ov_await() {
     KEY=; KEY_CS=; KEY_ERR=; aw_ok=
     while :; do
         if ov_counts && [ "$CN_L" -gt "$OV_QN" ] && ov_qnext; then aw_ok=1; break; fi
-        if [ -s "$OV_RDONE" ]; then
+        if [ -s "$OV_RDONE" ] || ! kill -0 "$OV_RPID" 2>/dev/null; then
             if ov_counts && [ "$CN_L" -gt "$OV_QN" ] && ov_qnext; then aw_ok=1; else KEY_ERR=1; ov_rstop; fi
             break
         fi
@@ -309,11 +322,14 @@ ov_kill() {
     kill "$1" 2>/dev/null
 }
 # ov_cleanup: the EXIT trap of the Overview (set where it starts). Leaves its mark for the reader, then ends the key reader and the wait it
-# has open (the reader hands the TERM on to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, and removes the temp dir. A normal exit after a B finds no
-# reader (it ended itself on that B); an exit after a key that found the payload gone, three strikes in the queue's order, or a TERM, INT
-# or HUP, finds one with a wait open. The reader is known by the pid ov_rstart stored (it defers a signal until then), and its wait by the
-# pid the reader wrote to OV_WPF, so nothing here guesses from `$!`: should the reader itself have been killed from outside, its wait is
-# still ended.
+# has open (the reader hands the TERM on to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, waits for the reader to be
+# gone, and removes the temp dir. A normal exit after a B finds no reader (it ended itself on that B); an exit after a key that found the
+# payload gone, three strikes in the queue's order, or a TERM, INT or HUP, finds one with a wait open. The reader is known by the pid
+# ov_rstart stored (it defers a signal until then), and its wait by the pid the reader wrote to OV_WPF, so nothing here guesses from `$!`:
+# should the reader itself have been killed from outside, its wait is still ended. The reader ends in its own time after the TERM (its wait
+# has to leave first), and its last act writes into the temp dir; removing the dir meanwhile could leave it with that one file in it, so
+# the removal waits for the reader's end, in naps of 0.2 s and for about 2 s at most, never for ever (the reader's own trap writes nothing
+# into a dir that is gone). The nap also lets the shell collect a reader that has ended (see ov_await), so that its pid is then gone.
 ov_cleanup() {
     [ -z "$OV_QUIT" ] || printf x 2>/dev/null > "$OV_QUIT"   # first: the mark the reader looks for (see ov_orphan), then the signals
     [ -z "$OV_RPID" ] || kill "$OV_RPID" 2>/dev/null
@@ -321,6 +337,8 @@ ov_cleanup() {
     case $cl_w in ''|*[!0-9]*) ;; *) kill "$cl_w" 2>/dev/null ;; esac
     [ -z "$OV_WTCH" ] || kill "$OV_WTCH" 2>/dev/null
     [ -z "$OV_JPID" ] || ov_kill "$OV_JPID"
+    cl_n=0
+    while [ -n "$OV_RPID" ] && [ "$cl_n" -lt 10 ] && kill -0 "$OV_RPID" 2>/dev/null; do ov_nap; cl_n=$((cl_n + 1)); done
     [ -z "$OV_TMP" ] || rm -rf "$OV_TMP"
 }
 
