@@ -364,6 +364,12 @@ is run by the firmware, not from your shell, and without the payload's environme
 command. The collector reads the lines of the last `STARCHORUS_ALERT_WINDOW` seconds (ten minutes), groups them by access point and writes `alerts[]`: the address, `n` (how many
 reports) and `t` (the newest), at most 20, newest first.
 
+What you see. On the page an access point named in `alerts[]` gets a second ring in the theme's alarm colour, which flickers in the theme's own way (a slow pulse in
+Foundation, a phosphor flicker in WarGames, a chalk blink in Whitehall, never faster than twice a second) and stands steady when the system asks for reduced motion;
+the legend then has a row, 'flickering ring = many deauth/disassoc frames heard for this AP', and the Observations list its note, as before. The Overview's summary
+has one red line, 'Many deauth/disassoc heard for 2 APs'. Both count only access points the capture holds. Nothing in this is sent anywhere, there is no vibration and
+no LED, and the firmware's own alert is left to the firmware.
+
 What this cannot tell you. A report carries no channel, no signal strength and no count of frames, so one line may stand for one burst or for many, and `n` counts reports, not frames.
 The source address is whatever the frames claim; in a burst of such frames it is usually not the sender's, so Starchorus keeps it in the log, shows it nowhere and draws no line from a source to
 an access point. Whether the Pager's own deauth frames, sent by another payload, would raise the alert is not known; until that has been measured, an alert on a network you are

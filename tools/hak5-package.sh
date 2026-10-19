@@ -12,7 +12,7 @@
 # repo source (the page under the name the payload serves, index.html). The payload copies the collector, page, Overview
 # and netcat server into /root/loot/starchorus on its first run (BUNDLE in its header), so the directory runs on its own.
 # alert-deauth.sh is the companion alert payload: it travels in the directory under a name other than payload.sh (the library's
-# UpdatePayloads takes every payload.sh for a payload of its own) and is put into the firmware's alert tree by hand (README).
+# UpdatePayloads takes every payload.sh for a payload of its own) and is put into the firmware's alert tree by the payload's Settings row 'Alerts', or by hand (README).
 # Not packaged: tests, tools, fixtures, the repo's own docs and anything else for development. The target directory is
 # replaced as a whole, so a file that has left the map does not linger; nothing outside it is touched.
 # Exit: 0 = built, 2 = usage or setup problem (missing source, differing Overview copies, unwritable OUTDIR).
