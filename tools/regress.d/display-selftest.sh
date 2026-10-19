@@ -100,6 +100,11 @@
 #                by renaming a finished sibling onto it and never truncates it in place, so a one-shot read of either finds the old content or the new and
 #                never an empty file; the reader's EXIT trap writes `done` only where the directory still is; ov_cleanup asks for the reader's end
 #                (kill -0 on OV_RPID) before it removes the directory; ov_await asks the same about the reader when no key is queued.
+#                S31 secondterm: TERM, then TERM every 0.05 s while the cleanup waits for a reader that takes 0.6 s to end on TERM (the slow stand-in of S29): no starchorus-ov.*
+#                directory and no waiter is left, exit 143, under sh and dash. A second terminating signal ran `exit` from inside the EXIT trap, and the shell left before
+#                the line that removes the directory; ov_cleanup now ignores TERM, INT and HUP for its own, bounded, time. At least four more TERM must have been sent
+#                while the Overview was there, so that the row cannot pass blind. S32 cleanpin: the first code line of ov_cleanup is `trap '' TERM INT HUP`, on both copies,
+#                with a detector self-check (a signal first, a commented trap and a trap for TERM alone are not it).
 # The radio pair (Bluetooth screen, activity bars): S1 and S2 carry the new helper checks and the end-to-end checks of screen_bluetooth and screen_bands
 #                (so an edit of btlist, btco, bar8 or actbar, or one that lets a record of the wrong type through, is red there), S5 names them so they cannot
 #                be dropped, S9 counts one jq for the new screen, S13 walks eight screens and draws the Bluetooth screen of radio-pair whole.
@@ -1631,5 +1636,82 @@ done
 if [ "$DST_S30" = "$DST_X30" ]; then row "display readerpin: the reader renames a finished file onto its count and its wait's pid and never truncates them in place; its EXIT trap writes done only where the directory is; ov_cleanup asks for the reader before it removes the directory; ov_await asks for the reader too ($DST_X30 copies)" PASS
 else row "display readerpin: $DST_S30/$DST_X30 copies as expected" FAIL; DST_KEEP=1; fi
 
+# ---- S31 secondterm: a second terminating signal while the cleanup waits. TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup. The cleanup waits for the
+# reader (a nap of 0.2 s at the very least, about 2 s at most), and a second signal that came in that wait ran `exit` again from inside the EXIT trap: the shell left at once,
+# before the line that removes the temp dir, and a starchorus-ov.* stayed in the device's RAM with the queue, the counts and the screen lines. The cleanup now ignores TERM,
+# INT and HUP for its own, bounded, time. The wait is the slow stand-in of S29 (call 1 never answers and takes 0.6 s to end on TERM), so that the cleanup is in its wait for more
+# than half a second; the row sends TERM, then TERM again every 0.05 s until the Overview has ended, so that some land in the wait however late the first is acted on (the shell is
+# in a nap of 0.2 s when it comes, and the trap runs after it). Under sh and, when installed, dash. The wait must be open and the dir there at the first signal, at least four more
+# TERM must have been sent while the Overview was still there (else the row proves nothing), it must end within 8 s with exit 143, and no waiter and no starchorus-ov.* directory
+# (0.5 s later too) may be left.
+DST_S31=0; DST_N31=0; DST_X31=0
+for DST_X in $DST_SHELLS; do
+  DST_XP=$(command -v "$DST_X"); case $DST_XP in /*) ;; *) DST_XP=$DST_SH ;; esac
+  DST_HUPX=""
+  for DST_E in $DST_COPIES; do
+    DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_L31=""; DST_N31=$((DST_N31 + 1)); DST_X31=$((DST_X31 + 1)); DST_TG="s31-$DST_G-$DST_X"
+    printf '%s\n' A > "$DST_D/$DST_TG.keys"
+    rm -f "$DST_D/$DST_TG.calls" "$DST_D/$DST_TG.pids"; : > "$DST_D/$DST_TG.ui"; : > "$DST_D/$DST_TG.jq"; : > "$DST_D/$DST_TG.stat"; : > "$DST_D/$DST_TG.out"
+    rm -rf "$DST_D/$DST_TG.tmp"; mkdir -p "$DST_D/$DST_TG.tmp"; cp "$F/many-clients.json" "$DST_D/$DST_TG.json"
+    DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"
+    export STARCHORUS_SLOWTERM_AT=1 STARCHORUS_SLOWTERM=0.6
+    dst_s18_start "$DST_XP" "$DST_C"
+    unset STARCHORUS_SLOWTERM_AT STARCHORUS_SLOWTERM
+    DST_W=0
+    while [ "$DST_W" -lt 200 ]; do   # the reader's wait is open and the screen is drawn
+      if [ -s "$DST_D/$DST_TG.pids" ] && grep -qxF 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out"; then break; fi
+      sleep 0.05; DST_W=$((DST_W + 1))
+    done
+    DST_UP=$(dst_alive "$DST_D/$DST_TG.pids"); DST_TB=$(dst_ovleft "$DST_D/$DST_TG.tmp")
+    kill -TERM "$DST_P" 2>/dev/null
+    DST_NS=0; DST_W=0
+    while [ "$DST_W" -lt 160 ]; do   # a TERM every 0.05 s while the Overview is there
+      sleep 0.05; kill -0 "$DST_P" 2>/dev/null || break
+      kill -TERM "$DST_P" 2>/dev/null; DST_NS=$((DST_NS + 1)); DST_W=$((DST_W + 1))
+    done
+    DST_ENDED=1; if kill -0 "$DST_P" 2>/dev/null; then DST_ENDED=0; kill -9 "$DST_P" 2>/dev/null; fi
+    { wait "$DST_P"; DST_RC=$?; } 2>/dev/null
+    DST_TA=$(dst_ovleft "$DST_D/$DST_TG.tmp"); sleep 0.5; DST_TA=$((DST_TA + $(dst_ovleft "$DST_D/$DST_TG.tmp")))
+    DST_AL=$(dst_alive "$DST_D/$DST_TG.pids"); DST_NP=$(grep -c . "$DST_D/$DST_TG.pids")
+    if [ "$DST_AL" != 0 ]; then while read -r DST_WP; do [ -z "$DST_WP" ] || kill "$DST_WP" 2>/dev/null; done < "$DST_D/$DST_TG.pids"; fi
+    DST_NSOK=0; if [ "$DST_NS" -ge 4 ]; then DST_NSOK=1; fi
+    if [ "$DST_UP/$DST_TB/$DST_NSOK/$DST_ENDED/$DST_RC/$DST_NP/$DST_AL/$DST_TA" != "1/1/1/1/143/1/0/0" ]; then
+      DST_L31="$DST_L31 [$DST_X TERM, then TERM every 0.05 s] waiter open at the first signal $DST_UP (want 1), temp dir there $DST_TB (want 1), $DST_NS more TERM sent while it was there, at least 4 $DST_NSOK (want 1), ended within 8 s $DST_ENDED (want 1), exit $DST_RC (want 143), $DST_NP waits (want 1), waiters still there $DST_AL (want 0), temp dirs left (twice counted) $DST_TA (want 0);"
+    fi
+    if [ -z "$DST_L31" ]; then DST_S31=$((DST_S31 + 1)); else echo "    secondterm, $DST_G copy:$DST_L31"; fi
+  done
+done
+if [ "$DST_S31" = "$DST_N31" ]; then row "display secondterm: TERM, then TERM every 0.05 s while the cleanup waits for a reader that takes 0.6 s to end leaves no starchorus-ov.* directory and no waiter: the cleanup ignores TERM, INT and HUP for its own bounded time ($DST_X31 copy and shell combinations, $DST_SHELLS)" PASS
+else row "display secondterm: $DST_S31/$DST_N31 copy and shell combinations as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S32 cleanpin: a text pin on both copies, with a detector self-check (a planted function is judged, a planted comment is not). The first code line of ov_cleanup is
+# `trap '' TERM INT HUP`, before the first signal is sent, the first nap and the removal: a signal that is only ignored from a later line can still land between the start of the
+# cleanup and that line, and one that is not ignored at all (S31 sees it only for TERM) would run `exit` from inside the EXIT trap. The self-check: a planted cleanup that starts with
+# the trap is found, one that signals first, one whose trap is a comment and one that ignores TERM alone are not.
+dst_cl1() { dst_code | dst_fn ov_cleanup | awk 'NR > 1 && NF { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); print; exit }'; }   # the first code line of ov_cleanup, trimmed
+DST_CLT="trap '' TERM INT HUP"
+# shellcheck disable=SC2016   # the planted lines are literal script text
+DST_Q1=$(printf '%s\n' 'ov_cleanup() {' "    $DST_CLT" '    kill "$OV_RPID"' '}' | dst_cl1)
+# shellcheck disable=SC2016
+DST_Q2=$(printf '%s\n' 'ov_cleanup() {' '    kill "$OV_RPID"' "    $DST_CLT" '}' | dst_cl1)
+# shellcheck disable=SC2016
+DST_Q3=$(printf '%s\n' 'ov_cleanup() {' "    # $DST_CLT" '    kill "$OV_RPID"' '}' | dst_cl1)
+# shellcheck disable=SC2016
+DST_Q4=$(printf '%s\n' 'ov_cleanup() {' "    trap '' TERM" '    kill "$OV_RPID"' '}' | dst_cl1)
+DST_S32=0; DST_X32=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X32=$((DST_X32 + 1)); DST_L32=""
+  DST_Q5=$(dst_cl1 < "$DST_C")
+  if [ "$DST_Q1" != "$DST_CLT" ] || [ "$DST_Q2" = "$DST_CLT" ] || [ "$DST_Q3" = "$DST_CLT" ] || [ "$DST_Q4" = "$DST_CLT" ]; then
+    DST_L32="$DST_L32 detectors: a cleanup that starts with the trap is found '$DST_Q1', one that signals first '$DST_Q2', one whose trap is a comment '$DST_Q3' and one that ignores TERM alone '$DST_Q4' are not (want '$DST_CLT' for the first and anything else for the rest);"
+  fi
+  if [ "$DST_Q5" != "$DST_CLT" ]; then
+    DST_L32="$DST_L32 the first code line of ov_cleanup is '$DST_Q5' (want '$DST_CLT');"
+  fi
+  if [ -z "$DST_L32" ]; then DST_S32=$((DST_S32 + 1)); else echo "    cleanpin, $DST_G copy:$DST_L32"; fi
+done
+if [ "$DST_S32" = "$DST_X32" ]; then row "display cleanpin: the first code line of ov_cleanup is trap '' TERM INT HUP, before any signal is sent, any nap and the removal ($DST_X32 copies)" PASS
+else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP=1; fi
+
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
-unset -f dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first
+unset -f dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first

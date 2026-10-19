@@ -274,10 +274,13 @@ While it runs, the keys it waits for are handed over through files in a private 
 (`mktemp -d`, mode 700). A key reader, a background process of the Overview, runs the device's wait for a key again and again and
 appends one line per answer to a queue file there: how long that wait was open, in hundredths of a second, and what the wait printed
 (the name of the key pressed), nothing from the capture. Beside the queue are a small file of counts (the lines so far, and how many of
-them are a B, Left or Right), a file with the pid of the wait that is open, two marks (the reader has ended; the Overview is ending) and a
-file with the output of the screen's `jq` program, the lines that go to the display next, until the next program replaces it. A `trap`
-ends the reader and deletes the directory when the Overview ends, even on INT, TERM and HUP; it waits for the reader for about two seconds
-at most before it deletes. A KILL runs no trap and leaves the directory in the device's RAM until it restarts. The Overview signals only
+them are a B, Left or Right), a file with the pid of the wait that is open, a file with what the last wait printed (the name of the key),
+two marks (the reader has ended; the Overview is ending) and a file with the output of the screen's `jq` program, the lines that go to the
+display next, until the next program replaces it. The counts and the pid are each written to a finished file beside them (`count.new`,
+`wpid.new`, a few bytes, there for a moment) that is renamed onto the file. A `trap` ends the reader and deletes the directory when the
+Overview ends, even on INT, TERM and HUP; it ignores a further one of the three while it does so, and waits for the reader for about two
+seconds at most (about ten where the device's `sleep` takes no fractions of a second) before it deletes. A KILL runs no trap and leaves
+the directory in the device's RAM until it restarts. The Overview signals only
 processes it started itself (the key reader, the wait it has open, its `jq` and the watcher of that `jq`).
 
 The one other file is that of the self-test `--selftest`, run by hand: it creates a small synthetic

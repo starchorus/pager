@@ -105,9 +105,9 @@ uptime_cs() {
 # wait started in the background does receive its key while the foreground writes LOG lines (M3). A wait takes ONE key. 0.1.1 opened one wait
 # per draw and so had to end the draw on any key, to get the next wait open before a second press; the reader needs no such rule, and what
 # ends a draw now is only a key that asks for another screen (below). What stays unopened is short: the start up to the first wait, the
-# stretch from an answer to the next wait being registered with the UI (a fork and an exec for the new wait, then the UI's own time), and the
-# list. The list is a wait of its own, and nothing measured says how the UI shares a key between a picker and a wait, so the reader ends
-# itself on a B and the shell starts another when the list returns.
+# stretch from an answer to the next wait being registered with the UI (a fork and an exec for the `mv` that renames the new counts onto their
+# file, then a fork and an exec for the new wait, then the UI's own time), and the list. The list is a wait of its own, and nothing measured
+# says how the UI shares a key between a picker and a wait, so the reader ends itself on a B and the shell starts another when the list returns.
 #
 # The queue is an append-only file in the private temp dir (OV_QUE), a line per answer, "CS RAW": CS is how long that wait was open in
 # hundredths of a second, by the reader's own clock ("-" where there is none), RAW what WAIT_FOR_INPUT printed. The shell reads it by line
@@ -239,7 +239,7 @@ ov_reader() {
         esac
     done
 }
-# ov_trap_exit: TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup
+# ov_trap_exit: TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup (that ignores them from its first line on)
 ov_trap_exit() { trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP; }
 # ov_rstart: start the key reader. Everything in the queue has been taken by now and nothing is writing to it (the reader of the round
 # before ended on a B, and the first round has none), so the queue and its counts begin again from nothing. TERM, INT and HUP are only
@@ -321,17 +321,21 @@ ov_kill() {
     [ -z "$ok_k" ] || kill $ok_k 2>/dev/null
     kill "$1" 2>/dev/null
 }
-# ov_cleanup: the EXIT trap of the Overview (set where it starts). Leaves its mark for the reader, then ends the key reader and the wait it
-# has open (the reader hands the TERM on to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, waits for the reader to be
-# gone, and removes the temp dir. A normal exit after a B finds no reader (it ended itself on that B); an exit after a key that found the
-# payload gone, three strikes in the queue's order, or a TERM, INT or HUP, finds one with a wait open. The reader is known by the pid
+# ov_cleanup: the EXIT trap of the Overview (set where it starts). It ignores TERM, INT and HUP from its first line on, for the time it takes
+# (about 2 s at most, see below): a further one of them would run `exit` from inside this EXIT trap, and the shell would leave before the temp
+# dir is removed, with the queue, the counts and the screen lines left in the device's RAM. It leaves its mark for the reader, then ends the key
+# reader and the wait it has open (the reader hands the TERM on to WAIT_FOR_INPUT), the jq of a draw that is running and its watcher, waits for
+# the reader to be gone, and removes the temp dir. A normal exit after a B finds no reader (it ended itself on that B); an exit after a key that
+# found the payload gone, three strikes in the queue's order, or a TERM, INT or HUP, finds one with a wait open. The reader is known by the pid
 # ov_rstart stored (it defers a signal until then), and its wait by the pid the reader wrote to OV_WPF, so nothing here guesses from `$!`:
 # should the reader itself have been killed from outside, its wait is still ended. The reader ends in its own time after the TERM (its wait
 # has to leave first), and its last act writes into the temp dir; removing the dir meanwhile could leave it with that one file in it, so
-# the removal waits for the reader's end, in naps of 0.2 s and for about 2 s at most, never for ever (the reader's own trap writes nothing
-# into a dir that is gone). The nap also lets the shell collect a reader that has ended (see ov_await), so that its pid is then gone.
+# the removal waits for the reader's end, in ten naps at most (ov_nap: about 2 s, and about 10 s where the sleep applet has no fractions), never
+# for ever (the reader's own trap writes nothing into a dir that is gone). The nap also lets the shell collect a reader that has ended (see
+# ov_await), so that its pid is then gone. The Overview stays endable: KILL cannot be ignored, and the signals are ignored for that wait only.
 ov_cleanup() {
-    [ -z "$OV_QUIT" ] || printf x 2>/dev/null > "$OV_QUIT"   # first: the mark the reader looks for (see ov_orphan), then the signals
+    trap '' TERM INT HUP
+    [ -z "$OV_QUIT" ] || printf x 2>/dev/null > "$OV_QUIT"   # the mark the reader looks for (see ov_orphan), before the signals
     [ -z "$OV_RPID" ] || kill "$OV_RPID" 2>/dev/null
     cl_w=; [ ! -s "$OV_WPF" ] || read -r cl_w < "$OV_WPF"
     case $cl_w in ''|*[!0-9]*) ;; *) kill "$cl_w" 2>/dev/null ;; esac

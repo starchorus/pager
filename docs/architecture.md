@@ -2552,7 +2552,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   is open while the list of screens, a wait of its own, shows; a press that falls between one wait ending and the next being registered, or
   between a B and the list, is still lost. The queue is an append-only file in a private temporary directory, read by line number, which also
   holds the reader's counts (replaced by a rename, never rewritten in place), the pid of its wait and the output of the screen's `jq` and which the display
-  removes when it ends; an exit trap ends the reader and its wait and waits for the reader (about 2 s at most) before it removes the directory. A reader that has gone without its mark
+  removes when it ends; an exit trap ends the reader and its wait and waits for the reader (about 2 s at most, about 10 s where `sleep` has no fractions) before it removes the directory, ignoring a further TERM, INT or HUP for that time. A reader that has gone without its mark
   (killed, or with no room to write it) is found by its pid and ends the Overview with 'Overview could not read a key.'. It sends a signal only to processes it started itself: the reader, its wait, its `jq` (and what
   `timeout` started for it) and the watcher of that `jq`.
   Nothing on the display redraws by itself (between draws the shell naps 0.2 s at a time and looks at two small files); no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
