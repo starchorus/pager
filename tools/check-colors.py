@@ -19,6 +19,7 @@ Rules (role -> token paths -> rule), the table of §4.1:
   band       band.{2.4,5,6}.core            OKLCH hue 2.4 in 140-190, 5 in 220-265, 6 in 285-315; pairwise dE >= 15
   unknown    band.unknown.core              chroma < 0.05; dE >= 10 to status.ringNeutral and render.bubbleStroke
   alarm      status.alarm                   dE >= 15 to band cores, selection, pin, chrome, aggregate
+  alert      status.alert                   OKLCH hue 15-40 (red); dE >= 15 to band cores and selection (it may equal the alarm: Whitehall's does)
   bt         render.btMark                  OKLCH hue 325-360; dE >= 15 to band cores, alarm, selection, chrome and render.clientCore;
                                             dE >= 10 to band.unknown.core, status.ringNeutral and status.hidden
   selection  accent.selection, focusRing    chroma < 0.05 and OKLCH L >= 0.85
@@ -190,6 +191,23 @@ def check(themes):
                 if o is not None:
                     d = dE(alarm, o)
                     rec(th, "alarm", d >= 15, "dE alarm vs %s = %.1f (>= 15)" % (p, d))
+
+        # alert: the ring of an alerted access point (the firmware's deauth/disassoc alert) is red, and apart from the data bands and from selection
+        alert = flat("status.alert")
+        if alert is None:
+            rec(th, "alert", False, "status.alert missing")
+        else:
+            _, c, h = lch(alert)
+            rec(th, "alert", 15 <= h <= 40, "status.alert hue %.0f deg (want 15-40, red) C %.3f" % (h, c))
+            for b in BANDS:
+                if band[b] is not None:
+                    d = dE(alert, band[b])
+                    rec(th, "alert", d >= 15, "dE alert vs band %s = %.1f (>= 15)" % (b, d))
+            for p in sel:
+                o = flat(p)
+                if o is not None:
+                    d = dE(alert, o)
+                    rec(th, "alert", d >= 15, "dE alert vs %s = %.1f (>= 15)" % (p, d))
 
         # bt: the Bluetooth mark (a rose between the violet 6 GHz band and the alarms): apart from every data colour and from the neutrals it could be taken for
         btc = flat("render.btMark")

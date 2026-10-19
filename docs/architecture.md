@@ -543,7 +543,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "ink": {"primary": "#dfe7fb", "secondary": "#9aa7c4", "muted": "#6f7c9c", "onFill": "#05070d"},
   "line": {"hairline": "rgba(233,228,216,0.20)", "hairlineSoft": "rgba(233,228,216,0.09)", "baseline": "rgba(140,165,220,0.30)", "ring": "rgba(140,165,220,0.56)", "widthPx": 1, "device": "rgba(233,228,216,0.40)", "edge": {"style": "bezier", "curvature": 0.18, "color": "rgba(233,228,216,0.18)", "widthPx": 1, "glowPx": 6}},
   "band": {"5": {"core": "#2896f5", "glow": "rgba(255,224,170,0.42)"}, "6": {"core": "#7153dd", "glow": "rgba(255,224,170,0.42)"}, "2.4": {"core": "#038d86", "glow": "rgba(255,224,170,0.42)"}, "unknown": {"core": "#7c828c", "glow": "rgba(255,224,170,0.24)"}},
-  "status": {"alarm": "#e0b95a", "alarmWash": "rgba(224,185,90,0.10)", "alarmAura": "none", "ringNeutral": "#9aa7c4", "ringStrong": "#dfe7fb", "glyphInk": "#9aa7c4", "hidden": "#6f7c9c"},
+  "status": {"alarm": "#e0b95a", "alarmWash": "rgba(224,185,90,0.10)", "alarmAura": "none", "alert": "#e5484d", "ringNeutral": "#9aa7c4", "ringStrong": "#dfe7fb", "glyphInk": "#9aa7c4", "hidden": "#6f7c9c"},
   "accent": {"selection": "#e9e4d8", "selectionWash": "rgba(233,228,216,0.12)", "focusRing": "#e9e4d8", "flare": "rgba(255,220,180,0.20)", "toggleOn": "#e9e4d8", "toggleInk": "#05070d", "toggleBorder": "#e9e4d8"},
   "rssi": {"dbmMin": -90, "dbmMax": -30, "glowRadiusFactor": [1.2, 3], "glowAlpha": 0.45, "bloomPx": [0, 0]},
   "glow": {"mode": "mono", "color": "rgba(255,224,170,1)", "maxBlurPx": 28, "ringGlowPx": 0},
@@ -568,7 +568,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "ink": {"primary": "#e6e6dc", "secondary": "#a7a7a7", "muted": "#808080", "onFill": "#000000"},
   "line": {"hairline": "#0f234b", "hairlineSoft": "rgba(15,35,75,0.60)", "baseline": "#0f234b", "ring": "#287878", "widthPx": 1, "device": "rgba(154,154,144,0.70)", "edge": {"style": "parabola", "curvature": 0.28, "color": "rgba(167,167,167,0.45)", "widthPx": 1, "glowPx": 6}},
   "band": {"5": {"core": "#6ad2f9", "glow": "self"}, "6": {"core": "#8457a2", "glow": "self"}, "2.4": {"core": "#2ab42a", "glow": "self"}, "unknown": {"core": "#808080", "glow": "self"}},
-  "status": {"alarm": "#fa4809", "alarmWash": "rgba(250,72,9,0.10)", "alarmAura": "wash", "ringNeutral": "#a7a7a7", "ringStrong": "#e6e6dc", "glyphInk": "#a7a7a7", "hidden": "#808080"},
+  "status": {"alarm": "#fa4809", "alarmWash": "rgba(250,72,9,0.10)", "alarmAura": "wash", "alert": "#ff3b3b", "ringNeutral": "#a7a7a7", "ringStrong": "#e6e6dc", "glyphInk": "#a7a7a7", "hidden": "#808080"},
   "accent": {"selection": "#e6e6dc", "selectionWash": "rgba(230,230,220,0.10)", "focusRing": "#e6e6dc", "flare": "rgba(0,0,0,0)", "toggleOn": "#287878", "toggleInk": "#ffffff", "toggleBorder": "#287878"},
   "rssi": {"dbmMin": -90, "dbmMax": -30, "glowRadiusFactor": [0, 0], "glowAlpha": 0, "bloomPx": [4, 12]},
   "glow": {"mode": "self", "color": null, "maxBlurPx": 12, "ringGlowPx": 4},
@@ -593,7 +593,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "ink": {"primary": "#d7dad1", "secondary": "#96a08f", "muted": "#7d8674", "onFill": "#0a0f0b"},
   "line": {"hairline": "rgba(215,218,209,0.14)", "hairlineSoft": "rgba(215,218,209,0.07)", "baseline": "rgba(215,218,209,0.24)", "ring": "rgba(215,218,209,0.42)", "widthPx": 1, "device": "rgba(215,218,209,0.55)", "edge": {"style": "bezier", "curvature": 0.16, "color": "rgba(215,218,209,0.28)", "widthPx": 1, "glowPx": 6}},
   "band": {"5": {"core": "#3e7cff", "glow": "self"}, "6": {"core": "#c77dff", "glow": "self"}, "2.4": {"core": "#3fb950", "glow": "self"}, "unknown": {"core": "#c8ccc4", "glow": "self"}},
-  "status": {"alarm": "#e5484d", "alarmWash": "rgba(229,72,77,0.12)", "alarmAura": "wash", "ringNeutral": "#96a08f", "ringStrong": "#d7dad1", "glyphInk": "#96a08f", "hidden": "#7d8674"},
+  "status": {"alarm": "#e5484d", "alarmWash": "rgba(229,72,77,0.12)", "alarmAura": "wash", "alert": "#e5484d", "ringNeutral": "#96a08f", "ringStrong": "#d7dad1", "glyphInk": "#96a08f", "hidden": "#7d8674"},
   "accent": {"selection": "#f4f5ef", "selectionWash": "rgba(244,245,239,0.12)", "focusRing": "#f4f5ef", "flare": "rgba(0,0,0,0)", "toggleOn": "#d7dad1", "toggleInk": "#0a0f0b", "toggleBorder": "#d7dad1"},
   "rssi": {"dbmMin": -90, "dbmMax": -30, "glowRadiusFactor": [0, 0], "glowAlpha": 0, "bloomPx": [3, 10]},
   "glow": {"mode": "self", "color": null, "maxBlurPx": 10, "ringGlowPx": 3},
@@ -1305,6 +1305,7 @@ checked as in §3.8 (`tools/spec-sync.py --check`); what is deliberately left ou
 | `line.ring` | `surface.base` | ≥ 3 | canvas: RSSI reference ring (2D #bg, 3D #sky) | 3.17 | 4.05 | 3.21 |
 | `line.ring` | `ground` | ≥ 3 | canvas: RSSI reference ring over the page gradient | 3.19 | 4.05 | 3.22 |
 | `status.hidden` | `surface.base` | ≥ 3 | canvas: hidden-SSID ring | 4.83 | 5.32 | 5.10 |
+| `status.alert` | `surface.base` | ≥ 3 | canvas: alert ring | 5.15 | 5.94 | 4.94 |
 | `render.bubbleStroke` | `surface.base` | ≥ 3 | canvas: bubble outline | 7.89 | 8.73 | 5.10 |
 | `accent.selection` | `surface.base` | ≥ 3 | canvas: selection ring | 15.88 | 16.72 | 17.64 |
 | `render.btMark` | `surface.base` | ≥ 3 | canvas: Bluetooth mark | 7.18 | 8.05 | 3.94 |
@@ -1876,7 +1877,7 @@ Rows in this order (`data-kind` in brackets):
    class of `ENCODING.security`, only with an AP): ring swatch as in `drawApRings` + glyph in the colour of its tone + label + count.
    Freshness 'Heard' (`fresh-t0` … `fresh-t3`, `fresh-undated`; only while dated nodes are present; unreachable levels
    are dropped) and, in Whitehall, the freshness lamps (`#tote`). 'hidden SSID' (`hidden`), the alert row (`alert`, 0.2: only while an
-   alerted access point is drawn; a ring swatch in `status.alarm`; 'flickering ring = many deauth/disassoc frames heard for this AP', §14.6) and the geometry row (`geometry`):
+   alerted access point is drawn; a ring swatch in `status.alert`; 'alert ring = many deauth/disassoc frames heard for this AP', §14.6) and the geometry row (`geometry`):
    'rings = received signal (dBm), not range · direction is not measured'.
 2. **Derived** – 'channel overlap (derived, width unknown → 20 MHz)' (`#leg-nebula`), 'same ESSID' (`#leg-groups`), 'linked
    radios · likely same device (heuristic)' (`#leg-devices`), 'merged SSID · one node per ESS (count = APs)' (`#leg-merge`),
@@ -2452,6 +2453,7 @@ departs from them, this chapter prevails. The regression checks that the chapter
 | band | `band.{2.4,5,6}.core` | hue 2.4 GHz 140–190°, 5 GHz 220–265°, 6 GHz 285–315°; the three data bands pairwise ΔE ≥ 15 |
 | unknown | `band.unknown.core` | C < 0.05; ΔE ≥ 10 from `status.ringNeutral` and `render.bubbleStroke` |
 | alarm | `status.alarm` | ΔE ≥ 15 from band, selection, pin, chrome, aggregate |
+| alert | `status.alert` | hue 15–40° (red); ΔE ≥ 15 from the three band cores and from selection; it may equal the alarm colour (Whitehall's does) |
 | identity (canvas) | identity frame | = `ink.primary` (shape only) |
 | selection | `accent.selection`, `accent.focusRing` | C < 0.05, L ≥ 0.85 |
 | chrome | `chrome.*`, `accent.toggle*` | ΔE ≥ 15 from band and alarm |
@@ -2633,10 +2635,10 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   the page folds one and counted once, and only an address that `aps[]` holds counts, because the page draws its note and its ring for an access point it knows and for no other. The line is at most 40 columns, ASCII and neutral (the P10 words stay
   out), it is the only red line besides the open/WEP, jq-incomplete and no-new-scan lines (`tools/regress.d/display-parity.sh` pins its text, once, inside `alert_line`, with controls), no other screen marks an alerted access point, and it is drawn
   with the summary and never by itself. The report times, the counts per access point and the addresses are not shown there.
-  **Presentation, the page.** An alerted access point gets a second ring in `drawStars` (section 34, 1,200 bytes of page at most): the alarm colour of the theme (`THEME.status.alarm`: red in Whitehall, orange-red in WarGames, the amber
-  of Foundation's own alarm), one and a half pixels wide, at `px + hidden.offsetPx + 1.5` (11.5, so from 10.75 to 12.25 beyond the star's edge), through the ring batch like the others. That is a band of its own: the radii already taken are the security ring at 4 (the outer circle of a double ring, WPA2 and WPA3 transition, at 7), the identity frame at 6, the new-plot mark at 9 (Whitehall), the hidden-SSID ring at 10, the selection ring at 13 (the pin mark at 13, or 18 when locked, the merged-ESS ring at 16), and the alert ring sits clear of all of them, so that a WPA2 access point under alert still reads as a double ring plus one more. Which access points: those that `alerts[]` names and the page holds and notes
+  **Presentation, the page.** An alerted access point gets a second ring in `drawStars` (section 34, 1,200 bytes of page at most): the alert colour of the theme (the token `THEME.status.alert`, red in all three: `#e5484d` in Foundation and Whitehall, `#ff3b3b` in WarGames; the alarm colour of Foundation is amber, which is also the open/WEP ring, so the alert
+  has a token of its own, `--status-alert` in the CSS mirror, with a contrast pair in §7.0a and a colour role in §14.4), one and a half pixels wide, at `px + hidden.offsetPx + 1.5` (11.5, so from 10.75 to 12.25 beyond the star's edge), through the ring batch like the others. That is a band of its own: the radii already taken are the security ring at 4 (the outer circle of a double ring, WPA2 and WPA3 transition, at 7), the identity frame at 6, the new-plot mark at 9 (Whitehall), the hidden-SSID ring at 10, the selection ring at 13 (the pin mark at 13, or 18 when locked, the merged-ESS ring at 16), and the alert ring sits clear of all of them, so that a WPA2 access point under alert still reads as a double ring plus one more. Which access points: those that `alerts[]` names and the page holds and notes
   (`alertNode`: `S.aps` has the address and it is no mobile hotspot and no own transmitter, the rule of the Observations note), at once, without the note's dwell of two captures. The ring flickers in the theme's own idiom, taken from its
-  cue token `render.changeCue` so that no theme table grows: `glowPulse` (Foundation) a slow smooth pulse of its alpha between 0.4 and 1 (about 0.5 Hz), `bloomPulse` (WarGames) a phosphor flicker, a seeded alpha in 0.3 to 1 that changes twice a second
+  cue token `render.changeCue` so that the flicker adds no cue table to the themes: `glowPulse` (Foundation) a slow smooth pulse of its alpha between 0.4 and 1 (about 0.5 Hz), `bloomPulse` (WarGames) a phosphor flicker, a seeded alpha in 0.3 to 1 that changes twice a second
   and differs per access point, `tick` (Whitehall) a chalk blink, its alpha switching between 0.4 and 1 every second; nothing steps more than twice a second (the rule of the CRT flicker, Layer 14). Under reduced motion the ring stands steady at full alpha; with `?fixed` it
   is a pure function of the frozen clock. The frame loop is asked for while a flicker runs (`wargamesAnimating`: no `?fixed`, not paused, no reduced motion, an alerted access point), so that a sky that does not spin still shows it. The legend row `alert`
   (§9.4) exists exactly while such a ring can be drawn. No ray from a source to a target: the source address of a report is whatever the frames claim and the page does not show it. `tools/regress.d/alerts.sh` reads the ring from the canvas in all three

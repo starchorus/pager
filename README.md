@@ -364,9 +364,9 @@ is run by the firmware, not from your shell, and without the payload's environme
 command. The collector reads the lines of the last `STARCHORUS_ALERT_WINDOW` seconds (ten minutes), groups them by access point and writes `alerts[]`: the address, `n` (how many
 reports) and `t` (the newest), at most 20, newest first.
 
-What you see. On the page an access point named in `alerts[]` gets a second ring in the theme's alarm colour, which flickers in the theme's own way (a slow pulse in
+What you see. On the page an access point named in `alerts[]` gets a second ring in the theme's alert colour (red in all three), which flickers in the theme's own way (a slow pulse in
 Foundation, a phosphor flicker in WarGames, a chalk blink in Whitehall, never faster than twice a second) and stands steady when the system asks for reduced motion;
-the legend then has a row, 'flickering ring = many deauth/disassoc frames heard for this AP', and the Observations list its note, as before. The Overview's summary
+the legend then has a row, 'alert ring = many deauth/disassoc frames heard for this AP', and the Observations list its note, as before. The Overview's summary
 has one red line, 'Many deauth/disassoc heard for 2 APs'. Both count only access points the capture holds. Nothing in this is sent anywhere, there is no vibration and
 no LED, and the firmware's own alert is left to the firmware.
 

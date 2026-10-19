@@ -923,7 +923,7 @@ THEMES.foundation = {
     edge: { style: "bezier", curvature: 0.18, color: "rgba(233,228,216,0.18)", widthPx: 1, glowPx: 6 } },
   band: { "2.4": { core: "#038d86", glow: "rgba(255,224,170,0.42)" }, "5": { core: "#2896f5", glow: "rgba(255,224,170,0.42)" },
     "6": { core: "#7153dd", glow: "rgba(255,224,170,0.42)" }, unknown: { core: "#7c828c", glow: "rgba(255,224,170,0.24)" } },
-  status: { alarm: "#e0b95a", alarmWash: "rgba(224,185,90,0.10)", alarmAura: "none", ringNeutral: "#9aa7c4", ringStrong: "#dfe7fb", glyphInk: "#9aa7c4", hidden: "#6f7c9c" },
+  status: { alarm: "#e0b95a", alarmWash: "rgba(224,185,90,0.10)", alarmAura: "none", alert: "#e5484d", ringNeutral: "#9aa7c4", ringStrong: "#dfe7fb", glyphInk: "#9aa7c4", hidden: "#6f7c9c" },
   accent: { selection: "#e9e4d8", selectionWash: "rgba(233,228,216,0.12)", focusRing: "#e9e4d8", flare: "rgba(255,220,180,0.20)",
     toggleOn: "#e9e4d8", toggleInk: "#05070d", toggleBorder: "#e9e4d8" },
   rssi: { dbmMin: -90, dbmMax: -30, glowRadiusFactor: [1.2, 3.0], glowAlpha: 0.45,
@@ -971,7 +971,7 @@ THEMES.wargames = {
   line: { hairline: "#0f234b", hairlineSoft: "rgba(15,35,75,0.60)", baseline: "#0f234b", ring: "#287878", widthPx: 1, device: "rgba(154,154,144,0.70)",
     edge: { style: "parabola", curvature: 0.28, color: "rgba(167,167,167,0.45)", widthPx: 1, glowPx: 6 } },
   band: { "2.4": { core: "#2ab42a", glow: "self" }, "5": { core: "#6ad2f9", glow: "self" }, "6": { core: "#8457a2", glow: "self" }, unknown: { core: "#808080", glow: "self" } },
-  status: { alarm: "#fa4809", alarmWash: "rgba(250,72,9,0.10)", alarmAura: "wash", ringNeutral: "#a7a7a7", ringStrong: "#e6e6dc", glyphInk: "#a7a7a7", hidden: "#808080" },
+  status: { alarm: "#fa4809", alarmWash: "rgba(250,72,9,0.10)", alarmAura: "wash", alert: "#ff3b3b", ringNeutral: "#a7a7a7", ringStrong: "#e6e6dc", glyphInk: "#a7a7a7", hidden: "#808080" },
   accent: { selection: "#e6e6dc", selectionWash: "rgba(230,230,220,0.10)", focusRing: "#e6e6dc", flare: "rgba(0,0,0,0)",
     toggleOn: "#287878", toggleInk: "#ffffff", toggleBorder: "#287878" },
   rssi: { dbmMin: -90, dbmMax: -30, glowRadiusFactor: [0, 0], glowAlpha: 0, bloomPx: [4, 12] },
@@ -1024,7 +1024,7 @@ THEMES.whitehall = {
   line: { hairline: "rgba(215,218,209,0.14)", hairlineSoft: "rgba(215,218,209,0.07)", baseline: "rgba(215,218,209,0.24)", ring: "rgba(215,218,209,0.42)", widthPx: 1, device: "rgba(215,218,209,0.55)",
     edge: { style: "bezier", curvature: 0.16, color: "rgba(215,218,209,0.28)", widthPx: 1, glowPx: 6 } },
   band: { "2.4": { core: "#3fb950", glow: "self" }, "5": { core: "#3e7cff", glow: "self" }, "6": { core: "#c77dff", glow: "self" }, unknown: { core: "#c8ccc4", glow: "self" } },
-  status: { alarm: "#e5484d", alarmWash: "rgba(229,72,77,0.12)", alarmAura: "wash", ringNeutral: "#96a08f", ringStrong: "#d7dad1", glyphInk: "#96a08f", hidden: "#7d8674" },
+  status: { alarm: "#e5484d", alarmWash: "rgba(229,72,77,0.12)", alarmAura: "wash", alert: "#e5484d", ringNeutral: "#96a08f", ringStrong: "#d7dad1", glyphInk: "#96a08f", hidden: "#7d8674" },
   accent: { selection: "#f4f5ef", selectionWash: "rgba(244,245,239,0.12)", focusRing: "#f4f5ef", flare: "rgba(0,0,0,0)",
     toggleOn: "#d7dad1", toggleInk: "#0a0f0b", toggleBorder: "#d7dad1" },
   rssi: { dbmMin: -90, dbmMax: -30, glowRadiusFactor: [0, 0], glowAlpha: 0, bloomPx: [3, 10] },
@@ -1095,7 +1095,7 @@ const CSS_MIRROR = [
   ["--ink-primary", "ink.primary", ""], ["--ink-secondary", "ink.secondary", ""], ["--ink-muted", "ink.muted", ""], ["--ink-on-fill", "ink.onFill", ""],
   ["--line-hairline", "line.hairline", ""], ["--line-soft", "line.hairlineSoft", ""], ["--line-baseline", "line.baseline", ""],
   ["--band-24", "band.2.4.core", ""], ["--band-5", "band.5.core", ""], ["--band-6", "band.6.core", ""], ["--band-unknown", "band.unknown.core", ""],
-  ["--status-alarm", "status.alarm", ""], ["--status-alarm-wash", "status.alarmWash", ""], ["--status-ring-neutral", "status.ringNeutral", ""],
+  ["--status-alarm", "status.alarm", ""], ["--status-alarm-wash", "status.alarmWash", ""], ["--status-alert", "status.alert", ""], ["--status-ring-neutral", "status.ringNeutral", ""],
   ["--status-ring-strong", "status.ringStrong", ""], ["--status-glyph", "status.glyphInk", ""], ["--status-hidden", "status.hidden", ""],
   ["--accent-selection", "accent.selection", ""], ["--accent-wash", "accent.selectionWash", ""], ["--accent-focus", "accent.focusRing", ""],
   ["--toggle-on", "accent.toggleOn", ""], ["--toggle-ink", "accent.toggleInk", ""], ["--toggle-border", "accent.toggleBorder", ""], ["--chrome-ink", "chrome.ink", ""],
@@ -1731,7 +1731,7 @@ function isMobileLikely(n) {
   return MOBILE_SSID_RE.test(n.ssidKnown || n.ssid || "") || !!(n.caps && n.caps.includes("IBSS"));
 }
 const eventSkip = (n) => !n || n.mobile || S.own.bssids.has(n.id);   // mobile hotspots and this device's own transmitters
-const alertNode = (a) => { const n = S.aps.get(a.ap); return n && !eventSkip(n) ? n : null; };   // an alert counts for an AP the page holds and notes
+const alertNode = (a) => { const n = S.aps.get(a.ap); return eventSkip(n) ? null : n; };
 function chgPush(id, seq, t, kind, from, to) {
   let a = S.chg.get(id);
   if (!a) { if (S.chg.size >= CHG_BSSIDS) S.chg.delete(S.chg.keys().next().value); a = []; S.chg.set(id, a); }
@@ -3998,7 +3998,7 @@ function step(dt, liveDt) {
   nodeEaseDt = dt; projectAll();
 }
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
-  if (S.fixedTime == null && !S.ui.paused && !reduceMotion && S.alerts.some(alertNode)) return true;   // a flickering alert ring
+  if (S.fixedTime == null && !S.ui.paused && !reduceMotion && S.alerts.some(alertNode)) return true;
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
   if (S.anim.edgeTravelDotSpeed <= 0 || S.ui.paused || S.fixedTime != null) return false;
   if (S.ui.links) for (const c of S.clientOrder) { if (!c.free && c.alphaDraw > 0.05) { const ap = S.aps.get(c.parent); if (ap && ap.alphaDraw > 0.05) return true; } }
@@ -5043,8 +5043,8 @@ function drawStars() {
     }
     drawSelectionMarks(ctx, ap, ap.alphaDraw);
   }
-  const cm = THEME.render.changeCue, e2 = Math.floor(S.clock * 2);   // an alerted AP's ring, in a band of its own between the hidden-SSID and selection rings; pulse, flicker or blink by the theme's cue, steady under reduced motion
-  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alarm, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); }
+  const cm = THEME.render.changeCue, e2 = S.clock * 2 | 0;
+  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alert, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); }
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }
@@ -6059,7 +6059,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" id="leg-fresh-u" data-kind="fresh-undated" hidden>' + freshSwatch(ENCODING.fresh.alpha[0]) + '<span>' + esc(ENCODING.fresh.undated) + '</span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div>');
   rows.push('<div class="legrow note" data-kind="hidden">' + ringSwatch(ENCODING.hidden, "--status-hidden", 5.5) + '<span>hidden SSID</span></div>');
-  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--status-alarm)" stroke-width="2"/>') + '<span>flickering ring = many deauth/disassoc frames heard for this AP</span></div>');
+  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + ringSwatch({ ring: "solid", widthPx: 1.5 }, "--status-alert", 5.5) + '<span>alert ring = many deauth/disassoc frames heard for this AP</span></div>');
   rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
   rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');
@@ -7206,6 +7206,7 @@ const CONTRAST_PAIRS = [
   ["line.ring", "surface.base", 3, "canvas: RSSI reference ring (2D #bg, 3D #sky)"],
   ["line.ring", "ground", 3, "canvas: RSSI reference ring over the page gradient"],
   ["status.hidden", "surface.base", 3, "canvas: hidden-SSID ring"],
+  ["status.alert", "surface.base", 3, "canvas: alert ring"],
   ["render.bubbleStroke", "surface.base", 3, "canvas: bubble outline"],
   ["accent.selection", "surface.base", 3, "canvas: selection ring"],
   ["render.btMark", "surface.base", 3, "canvas: Bluetooth mark"],

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # shellcheck shell=sh
-# tools/regress.d/alerts.sh -- the firmware's deauth/disassoc alert on the page (0.2): a ring in the theme's alarm colour round an alerted access point that
+# tools/regress.d/alerts.sh -- the firmware's deauth/disassoc alert on the page (0.2): a ring in the theme's alert colour (the token status.alert, red in all three themes) round an alerted access point that
 # flickers in the theme's own idiom, and a legend row for it. The data is alerts[] of the capture (tests/fixtures/alerts.json: two reports for access
 # points the capture holds and one for an address it does not hold); the collector writes it, the page only draws it, and nothing is sent.
 #   R1 the fixture is the generator's, it validates, and the validator refuses twelve broken alerts[] · R2 the ring flickers in each theme's idiom (Foundation a slow
 #   pulse, WarGames a seeded phosphor flicker in half-second steps, Whitehall a chalk blink of two levels) and stands steady under reduced motion · R3 it is drawn
-#   at the alerted access points and at no other, and it reads the theme's alarm token · R4 the legend row exists exactly while such a ring can be drawn, in the
-#   alarm token, with the neutral words · R5 the frame loop stays alive for the flicker and only for it · R6 the observation notes are as before, two lines ·
+#   at the alerted access points and at no other, and it reads the theme's alert token · R4 the legend row exists exactly while such a ring can be drawn, in the
+#   alert token, with the neutral words · R5 the frame loop stays alive for the flicker and only for it · R6 the observation notes are as before, two lines ·
 #   R7 no P10 word in what the feature says · R8 the running page makes no request but GET to its own origin while the alert is shown
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
@@ -15,7 +15,7 @@
 # NEGATIVE PROBE: R2 and R3 read the canvas, so a flicker taken out of the draw (the reduced-motion factor kept), the reduced-motion test removed, the token replaced by a
 #                 colour, the ring drawn for every reported address and the frame loop not asked for the flicker each turn their own keys red (tried on copies of the page when
 #                 the rows were written; the keys are in the label of the failing row); R1's twelve variants are the validator's own controls (the unbroken fixture is
-#                 green); R3 compares the same sky with and without its alerts, and swaps the alarm token for a green one; R5 compares with the same page without alerts,
+#                 green); R3 compares the same sky with and without its alerts, and swaps the alert token for a green one; R5 compares with the same page without alerts,
 #                 under reduced motion and paused.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
 #                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c).
@@ -66,7 +66,7 @@ rowif "alerts: the validator refuses twelve broken alerts[] (a type that is not 
 # ---- R2 / R3 the ring, read from the canvas at the point of the ring (the access point's screen position plus its radius plus the ring's offset of two rings' width)
 # (the last block of the eval makes both reported access points own transmitters of this device: no ring then, as the note is skipped for them too)
 # The eval samples the alpha of #sky there at twelve fixed times (the clock is frozen with setFixedTime; a tick runs before each sample) for the two alerted
-# access points, per theme, then again under reduced motion, then against the same sky without its alerts and with the alarm token swapped for green.
+# access points, per theme, then again under reduced motion, then against the same sky without its alerts and with the alert token swapped for green.
 AL_EVR='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,T=I.THEMES,o={},TM=[0,100,400,500,900,1000,1400,1500,2000,2500,3000,3500],TH=["foundation","wargames","whitehall"];
 const A1="02:00:5e:a1:00:01",A4="02:00:5e:a1:00:04",C="02:00:5e:a1:00:02";
 await sleep(1500);
@@ -89,7 +89,7 @@ for(const th of TH){STARCHORUS.setTheme(th);STARCHORUS.setFixedTime(1000);await 
   own[th]=(w[0]-z[0]>=60&&w[1]-z[1]>=60&&Math.abs(w[2]-z[2])<=2)?"ok":"bad "+w+"/"+z;
   const bd=()=>[A1,A4].map(id=>{const r=[];for(let o=3;o<=9;o++){const p=px(id,o);r.push(p.r+","+p.g+","+p.b+","+p.a);}return r.join(";");}).join("|");
   const bw=(sm(),bd());S.alerts=[];const bz=(sm(),bd());S.alerts=keep;sm();band[th]=bw===bz?"ok":"moved";
-  const al=T[th].status.alarm;T[th].status.alarm="#00ff00";const g=(sm(),px(A4));T[th].status.alarm=al;const q=(sm(),px(A4));
+  const al=T[th].status.alert;T[th].status.alert="#00ff00";const g=(sm(),px(A4));T[th].status.alert=al;const q=(sm(),px(A4));
   own[th]+=(g.g>=200&&g.r<=80&&g.b<=80&&q.r>=q.g)?"":" token "+[g.r,g.g,g.b]+"/"+[q.r,q.g,q.b];}
 o.where=TH.map(th=>own[th]).join("|");o.band=TH.map(th=>band[th]).join("|");
 {STARCHORUS.setTheme("whitehall");
@@ -110,7 +110,7 @@ al_ring() {
 }
 al_ring "$H" "$AL_T/ring"
 AL_WANT='{"foundation":true,"wargames":true,"whitehall":true,"steady":"111","where":"ok|ok|ok","band":"ok|ok|ok","own":"ok","errors":0}'
-rowif "alerts: the ring of an alerted access point flickers in each theme's idiom (Foundation a slow smooth pulse, WarGames a seeded phosphor flicker in steps of half a second, Whitehall a chalk blink of two levels), stands steady under reduced motion, is drawn at the two reported access points and at no other (not at an own transmitter either), reads the theme's alarm token, and leaves every pixel of the access point's own rings (3 to 9 px beyond the star: the security ring and its double, the identity frame, the new-plot mark) as it was without the alert [${AL_RN:-no-value}]" [ "$AL_RN" = "$AL_WANT" ]
+rowif "alerts: the ring of an alerted access point flickers in each theme's idiom (Foundation a slow smooth pulse, WarGames a seeded phosphor flicker in steps of half a second, Whitehall a chalk blink of two levels), stands steady under reduced motion, is drawn at the two reported access points and at no other (not at an own transmitter either), reads the theme's alert token, and leaves every pixel of the access point's own rings (3 to 9 px beyond the star: the security ring and its double, the identity frame, the new-plot mark) as it was without the alert [${AL_RN:-no-value}]" [ "$AL_RN" = "$AL_WANT" ]
 [ "$AL_RN" = "$AL_WANT" ] || printf '    %s\n' "$(printf '%s' "${AL_R:-no-value}" | cut -c1-300)"
 
 # ---- R9 the band key bites: the page with the ring put back where the outer circle of a WPA2 double ring is (px + 8, two pixels wide, the place it had before this
@@ -131,7 +131,7 @@ open(out, "w", encoding="utf-8").write(s)
 PY
 }
 AL_PB="$AL_T/band.html"
-al_plant "$AL_PB" 'ringArc(THEME.status.alarm, 1.5, null, n.alphaDraw' 'ringArc(THEME.status.alarm, 2, null, n.alphaDraw' 'n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2)' 'n.px + 2 * ENCODING.ringOffsetPx, 0, Math.PI * 2)'; AL_PBC=$?
+al_plant "$AL_PB" 'ringArc(THEME.status.alert, 1.5, null, n.alphaDraw' 'ringArc(THEME.status.alert, 2, null, n.alphaDraw' 'n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2)' 'n.px + 2 * ENCODING.ringOffsetPx, 0, Math.PI * 2)'; AL_PBC=$?
 AL_PBD=$(diff "$H" "$AL_PB" 2>/dev/null | grep -c '^<')
 al_ring "$AL_PB" "$AL_T/ring-band"
 AL_PBV=$(printf '%s' "$AL_R" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("band"), d.get("errors"))' 2>/dev/null)
@@ -149,10 +149,10 @@ const row=()=>STARCHORUS.legendRows().find(r=>r.kind==="alert");
 const notes=()=>STARCHORUS.observations().filter(x=>x.group==="Alerts").map(x=>x.text);
 const vis=()=>(row().visible?1:0)+"/"+notes().length;
 await ld(null,"al-warm");o.start=vis();
-o.tokens=TH.map(th=>{STARCHORUS.setTheme(th);const r=row();return r.visible&&r.paints.length>0&&r.paints.every(p=>p.tok==="status.alarm"&&p.css===p.val)?1:0;}).join("");
+o.tokens=TH.map(th=>{STARCHORUS.setTheme(th);const r=row();return r.visible&&r.paints.length>0&&r.paints.every(p=>p.tok==="status.alert"&&p.css===p.val)?1:0;}).join("");
 STARCHORUS.setTheme("foundation");
 const txt=document.getElementById("leg-alert").textContent;
-o.words=txt==="flickering ring = many deauth/disassoc frames heard for this AP";
+o.words=txt==="alert ring = many deauth/disassoc frames heard for this AP";
 o.notes=JSON.stringify(notes());
 await ld(d=>{d.alerts=[d.alerts[2]];},"al-unknown");o.unknown=vis();
 await ld(d=>{d.center.own_bssids=[A1,A4];},"al-own");o.own=vis();
@@ -165,7 +165,7 @@ runq "$AL_FX" "$AL_Q" "$AL_T/legend" --fps 0 --wait 3 --eval-timeout 60 --eval "
 AL_L=$(evalv "$AL_T/legend.json" 1)
 AL_LN=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; d=json.load(sys.stdin); d.pop("text",None); print(json.dumps(d,separators=(",",":"),sort_keys=True))' 2>/dev/null)
 AL_LWANT='{"back":"1/2","errors":0,"none":"0/0","notes":"[\"many deauth/disassoc frames heard for this AP: alert-a (9)\",\"many deauth/disassoc frames heard for this AP: alert-b (4)\"]","one":"1/1/1","own":"0/0","start":"1/2","tokens":"111","unknown":"0/0","words":true}'
-rowif "alerts: the legend row is there while a ring is drawn (2 notes) and gone with no alert, with only the unknown address and with both access points an own transmitter; in the alarm token in all three themes; with its neutral words; the two observation notes read as before [${AL_LN:-no-value}]" [ "$AL_LN" = "$AL_LWANT" ]
+rowif "alerts: the legend row is there while a ring is drawn (2 notes) and gone with no alert, with only the unknown address and with both access points an own transmitter; in the alert token in all three themes; with its neutral words; the two observation notes read as before [${AL_LN:-no-value}]" [ "$AL_LN" = "$AL_LWANT" ]
 [ "$AL_LN" = "$AL_LWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_L:-no-value}" | cut -c1-400)"
 AL_P10=$(sed -n "s/^NTL_P10_RE='\(.*\)'\$/\1/p" tools/regress.d/neutral-language.sh | head -n 1)   # the one definition of the P10 words, read where it lives
 AL_TXT=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("text",""))' 2>/dev/null)
@@ -196,6 +196,31 @@ runq "$AL_FX" "$AL_Q" "$AL_T/frames" --fps 0 --wait 3 --eval-timeout 60 --eval "
 AL_F=$(evalv "$AL_T/frames.json" 1)
 AL_FOK=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if d["alerts"]>=15 and d["again"]>=15 and d["none"]<=3 and d["rm"]<=3 and d["paused"]<=3 and d["errors"]==0 else "bad")' 2>/dev/null)
 rowif "alerts: the flicker keeps the frame loop alive and only the flicker (Whitehall, which rests when nothing moves: frames rendered in 0.7 s with alerts at least 15, without alerts, under reduced motion and paused at most 3 each) [${AL_F:-no-value}]" [ "$AL_FOK" = ok ]
+
+# ---- R10 the colour role: the alert colour is red and apart from the three bands and from selection in every theme (tools/check-colors.py, spec 14.4). The validator runs
+# on the live token sets; three mutations must each turn it red for the alert role: Foundation's alert in its amber alarm colour, Whitehall's in the 5 GHz band colour, and
+# WarGames' without the token. The counts are pinned: 18 checks of the role (3 themes x hue, 3 bands, 2 selection tokens) and a green validator on the real tokens.
+runq demo "$AL_Q" "$AL_T/themes" --wait 1 --fps 0 --eval 'JSON.stringify(STARCHORUS._internals.THEMES)' >/dev/null 2>&1
+AL_CC=$(python3 -B - "$AL_T/themes.json" <<'PY'
+import json, subprocess, sys, tempfile
+d = json.load(open(sys.argv[1])); t = json.loads(d["eval"][0]["value"])
+def run(mut, *a):
+    u = json.loads(json.dumps(t)); mut(u)
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(u, f); n = f.name
+    return subprocess.run([sys.executable, "tools/check-colors.py", n, *a], capture_output=True, text=True)
+base = run(lambda u: None, "--table")
+role = [l for l in base.stdout.splitlines() if l.split()[:3][2:] == ["alert"]]
+def bites(mut):
+    r = run(mut)
+    return r.returncode == 1 and any(l.startswith("FAIL") and " alert " in l for l in r.stdout.splitlines())
+m = [bites(lambda u: u["foundation"]["status"].__setitem__("alert", u["foundation"]["status"]["alarm"])),
+     bites(lambda u: u["whitehall"]["status"].__setitem__("alert", u["whitehall"]["band"]["5"]["core"])),
+     bites(lambda u: u["wargames"]["status"].pop("alert"))]
+print("%d/%d/%s" % (len(role), base.returncode, "".join("1" if x else "0" for x in m)))
+PY
+)
+rowif "alerts: the colour role of the alert ring holds in all three themes (hue red, ΔE ≥ 15 from the bands and selection: 18 checks, validator green) and bites on the amber alarm colour, a band colour and a missing token [$AL_CC]" [ "$AL_CC" = "18/0/111" ]
 
 # ---- R8 the running page, with the alert drawn, asks for nothing but its own page and file (GET, own origin)
 AL_NV=$(net_verdict "$AL_T/ring.json" - 0); AL_NC=$?
