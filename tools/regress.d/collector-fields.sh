@@ -157,7 +157,10 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'hidden networks: a newer non-hidden' 'skip with layers: nothing changed' 'skip with layers: 22 quiet cycles' 'apcli_ro: the four allowed ids' \
                'apcli_ro: Traffic alone opens no list command' 'window state:' 'run_cycle: a capture-source cycle with a Bluetooth window' 'pineap: a cycle with the Bluetooth layer' \
                'pineap: a hidden beacon gives' 'run_cycle: a cycle without data' 'STARCHORUS_BT_WINDOW:' 'bt_note:' 'bt_stat:' 'bt_tick:' 'cleanup: a wrapper forked' \
-               'bt_parse: an LE Direct' 'bt_parse: RSSI invalid' 'forgery: a TAB' 'forgery: a Type: Passive' 'bt_judge: no Scanning: Disabled' 'bt_parse: an awk that runs out'; do
+               'bt_parse: an LE Direct' 'bt_parse: RSSI invalid' 'forgery: a TAB' 'forgery: a Type: Passive' 'bt_judge: no Scanning: Disabled' 'bt_parse: an awk that runs out' \
+               'bt_parse: a header-shaped' 'bt_parse: a name that holds a header' 'bt_parse: a name with a newline inside' 'bt_nap: the nap is its argument' \
+               'bt_end: the wait polls every 0.5 s' 'bt_begin: a monitor that has written only its banner' 'traffic: a share below 0.001' \
+               'traffic: a whole cycle with only Traffic on' 'traffic: every second cycle: three cycles' 'traffic: every second cycle: an answer'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"
