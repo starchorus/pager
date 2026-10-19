@@ -7,7 +7,7 @@
 # box, logon, banners) + title/aria-label/placeholder/alt/meta content + document.title, in all
 # three themes -- idle, and with detail panel + tooltip open on the strongest AP, an associated
 # client, a free client and a bubble (when present) -- plus the chanbar tooltip text of every
-# occupied channel; fixtures demo, active, devices, field-probes (start themes cover both logons).
+# occupied channel; fixtures demo, active, devices, field-probes and alerts (start themes cover both logons; alerts: the legend row and the alert notes).
 # Display script: LOG of both starchorus-display.sh copies (--once, EVERY screen x every fixture) plus every "…"
 # literal of the scripts (menu, spinner and dialog texts that --once never prints). The screen list is read
 # from each script (its screen_NAME() functions), not typed here: a typed list would silently miss a screen added
@@ -32,7 +32,7 @@ PY
 NTL_EVP10='(async()=>{const T0=STARCHORUS.getTheme(),seen=new Set(),tags=[];const add=s=>{for(const l of String(s==null?"":s).split("\n")){const t=l.trim();if(t)seen.add(t)}};const grab=tag=>{tags.push(tag);add(document.body.innerText);const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentNode.nodeName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});while(w.nextNode())add(w.currentNode.nodeValue);document.querySelectorAll("[title],[aria-label],[placeholder],[alt],meta[content]").forEach(e=>{for(const a of ["title","aria-label","placeholder","alt","content"])add(e.getAttribute(a))});add(document.title)};const byRssi=(a,b)=>(b.rssi??-999)-(a.rssi??-999)||(a.id<b.id?-1:1);for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await STARCHORUS.wait(50);STARCHORUS.frame();grab(t);const pick=[["ap",STARCHORUS.nodes("ap").sort(byRssi)[0]],["assoc",STARCHORUS.nodes("assoc")[0]],["free",STARCHORUS.nodes("free")[0]],["bubble",STARCHORUS.nodes("bubble")[0]]];for(const [k,n] of pick){if(!n)continue;STARCHORUS.select(n.id);if(k!=="bubble")STARCHORUS.hoverNode(n.id);await STARCHORUS.wait(20);STARCHORUS.frame();grab(t+":"+k);STARCHORUS.hoverNode(null);STARCHORUS.deselect()}const ch=STARCHORUS.channels();for(const b of ["2.4","5","6"])for(const c of Object.keys(ch[b]||{}))add(STARCHORUS.hoverChannel(b,c))}STARCHORUS.setTheme(T0);STARCHORUS.frame();return "#grabs "+tags.join(",")+"\n"+[...seen].join("\n")})()'
 
 NTL_BAD=""; NTL_GR=""
-for NTL_RUN in demo:wargames active:whitehall devices:foundation field-probes:whitehall; do
+for NTL_RUN in demo:wargames active:whitehall devices:foundation field-probes:whitehall alerts:wargames; do
   NTL_FX=${NTL_RUN%%:*}; NTL_TH=${NTL_RUN#*:}
   if [ "$NTL_FX" = demo ]; then NTL_SRC=demo; else NTL_SRC="$F/$NTL_FX.json"; fi
   runq "$NTL_SRC" "?poll=0&spin=0&theme=$NTL_TH" "out/$P-p10-$NTL_FX" --wait 4 --fps 0 \

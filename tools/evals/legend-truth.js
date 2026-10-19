@@ -9,11 +9,11 @@
 // the D10 visibility rules (a derived row exists exactly while its toggle AND its data allow the mark; the
 // randomized row (D8) exactly while such a client is present); and the "Band ?" row (hidden here, visible with
 // count 1 after a synthetic STARCHORUS.load of a band-less AP with a locally administered BSSID, P9).
-// 0.2 adds three kinds: bt (render.btMark), activity (ink.primary: the whisker) and traffic (render.clientCore: the cue's tick ring); they are hidden here,
+// 0.2 adds a fourth kind for the alerts, alert (status.alarm), checked at the end; and three kinds: bt (render.btMark), activity (ink.primary: the whisker) and traffic (render.clientCore: the cue's tick ring); they are hidden here,
 // since no row shows a Bluetooth address, an activity share or a station rate on the fixtures of this run (tools/regress.d/legend.sh drives them on radio-pair.json).
 // Ornaments (glow/bloom/halo, star highlight, WarGames bubble ticks) are not part of a swatch, by definition.
 (async () => {
-  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","bt","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","activity","traffic","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height"];
+  const KINDS = ["band-24","band-5","band-6","band-unknown","client-free","client-assoc","client-random","bubble","bt","sec-open","sec-wep","sec-wpa","sec-wpa2","sec-wpa3","sec-owe","sec-enterprise","sec-wpa3-transition","sec-tkip-weak","sec-unknown","fresh-t0","fresh-t1","fresh-t2","fresh-t3","fresh-undated","hidden","activity","traffic","alert","geometry","nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost","id-head","id-friend","id-neutral","id-hostile","selected","pinned","height"];
   const RINGS = {"sec-open":[[1.5,""]],"sec-wep":[[1.5,""]],"sec-wpa":[[1,""]],"sec-wpa2":[[1,""],[1,""]],"sec-wpa3":[[1.5,""]],"sec-owe":[[1,""]],"sec-enterprise":[[1,"5,2"]],"sec-wpa3-transition":[[1.5,""],[1.5,""]],"sec-tkip-weak":[[1,"1,3"]],"sec-unknown":[],"hidden":[[1,"4,4"]]};
   const DERIVED = ["nebula","groups","devices","merge","probes","arc","crowding","deviation","ghost"];
   const want = (t) => { const x = t.render.clientShape === "cross"; return {
@@ -24,6 +24,7 @@
     "bubble":["render.bubbleFill","render.bubbleStroke"],
     "bt":["render.btMark"],   // 0.2: the Bluetooth triangle swatch (fill and stroke), the token the canvas mark reads
     "activity":["ink.primary"],"traffic":["render.clientCore"],   // 0.2: the whisker line in a channel bar; the cue's dotted ring round a station dot
+    "alert":["status.alarm"],   // 0.2: the ring of an alerted AP, drawn in the theme's alarm colour (drawStars); the one kind added for the alerts
     "sec-open": t.status.alarmAura === "wash" ? ["status.alarm","status.alarmWash"] : ["status.alarm"],
     "sec-wep": t.status.alarmAura === "wash" ? ["status.alarm","status.alarmWash"] : ["status.alarm"],
     "sec-wpa":["status.ringNeutral"],"sec-wpa2":["status.ringNeutral"],
@@ -62,6 +63,14 @@
   if (document.getElementById("leg-arc").hidden) bad.push("arc follows crt.userToggle"); T.wargames.crt.userToggle = u;
   STARCHORUS.load({ aps: [{ bssid: "02:00:00:00:00:01", ssid: "lab-noband", rssi: -52, security: "WPA2" }, { bssid: "02:00:00:00:00:02", ssid: "lab-24", rssi: -61, channel: 6, security: "WPA2" }] }, "legend-probe");
   for (const th of TH) { STARCHORUS.setTheme(th); const r = STARCHORUS.legendRows().find(r => r.kind === "band-unknown"); if (!r || !r.visible || r.cnt !== 1) bad.push(th + ": Band ? row " + JSON.stringify(r && { v: r.visible, c: r.cnt })); const q = STARCHORUS.legendRows().find(r => r.kind === "client-random"); if (q && q.visible) bad.push(th + ": randomized row visible without a randomized client"); }
+  // 0.2 alerts: the "alert" row is hidden on the fixtures of this run (no alerts[]), and with one alerted AP it is visible in every theme in status.alarm only; the control paints its
+  // swatch with another token and the same check must see it (tools/regress.d/alerts.sh drives the rest on tests/fixtures/alerts.json)
+  for (const th of TH) { STARCHORUS.setTheme(th); const r = STARCHORUS.legendRows().find(r => r.kind === "alert"); if (r && r.visible) bad.push(th + ": alert row visible without an alert"); }
+  STARCHORUS.load({ aps: [{ bssid: "02:00:00:00:00:03", ssid: "lab-alert", rssi: -50, channel: 6, security: "WPA2" }], alerts: [{ type: "deauth", t: 1, ap: "02:00:00:00:00:03", n: 2 }] }, "legend-alert");
+  const alTok = () => { const r = STARCHORUS.legendRows().find(r => r.kind === "alert"); return r && r.visible ? [...new Set(r.paints.map(p => p.tok))].sort().join(" ") + (r.paints.every(p => p.css === p.val) ? "" : " (css differs)") : "hidden"; };
+  for (const th of TH) { STARCHORUS.setTheme(th); const g = alTok(); if (g !== "status.alarm") bad.push(th + ": alert row with an alerted AP: " + g); }
+  document.querySelector("#leg-alert circle").setAttribute("stroke", "var(--ink-muted)");   // negative control: another token on the swatch
+  if (alTok() === "status.alarm") bad.push("alert swatch: another token is not seen");
   STARCHORUS.setTheme("foundation");
   return JSON.stringify(bad);
 })()

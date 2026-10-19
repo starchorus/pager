@@ -1875,7 +1875,8 @@ Rows in this order (`data-kind` in brackets):
    and the sub-label `#leg-random-cl` adds ' · m in k cloud(s)', m the addresses in them, while there are random clouds, §8.8a), 'n clients (bubble)' (`bubble`). Security (`sec-<klasse>` per
    class of `ENCODING.security`, only with an AP): ring swatch as in `drawApRings` + glyph in the colour of its tone + label + count.
    Freshness 'Heard' (`fresh-t0` … `fresh-t3`, `fresh-undated`; only while dated nodes are present; unreachable levels
-   are dropped) and, in Whitehall, the freshness lamps (`#tote`). 'hidden SSID' (`hidden`) and the geometry row (`geometry`):
+   are dropped) and, in Whitehall, the freshness lamps (`#tote`). 'hidden SSID' (`hidden`), the alert row (`alert`, 0.2: only while an
+   alerted access point is drawn; a ring swatch in `status.alarm`; 'flickering ring = many deauth/disassoc frames heard for this AP', §14.6) and the geometry row (`geometry`):
    'rings = received signal (dBm), not range · direction is not measured'.
 2. **Derived** – 'channel overlap (derived, width unknown → 20 MHz)' (`#leg-nebula`), 'same ESSID' (`#leg-groups`), 'linked
    radios · likely same device (heuristic)' (`#leg-devices`), 'merged SSID · one node per ESS (count = APs)' (`#leg-merge`),
@@ -2632,6 +2633,14 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   the page folds one and counted once, and only an address that `aps[]` holds counts, because the page draws its note and its ring for an access point it knows and for no other. The line is at most 40 columns, ASCII and neutral (the P10 words stay
   out), it is the only red line besides the open/WEP, jq-incomplete and no-new-scan lines (`tools/regress.d/display-parity.sh` pins its text, once, inside `alert_line`, with controls), no other screen marks an alerted access point, and it is drawn
   with the summary and never by itself. The report times, the counts per access point and the addresses are not shown there.
+  **Presentation, the page.** An alerted access point gets a second ring in `drawStars` (section 34, 1,200 bytes of page at most): the alarm colour of the theme (`THEME.status.alarm`: red in Whitehall, orange-red in WarGames, the amber
+  of Foundation's own alarm), two pixels wide, at `px + 2 · ringOffsetPx` (8: outside the security ring at 4, inside the hidden-SSID ring at 10), through the ring batch like the others. Which access points: those that `alerts[]` names and the page holds and notes
+  (`alertNode`: `S.aps` has the address and it is no mobile hotspot and no own transmitter, the rule of the Observations note), at once, without the note's dwell of two captures. The ring flickers in the theme's own idiom, taken from its
+  cue token `render.changeCue` so that no theme table grows: `glowPulse` (Foundation) a slow smooth pulse of its alpha between 0.4 and 1 (about 0.5 Hz), `bloomPulse` (WarGames) a phosphor flicker, a seeded alpha in 0.3 to 1 that changes twice a second
+  and differs per access point, `tick` (Whitehall) a chalk blink, its alpha switching between 0.4 and 1 every second; nothing steps more than twice a second (the rule of the CRT flicker, Layer 14). Under reduced motion the ring stands steady at full alpha; with `?fixed` it
+  is a pure function of the frozen clock. The frame loop is asked for while a flicker runs (`wargamesAnimating`: no `?fixed`, not paused, no reduced motion, an alerted access point), so that a sky that does not spin still shows it. The legend row `alert`
+  (§9.4) exists exactly while such a ring can be drawn. No ray from a source to a target: the source address of a report is whatever the frames claim and the page does not show it. `tools/regress.d/alerts.sh` reads the ring from the canvas in all three
+  themes, in steps of the frozen clock, against the same sky without its alerts, with the token swapped, with own transmitters, and counts the frames the loop renders.
   **Collector:** with the switch on, `alerts_look` tests with builtins whether `$OUTDIR/alerts.log` is a readable regular non-empty file (so a Pager without it pays no process; a directory or a pipe, which `tail`
   would wait on for ever, is said once per episode and read as no file), the layers pass takes a snapshot of its last 256 KiB (mode 600, in `$TMPDIR_RAM`, removed after the cycle) and the one awk of the layers
   (`AWK_LAYERS`, now with a fourth input beside the Bluetooth records, the Traffic answer and the held records) writes `alerts[]` before `aps`: lines of the last `STARCHORUS_ALERT_WINDOW` seconds, grouped by AP,

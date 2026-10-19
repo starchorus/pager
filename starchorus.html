@@ -1731,6 +1731,7 @@ function isMobileLikely(n) {
   return MOBILE_SSID_RE.test(n.ssidKnown || n.ssid || "") || !!(n.caps && n.caps.includes("IBSS"));
 }
 const eventSkip = (n) => !n || n.mobile || S.own.bssids.has(n.id);   // mobile hotspots and this device's own transmitters
+const alertNode = (a) => { const n = S.aps.get(a.ap); return n && !eventSkip(n) ? n : null; };   // an alert counts for an AP the page holds and notes
 function chgPush(id, seq, t, kind, from, to) {
   let a = S.chg.get(id);
   if (!a) { if (S.chg.size >= CHG_BSSIDS) S.chg.delete(S.chg.keys().next().value); a = []; S.chg.set(id, a); }
@@ -3997,6 +3998,7 @@ function step(dt, liveDt) {
   nodeEaseDt = dt; projectAll();
 }
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
+  if (S.fixedTime == null && !S.ui.paused && !reduceMotion && S.alerts.some(alertNode)) return true;   // a flickering alert ring
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
   if (S.anim.edgeTravelDotSpeed <= 0 || S.ui.paused || S.fixedTime != null) return false;
   if (S.ui.links) for (const c of S.clientOrder) { if (!c.free && c.alphaDraw > 0.05) { const ap = S.aps.get(c.parent); if (ap && ap.alphaDraw > 0.05) return true; } }
@@ -5041,6 +5043,8 @@ function drawStars() {
     }
     drawSelectionMarks(ctx, ap, ap.alphaDraw);
   }
+  const cm = THEME.render.changeCue, e2 = Math.floor(S.clock * 2);   // an alerted AP's ring, alarm colour: a slow pulse, a phosphor flicker or a chalk blink by the theme's cue, steady under reduced motion
+  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alarm, 2, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + 2 * ENCODING.ringOffsetPx, 0, Math.PI * 2); }
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }
@@ -6055,6 +6059,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" id="leg-fresh-u" data-kind="fresh-undated" hidden>' + freshSwatch(ENCODING.fresh.alpha[0]) + '<span>' + esc(ENCODING.fresh.undated) + '</span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div>');
   rows.push('<div class="legrow note" data-kind="hidden">' + ringSwatch(ENCODING.hidden, "--status-hidden", 5.5) + '<span>hidden SSID</span></div>');
+  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--status-alarm)" stroke-width="2"/>') + '<span>flickering ring = many deauth/disassoc frames heard for this AP</span></div>');
   rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
   rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');
@@ -6099,7 +6104,7 @@ function legendVisibility() {   // D10: a mark's row exists exactly while that m
   vis("leg-block-look", S.ui.view === "3d");
   const bo = S.ui.filters.bt && S.btOrder.length > 0 && S.perf.lod < 3, txt = (id, t) => { const e = el(id); if (e) e.textContent = t; };
   const bb = document.querySelector('[data-band="bt"]'); if (bb) bb.hidden = !S.btDoc;
-  vis("leg-bt", bo); vis("leg-activity", S.actN > 0); vis("leg-cue", !captureStale() && S.clientOrder.some(c => c.cue));
+  vis("leg-alert", S.alerts.some(alertNode)); vis("leg-bt", bo); vis("leg-activity", S.actN > 0); vis("leg-cue", !captureStale() && S.clientOrder.some(c => c.cue));
   txt("leg-geometry", "rings = received signal (dBm), not range · " + (bo ? "Bluetooth and Wi-Fi share the rings, not the scale · " : "") + "direction is not measured");
 }
 function updateLegendCounts() {
