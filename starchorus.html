@@ -386,7 +386,7 @@ b { font-weight: 600; }
 #scope-strip i{font:normal 13px/16px var(--font-ui);color:var(--ink-secondary)}
 #scope-strip.t{letter-spacing:0}#scope-strip.n i{width:0;height:0;overflow:hidden}
 #scope-foot{position:fixed;left:var(--sc-x);width:var(--sc-w);text-align:center;font-size:13px;line-height:16px;color:var(--ink-secondary);text-transform:var(--text-transform);white-space:pre-line;pointer-events:none;bottom:var(--sc-b);display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;column-gap:4px}
-#scope-foot .l{text-align:right}#scope-foot .r{text-align:left}#sc-rx{grid-column:1/-1;margin-top:3px;color:var(--ink-primary)}
+#scope-foot .l{text-align:right}#scope-foot .r{text-align:left}#sc-rx,#sc-no{grid-column:1/-1;margin-top:3px;color:var(--ink-primary)}#sc-no{order:-1}
 #bar .lamps:not([hidden]){display:flex;margin-left:auto}
 
 /* ==== 04 CONTROLS ==== */
@@ -597,7 +597,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 <div id="scope-strip" class="panel ph-only" role="group" aria-label="Scope readout"></div>
 <div id="scope-foot" class="ph-only"><span class="l">lanes = band, channel
 not direction</span><span id="sc-ps"></span><span class="r">arcs = signal (dBm)
-not range</span><span id="sc-rx"></span></div>
+not range</span><span id="sc-rx"></span><span id="sc-no" hidden>Too little room for the scope: turn the phone upright</span></div>
 <button class="btn" id="panels-pill" aria-label="Show the panels"><span class="dot" id="pill-dot"></span><span id="pill-chip">Sample</span></button>
 
 <!-- ==== 11 MASTHEAD & STATS ==== -->
@@ -2479,6 +2479,7 @@ function scopeGeom() {
   const b = skyBox(), set = (k, v) => DE.style.setProperty(k, Math.round(v) + "px");
   set("--sc-x", b.x + 8); set("--sc-w", b.w - 16); set("--sc-y", b.y); set("--sc-b", H - b.y - b.h);
   const ps = el("sc-ps").getBoundingClientRect(), top = b.y + el("scope-strip").offsetHeight + 4, py = ps.top + ps.height / 2, L = py - top - SCOPE.rim, rNear = Math.max(34, 0.18 * L), oy = py - SCOPE.near + rNear;
+  el("sc-no").hidden = L >= SCOPE.minL;
   if (L < SCOPE.minL) return SC.g = null;
   let k = -1;
   const g = { b, top, py, oy, rNear, ox: b.x + b.w / 2, rFar: oy - top - SCOPE.rim, th: SCOPE.half * Math.PI / 180, half: b.w / 2 - 10, lanes: SCOPE.lanes.map(([key, w]) => { const l = { key, k0: k, k1: k += w }; k += SCOPE.gap; return l; }) };

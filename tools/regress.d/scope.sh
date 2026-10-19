@@ -156,6 +156,11 @@ def lamps(v):
     if d.get("bar") != [8, True]: bad.append("the bar's counter %s" % d.get("bar"))
     if d.get("errors") != 0: bad.append("errors %s" % d.get("errors"))
     return bad
+def note(v):   # 568x320: Whitehall has no room for the fan and says so; the other themes have it; back in Whitehall the note comes again
+    d = json.loads(v)
+    want = {"whitehall": "none|note|true|true", "foundation": "fan|-|true|true", "wargames": "fan|-|true|true", "whitehall2": "none|note|true|true",
+            "text": "Too little room for the scope: turn the phone upright", "errors": 0}
+    return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 def ring3d(v):
     d = json.loads(v); want = {"blend": ["3d", 1], "labels": "foundation:0:0:0 wargames:0:0:0 whitehall:0:0:0", "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
@@ -359,6 +364,11 @@ STARCHORUS.setTheme("foundation");await W(300);STARCHORUS.setTheme("wargames");a
 o.n=[a[0],b[0],c[0],d[0]];o.want=want;o.label=[a[1],b[1],c[1],d[1]];
 const bl=E("scope-lamps");o.bar=[bl.children.length,/^capture counter/.test(bl.getAttribute("aria-label")||"")];
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+# 568x320: a fan that has no room says so (Whitehall), comes back with a roomier theme, and says so again
+SCP_EVN='(async()=>{const I=STARCHORUS._internals,SC=I.SC,W=STARCHORUS.wait,E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),o={};
+const st=()=>{const n=E("sc-no"),ft=R(E("scope-foot")),sp=R(E("scope-strip"));return [SC.g?"fan":"none",!n.hidden&&n.getClientRects().length>0?"note":"-",ft.top>=sp.bottom-0.5&&ft.bottom<=innerHeight+0.5&&ft.left>=0&&ft.right<=innerWidth+0.5,document.documentElement.scrollWidth===innerWidth].join("|")};
+for(const t of ["whitehall","foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(700);o[o[t]?t+"2":t]=st()}
+o.text=E("sc-no").textContent;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 
 # ---- geometry, lanes, captions, text size, overlaps and the sideways scroll: 4 phone sizes x 3 themes (devices.json)
 for SCP_Z in 390x844 375x812 430x932 812x375; do
@@ -500,6 +510,11 @@ runq demo "$SCP_LQ&theme=wargames" "$SCP_T-idlew" --width 390 --height 844 --mob
 SCP_R=$(scp_j idle "$(scp_ev "$SCP_T-idlew.json")")
 scp_row "scope in WarGames (CRT on, persistence): 0 frames in 2 s at rest and 5 s after a capture, 30 or more in the first second of a wave, 3 to 6 in 2 s while the feed is stale" "$SCP_R"
 
+# ---- no room for the fan (568x320, Whitehall's banners): the foot's note appears, a roomier theme brings the fan back, Whitehall again says so
+scp_run note "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320
+SCP_R=$(scp_j note "$(scp_ev "$SCP_T-note.json")")
+scp_row "scope 568x320: Whitehall has no fan and the foot says 'Too little room for the scope: turn the phone upright' (inside the screen, clear of the strip), Foundation and WarGames have the fan and no note, Whitehall again has the note" "$SCP_R"
+
 
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
@@ -544,4 +559,7 @@ scp_mut ring3d 's/const is3d = !scopeOn && S.view.blend > 0.5/const is3d = S.vie
 # the phosphor fade on every frame again
 scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePhase() >= 1);/S.persistOn = P > 0 \&\& S.ui.crt;/;s/S.persistOn \&\& !scopeOn ? RENDER.persistFadeFrames/S.persistOn ? RENDER.persistFadeFrames/' || SCP_MB="$SCP_MB persist(no copy)"
 [ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ&theme=wargames" "$SCP_T-mpersist" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; [ "$(scp_j idle "$(scp_ev "$SCP_T-mpersist.json")")" != ok ] || SCP_MB="$SCP_MB persist"; }
+# a note that never shows
+scp_mut note 's/el("sc-no").hidden = L >= SCOPE.minL;/el("sc-no").hidden = true;/' || SCP_MB="$SCP_MB note(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnote "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320; [ "$(scp_j note "$(scp_ev "$SCP_T-mnote.json")")" != ok ] || SCP_MB="$SCP_MB note"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
