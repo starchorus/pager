@@ -1731,7 +1731,8 @@ function isMobileLikely(n) {
   return MOBILE_SSID_RE.test(n.ssidKnown || n.ssid || "") || !!(n.caps && n.caps.includes("IBSS"));
 }
 const eventSkip = (n) => !n || n.mobile || S.own.bssids.has(n.id);   // mobile hotspots and this device's own transmitters
-const alertNode = (a) => { const n = S.aps.get(a.ap); return eventSkip(n) ? null : n; };
+const alertNode = (a) => { const n = S.aps.get(a.ap); return eventSkip(n) || S.ui.filters[n.band] === false ? null : n; };
+let alAt = Infinity;
 function chgPush(id, seq, t, kind, from, to) {
   let a = S.chg.get(id);
   if (!a) { if (S.chg.size >= CHG_BSSIDS) S.chg.delete(S.chg.keys().next().value); a = []; S.chg.set(id, a); }
@@ -3998,7 +3999,7 @@ function step(dt, liveDt) {
   nodeEaseDt = dt; projectAll();
 }
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
-  if (S.fixedTime == null && !S.ui.paused && !reduceMotion && S.alerts.some(alertNode)) return true;
+  if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) return true;
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
   if (S.anim.edgeTravelDotSpeed <= 0 || S.ui.paused || S.fixedTime != null) return false;
   if (S.ui.links) for (const c of S.clientOrder) { if (!c.free && c.alphaDraw > 0.05) { const ap = S.aps.get(c.parent); if (ap && ap.alphaDraw > 0.05) return true; } }
@@ -5044,7 +5045,8 @@ function drawStars() {
     drawSelectionMarks(ctx, ap, ap.alphaDraw);
   }
   const cm = THEME.render.changeCue, e2 = S.clock * 2 | 0;
-  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) ringArc(THEME.status.alert, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); }
+  alAt = Infinity;
+  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) { alAt = reduceMotion ? Infinity : cm === "glowPulse" ? 0 : (e2 + 1) / 2; ringArc(THEME.status.alert, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); } }
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }
