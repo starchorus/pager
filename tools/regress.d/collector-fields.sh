@@ -143,7 +143,7 @@ CFL_PB=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"
 # shellcheck disable=SC2016
 CFL_PB0=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE '^export STARCHORUS_(BLUETOOTH|TRAFFIC)="\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}"')
 rowif "collector fields: the payload rows bite (a default of 1 is seen as one, and is not an export with 0: $CFL_PB/$CFL_PB0)" [ "$CFL_PB/$CFL_PB0" = 1/0 ]
-# ---- alerts (0.2): the collector reads $OUTDIR/alerts.log by default (STARCHORUS_ALERTS 1, a window of 600 s), and the README says so in the two table rows of the collector's
+# ---- alerts (0.2): the collector reads alerts.log in STARCHORUS_ALERT_DIR (default /root/loot/starchorus-alerts, a directory of its own) by default (STARCHORUS_ALERTS 1, a window of 600 s), and the README says so in the two table rows of the collector's
 # variables and names the companion file that writes the log. Three names, three counts: a name that is missing, or documented with another default, is red.
 CFL_AD=$(grep -cE '^ALERTS=\$\{STARCHORUS_ALERTS:-1\}( |$)' starchorus-collect.sh)
 # shellcheck disable=SC2016  # literal ${...} of the scanned script text, nothing is meant to expand

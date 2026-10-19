@@ -33,7 +33,7 @@
 #                       anyway, and the monitor that decodes what the controller hands the host). A window counts
 #                       only when that monitor shows the scan parameters of the collector's own scan with
 #                       Type: Passive before the first report (the witness, bt_parse).
-#                       Reading the alert log (STARCHORUS_ALERTS, on by default): $OUTDIR/alerts.log, a text file that the companion
+#                       Reading the alert log (STARCHORUS_ALERTS, on by default): $ALERT_DIR/alerts.log, a text file that the companion
 #                       alert payload (alert-deauth.sh) appends to when the firmware reports many deauth/disassoc frames heard for an
 #                       access point. Nothing is received or sent for it; the file is read as untrusted text (alerts[], below).
 #   Never done here   : aireplay/mdk (deauth), hostapd/airbase (rogue AP), hcxdumptool active,
@@ -110,9 +110,11 @@
 #                        this flag alone, in the background) into the top-level "activity" array (a share per frequency, never a count); the
 #                        cycles in between publish the answer of the cycle before again, as the AP service counts over a window of 20 to 30 s.
 #                        The recon database path adds the cumulative frame counter "packets" to stations heard in the last 300 s.  (default 0)
-#   STARCHORUS_ALERTS         1 = each cycle reads $OUTDIR/alerts.log when that file exists (the companion alert payload alert-deauth.sh writes it, one
+#   STARCHORUS_ALERTS         1 = each cycle reads $ALERT_DIR/alerts.log when that file exists (the companion alert payload alert-deauth.sh writes it, one
 #                        line per deauth/disassoc alert of the firmware: EPOCH, deauth, AP, SOURCE, DESTINATION, CLIENT, tab separated) and writes the
 #                        top-level "alerts" array; without the file nothing is read and no key is written. Runs nothing and sends nothing.  (default 1)
+#   STARCHORUS_ALERT_DIR      the directory of alerts.log: a directory of its own outside the one the page server serves, default /root/loot/starchorus-alerts
+#                             (the companion uses the same default and runs without the payload's environment; the variable is an override for tests)
 #   STARCHORUS_ALERT_WINDOW   the seconds an alert stays in "alerts": whole seconds from 60 to 86400; anything else is 600, with one log line.  (default 600)
 #   STARCHORUS_SYSFS_BT       tests only: where the controller is looked for (default /sys/class/bluetooth), like STARCHORUS_SYSFS_NET.
 #   STARCHORUS_PROC_BT        tests only: where the Bluetooth window code reads /proc from (default /proc).
@@ -185,7 +187,8 @@ OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
 APCLI_RO=${STARCHORUS_APCLI_RO:-0}
 BLUETOOTH=${STARCHORUS_BLUETOOTH:-0}
 TRAFFIC=${STARCHORUS_TRAFFIC:-0}
-ALERTS=${STARCHORUS_ALERTS:-1}                    # 1 = read $OUTDIR/alerts.log when it exists (the header says what writes it); nothing happens without the file
+ALERTS=${STARCHORUS_ALERTS:-1}                    # 1 = read $ALERT_DIR/alerts.log when it exists (the header says what writes it); nothing happens without the file
+ALERT_DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}   # where the companion alert-deauth.sh writes alerts.log: a directory of its own, outside the one the page server serves
 BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
 BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
@@ -1445,16 +1448,16 @@ AWK_LAYERS='
         close(sf)
     }
 '
-# Sets AL_ON for this cycle: 1 when the switch is on and $OUTDIR/alerts.log is a readable regular file with something in it. Shell tests only, so a Pager
+# Sets AL_ON for this cycle: 1 when the switch is on and $ALERT_DIR/alerts.log is a readable regular file with something in it. Shell tests only, so a Pager
 # that has no such file pays no process for the feature. A name that is there but is no readable regular file (a directory, a pipe, which `tail` would
 # wait on for ever) is said once per episode and read as no file.
 alerts_look() {
     AL_ON=0
-    [ "$ALERTS" = 1 ] && [ -e "$OUTDIR/alerts.log" ] || return 0
-    if [ -f "$OUTDIR/alerts.log" ] && [ -r "$OUTDIR/alerts.log" ]; then
-        [ -s "$OUTDIR/alerts.log" ] && AL_ON=1
+    [ "$ALERTS" = 1 ] && [ -e "$ALERT_DIR/alerts.log" ] || return 0
+    if [ -f "$ALERT_DIR/alerts.log" ] && [ -r "$ALERT_DIR/alerts.log" ]; then
+        [ -s "$ALERT_DIR/alerts.log" ] && AL_ON=1
     else
-        bt_issue alertsread "Alerts: $OUTDIR/alerts.log is not a readable file; no alerts this cycle"
+        bt_issue alertsread "Alerts: $ALERT_DIR/alerts.log is not a readable file; no alerts this cycle"
     fi
     return 0
 }
@@ -1471,8 +1474,8 @@ add_layers() {
     al_f=""
     if [ "$AL_ON" = 1 ]; then
         umask 077; : > "$al_b.alog" 2>/dev/null; umask "$al_um"   # addresses again
-        if tail -c 262144 "$OUTDIR/alerts.log" > "$al_b.alog" 2>/dev/null; then al_f="$al_b.alog"
-        else bt_issue alertsread "Alerts: $OUTDIR/alerts.log could not be read; no alerts this cycle"; fi
+        if tail -c 262144 "$ALERT_DIR/alerts.log" > "$al_b.alog" 2>/dev/null; then al_f="$al_b.alog"
+        else bt_issue alertsread "Alerts: $ALERT_DIR/alerts.log could not be read; no alerts this cycle"; fi
     fi
     SC_TS=$ts SC_HOLD=$BT_HOLD SC_WIN=$al_w SC_BTMODE=$2 SC_TRAFFIC=$TRAFFIC SC_BTP="$BT_F.out" SC_BTH="$al_b.held" SC_BTN="$al_b.new" \
         SC_TRF="$TMPDIR_RAM/starchorus-traffic-$$.json" SC_ALF="$al_f" SC_ALWIN=$ALERT_WIN SC_STAT="$al_b.stat" LC_ALL=C awk "$AWK_JSON_HELPERS$AWK_LAYERS" < "$1" > "$1.l" 2>/dev/null
@@ -3973,9 +3976,9 @@ lay_selftest() {
     # gate; the last rows run whole cycles. The clock of the cycle is a function `date` for the block: 1789300000, the same second in every row.
     # lal_l EPOCH AP = one line as the companion writes it (EPOCH deauth AP SOURCE DESTINATION CLIENT, tab separated).
     lal_ad="$LAY/al"; mkdir -p "$lal_ad"
-    lal_so=$OUTDIR; lal_sa=$ALERTS; lal_sw=$ALERT_WIN; lal_sb=$ALERT_WIN_BAD; lal_str=$TRAFFIC; lal_sbl=$BLUETOOTH; lal_sbr=$BT_RC; lal_stp=$TR_PID
+    lal_so=$OUTDIR; lal_sad=$ALERT_DIR; lal_sa=$ALERTS; lal_sw=$ALERT_WIN; lal_sb=$ALERT_WIN_BAD; lal_str=$TRAFFIC; lal_sbl=$BLUETOOTH; lal_sbr=$BT_RC; lal_stp=$TR_PID
     lal_srs=$RESOLVED; lal_scm=$CAP_METHOD; lal_sof=$OUTFILE; lal_sve=$VENDOR
-    BLUETOOTH=0; TRAFFIC=0; BT_RC=3; TR_PID=""; ALERTS=1; ALERT_WIN=600; ts=1789300000; OUTDIR=$lal_ad; BT_LOGGED=" "
+    BLUETOOTH=0; TRAFFIC=0; BT_RC=3; TR_PID=""; ALERTS=1; ALERT_WIN=600; ts=1789300000; OUTDIR=$lal_ad; ALERT_DIR=$lal_ad; BT_LOGGED=" "
     date() { if [ "$1" = "+%s" ]; then printf '%s\n' 1789300000; else command date "$@"; fi; }
     lal_l() { printf '%s\tdeauth\t%s\t02:00:00:00:0b:01\t02:00:00:00:0c:01\t02:00:00:00:0c:02\n' "$1" "$2"; }
     lal_doc() { printf '{\n  "generated": 1,\n  "center": {"label": "x"},\n  "aps": [\n  ],\n  "unassociated": [\n  ]\n}\n' > "$LAY/al.json"; }
@@ -4121,7 +4124,7 @@ lay_selftest() {
     if [ "$lal_ok" = 1 ]; then st_pass "alerts: the window is the one set: 60 s drops a line 5 minutes old, 600 s keeps it and drops one 2 hours old, 86400 s keeps both"; else st_fail "alerts: the window ($lal_ok, $(sed -n '/"alerts"/p' "$LAY/al.json" | cut -c1-200))"; fi
 
     unset -f date lal_l lal_doc lal_run
-    OUTDIR=$lal_so; ALERTS=$lal_sa; ALERT_WIN=$lal_sw; ALERT_WIN_BAD=$lal_sb; TRAFFIC=$lal_str; BLUETOOTH=$lal_sbl; BT_RC=$lal_sbr; TR_PID=$lal_stp; AL_ON=0
+    OUTDIR=$lal_so; ALERT_DIR=$lal_sad; ALERTS=$lal_sa; ALERT_WIN=$lal_sw; ALERT_WIN_BAD=$lal_sb; TRAFFIC=$lal_str; BLUETOOTH=$lal_sbl; BT_RC=$lal_sbr; TR_PID=$lal_stp; AL_ON=0
     unset lal_p1 lal_p2 lal_p3 lal_w
 
     TMPDIR_RAM=$lsv_ram; BT_F=$lsv_bf; ts=$lsv_ts; BT_HELD=$lsv_held; BT_WIN=$lsv_win; TRAFFIC=$lsv_tr; BLUETOOTH=$lsv_bl; BT_CUR=$lsv_cur; BT_LOGGED=$lsv_lg

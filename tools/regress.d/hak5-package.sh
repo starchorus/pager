@@ -144,7 +144,7 @@ mkdir -p "$HKP_AB"
 for HKP_f in date tr wc tail mv mkdir rm; do ln -s "$(command -v "$HKP_f")" "$HKP_AB/$HKP_f"; done
 hkp_ev() {   # hkp_ev DIR PATH [VAR=value ...]: one event, the way the firmware hands it over (the environment only); prints the exit status
   _hd=$1; _hp=$2; shift 2
-  (cd / && env -i PATH="$_hp" STARCHORUS_DIR="$_hd" "$@" "$HKP_AL" >/dev/null 2>&1); echo $?
+  (cd / && env -i PATH="$_hp" STARCHORUS_ALERT_DIR="$_hd" "$@" "$HKP_AL" >/dev/null 2>&1); echo $?
 }
 # shellcheck disable=SC2086   # HKP_EV1 is a list of VAR=value words on purpose
 hkp_ev1() { hkp_ev "$1" "$2" $HKP_EV1; }   # hkp_ev1 DIR PATH: the stand-in event below
@@ -170,6 +170,13 @@ hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; HKP_C2="$(wc -l < "$HKP_LG" | tr -d ' ')
 [ "$HKP_C1" = 2000/1000000001 ] || HKP_BAD="$HKP_BAD cap1:$HKP_C1"
 [ "$HKP_C2" = 2000/1000000002/02:00:5e:00:00:0a ] || HKP_BAD="$HKP_BAD cap2:$HKP_C2"
 [ "$(cd "$HKP_AD" && find . -type f | tr '\n' ' ')" = "./alerts.log " ] || HKP_BAD="$HKP_BAD leftovers"
+# its own directory: with STARCHORUS_DIR pointing elsewhere the log still lands in STARCHORUS_ALERT_DIR, and nothing is written where a page server would serve it
+HKP_OD="$HKP_T/other dir"; mkdir -p "$HKP_OD"; rm -f "$HKP_LG"
+# shellcheck disable=SC2086   # HKP_EV1 is a list of VAR=value words on purpose
+hkp_ev "$HKP_AD" "$HKP_AB" STARCHORUS_DIR="$HKP_OD" $HKP_EV1 >/dev/null
+[ "$(wc -l < "$HKP_LG" 2>/dev/null | tr -d ' ')" = 1 ] && [ "$(find "$HKP_OD" -type f 2>/dev/null | wc -l | tr -d ' ')" = 0 ] || HKP_BAD="$HKP_BAD own-dir"
+# shellcheck disable=SC2016   # the literal ${...} of the companion's text is what the pin asks for
+rowif "hak5 package: the companion's log directory is its own (DIR=\${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts} pinned 1, a use of STARCHORUS_DIR 0)" [ "$(grep -c '^DIR=\${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}$' "$HKP_AL")/$(grep -cE '\$\{?STARCHORUS_DIR\b' "$HKP_AL")" = 1/0 ]
 # flock where there is one: asked for once per event, as `flock -x 9`, and the line is written all the same
 printf '#!/bin/sh\necho "flock $*" >> "%s"\nexit 0\n' "$HKP_FL" > "$HKP_AB/flock"; chmod +x "$HKP_AB/flock"; : > "$HKP_FL"; rm -f "$HKP_LG"
 hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null

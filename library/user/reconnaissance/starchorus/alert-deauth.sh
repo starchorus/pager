@@ -1,13 +1,13 @@
 #!/bin/bash
 # Title: Starchorus deauth/disassoc alert
-# Description: Writes one line per firmware alert to the Starchorus alerts.log (time and addresses only). Sends nothing.
+# Description: Writes one line per firmware alert to the Starchorus alerts.log, in a directory of its own (time and addresses only). Sends nothing.
 # Author: Starchorus
 # Version: 0.2.0-dev.1
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # The companion of Starchorus for the firmware's alert deauth_flood_detected. The firmware runs this file once for each such event and hands it the
 # event in environment variables and in no other way: no channel, no signal strength, no frame count and no time. The file appends one line to alerts.log
-# in the Starchorus directory, EPOCH, deauth, AP, SOURCE, DESTINATION and CLIENT separated by tabs, the four addresses in lower case, or "-" where the
+# in a directory of its own (/root/loot/starchorus-alerts, outside the directory the page server may serve whole), EPOCH, deauth, AP, SOURCE, DESTINATION and CLIENT separated by tabs, the four addresses in lower case, or "-" where the
 # firmware gave none or something that is not an address; the Starchorus collector reads that log, and the page words it as 'many deauth/disassoc frames
 # heard for this AP'. What it is not: a detector (the firmware decides what counts as many, nothing here listens to a frame), anything that transmits, or
 # anything that signals the user (no display, sound, LED or vibration command: the firmware's own alert already shows the event, and whether this file
@@ -16,7 +16,9 @@
 # received and is no lead to anyone. The log is kept to its last 2,000 lines, so that a flood of events cannot fill the flash. Install: copy this file to
 # /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh and make it executable (the README of the payload says how). Exit status: 0, always.
 
-DIR=${STARCHORUS_DIR:-/root/loot/starchorus}
+# A directory of its own, not STARCHORUS_DIR: uhttpd or python3 serve that directory whole where the Pager has one, and this log holds other people's addresses.
+# The firmware runs this file without the payload's environment, so the place is fixed; STARCHORUS_ALERT_DIR is an override for tests.
+DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}
 LOG=$DIR/alerts.log
 
 # $1 -> MAC: the text if it is an address (six pairs of hex digits), else "-". Case is settled once, on the whole line, below.
@@ -50,7 +52,7 @@ record() {
 
 # Alerts may overlap (the firmware says nothing about it), so the append and the cap run under one lock on a file of their own (the log itself is replaced by the
 # rename, and a lock on the old file would not hold the next writer). Where flock is missing, or its lock file cannot be opened, the write goes ahead without the lock.
-# The log is private to the owner: it holds the addresses of other people's equipment.
+# The log is private to the owner: it holds the addresses of other people's equipment, and it lives outside the directory the page server serves.
 umask 077
 mkdir -p "$DIR" 2>/dev/null || exit 0
 if command -v flock >/dev/null 2>&1; then
