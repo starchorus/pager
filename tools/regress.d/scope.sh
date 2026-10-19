@@ -156,6 +156,9 @@ def lamps(v):
     if d.get("bar") != [8, True]: bad.append("the bar's counter %s" % d.get("bar"))
     if d.get("errors") != 0: bad.append("errors %s" % d.get("errors"))
     return bad
+def ring3d(v):
+    d = json.loads(v); want = {"blend": ["3d", 1], "labels": "foundation:0:0:0 wargames:0:0:0 whitehall:0:0:0", "errors": 0}
+    return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 def perf(v, n, ms):
     d = json.loads(v); bad = []
     if d[0] != int(n): bad.append("blips %s want %s" % (d[0], n))
@@ -326,6 +329,12 @@ SCP_EVB='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wai
 let n=0;for(const M of [S.aps,S.clients,S.clouds])for(const nd of M.values())if(nd.sc&&nd.sc.st===SC.st)n++;
 SC.ph=0.5;const t=[];for(let i=0;i<60;i++){S.dirty=true;const t0=performance.now();STARCHORUS.frame();t.push(performance.now()-t0)}SC.ph=null;
 return JSON.stringify([n,+(t.reduce((a,b)=>a+b,0)/t.length).toFixed(2),+Math.max(...t).toFixed(1),STARCHORUS.errors().length])})()'
+# a saved 3D view (?view=3d: the blend is 1 from the start): the Scope draws no 3D ring label, no empty core label, and nothing lies on the RX line
+SCP_EV3='(async()=>{const I=STARCHORUS._internals,S=I.S,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};
+const out=[];for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(600);S.dirty=true;STARCHORUS.frame();
+ const L=S.labelsList||[],rx=E("sc-rx").getBoundingClientRect();
+ out.push([t,L.filter(l=>l.kind==="ring").length,L.filter(l=>l.id==="__center__").length,L.filter(l=>l.w&&l.x<rx.right&&l.x+l.w>rx.left&&l.y<rx.bottom&&l.y+14>rx.top).length].join(":"))}
+o.blend=[S.ui.view,S.view.blend];o.labels=out.join(" ");o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 # the strip at a narrow size, in each theme: every cell inside the panel and the screen, the words 13 px or more, the strongest signal's unit in its own case
 SCP_EVF='(async()=>{const W=STARCHORUS.wait,E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),o={};
 for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(700);const s=E("scope-strip"),r=R(s),cs=getComputedStyle(s),bad=[];
@@ -481,6 +490,16 @@ scp_run lamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844
 SCP_R=$(scp_j lamps "$(scp_ev "$SCP_T-lamps.json")")
 scp_row "scope (WarGames, Air drawer): '#lamp-strip .lamps' keeps one lamp per access point after the key, a poll, a second key and a theme round, and takes no 'capture counter' label; the bar's eight capture lamps are their own set" "$SCP_R"
 
+# ---- a saved 3D view: no 3D ring label, no empty core label, nothing on the RX line (the label list of the Scope's frame)
+scp_run ring3d "$SCP_EV3" "$F/devices.json" "$SCP_Q&view=3d" 390 844
+SCP_R=$(scp_j ring3d "$(scp_ev "$SCP_T-ring3d.json")")
+scp_row "scope with a saved 3D view (?view=3d, blend 1): in each theme the label list of a frame holds no ring label ('-40 dBm'), no empty core label and no label on the RX line" "$SCP_R"
+
+# ---- WarGames with the CRT on (the default): the phosphor trail runs only while the arc does; at rest 0 frames and while stale 3 to 6 in 2 s, as in the other themes
+runq demo "$SCP_LQ&theme=wargames" "$SCP_T-idlew" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1
+SCP_R=$(scp_j idle "$(scp_ev "$SCP_T-idlew.json")")
+scp_row "scope in WarGames (CRT on, persistence): 0 frames in 2 s at rest and 5 s after a capture, 30 or more in the first second of a wave, 3 to 6 in 2 s while the feed is stale" "$SCP_R"
+
 
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
@@ -519,4 +538,10 @@ scp_mut lamps 's/document.querySelectorAll("#lamps,#scope-lamps")/document.query
 # no fitting of the strip (320x568: the words of WarGames and Whitehall run over the edge)
 scp_mut nofit 's/^  for (const x of "tn") if (sp.scrollWidth > sp.clientWidth + 1) cs.add(x);$//' || SCP_MB="$SCP_MB nofit(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mfit "$SCP_EVF" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j fit "$(scp_ev "$SCP_T-mfit.json")")" != ok ] || SCP_MB="$SCP_MB nofit"; }
+# the 3D ring labels drawn in the Scope again
+scp_mut ring3d 's/const is3d = !scopeOn && S.view.blend > 0.5/const is3d = S.view.blend > 0.5/' || SCP_MB="$SCP_MB ring3d(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mring "$SCP_EV3" "$F/devices.json" "$SCP_Q&view=3d" 390 844; [ "$(scp_j ring3d "$(scp_ev "$SCP_T-mring.json")")" != ok ] || SCP_MB="$SCP_MB ring3d"; }
+# the phosphor fade on every frame again
+scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePhase() >= 1);/S.persistOn = P > 0 \&\& S.ui.crt;/;s/S.persistOn \&\& !scopeOn ? RENDER.persistFadeFrames/S.persistOn ? RENDER.persistFadeFrames/' || SCP_MB="$SCP_MB persist(no copy)"
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ&theme=wargames" "$SCP_T-mpersist" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; [ "$(scp_j idle "$(scp_ev "$SCP_T-mpersist.json")")" != ok ] || SCP_MB="$SCP_MB persist"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]

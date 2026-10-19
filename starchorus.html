@@ -4094,7 +4094,7 @@ function tick(t) {
   const animating = scopeOn ? scopeWantsFrame() : S.fixedTime == null && (S.moving || S.settling || S.cam.tween !== null || wargamesAnimating());
   if (S.dirty || animating) {
     render(); S.dirty = false; S.perf.rendered++;
-    S.persistFade = S.persistOn ? RENDER.persistFadeFrames : 0;
+    S.persistFade = S.persistOn && !scopeOn ? RENDER.persistFadeFrames : 0;
   } else if (S.persistFade > 0) {   // §6.7 idle trail: let phosphor spurs fade, then one clean full frame
     S.persistFade--; render(); S.perf.rendered++;
     if (S.persistFade === 0 && S.persistOn) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }
@@ -4592,7 +4592,7 @@ function beginFrame() {
   spriteSlot = 0;
   ctxHud.clearRect(0, 0, W, H);
   const P = THEME.crt.persistenceAlpha;
-  S.persistOn = P > 0 && S.ui.crt;
+  S.persistOn = P > 0 && S.ui.crt && !(scopeOn && wavePhase() >= 1);
   if (S.persistOn) {   // §6.7 phosphor persistence: fade #sky towards transparent, #bg shows through (no black rect)
     ctxSky.globalCompositeOperation = "destination-out";
     ctxSky.globalAlpha = 1;
@@ -5277,7 +5277,7 @@ function drawHud() {
   const ctx = ctxHud;
   ctx.globalAlpha = 1; curAlpha = 1;
   let labelsDrawn = 0, collisions = 0;
-  const is3d = S.view.blend > 0.5, view = is3d ? "3d" : "2d";
+  const is3d = !scopeOn && S.view.blend > 0.5, view = is3d ? "3d" : "2d";
   const trans = S.view.blend > 0.02 && S.view.blend < 0.98;
   // Baked sprites (core text, 3D ring posts, cloud tags, device ×n counters, security glyphs, cursor glyph) are blitted, not fillText:
   // they spend no slot of RENDER.maxText; only the counted fT() draws take one from the budget.
@@ -5307,8 +5307,8 @@ function drawHud() {
   };
   ctx.lineJoin = "round"; ctx.lineWidth = 2; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   // core text (fixed)
-  {
-    const font = TD.fontHud, text = scopeOn ? "" : S.centerLabel, w = textWidth(ctx, font, text);   // D16: data strings are never transformed
+  if (!scopeOn) {
+    const font = TD.fontHud, text = S.centerLabel, w = textWidth(ctx, font, text);   // D16: data strings are never transformed
     // one string that changes only with the source, so it is baked rather than re-rastered every frame: a fixed
     // post must not take a slot from the access point names. A pathological label longer than SPRITE_TEXT_MAX
     // keeps the counted fillText path, so no single string can bake a huge bitmap.
