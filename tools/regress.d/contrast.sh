@@ -39,7 +39,9 @@ fi
 
 # ---- static: the two ring loops in §34 use line.ring; spokes and dot grid keep line.hairline
 CTR_N=$(awk '/==== 34 RENDER LAYERS/,/==== 35 RENDER HUD/' "$H" | grep -c 'strokeStyle = THEME\.line\.ring')
-rowif "contrast: rings stroked with line.ring (2D+3D) = $CTR_N" [ "$CTR_N" = 2 ]
+# the Scope (D22) draws its own rings in the same colour: one more, and in drawScopeBg only; the 2D and 3D loops stay exactly two
+CTR_S=$(awk '/^function drawScopeBg\(/,/^}/' "$H" | grep -c 'strokeStyle = THEME\.line\.ring')
+rowif "contrast: rings stroked with line.ring (2D+3D) = $((CTR_N - CTR_S)), and the Scope's = $CTR_S" [ "$((CTR_N - CTR_S))/$CTR_S" = 2/1 ]
 CTR_C=$(grep -c 'c.fillStyle = THEME.ink.secondary; c.fillText(TD.upper ? "CLIENTS"' "$H")
 CTR_P=$(sed -n '/^const CONTRAST_PAIRS/,/^window.STARCHORUS = /p' "$H" | grep -c 'Date\.now\|Math\.random\|performance\.now\|document\.\|getComputedStyle\|fetch(')
 rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P)" [ "$CTR_C/$CTR_P" = 1/0 ]
