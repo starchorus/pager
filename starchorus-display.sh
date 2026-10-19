@@ -333,6 +333,10 @@ ov_kill() {
 # the removal waits for the reader's end, in ten naps at most (ov_nap: about 2 s, and about 10 s where the sleep applet has no fractions), never
 # for ever (the reader's own trap writes nothing into a dir that is gone). The nap also lets the shell collect a reader that has ended (see
 # ov_await), so that its pid is then gone. The Overview stays endable: KILL cannot be ignored, and the signals are ignored for that wait only.
+# ov_wkill: end the wait the reader left open, by the pid it wrote to OV_WPF (nothing is guessed from `$!`). The KEY_ERR path uses it before
+# its dialog, so that a dead reader's orphan wait is not the one that takes the press meant to dismiss the dialog. ov_cleanup keeps its own
+# two lines for the same step, so that the cleanup itself names the pids it ends (the reader's from OV_RPID, its wait's from OV_WPF).
+ov_wkill() { cl_w=; [ ! -s "$OV_WPF" ] || read -r cl_w < "$OV_WPF"; case $cl_w in ''|*[!0-9]*) ;; *) kill "$cl_w" 2>/dev/null ;; esac; }
 ov_cleanup() {
     trap '' TERM INT HUP
     [ -z "$OV_QUIT" ] || printf x 2>/dev/null > "$OV_QUIT"   # the mark the reader looks for (see ov_orphan), before the signals
@@ -1518,7 +1522,7 @@ while :; do
     [ "$again" = 0 ] || draw "$view"
     ov_await
     parent_gone && exit 0
-    [ -z "$KEY_ERR" ] || { err_dialog "Overview could not read a key."; exit 1; }
+    [ -z "$KEY_ERR" ] || { ov_wkill; err_dialog "Overview could not read a key."; exit 1; }   # the orphan wait first, so that it cannot take the dialog's press
     again=0
     case $KEY in
         A) bad=0; [ "$OV_QN" -le "$OV_QC" ] || again=1 ;;
