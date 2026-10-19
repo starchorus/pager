@@ -1885,7 +1885,8 @@ Rows in this order (`data-kind` in brackets):
    Freshness 'Heard' (`fresh-t0` … `fresh-t3`, `fresh-undated`; only while dated nodes are present; unreachable levels
    are dropped) and, in Whitehall, the freshness lamps (`#tote`). 'hidden SSID' (`hidden`), the alert row (`alert`, 0.2: only while an
    alerted access point is drawn; a ring swatch in `status.alert`; 'alert ring = many deauth/disassoc frames heard for this AP', §14.6) and the geometry row (`geometry`):
-   'rings = received signal (dBm), not range · direction is not measured'.
+   'rings = received signal (dBm), not range · direction is not measured'; while the Scope is on (§9.8b) its note row (`scope`): 'lanes =
+   band, channel · arcs = signal (dBm) · not direction, not range', which repeats the foot's two captions (the geometry row stays).
 2. **Derived** – 'channel overlap (derived, width unknown → 20 MHz)' (`#leg-nebula`), 'same ESSID' (`#leg-groups`), 'linked
    radios · likely same device (heuristic)' (`#leg-devices`), 'merged SSID · one node per ESS (count = APs)' (`#leg-merge`),
    'dashed orbit = named probe for this network (derived, not associated)' (`#leg-probes`), `copyFor("legArc")` (`#leg-arc`, exactly
@@ -2072,12 +2073,19 @@ the fan opens upward through ±30° (`SCOPE.half`), narrowing to the box where i
 + (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (L is the length of the fan, from the Pager's mark to the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the nearest
 ring is the strongest signal. The radius never moves, whatever the capture. **Angle =
 a place in a lane, never a direction.** The lanes are the bands: 2.4 GHz, 5 GHz, 6 GHz, stations (widths 0.4372/0.5684/0.2623/0.6121 in
-units of the fan's half-angle, a gap of 0.04 between them, so that the three bands and the stations share the fan). A network sits at
+units of the fan's half-angle, a gap of 0.04 between them, so that the three bands and the stations share the fan). While Bluetooth marks
+are present and the filter (`4`) is on, `scopePlace()` adds a fifth lane, 'BT', after the stations (width 0.35, and every width and gap
+is scaled by 0.8368 so that the fan still spans −1…1); a mark sits in it at `hash(id + "sc")`, its radius is its signal like every blip, and
+the lane goes again with the marks or the filter. Without marks the four lanes are exactly the ones above (the lanes are built in
+`scopePlace()` for this reason, not in `scopeGeom()`). A network sits at
 `scU(band, channel)` along its lane (channels ascend; 1/6/11, 36/100/149 are marked), a station or a cloud at `hash(id + "sc")` (the
 sky's own stable hash, so a station keeps its place when its signal changes). A network whose band is unknown goes into the 6 lane
 and the lane is named '6 · ?'. Networks are nudged sideways (never along the radius) where they would overlap; stations are not.
-The result is stored on the node as `n.sc = {k, r, x, y, px, st, nw, q}`. `SC.g` is `null` when the fan would be shorter than
-120 px; the Scope then draws nothing.
+A lane that is narrower than two blips keeps the ideal place and accepts the overlap (the nudge would turn over there). Channel ticks
+are drawn left to right, and a tick that would touch the one before it is left out. The result is stored on the node as
+`n.sc = {k, r, x, y, px, st, nw, q}`. `SC.g` is `null` when the fan would be shorter than 120 px (a small phone on its side, with the
+Whitehall banners): the Scope then draws no fan, and the foot's RX line adds the theme-free note 'Too little room for the scope: turn the
+phone upright'. The line is rewritten before every measure, so a roomier window brings the fan back.
 
 **A wave per capture.** `scopeStep` (the tick's body in the Scope: `stepNodes`, `stepClouds`, no rotation, bubbles or particles)
 re-places the nodes when `S.ingestSeq`, the Random switch or the band filters change and starts a **wave** on a new capture or a
@@ -2085,7 +2093,9 @@ replay step. A wave is **one arc that contracts** from the far rim to the near o
 of decreasing width and alpha (`SCOPE.arcs`) in `accent.selection`; a node that is new in the capture (`nw`) stays hidden until the front
 has passed its radius (`q`), then appears. It never runs outward, there is no sweep and nothing rotates (R39). Reduced motion
 (`reduceMotion`), pause and fixed time draw no arc and no wait: the new node shows at once. At rest the page draws **no frame**
-(`scopeWantsFrame()`: the wave and 1.5 s after it, then 2 a second while the feed is not live).
+(`scopeWantsFrame()`: the wave and 1.5 s after it, then 2 a second while the feed is not live). WarGames' phosphor persistence
+(`S.persistOn`, set in `beginFrame`) is on only while the arc runs and never arms the idle trail (`persistFade`) in the Scope: idle and snow
+frames clear the canvas, so a stale feed costs 2 frames a second there too.
 
 **Stale and offline.** `SC.lv` follows `liveness()`. A live feed is drawn clean with a solid rim. A stale or an offline feed shows
 **snow** (damped specks, `SCOPE.snow`: 1 per 1600 px² stale, 1 per 400 px² offline, redrawn twice a second, standing still under
@@ -2098,14 +2108,29 @@ strip `#scope-strip` (five fields: networks, stations, clouds, strongest signal,
 its words are `copy.scope.strip[5]` in each theme (Foundation 'Stars / Satellites / Clouds / Brightest / New'; WarGames 'NETS /
 STATIONS / CLOUDS / PEAK / NEW'; Whitehall 'NETWORKS / STATIONS / CLOUDS / STRONGEST / NEW PLOTS'). The foot `#scope-foot` carries the
 captions **'lanes = band, channel / not direction'**, **'arcs = signal (dBm) / not range'** and **'RX only'** (from `copy.rx.legRx`,
-D4). No text in the Scope is smaller than 13 px (`fontString` takes the floor in the Scope); words that do not fit are cut to the
-shorter form, never shrunk. No sound, no vibration, no request of its own.
+D4). No word or number label in the Scope is smaller than 13 px (`fontString` takes the floor in the Scope; the strip's words are 13 px,
+its numbers 20 px); the small glyphs inside a mark (the security glyph, the count of a folded ESS) keep the sky's sizes. Words are cut to
+fit, never shrunk: when the strip is wider than its panel it first takes the theme's letter-spacing off (class `t`), then hides the words
+and keeps the five numbers (class `n`; they stay in the page for a screen reader); a lane name drops to its first word, and a tick that
+would touch another is left out. The strip never wraps a number, and its unit keeps its case ('-48 dBm' in every theme; the foot's caption is in the theme's capitals). No sound, no
+vibration, no request of its own.
 
 **Input.** A touch on a blip selects it (the same detail card in the sheet; no camera flight, a saved 3D view is not entered), a touch
 on empty fan closes it. Wheel and pinch do nothing. The legend hides the derived rows (nebula, groups, devices, merge, crowding) while
-the Scope is on.
+the Scope is on and shows a note row, `scope`, that repeats the two captions ('lanes = band, channel · arcs = signal (dBm) · not
+direction, not range'); the geometry row stays. A saved 3D view is not entered: the 3D ring labels are not drawn in the Scope.
 
-**Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); `tools/regress.d/scope.sh`
+**Not in 0.2.0.** The first design drew more than the code does, and these are specified and not there: the note `#scope-note`
+with `copy.scope.empty` ('Nothing heard in this capture') and `staleNote()` (so `copy.scope` holds the strip words only, 63 leaf paths in all, not 64: an empty
+capture shows the empty fan, and a stale or an unreachable feed says so in the chip's word on the foot's RX line); blips dimmed to ×0.6 when
+stale and ×0.4 when offline (the snow and the dashed rim say it); the sample sky's demo wave every 10 s (the arc runs on entering the
+Scope and on each capture); a 3 px dot for each station above 150 (stations stay sprites at any count; the 300-blip bench is the proof);
+the ticks at 9 px (they are 13 px); and the alerts' ring flicker: the alerts' code adds the term to the frame rule (`scopeWantsFrame()`: only
+while an alert is live, under 3 Hz, also under reduced motion) and the drawing to `drawScope()`, which the Scope's fixed draw list does not
+carry on its own.
+
+**Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); the fifth lane's code is counted in the
+radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh`
 reads the geometry, the lanes, the wave, the idle, the strip against a recount of the fixture, the captions, the storage key and the
 absence of any send path. **A check on a real iPhone** (not proven by the harness): 1 Turn it on in the sheet's row: the fan
 stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong network is near the Pager whatever its
@@ -2512,7 +2537,7 @@ departs from them, this chapter prevails. The regression checks that the chapter
 | D19 | Ghosts | `S.ghosts` for APs and stations (≤ 40 each, capped separately), frozen, not in layout/labels/stats/hit test; baseline-gone (derived, dashed) and aged (measured, dimmed); without hop data (`channels[]`) never 'gone' |
 | D20 | Names | the theme label 'WHITEHALL' is a descriptive street name (no coat of arms, no classification); no event motion without a change, the decorative sky rotation remains; skyStats reference and operator baseline kept separate; the optional field for frame clusters is called `alerts[]` |
 | D21 | Phone mode | up to 720 px wide or a phone on its side (`?phone=1\|0`): the panels move into a status bar and a bottom sheet with three heights and one card at a time; nothing is duplicated (one chip, D4); the sky centres in the free rectangle; every tap target ≥ 44 px; the desktop above the bound is unchanged to the pixel; Hide panels (`U`) at every size, saved, the Whitehall disclaimer and the status pill stay (§9.8) |
-| D22 | Scope | a phone-only fan view (§9.8b), named 'Scope': 60° from the Pager, lanes = bands (2.4 / 5 / 6 / stations) by channel or stable hash, radius = received signal (dBm); one arc contracts per capture, no sweep (R39), no sound, none under reduced motion; snow when the feed is not live; five-field number bar; captions 'lanes = band, channel / not direction', 'arcs = signal (dBm) / not range', 'RX only'; words per theme in `copy.scope`; off by default, `starchorus.ui.v1`, `?scope=1\|0`, key `Z`; at most 12,000 bytes of the page (owner, 19 Oct 2026) |
+| D22 | Scope | a phone-only fan view (§9.8b), named 'Scope': 60° from the Pager, lanes = bands (2.4 / 5 / 6 / stations, and Bluetooth while marks are heard) by channel or stable hash, radius = received signal (dBm); one arc contracts per capture, no sweep (R39), no sound, none under reduced motion; snow when the feed is not live; five-field number bar; captions 'lanes = band, channel / not direction', 'arcs = signal (dBm) / not range', 'RX only'; words per theme in `copy.scope`; off by default, `starchorus.ui.v1`, `?scope=1\|0`, key `Z`; at most 12,000 bytes of the page (owner, 19 Oct 2026; the fifth lane's bytes are the radio pair's) |
 
 ### 14.4 Colour roles (validator `tools/check-colors.py`)
 
@@ -2811,12 +2836,12 @@ there, and no row proves them:
 - the SITREP line for Bluetooth, and Bluetooth rows or columns in the CSV export (the CSV is the 0.1 table; the JSON export has `bluetooth` and
   `bluetooth_counts`);
 - two of the three idioms of the traffic cue (a halo, a bloom): the cue is four short ticks round the dot in every theme;
-- the Air drawer's activity line, the channel tooltip's activity line, the title of the whisker, and the Scope's Bluetooth lane;
+- the Air drawer's activity line, the channel tooltip's activity line and the title of the whisker;
 - the fade of a revealed name (§8.5 above: there never was one in the code; a name now simply appears).
 
 What is in: the layer with its marks and key `4`, the legend row and its geometry clause, the counter 'BT addresses' with its dash for a void
 window, the activity whiskers, the cue on stations, the frame rate in a station's detail, the JSON export, the Overview's figure, screen and
-bars, and the payload's two rows. Whether to cut the rest of the layer into 0.2.1 as the cut order of the design says, or to keep it as it is, is the
+bars, the Scope's fifth lane (§9.8b: marks only, a tap picks one, no sheet) and the payload's two rows. Whether to cut the rest of the layer into 0.2.1 as the cut order of the design says, or to keep it as it is, is the
 owner's decision (design question Q7); this list says what keeping it means.
 
 **Where the code differs from the specification** (the specification is not rewritten here; the code is what the other documents describe):
