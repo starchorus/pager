@@ -2130,7 +2130,7 @@ while an alert is live, under 3 Hz, also under reduced motion) and the drawing t
 carry on its own.
 
 **Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); the fifth lane's code is counted in the
-radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh`
+radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh` also pins the Scope's own growth (the page's growth since the base of the Scope less the bytes of the alerts' ring and legend, found by their markers, at most the Scope's share and the fifth lane's allowance; the row prints the number) and
 reads the geometry, the lanes, the wave, the idle, the strip against a recount of the fixture, the captions, the storage key and the
 absence of any send path. **A check on a real iPhone** (not proven by the harness): 1 Turn it on in the sheet's row: the fan
 stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong network is near the Pager whatever its

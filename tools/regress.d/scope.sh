@@ -64,6 +64,45 @@ SCP_JB=0; scp_share_ok $((SCP_BASE + SCP_CEIL)) || SCP_JB=1; scp_share_ok $((SCP
 rowif "scope: the page grew by $((SCP_SZ - SCP_BASE)) bytes since 8e75fe4 (the Scope's share $MAX_SCOPE_BYTES, with the alerts' ring $MAX_ALERTS_BYTES and the fifth lane $MAX_SCOPE_BT_BYTES: $SCP_CEIL); the judge refuses one byte more or a size that is no number (bad: $SCP_JB)" [ "$SCP_JB" = 0 ] 2>/dev/null
 scp_share_ok "$SCP_SZ" || { row "scope: the page is over the Scope's, the alerts' and the fifth lane's shares together ($SCP_SZ bytes)" FAIL; }
 
+# the Scope's own growth. The pooled row above lets the three shares borrow from one another (the alerts could shrink and the Scope take the room); this one pins the Scope with its
+# fifth lane to its own 12,000 + 200 by subtracting what the alerts' ring and legend measure, found by their markers in the page: the eleven segments below, each of which must be in
+# the page exactly as often as listed (a marker that moved or went is "BROKEN", not a smaller number). The measure reproduces the alerts' share as it was at the commit that
+# put the ring in (1,184 bytes with the frame step it then had in wargamesAnimating, 76 bytes) and as it is now (1,268 with the step in the tick).
+cat > "$SCP_T/alm.py" <<'PY'
+import re, sys
+s = open(sys.argv[1], encoding="utf-8").read()
+SEGS = [
+    ("tokens", r'alert: "#[0-9a-f]{6}", ', 3),
+    ("css", r'\["--status-alert", "status\.alert", ""\], ', 1),
+    ("contrast", r'  \["status\.alert", "surface\.base", 3, "canvas: alert ring"\],\n', 1),
+    ("node", r'const alertNode = .*\n', 1),
+    ("var", r'let alAt = Infinity;\n', 1),
+    ("reset", r'  alAt = Infinity;\n', 1),
+    ("cue", r'  const cm = THEME\.render\.changeCue, e2 = S\.clock \* 2 \| 0;\n', 1),
+    ("ring", r'  for \(const a of S\.alerts\) \{ const n = alertNode\(a\);.*\n', 1),
+    ("legend", r"  rows\.push\('<div class=\"legrow note\" id=\"leg-alert\".*\n", 1),
+    ("vis", r'vis\("leg-alert", S\.alerts\.some\(alertNode\)\); ', 1),
+    ("step", r'  \} else if \(S\.fixedTime == null && !S\.ui\.paused && S\.clock >= alAt\) \{.*\n', 1),
+]
+tot = 0
+for name, rx, want in SEGS:
+    m = [len(x.group(0).encode("utf-8")) for x in re.finditer(rx, s)]
+    if len(m) != want:
+        print("BROKEN:" + name); sys.exit(0)
+    tot += sum(m)
+print(tot)
+PY
+scp_alm() { python3 -B "$SCP_T/alm.py" "$1" 2>&1 | head -n 1; }   # scp_alm PAGE -> the bytes of the alerts' segments, or BROKEN:name
+scp_own_ok() { [ "$1" -le $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) ] 2>/dev/null; }   # the Scope's own ceiling: its share and the fifth lane's allowance
+SCP_AL=$(scp_alm "$H")
+case $SCP_AL in ''|*[!0-9]*) SCP_OWN=$SCP_AL ;; *) SCP_OWN=$((SCP_SZ - SCP_BASE - SCP_AL)) ;; esac
+# the judge can say no: the ceiling itself passes, one byte more and a text do not; a page without one marker is BROKEN (a dummy: the legend row deleted)
+SCP_OJ=0; scp_own_ok $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) || SCP_OJ=1; scp_own_ok $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES + 1)) && SCP_OJ=1; scp_own_ok BROKEN:ring && SCP_OJ=1
+grep -v 'id="leg-alert"' "$H" > "$SCP_T/alm-dummy.html"
+SCP_OD=$(scp_alm "$SCP_T/alm-dummy.html")
+SCP_OK=0; [ "$SCP_OJ" = 0 ] && [ "$SCP_OD" = BROKEN:legend ] && scp_own_ok "$SCP_OWN" && SCP_OK=1
+rowif "scope: the Scope's own growth is $SCP_OWN bytes (the page's $((SCP_SZ - SCP_BASE)) since 8e75fe4 less $SCP_AL for the alerts' ring and legend by their markers), at most $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) (the Scope's $MAX_SCOPE_BYTES and the fifth lane's $MAX_SCOPE_BT_BYTES); the judge refuses one byte more (bad: $SCP_OJ) and a page without a marker is $SCP_OD" [ "$SCP_OK" = 1 ]
+
 # the film names of the spec's rule 8 stay on the word denylist (the list is only ever added to; denylist-check --selftest pins its older entries)
 SCP_DW=$(grep -c -x -e nostromo -e weyland -e m314 tools/denylist-words.txt)
 rowif "scope: tools/denylist-words.txt carries nostromo, weyland and m314 ($SCP_DW of 3)" [ "$SCP_DW" = 3 ]
