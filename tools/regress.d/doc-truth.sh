@@ -158,7 +158,7 @@ checks.' ''
   dtr_probe 1 'version claim 0.0.9' prose README.md append '- The collector
 0.0.9 delivers `vendor`.' ''
   dtr_probe 0 '' prose README.md append '- Pause 1.2 s after the collector start; collector self-test (as of 2.6.0: 42 green).' ''
-  dtr_probe 1 'version claim 0.2.0-dev.1 about the collector, the header says 0.2.0-dev.2' prose starchorus-collect.sh replace '# Version:      0.2.0-dev.1' '# Version:      0.2.0-dev.2'   # the claim that is true today (the version table of README.md) goes red at the next bump
+  dtr_probe 1 'version claim 0.2.0-dev.2 about the collector, the header says 0.2.0-dev.3' prose starchorus-collect.sh replace '# Version:      0.2.0-dev.2' '# Version:      0.2.0-dev.3'   # the claim that is true today (the version table of README.md) goes red at the next bump
   dtr_probe 0 '' prose README.md append '- `--selftest` green (42 checks, as of 2.6.0) under BusyBox' ''
   dtr_probe 0 '' prose README.md append '- The collector `starchorus-collect.sh` (since 0.0.2) delivers `vendor`; until `starchorus-display.sh` 0.0.1 X was missing; collector ≥ 0.0.3; the collector answers at (192.0.2.1, §5.6).' ''   # "since/until/≥" say when, not what is current; an IP address is no version
   # a number NEWER than the header is just as stale (one project, one version): higher numbers left over in the docs
@@ -170,10 +170,10 @@ checks.' ''
   dtr_probe 1 'spec says 9 runs' runlist docs/architecture.md replace 'for all 10 runs' 'for all 9 runs'
   dtr_probe 1 'spec run list' runlist tools/regress.sh replace 'for f in demo legacy few-clients' 'for f in demo few-clients'
   # headers: one script header bumped alone (collector, display script, the library payload), and the page bumped alone
-  dtr_probe 1 'starchorus-collect.sh: header 0.2.0-dev.2, but the page version is 0.2.0-dev.1' headers starchorus-collect.sh replace '# Version:      0.2.0-dev.1' '# Version:      0.2.0-dev.2'
-  dtr_probe 1 'starchorus-display.sh: header 0.2.0-dev.2, but the page version is 0.2.0-dev.1' headers starchorus-display.sh replace '# Version:      0.2.0-dev.1' '# Version:      0.2.0-dev.2'
-  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.2.0-dev.2' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.2.0-dev.1' '# Version: 0.2.0-dev.2'
-  dtr_probe 1 'but the page version is 0.2.0-dev.2' headers starchorus.html replace '  version: "0.2.0-dev.1",' '  version: "0.2.0-dev.2",'
+  dtr_probe 1 'starchorus-collect.sh: header 0.2.0-dev.3, but the page version is 0.2.0-dev.2' headers starchorus-collect.sh replace '# Version:      0.2.0-dev.2' '# Version:      0.2.0-dev.3'
+  dtr_probe 1 'starchorus-display.sh: header 0.2.0-dev.3, but the page version is 0.2.0-dev.2' headers starchorus-display.sh replace '# Version:      0.2.0-dev.2' '# Version:      0.2.0-dev.3'
+  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.2.0-dev.3' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.2.0-dev.2' '# Version: 0.2.0-dev.3'
+  dtr_probe 1 'but the page version is 0.2.0-dev.3' headers starchorus.html replace '  version: "0.2.0-dev.2",' '  version: "0.2.0-dev.3",'
   # contract: one header left at the old number (collector, display script and its copy, payload), one bumped alone, one gone
   dtr_probe 1 'starchorus-collect.sh: header says 2, want 3' contract starchorus-collect.sh replace '# Contract:     3' '# Contract:     2' --want 3
   dtr_probe 1 'starchorus-display.sh: header says 2, want 3' contract starchorus-display.sh replace '# Contract:     3' '# Contract:     2' --want 3

@@ -110,10 +110,10 @@ else
   row "P10 export/display (export hit $SOU_XP, display hit $SOU_PGP)" FAIL
 fi
 
-# ---- the ONE project version: every place that states it says 0.2.0-dev.1 -- the page (STARCHORUS.version), the spec's §10
+# ---- the ONE project version: every place that states it says 0.2.0-dev.2 -- the page (STARCHORUS.version), the spec's §10
 # listing, the "# Version:" header of each script (collector, display script and its library copy, serve script, both
 # payload.sh), the device probe's banner and the README. A place that says something else, or no longer says it, is red.
-SOU_VER=0.2.0-dev.1
+SOU_VER=0.2.0-dev.2
 SOU_VL="page:$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$H" | tr '\n' ',')"
 SOU_VL="$SOU_VL spec:$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$R/docs/architecture.md" | tr '\n' ',')"
 for SOU_F in starchorus-collect.sh starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh starchorus-serve.sh payload.sh library/user/reconnaissance/starchorus/payload.sh; do
