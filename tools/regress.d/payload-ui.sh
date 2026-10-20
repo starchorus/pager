@@ -879,8 +879,10 @@ rowif "payload ui: Traffic and Bluetooth rows after Channel Load flip in place, 
 #             directory of ours left. A companion that is not beside the payload is E13, before any question; _PAYLOAD_HOME finds it when the payload
 #             runs from a copy elsewhere (the device runs it from /tmp). STARCHORUS_ALERTS in the environment locks the row (P1 naming it). The tree
 #             is $PUI_T/alerts (STARCHORUS_ALERT_TREE, set for every run); stand-ins for mkdir, cp, chmod, mv, rm and rmdir under $PUI_T/alb note
-#             each call in alert.cmds and fail on demand (alert.fail.NAME) for a path of the tree. The static row pins every line of the payload that
-#             names the directory (a new or changed one is red), with three planted mutants as controls.
+#             each call in alert.cmds and fail on demand (alert.fail.NAME) for a path of the tree. The notes are read by their tabs, so a companion
+#             path with a space in it (tools/fresh-check.sh clones into one) is one argument; a control note with such a path proves the reading.
+#             The static row pins every line of the payload that names the directory (a new or changed one is red), with three planted mutants as
+#             controls.
 mkdir -p "$PUI_T/alb"
 cat > "$PUI_T/alb/tpl" <<'PUI_ALB'
 #!/bin/sh
@@ -903,12 +905,17 @@ pui_not() { ! "$@"; }   # the negation of a command, for pui_is
 pui_alclean() { [ -z "$(find "$PUI_T/alerts" -name '*.tmp' 2>/dev/null)" ] && [ ! -e "$PUI_AT" ]; }   # no .tmp anywhere in the tree and no directory of ours
 pui_alnew() { rm -rf "$PUI_T/alerts"; rm -f "$PUI_T/alert.cmds" "$PUI_T/alert.fail."*; pui_new; }   # no tree, no notes, a fresh payload directory
 pui_alins() { [ -x "$PUI_AT/payload.sh" ] && cmp -s "$PUI_AC" "$PUI_AT/payload.sh"; }               # our payload.sh is there, executable, the companion byte for byte
-pui_alcalls() {   # -> the notes that name the tree on one line (the tree, the companion's directory and the tab shown as AT, SRC and a space)
-  { grep -F "$PUI_T/alerts" "$PUI_T/alert.cmds" 2>/dev/null || :; } | tr '\t' ' ' | sed -e "s|$PUI_AT|AT|g" -e 's|[^ ]*/alert-deauth.sh|SRC|' | tr '\n' '|'
+pui_alcalls() {   # -> the notes that name the tree on one line (the tree, the companion's path and the tab shown as AT, SRC and a space; the path is
+  # taken between its tabs, whole, so that a space in it -- the fresh clone's directory has one -- does not split it)
+  pui_tb=$(printf '\t')
+  { grep -F "$PUI_T/alerts" "$PUI_T/alert.cmds" 2>/dev/null || :; } | sed -e "s|$PUI_AT|AT|g" -e "s|${pui_tb}[^${pui_tb}]*/alert-deauth\.sh${pui_tb}|${pui_tb}SRC${pui_tb}|" | tr '\t' ' ' | tr '\n' '|'
 }
 pui_altree() { if [ -d "$PUI_T/alerts" ]; then (cd "$PUI_T/alerts" && find . | LC_ALL=C sort | tr '\n' ' '); else echo none; fi; }
+# n. the reading of the notes: a planted note whose companion path holds a space reads as SRC whole (the fresh clone's directory is such a path)
+PUI_BAD=""; pui_alnew; printf 'cp\t%s/a b/alert-deauth.sh\t%s/payload.sh.tmp\n' "$PUI_T" "$PUI_AT" > "$PUI_T/alert.cmds"
+pui_is n:space [ "$(pui_alcalls)" = "cp SRC AT/payload.sh.tmp|" ]
 # a. OFF -> yes: the row flips to ON with the cursor on it, C2 once, exactly the notes below, L8f, nothing else written
-PUI_BAD=""; pui_alnew
+pui_alnew
 pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
 pui_run_ui "$PUI_ALP" sh "$PUI_PL"
 pui_is a:rc [ "$PUI_RC" = 0 ]
