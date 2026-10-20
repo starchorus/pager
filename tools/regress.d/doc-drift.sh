@@ -99,7 +99,7 @@ DRF_NM=""
 if [ -n "$DRF_NT" ] && mkdir -p "$DRF_NT/tools" "$DRF_NT/library/user/reconnaissance/starchorus"; then
   cp tools/install.sh "$DRF_NT/tools/"
   cp starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh "$DRF_NT/"
-  cp library/user/reconnaissance/starchorus/starchorus-display.sh "$DRF_NT/library/user/reconnaissance/starchorus/"
+  cp library/user/reconnaissance/starchorus/starchorus-display.sh library/user/reconnaissance/starchorus/alert-deauth.sh "$DRF_NT/library/user/reconnaissance/starchorus/"   # the installer's seven sources
   # shellcheck disable=SC2016  # literal ${...}/$VAR of the scanned script text, nothing is meant to expand
   sed 's/^\(export STARCHORUS_MAX_AGE="\${STARCHORUS_MAX_AGE:-\)[0-9][0-9]*}"/\11234}"/' "$DRF_PL" > "$DRF_NT/$DRF_PL"
   DRF_NM=$(sh "$DRF_NT/tools/install.sh" --dry-run 2>&1 | sed -n 's/.* STARCHORUS_MAX_AGE=\([0-9][0-9]*\) \.\/starchorus-collect\.sh --once.*/\1/p' | head -n 1)

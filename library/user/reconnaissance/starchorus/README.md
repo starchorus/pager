@@ -62,14 +62,14 @@ Step-by-step instructions for macOS, Linux and Windows: [INSTALL.md](../../../..
 repository.
 
 Copy the collector, page, Overview and netcat server to `/root/loot/starchorus`, and this payload
-directory to the device's payload directory (`<device>` is the device's address). These are six
-files in all, counting the Overview's second copy beside the payload:
+directory to the device's payload directory (`<device>` is the device's address). These are seven
+files in all, counting the Overview's second copy and the alert companion beside the payload:
 
 ```sh
 ssh root@<device> 'mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus'
 scp -O starchorus-collect.sh starchorus-display.sh starchorus-serve.sh root@<device>:/root/loot/starchorus/
 scp -O starchorus.html root@<device>:/root/loot/starchorus/index.html
-scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/
+scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/
 ssh root@<device> 'chmod +x /root/loot/starchorus/*.sh /root/payloads/user/reconnaissance/starchorus/*.sh'
 ```
 
@@ -83,7 +83,7 @@ The page is then available at `http://172.16.52.1:8199/`, over USB-C or the mana
 
 ### Upgrading
 
-Stop Starchorus, then replace all six files, by the same route: `sh tools/install.sh`, or the `scp`
+Stop Starchorus, then replace all seven files, by the same route: `sh tools/install.sh`, or the `scp`
 commands above, or, with the self-contained directory below, the new directory plus deleting
 `/root/loot/starchorus/starchorus-collect.sh`. The payload compares the installed collector and
 Overview with itself when it opens, by version and by `# Contract:` number, and says so when they

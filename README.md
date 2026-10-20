@@ -219,21 +219,21 @@ python3 -m http.server --bind 127.0.0.1 8000  # demo in the browser: http://127.
 ```
 
 On the device (`<device>` is its address), through the payload in
-`library/user/reconnaissance/starchorus/`. The installer copies six files: the collector, page,
+`library/user/reconnaissance/starchorus/`. The installer copies seven files: the collector, page,
 Overview and netcat server to `/root/loot/starchorus`, and the payload with its own copy of the
-Overview to `/root/payloads/user/reconnaissance/starchorus`:
+Overview and the alert companion `alert-deauth.sh` to `/root/payloads/user/reconnaissance/starchorus`:
 
 ```sh
 sh tools/install.sh --host <device>
 ```
 
-Or copy the same six files by hand:
+Or copy the same seven files by hand:
 
 ```sh
 ssh root@<device> 'mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus'
 scp -O starchorus-collect.sh starchorus-display.sh starchorus-serve.sh root@<device>:/root/loot/starchorus/
 scp -O starchorus.html root@<device>:/root/loot/starchorus/index.html
-scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/
+scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/
 ssh root@<device> 'chmod +x /root/loot/starchorus/*.sh /root/payloads/user/reconnaissance/starchorus/*.sh'
 ```
 
@@ -350,7 +350,7 @@ The easy way is the Settings row 'Alerts' on the Pager: it reads OFF while the c
 first ('Install the alert companion? It may run at once; switch it off on the firmware Alerts page.', because whether a copied alert starts enabled has not been measured) and then does what the by-hand route below does, in `/root/payloads/alerts/deauth_flood_detected/starchorus`: it makes
 the directory, copies `alert-deauth.sh` there as `payload.sh` (through a temporary file and a rename, so that the firmware never finds half a script) and makes it
 executable. On an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh` and, if it is empty, that directory, and nothing else of the tree, apart from a stale `DISABLED.starchorus` copy of ours. The row
-needs `alert-deauth.sh` beside the payload's `payload.sh` (the Hak5 package has it there; after `tools/install.sh` or a copy by hand, copy it there with `scp -O
+needs `alert-deauth.sh` beside the payload's `payload.sh` (the Hak5 package and `tools/install.sh` put it there; after a copy by hand, copy it too, with `scp -O
 library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/`; without it the row says so and writes nothing), and
 it is locked while `STARCHORUS_ALERTS` is set in the environment to anything but 1 (the collector then ignores the alert log, and the row says so). When you switch the alert off on the firmware's
 Alerts page the firmware renames its directory to `DISABLED.starchorus`; with only that copy there the row reads 'OFF (firmware)', a press installs nothing (a second, enabled copy would run beside the one you

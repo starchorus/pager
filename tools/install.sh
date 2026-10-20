@@ -27,7 +27,7 @@
 # No package manager, no config, no service control, no AP-service calls.
 # MEASURED ON THE DEVICE (docs/device-notes.md, runs of 14 and 15 October 2026, firmware as shipped): the BusyBox applet
 # "cksum" is absent ("ash: cksum: not found", exit 127) and "head -c" works. The installer therefore verifies by reading
-# all six files back with scp and comparing them with cmp, and says so in one calm [PASS] line: the missing applet is a
+# all seven files back with scp and comparing them with cmp, and says so in one calm [PASS] line: the missing applet is a
 # fact about the device, not a warning. The rest is kept for a device that does have cksum, or one whose cksum prints
 # something else: a cksum that gives no usable output (or values that disagree) is never read as "the upload is
 # damaged": the bytes decide. Each affected file is copied back with scp (still only a file transfer) into the private
@@ -53,7 +53,8 @@ starchorus.html|$LOOT/index.html|-
 starchorus-display.sh|$LOOT/starchorus-display.sh|x
 starchorus-serve.sh|$LOOT/starchorus-serve.sh|x
 $PLSRC/payload.sh|$PLDIR/payload.sh|x
-$PLSRC/starchorus-display.sh|$PLDIR/starchorus-display.sh|x"
+$PLSRC/starchorus-display.sh|$PLDIR/starchorus-display.sh|x
+$PLSRC/alert-deauth.sh|$PLDIR/alert-deauth.sh|x"
 
 die() { _c=$1; shift; printf 'install: %s\n' "$*" >&2; exit "$_c"; }
 say() { printf '%s\n' "$*"; }

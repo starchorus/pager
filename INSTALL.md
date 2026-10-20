@@ -193,8 +193,10 @@ Every command from here on is typed in this folder.
 **macOS and Linux only.** `tools/install.sh` is a shell script for a Unix-style computer. On
 Windows, use the manual route in [section 4](#4-manual-route-step-by-step).
 
-The installer copies six files to the Pager: the collector, the page, the netcat page server, the
-Overview and the payload, and a second copy of the Overview that sits beside the payload. It checks
+The installer copies seven files to the Pager: the collector, the page, the netcat page server, the
+Overview and the payload, a second copy of the Overview that sits beside the payload, and the alert
+companion `alert-deauth.sh` beside it (the Settings row 'Alerts' installs that one into the firmware's
+alert tree on your press; the installer only places it). It checks
 that each one arrived intact and runs Starchorus's own passive checks on the Pager. It asks for the
 root password once.
 
@@ -227,7 +229,7 @@ root password once.
    marked `[PASS]`. Near the end comes a line beginning `==> result:` that ends in `0 failed`.
 
 The Pager has no `cksum`, so the `==> integrity` section is a single `[PASS]` line saying that the
-device has none and that all six files were read back and compared byte for byte. That is how
+device has none and that all seven files were read back and compared byte for byte. That is how
 the installer checks them; it is not a warning.
 
 A line marked `!! [WARN]` is a warning, not a failure; the installer repeats it in its closing
@@ -277,13 +279,13 @@ The Pager has no SFTP service, so `scp` is given `-O` to use the older copying m
 
    **You should see** one line reaching 100%.
 
-4. Copy the payload and its copy of the Overview:
+4. Copy the payload, its copy of the Overview and the alert companion:
 
    ```sh
-   scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh root@172.16.52.1:/root/payloads/user/reconnaissance/starchorus/
+   scp -O library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh library/user/reconnaissance/starchorus/alert-deauth.sh root@172.16.52.1:/root/payloads/user/reconnaissance/starchorus/
    ```
 
-   **You should see** two lines, each reaching 100%.
+   **You should see** three lines, each reaching 100%.
 
 5. Make the scripts runnable:
 
@@ -472,15 +474,15 @@ The terminal in Hak5's [Virtual Pager](https://documentation.hak5.org/wifi-pinea
 1. Stop Starchorus (above).
 2. Download the new version ([section 1](#1-download-starchorus)). With git, run `git pull` in the
    folder instead.
-3. Replace all six files, by the route you used before: the installer (section 3) and the manual
-   route (section 4) both copy all six. With the payload directory from Hak5's library, copy the new
+3. Replace all seven files, by the route you used before: the installer (section 3) and the manual
+   route (section 4) both copy all seven. With the payload directory from Hak5's library, copy the new
    directory over the old one and delete `/root/loot/starchorus/starchorus-collect.sh`; the payload
    then copies its bundle into `/root/loot/starchorus` again. Files are overwritten in place, and
    your settings in `/root/loot/starchorus/settings.conf` are kept either way.
 4. Start it again (section 5). The first start after an update takes a little longer: the collector
    splits the vendor (OUI) list into an index once, so the first capture comes later than usual.
 
-Replace all six, not only the payload. The payload compares the installed collector and Overview
+Replace all seven, not only the payload. The payload compares the installed collector and Overview
 with itself when it opens, by version and by their `# Contract:` number, the interface the payload,
 the collector and the Overview share. When they differ, it says so once, in a dialogue: 'Installed
 …, payload …' for another version, 'Installed files differ from the payload.' for the same version
@@ -493,7 +495,7 @@ belong to the same build, so replace them with the rest.
 **Uninstall**
 
 The repository has no uninstaller; Starchorus lives in the two folders created during installation,
-and in two more places if you also installed the optional alert companion by hand (its file in the alert tree, and its log directory)
+and in two more places if you also installed the alert companion into the firmware's alert tree, by the Settings row 'Alerts' or by hand (its file there, and its log directory)
 ([README](README.md#alerts)).
 
 1. Stop Starchorus (above).
@@ -541,7 +543,7 @@ place is fixed (`/root/loot/starchorus-alerts`): the companion takes no director
 | the Overview shows 'jq incomplete' in red | an Overview filter failed on the Pager | run the installer again and report its output in an issue |
 | the Overview shows 'No new scan for …' in red | the collector stopped writing | go back with B (twice from a screen: to the list of screens, then to the menu); the menu then says whether it still runs |
 | the Overview shows 'This scan took over 20 s to read.' | 'Show Last' under 'Settings' is too long for the Pager's CPU | choose a shorter time (the default is 1 h) |
-| a dialogue says 'Installed …, payload …' or 'Installed files differ …' | the payload and the files in `/root/loot/starchorus` come from different builds (another version, or another `# Contract:` number) | replace all six files: run the installer again (section 3); with the Hak5 library copy, delete `/root/loot/starchorus/starchorus-collect.sh` and open the payload again |
+| a dialogue says 'Installed …, payload …' or 'Installed files differ …' | the payload and the files in `/root/loot/starchorus` come from different builds (another version, or another `# Contract:` number) | replace all seven files: run the installer again (section 3); with the Hak5 library copy, delete `/root/loot/starchorus/starchorus-collect.sh` and open the payload again |
 
 When you report a problem, never post real network names, MAC addresses or capture files. The
 installer's output is safe to paste; the contents of `starchorus.json` are not.
