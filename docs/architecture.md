@@ -2070,7 +2070,7 @@ keeps the strip and the foot and hides the bar and the sheet. A saved 3D view st
 
 **Geometry** (theme-free; `SCOPE`, `scopeGeom()`; `scopePlace()` places). The apex O lies below the Pager (the foot's centre, `#sc-ps`);
 the fan opens upward through ±30° (`SCOPE.half`), narrowing to the box where it would leave it (`thv`). **Radius = signal**: `r = rNear
-+ (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (L is the length of the fan, from the Pager's mark to the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the nearest
++ (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (L is the length of the fan, from the Pager's mark to the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the innermost
 ring is the strongest signal. The radius never moves, whatever the capture. **Angle =
 a place in a lane, never a direction.** The lanes are the bands: 2.4 GHz, 5 GHz, 6 GHz, stations (widths 0.4372/0.5684/0.2623/0.6121 in
 units of the fan's half-angle, a gap of 0.04 between them, so that the three bands and the stations share the fan). While Bluetooth marks
@@ -2133,8 +2133,8 @@ carry on its own.
 radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh` also pins the Scope's own growth (the page's growth since the base of the Scope less the bytes of the alerts' ring and legend, found by their markers, at most the Scope's share and the fifth lane's allowance; the row prints the number) and
 reads the geometry, the lanes, the wave, the idle, the strip against a recount of the fixture, the captions, the storage key and the
 absence of any send path. **A check on a real iPhone** (not proven by the harness): 1 Turn it on in the sheet's row: the fan
-stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong network is near the Pager whatever its
-side. 3 Wait for a capture: one arc contracts and new points appear as it passes. 4 Turn on Reduce Motion: no arc. 5 Take the device
+stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong signal sits on the inner arcs, by the Pager's mark,
+in whatever lane. 3 Wait for a capture: one arc contracts and new points appear as it passes. 4 Turn on Reduce Motion: no arc. 5 Take the device
 out of range for a minute: snow and the word 'Stale', then 'Offline'. 6 A newcomer asked 'which way is the network?' should say it
 cannot be told from this view.
 

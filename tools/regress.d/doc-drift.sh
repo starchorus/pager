@@ -170,3 +170,16 @@ printf '%s\n' 'the counter BT addresses' "a cell with n · BT" 'a halo, a bloom 
 : > "out/$P-drf-nopage.html"; DRF_PAGE="out/$P-drf-nopage.html"; DRF_BT=$(drf_claims "out/$P-drf-claims.txt"); DRF_PAGE=starchorus.html; DRF_BM=${DRF_BT#*"$(printf '\t')"}; DRF_BK=$(printf '%s' "$DRF_BM" | grep -o '\[' | wc -l | tr -d ' ')
 DRF_RK=0; [ -z "$DRF_CM" ] && [ "$DRF_BK" = "$DRF_CN" ] && [ "$DRF_CN" -ge 11 ] && DRF_RK=1
 rowif "doc drift: the $DRF_CN radio-pair claims in README, CHANGELOG, SECURITY, INSTALL and the package READMEs are backed by the page (unbacked:${DRF_CM:- none}); the row bites (a file with every claim, read against an empty page, flags $DRF_BK of $DRF_CN)" [ "$DRF_RK" = 1 ]
+
+# ---- the Scope shows signal and screen places, never distance (D22; the spec's rule 6): no document says that a strong network is near the Pager, or close to it, or names the nearest or closest
+# ring or arc. The words that are true are about the screen and the signal: 'a strong signal sits on the inner arcs, by the Pager's mark', 'the innermost ring is the strongest signal'.
+# The page's own strings are judged the same way in scope.sh (the word judge); this row reads the documents. A dummy with the old sentences is flagged and one with the new ones is not.
+DRF_DW='(near|close to|next to) (the )?pager|(nearest|closest) (ring|arc)'
+# the documents of the list and the Scope's own section of the spec (§9.8b; the rest of the spec says "next to the Pager" of a real device)
+# shellcheck disable=SC2086  # DRF_DOCS is a word list on purpose
+DRF_DH=$({ grep -n -i -E "$DRF_DW" $DRF_DOCS; awk '/^### 9\.8b/,/^### 9\.8a/' "$DRF_S" | grep -n -i -E "$DRF_DW" | sed 's/^/9.8b:/'; } 2>/dev/null | cut -c1-120)
+printf '%s\n' 'and the arcs are the received signal in dBm, so a strong network is near the Pager.' 'the nearest ring is the strongest signal.' > "out/$P-drf-dist-bad.txt"
+printf '%s\n' "so a strong signal sits on the inner arcs, by the Pager's mark." 'the innermost ring is the strongest signal.' > "out/$P-drf-dist-ok.txt"
+DRF_DB=$(grep -c -i -E "$DRF_DW" "out/$P-drf-dist-bad.txt"); DRF_DG=$(grep -c -i -E "$DRF_DW" "out/$P-drf-dist-ok.txt")
+DRF_DK=0; [ -z "$DRF_DH" ] && [ "$DRF_DB/$DRF_DG" = 2/0 ] && DRF_DK=1
+rowif "doc drift: no document says the Scope shows how near a network is (near or close to the Pager, the nearest ring): ${DRF_DH:-none}; the pattern flags the old sentences ($DRF_DB of 2) and not the new ones ($DRF_DG of 2)" [ "$DRF_DK" = 1 ]

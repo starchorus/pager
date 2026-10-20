@@ -155,7 +155,7 @@ alone with a small status pill that brings the panels back; the choice is rememb
 The sheet's row also has a 'Scope' button (key `Z`, or `?scope=1`), off until you turn it on and only on a
 phone. It swaps the sky for a fan standing on the Pager: each band has a lane (2.4, 5 and 6 GHz, then
 stations, then Bluetooth while any mark is heard), a network sits along its lane by channel, and the arcs are the received signal in dBm, so a
-strong network is near the Pager. Every new capture draws one arc contracting across the fan, and new
+strong signal sits on the inner arcs, by the Pager's mark. Every new capture draws one arc contracting across the fan, and new
 points appear as it passes; nothing sweeps and nothing is sent. When the feed goes stale or offline the fan
 fills with snow and the chip's word. The lanes are bands and the arcs are signal: the Scope never shows
 where a network is.

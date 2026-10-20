@@ -192,7 +192,7 @@ def legend(v):
 def direction(v):
     t = json.loads(v)
     for a in ("not direction", "never a direction", "not range", "arcs = signal (dBm)"): t = t.replace(a, "")
-    h = re.findall(r"(?i)\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther)\b|°", t)
+    h = re.findall(r"(?i)\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther|(?:near|close to|next to) (?:the )?pager|(?:nearest|closest) (?:ring|arc))\b|°", t)
     return ["claims: %s" % h] if h else []
 def fit(v):   # the strip at a narrow size: every theme says ok (cells inside the panel and the screen, 13 px words, a unit that keeps its case)
     d = json.loads(v); bad = ["%s: %s" % (t, d.get(t)) for t in TH if not str(d.get(t, "")).startswith("ok")]
@@ -604,7 +604,10 @@ scp_run words "$SCP_EVT2" "$F/devices.json" "$SCP_Q" 390 844
 SCP_R=$(scp_j direction "$(scp_ev "$SCP_T-words.json")")
 scp_row "scope: no word of direction or distance (bearing, heading, compass, a point of the compass, ahead, degrees, metres, distance, range, nearby) in the strip, the foot, the button, the key's help, the aria texts or the theme words" "$SCP_R"
 python3 -B -c 'import json; d=json.dumps("lanes = band, channel / not direction / ahead of you")' && printf '%s\n' '"north ahead, 30 degrees"' > "$SCP_T/dir-dummy.json" && SCP_DD=$(scp_j direction "$(cat "$SCP_T/dir-dummy.json")")
-rowif "scope: the word judge says no to a dummy ('north ahead, 30 degrees': $SCP_DD)" [ "$SCP_DD" != ok ]
+printf '%s\n' '"a strong network is near the Pager, the nearest ring is the strongest"' > "$SCP_T/dist-dummy.json" && SCP_DE=$(scp_j direction "$(cat "$SCP_T/dist-dummy.json")")
+printf '%s\n' '"a strong signal sits on the inner arcs, by the Pager mark; the innermost ring is the strongest signal"' > "$SCP_T/dist-clean.json" && SCP_DC=$(scp_j direction "$(cat "$SCP_T/dist-clean.json")")
+SCP_DK=0; [ "$SCP_DD" != ok ] && [ "$SCP_DE" != ok ] && [ "$SCP_DC" = ok ] && SCP_DK=1
+rowif "scope: the word judge says no to a dummy ('north ahead, 30 degrees': $SCP_DD) and to a claim of distance ('near the Pager', 'the nearest ring': $SCP_DE), and yes to the words that say signal and screen only ($SCP_DC)" [ "$SCP_DK" = 1 ]
 
 # ---- the cost of a frame (a ceiling in headless software raster, not a phone's time): 5, 50 and 300 blips
 python3 tools/gen-testdata.py --aps 3 --clients 2 --seed 22 --out "$SCP_T/b5.json" >/dev/null 2>&1
