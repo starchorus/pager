@@ -2058,19 +2058,19 @@ Safari tab layouts (Compact and Bottom) against the sheet; VoiceOver reads 'STAR
 ### 9.8b The Scope (D22, phone layout only)
 
 A second view of the same capture for a small screen: a fan standing on the Pager, 60° wide, with the sky's own nodes on it. It
-is a view of what was heard, drawn by the same `drawGlows`, `drawClients`, `drawClouds`, `drawStars` and `drawHud` (sprites,
+is a view of what was heard, drawn by the same `drawGlows`, `drawClients`, `drawClouds`, `drawBt`, `drawStars`, `drawChangeCues`, `drawRecvRing` and `drawHud` (sprites,
 labels, selection and change cues unchanged) and never a sweep. It is **named** 'Scope', never 'Scanner' or 'Motion'; the page
 never says it looks for anything.
 
 **When.** `scopeOn = phoneOn && S.ui.scope`: phone mode only (≤ 720 px, a phone on its side, `?phone=1`). The button `#t-scope` (44×44,
-in `#sheet-row` before the legend button; on a phone on its side, where the row has no room, it moves to the Look group), the key
+in `#sheet-row` before the legend button, where the row has 52 px to spare beyond its other buttons; where it has not, on a phone on its side and at 320 px wide, it goes to the end of the Look group as a button with its word, 90 to 96 px by 44), the key
 `Z` and `?scope=1|0` (not saved) switch it; `S.ui.scope` is saved in `starchorus.ui.v1` and is **off by default**. The wide desktop
 has no button, no strip and no foot (`:root:not([data-scope=on])` hides them), and `?scope=1` there changes nothing. Hide panels (`U`)
 keeps the strip and the foot and hides the bar and the sheet. A saved 3D view stays saved and comes back with the Scope off.
 
 **Geometry** (theme-free; `SCOPE`, `scopeGeom()`; `scopePlace()` places). The apex O lies below the Pager (the foot's centre, `#sc-ps`);
 the fan opens upward through ±30° (`SCOPE.half`), narrowing to the box where it would leave it (`thv`). **Radius = signal**: `r = rNear
-+ (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (L is the length of the fan, from the Pager's mark to the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the innermost
++ (1 − rssiT(dBm))·(rFar − rNear)` with `rNear = max(34, 0.18·L)` (`L` is the room above the Pager's mark: from the mark up to the strip's bottom edge and its 4 px gap, less the 52 px `SCOPE.rim` that holds the lane names and the channel ticks; `rFar` is `oy − top − rim`, so the far arc lies one rim below the strip); the rings are drawn at the sky's own −40/−60/−80 dBm (D9); the innermost
 ring is the strongest signal. The radius never moves, whatever the capture. **Angle =
 a place in a lane, never a direction.** The lanes are the bands: 2.4 GHz, 5 GHz, 6 GHz, stations (widths 0.4372/0.5684/0.2623/0.6121 in
 units of the fan's half-angle, a gap of 0.04 between them, so that the three bands and the stations share the fan). While Bluetooth marks
@@ -2080,20 +2080,17 @@ the lane goes again with the marks or the filter. Without marks the four lanes a
 `scopePlace()` for this reason, not in `scopeGeom()`). A network sits at
 `scU(band, channel)` along its lane (channels ascend; 1/6/11, 36/100/149 are marked), a station or a cloud at `hash(id + "sc")` (the
 sky's own stable hash, so a station keeps its place when its signal changes). A network whose band is unknown goes into the 6 lane
-and the lane is named '6 · ?'. Networks are nudged sideways (never along the radius) where they would overlap; stations are not.
+and the lane is named '6 · ?'. Networks, clouds and Bluetooth marks are nudged sideways (never along the radius) where they would overlap, to the first free place of up to eight tried in turn (one, two, three and four steps of two blips' width and 2 px, either side, alternately); when none is free the last one stands. Stations are not nudged.
 A lane that is narrower than two blips keeps the ideal place and accepts the overlap (the nudge would turn over there). Channel ticks
 are drawn left to right, and a tick that would touch the one before it is left out. The result is stored on the node as
-`n.sc = {k, r, x, y, px, st, nw, q}`. `SC.g` is `null` when the fan would be shorter than 120 px (a small phone on its side, with the
-Whitehall banners): the Scope then draws no fan, and the foot's RX line adds the theme-free note 'Too little room for the scope: turn the
-phone upright'. The line is rewritten before every measure, so a roomier window brings the fan back.
+`n.sc = {k, r, x, y, px, st, nw, q}`. `SC.g` is `null` when `L` is under `SCOPE.minL` (120 px; a small phone on its side, with the Whitehall banners): the Scope then draws no fan, and the span `#sc-no` of the foot shows the theme-free note 'Too little room for the scope: turn the phone upright'. `#sc-no` is a span of its own, not part of the RX line: it spans the foot's whole width and is ordered (`order: -1`) above the two captions and the RX line, and it is hidden while the fan has room. `scopeGeom()` sets it at every measure, so a roomier window brings the fan back and takes the note away.
 
 **A wave per capture.** `scopeStep` (the tick's body in the Scope: `stepNodes`, `stepClouds`, no rotation, bubbles or particles)
 re-places the nodes when `S.ingestSeq`, the Random switch or the band filters change and starts a **wave** on a new capture or a
 replay step. A wave is **one arc that contracts** from the far rim to the near one in `clamp(2·fadeInMs, 1200, 1800)` ms: three strokes
 of decreasing width and alpha (`SCOPE.arcs`) in `accent.selection`; a node that is new in the capture (`nw`) stays hidden until the front
 has passed its radius (`q`), then appears. It never runs outward, there is no sweep and nothing rotates (R39). Reduced motion
-(`reduceMotion`), pause and fixed time draw no arc and no wait: the new node shows at once. At rest the page draws **no frame**
-(`scopeWantsFrame()`: the wave and 1.5 s after it, then 2 a second while the feed is not live). WarGames' phosphor persistence
+(`reduceMotion`), pause and fixed time draw no arc and no wait: the new node shows at once. At rest the page draws **no frame** (`scopeWantsFrame()`: the wave and 1.5 s after it, then 2 a second while the feed is not live; and one frame at each half second while the ring of an alerted blip is drawn, §14.6, the tick asks for it outside `scopeWantsFrame()`, and Foundation's smooth pulse is sampled at the same step there). WarGames' phosphor persistence
 (`S.persistOn`, set in `beginFrame`) is on only while the arc runs and never arms the idle trail (`persistFade`) in the Scope: idle and snow
 frames clear the canvas, so a stale feed costs 2 frames a second there too.
 
@@ -2102,8 +2099,7 @@ frames clear the canvas, so a stale feed costs 2 frames a second there too.
 reduced motion) over the fan, the rim dashed, and the chip's own word appended to `#sc-rx` ('RX only · nothing is transmitted ·
 Stale'; in WarGames 'Link down' for offline, in Whitehall 'No link'). Never the alarm colour: a stale feed is not an alarm.
 
-**Chrome.** In the Scope the bar shows the brand, the lamps (WarGames: eight IMSAI lamps, `#scope-lamps`) and the chip; the sky's
-counts, the 3D button, the layer group and the camera are hidden (they have no meaning on the fan; their state is kept). The number
+**Chrome.** In the Scope the bar shows the brand, the lamps (WarGames: eight IMSAI lamps, `#scope-lamps`) and the chip; the sky's counts, the version, the caption line, the layer group, the camera and the 3D, rotate and spin buttons are hidden (they have no meaning on the fan; their state is kept). An ingest that changes the strip's form (class `t` or `n`) runs `resize()`, as a change of the feed's liveness does, so that the fan's top (`SC.g.top`, measured from the strip's height) follows the strip. The number
 strip `#scope-strip` (five fields: networks, stations, clouds, strongest signal, new networks) is read from the same model as the stats;
 its words are `copy.scope.strip[5]` in each theme (Foundation 'Stars / Satellites / Clouds / Brightest / New'; WarGames 'NETS /
 STATIONS / CLOUDS / PEAK / NEW'; Whitehall 'NETWORKS / STATIONS / CLOUDS / STRONGEST / NEW PLOTS'). The foot `#scope-foot` carries the
@@ -2115,8 +2111,8 @@ and keeps the five numbers (class `n`; they stay in the page for a screen reader
 would touch another is left out. The strip never wraps a number, and its unit keeps its case ('-48 dBm' in every theme; the foot's caption is in the theme's capitals). No sound, no
 vibration, no request of its own.
 
-**Input.** A touch on a blip selects it (the same detail card in the sheet; no camera flight, a saved 3D view is not entered), a touch
-on empty fan closes it. Wheel and pinch do nothing. The legend hides the derived rows (nebula, groups, devices, merge, crowding) while
+**Input.** A touch on a blip selects it (the same detail card in the sheet; no camera flight, a saved 3D view is not entered; with the ESS merge on, a folded member is a blip like any other here: `nodeAt` does not skip it while the Scope is on and `drawStars` draws no count badge for the lead of its set, because the Scope draws every member apart), a touch
+on empty fan closes it. Wheel and pinch do nothing. The legend hides the derived rows (nebula, groups, devices, merge, probes, arc, crowding, deviation, ghost) while
 the Scope is on and shows a note row, `scope`, that repeats the two captions ('lanes = band, channel · arcs = signal (dBm) · not
 direction, not range'); the geometry row stays. A saved 3D view is not entered: the 3D ring labels are not drawn in the Scope.
 
@@ -2125,9 +2121,7 @@ with `copy.scope.empty` ('Nothing heard in this capture') and `staleNote()` (so 
 capture shows the empty fan, and a stale or an unreachable feed says so in the chip's word on the foot's RX line); blips dimmed to ×0.6 when
 stale and ×0.4 when offline (the snow and the dashed rim say it); the sample sky's demo wave every 10 s (the arc runs on entering the
 Scope and on each capture); a 3 px dot for each station above 150 (stations stay sprites at any count; the 300-blip bench is the proof);
-the ticks at 9 px (they are 13 px); and the alerts' ring flicker: the alerts' code adds the term to the frame rule (`scopeWantsFrame()`: only
-while an alert is live, under 3 Hz, also under reduced motion) and the drawing to `drawScope()`, which the Scope's fixed draw list does not
-carry on its own.
+the ticks at 9 px (they are 13 px). The placement and the wave also differ from the design (scanner-spec 2.2 to 2.4) in these ways, none of which is built: **no placement hysteresis** (the previous angle is not tried first; every placement starts from the ideal place, which is a pure function of the capture), a nudge of four steps either side and not six, and **no ideal-angle fallback** (when no place is free the last one tried stands, where the design returns to the ideal place); **no jitter** on the angle; **a known blip jumps at once** to its new place, where the design holds it until the front passes `max(old r, new r)` and then pings it, and **a blip that has gone leaves at once**, where the design keeps it until the front has passed; **no draw order by signal** (the design sorts the access points by signal, weakest first, so that strong blips lie on top; the page draws them in `S.apOrder`, strongest first, so a weaker blip can lie over a stronger one); the trail arcs lie 7 and 16 px behind the front, not 6 and 14, and are drawn in every theme, where the design draws the front alone in WarGames and lets the phosphor make the trail; the wave takes at least 1.2 s (the design: 0.7 s in WarGames and Whitehall); and the ring of an alerted blip is the sky's (`status.alert`, at `px + 11.5`, in the theme's flicker idiom), where the design had the alarm colour at `px + 8` switching every half second.
 
 **Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); the fifth lane's code is counted in the
 radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh` also pins the Scope's own growth (the page's growth since the base of the Scope less the bytes of the alerts' ring and legend, found by their markers, at most the Scope's share and the fifth lane's allowance; the row prints the number) and

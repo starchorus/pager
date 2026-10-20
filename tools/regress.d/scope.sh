@@ -11,15 +11,22 @@
 #                 a wave that plays under reduced motion; a frame drawn while nothing moves, or no frame while the feed is stale; a stale or an offline
 #                 feed that looks live (no snow, a solid rim, no chip word); a strip that counts differently from the capture; a Scope on the wide
 #                 desktop, on by default, or lost on a reload; a 44 px button that is not there; chrome that overlaps, runs off the screen or sets text
-#                 under 13 px; the sky's controls that lose a state; a Scope that transmits, reads a clock, or draws from a random number.
+#                 under 13 px; the sky's controls that lose a state; a Scope that transmits, reads a clock, or draws from a random number; a folded ESS member
+#                 that a tap cannot pick, or a count badge drawn for a set the Scope draws apart; a strip that changes its form and leaves the fan's top where it
+#                 was; a Scope that grows past its own share while the alerts' share is under its own (the pooled row would not see it); a document or a word of
+#                 the page that says how near a network is (near the Pager, the nearest ring).
 # NEGATIVE PROBE: one-line copies of the page (served to headless Chrome on 127.0.0.1 only): an outward wave, a frame every tick, a nudged radius, the
 #                 bands ignored, no Z, no snow, a direction caption, a POST, the lamps loop over every .lamps, no word fitting, the 3D ring labels, the
 #                 phosphor trail on idle frames, a note that never shows, a Bluetooth lane that overflows the fan, ticks that touch, a nudge that turns over
-#                 in a narrow lane, a legend row of the wrong kind or one that never shows: each turns exactly its row red (the unmutated page is the control: the rows themselves). The static
-#                 judges have dummies that must be flagged.
+#                 in a narrow lane, a legend row of the wrong kind or one that never shows, a tap that skips a folded ESS member, the count badge drawn in the
+#                 Scope, a strip whose change of form leaves the fan where it was: each turns exactly its row red (the unmutated page is the control: the rows
+#                 themselves). The static judges have dummies that must be flagged (a forbidden pattern, a size one byte over, a marker that is gone, words of direction
+#                 and of distance).
 # NOT PROVEN:     iOS WebKit, a real finger, the battery (the numbers are headless software raster: the frame cost row is a ceiling, not a phone's time);
 #                 that a newcomer does not read the fan as a field of view (docs/architecture.md §9.8b, the check on the phone); how the Scope looks at
-#                 a width the rows do not name; WarGames' persistence trail (the Scope draws a plain front there).
+#                 a width the rows do not name; how the trail of the wave looks in WarGames, where the phosphor persistence is on while the arc runs (the Scope draws
+#                 the front and two trail strokes in every theme); the Scope's own growth is a measure by markers, not a diff against the old page (a marker that
+#                 moves is a red row, a new Scope line that matches no marker is counted as Scope).
 # Runs at 390x844 with --mobile unless a row says otherwise. Rows that need the sky settled use ?fixed (the wave is then done: phase 1); the
 # wave, the idle and the reduced-motion rows run on the live clock.
 
