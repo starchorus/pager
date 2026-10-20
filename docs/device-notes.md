@@ -25,7 +25,7 @@ without transmitting and without changing state.
 | Operating system | OpenWrt **24.10.1** |
 | Shell / userland | **BusyBox 1.36.1**: no `grep -P`, no gawk (BusyBox `awk` only) |
 | Architecture | **MIPS `mipsel_24kc`** (musl, soft-float) |
-| Access | SSH as `root` to the device's management address (here `<device>`). `tools/install.sh` knows it as the default host; `--host` or `STARCHORUS_HOST` choose another. |
+| Access | SSH as `root` to the device's management address (here `<device>`). `tools/install.sh` knows it as the default host; `--host` or `STARCHORUS_HOST` choose another. The server is OpenSSH (`sshd-session`), with public-key and password authentication both on; a password prompt left open for more than about two minutes ends in 'Connection closed' (the device logs 'Timeout before authentication'), seen twice on 20 October 2026 during installer runs, so type the password at once or use a key. |
 | Device web interface | Port **1471**; belongs to the AP service and serves no other files |
 | Persistent storage | internal eMMC; `/root/…` == `/mmc/root/…`. **No SD card, no `/sd`.** `/tmp` is in RAM. |
 

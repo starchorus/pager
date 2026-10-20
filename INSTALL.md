@@ -198,7 +198,9 @@ Overview and the payload, a second copy of the Overview that sits beside the pay
 companion `alert-deauth.sh` beside it (the Settings row 'Alerts' installs that one into the firmware's
 alert tree on your press; the installer only places it). It checks
 that each one arrived intact and runs Starchorus's own passive checks on the Pager. It asks for the
-root password once.
+root password once; type it within about two minutes, because the Pager's `sshd` closes a connection
+that waits longer, and the installer then reports that it could not authenticate and installed nothing
+(run it again). With a key for the Pager in your `~/.ssh/config` it asks for nothing.
 
 1. Show what it would do, without connecting to anything (a 'dry run'):
 
