@@ -971,21 +971,27 @@ sentence says what it does from 0.2.0.
 | M6 | How many characters fit on one console line? | At least 40: a line of forty digits stayed on one line. The stock theme's files say 50. **To be run (owner check, per command; it was to come before the Bluetooth figure went on the summary line, and the figure is on it already, so it is overdue):** a line of 50 digits, then a line holding the middle dot `·`. | Nothing depends on it: a draw taller than the screen scrolls, as the log always does. Whether a longer line wraps or is cut was not measured. The summary's APs line with the figure (`APs 12   ·   2.4:5  5:6  6:1  BT 23`) is 45 characters at the worst (three-digit counts, '256+'); if fewer than 45 stay on one line, the figure leaves the summary and the hub row of the Bluetooth screen reads 'Bluetooth (23)'; that fallback is not written (it is a change of both copies of the Overview that waits for this check). **Until M6 has passed, nothing switches the Bluetooth setting on by default**: it stays off in the payload and the collector, and the release pass does not change that, because a summary line that wraps or is cut on the Pager would show on every start. Every new line of the Bluetooth screen and of the Bands bars is at most 40 characters, ASCII separators only. |
 | M7 | After a `timeout`-killed `WAIT_FOR_INPUT`, does the next call still return the next press? Do Up and Down reach a waiting payload? | No stale waiter was seen: the next call returned the next press (1.1 s and 3.8 s after it was opened in the two runs, then 0.5 s and 2.1 s for the one after), but the evidence is weak, because the owner's presses were not timed against the kill. UP and DOWN reached a waiting payload (tests 3 and 4), and so did RIGHT; LEFT was not seen (test 9, meant for it, returned A twice). | No UI command is put under `timeout`, here or anywhere in the project: M7 is too weak to rely on. Up and Down are ignored: a new wait is started, nothing is drawn, no strike. From 0.2.0 (19 October 2026) Up and Down pressed during a draw leave it running and are dropped from the queue in their turn, with nothing drawn and no wait started for them (the reader's is open already). The exit trap ends a pending wait of the reader by killing it, on TERM, INT, HUP and when the payload has gone, as it ended the one wait before 0.2.0; after a B the reader has ended itself and nothing is killed. M7 is too weak to say what the UI service does with a killed wait, and the Overview needs a stray waiter ended whatever it does. |
 
+**Measured on 20 October 2026, with a lab script in `/tmp` under the Pager's `sh` (BusyBox ash; no UI command, nothing
+sent).** A background child killed from another process while the shell waited in a `sleep 0.2` was collected during that
+sleep: `kill -0` on its pid failed in the nap after the one it died in, `ps` no longer listed it, and `wait` returned 137. So
+the Overview's test for a dead key reader (the mark or `kill -0`, above) holds on the device as it does under `dash` and
+`bash`, and the named failure 'could not read a key' comes within its six seconds there too. A process start costs about
+10 ms on the Pager: 400 `mv` of a small file in `/tmp` took 10.0 ms each (the reader's rename of the counts), 400 `/bin/true`
+9.6 ms each, a builtin step 0.15 ms, and a `sleep 0.2` 209 ms (load 1.0 to 1.6 at the time, the payload's menu open and
+idle). The reader's two process starts between an answer and its next wait are therefore about 20 ms, before the UI
+service's own time.
+
 **Not measured.** Whether Up and Down also scroll the console while a wait is open (only the returned key was
 recorded); what Left, Right, Up and Down do while no wait is open (A was lost in M1 and B left the view in M2; the
 others were not tried, and the Overview does not depend on them, because a wait is open while it draws, apart from
 the stretches listed above); whether a quick double press is kept (M5 is inconclusive); the
 exit status of `WAIT_FOR_INPUT` on a cancel and any word it prints besides the six key names (the Overview takes
 BACK and Escape as B, a lower-case a or b as the capital, and any other answer, an empty one included, as a
-strike when it comes back within a second); how long a process takes to start, and with it how long the key
-reader's next wait takes to be registered after an answer (since 0.2.0 the stretch holds two process starts, because the reader renames the new counts onto
-their file with `mv` before it opens the wait; both are to be timed), and how long the shell takes to see a B and open
-the list; how the UI shares a key between a `LIST_PICKER` and a `WAIT_FOR_INPUT` that are open at once (the
-reader ends itself on a B so that the question does not arise); whether BusyBox ash collects a reader that was killed
-from outside while the shell naps, as `sh` and `dash` do on the development machine (the named failure 'could not read a
-key' within six seconds rests on it, and the Overview ends the dead reader's orphan wait before that dialogue so that it
-cannot take the press meant for it; measured there, not on the Pager); and where a line wider than 40 characters
-wraps or is cut.
+strike when it comes back within a second); how long the UI service takes to register the key reader's next wait after an
+answer (the two process starts before it are measured above; the service's part needs a press timed against the
+registration), and how long the shell takes to see a B and open the list; how the UI shares a key between a
+`LIST_PICKER` and a `WAIT_FOR_INPUT` that are open at once (the reader ends itself on a B so that the question does not
+arise); and where a line wider than 40 characters wraps or is cut.
 
 ---
 

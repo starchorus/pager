@@ -277,8 +277,8 @@ ov_qnext() {
 # ended and left nothing: no answer and no key, a failure, and the Overview says so instead of counting it as a strike. The reader has ended
 # when it has left its mark (OV_RDONE) or when its pid is gone (`kill -0`, no process): a reader killed with KILL runs no trap, and one on a
 # full file system cannot write the mark, so the mark alone would leave the loop below napping for ever with no wait open. A child that has
-# died stays a zombie, and `kill -0` still finds it, until the shell collects it; dash and bash do that while the nap's sleep is waited for
-# (measured on a dev machine, not under BusyBox ash). The counts are
+# died stays a zombie, and `kill -0` still finds it, until the shell collects it; dash, bash and the Pager's BusyBox ash do that while the
+# nap's sleep is waited for (measured on a dev machine and, on 20 October 2026, on the device: docs/device-notes.md section 7). The counts are
 # looked at again once the reader's end is seen, because it writes them before it ends. A B, Left or Right taken is counted in OV_NC, which
 # ends the cut of the draw it came in (ov_cut).
 ov_await() {
