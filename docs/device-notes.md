@@ -773,7 +773,7 @@ time itself was measured, above): the number of `sqlite3` processes per cycle (a
 `STARCHORUS_SOURCE=pineap sh starchorus-collect.sh --once` by hand (the daemon of the harness has run it under BusyBox `awk`).
 
 **The radio pair on the device: measured on 18 October 2026.** The opt-in Bluetooth window and the opt-in Traffic read (`docs/architecture.md` §14.6)
-were measured as part of the collector: a copy of the 0.2.0-dev.1 collector under `/tmp` with its own directories and the payload's defaults
+were measured as part of the collector: a copy of the 0.2.0-dev.1 collector (as of 18 October 2026) under `/tmp` with its own directories and the payload's defaults
 (one-hour window, 30-s interval, vendor on), alongside the recon engine, the installed 0.1.1 collector and the owner's open Overview; the
 reads that settle the design (A1, A2, A10, A15 of §2b) came first. Segments of 8, 8 and 10 minutes with both switches off, Bluetooth on and
 Traffic on; the ticks are the CPU time of the collector's children per cycle (`cutime` and `cstime` of the loop), the tools' own ticks were read
@@ -980,6 +980,13 @@ the Overview's test for a dead key reader (the mark or `kill -0`, above) holds o
 9.6 ms each, a builtin step 0.15 ms, and a `sleep 0.2` 209 ms (load 1.0 to 1.6 at the time, the payload's menu open and
 idle). The reader's two process starts between an answer and its next wait are therefore about 20 ms, before the UI
 service's own time.
+
+**Seen on 20 October 2026, not measured.** An Overview that had stood on a screen for hours (its reader's `WAIT_FOR_INPUT`
+registered the whole time, as `ps` showed) was left by the owner with one B, and the Pager showed its start screen; a process
+list taken soon after still held the Overview, its reader and that wait. By the time a look over ssh came back to them, some
+minutes later and after the owner had left the payload's menu, all three were gone and no `/tmp/starchorus-ov.*` was left. So
+the B reached the device's own UI first and the Overview ended on its own afterwards, but when, and by which key or signal,
+was not recorded: a stretch to time deliberately, with a clock beside the Pager.
 
 **Not measured.** Whether Up and Down also scroll the console while a wait is open (only the returned key was
 recorded); what Left, Right, Up and Down do while no wait is open (A was lost in M1 and B left the view in M2; the
