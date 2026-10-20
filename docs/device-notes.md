@@ -986,7 +986,11 @@ registered the whole time, as `ps` showed) was left by the owner with one B, and
 list taken soon after still held the Overview, its reader and that wait. By the time a look over ssh came back to them, some
 minutes later and after the owner had left the payload's menu, all three were gone and no `/tmp/starchorus-ov.*` was left. So
 the B reached the device's own UI first and the Overview ended on its own afterwards, but when, and by which key or signal,
-was not recorded: a stretch to time deliberately, with a clock beside the Pager.
+was not recorded. The device log holds a likely cause: at 19:37 local time the firmware's own daemon (`pineapple`) logged a
+Go runtime panic ('slice bounds out of range'), minutes before that look; a UI service that restarts would take its
+registered waits with it, and the reader, left without a wait, ends and the Overview with it (the named failure of section
+7). Whether that is what happened, and what the screen showed in between, is a stretch to time deliberately, with a clock
+beside the Pager.
 
 **Not measured.** Whether Up and Down also scroll the console while a wait is open (only the returned key was
 recorded); what Left, Right, Up and Down do while no wait is open (A was lost in M1 and B left the view in M2; the
