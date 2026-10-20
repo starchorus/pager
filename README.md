@@ -352,8 +352,10 @@ the directory, copies `alert-deauth.sh` there as `payload.sh` (through a tempora
 executable. On an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh` and, if it is empty, that directory, and nothing else. The row
 needs `alert-deauth.sh` beside the payload's `payload.sh` (the Hak5 package has it there; after `tools/install.sh` or a copy by hand, copy it there with `scp -O
 library/user/reconnaissance/starchorus/alert-deauth.sh root@<device>:/root/payloads/user/reconnaissance/starchorus/`; without it the row says so and writes nothing), and
-it is locked while `STARCHORUS_ALERTS` is set in the environment. It never switches an alert on or off in the firmware: that stays on the firmware's own Alerts page, where you should
-look afterwards. By hand, from the repository, the same installation is:
+it is locked while `STARCHORUS_ALERTS` is set in the environment to anything but 1 (the collector then ignores the alert log, and the row says so). When you switch the alert off on the firmware's
+Alerts page the firmware renames its directory to `DISABLED.starchorus`; with only that copy there the row reads 'OFF (firmware)', a press installs nothing (a second, enabled copy would run beside the one you
+switched off) and says to switch it on there, and Remove takes a stale copy of that kind away with the installed one. The row toggles no switch of the firmware; an alert placed in the tree may run at once
+(not yet measured), and switching it off stays with the firmware's Alerts page, where you should look afterwards. By hand, from the repository, the same installation is:
 
 ```sh
 ssh root@<device> 'mkdir -p /root/payloads/alerts/deauth_flood_detected/starchorus'
@@ -415,7 +417,7 @@ All variables are optional.
 | `STARCHORUS_BLUETOOTH` | `0` | `1` = a passive Bluetooth LE scan window every cycle (`hcitool -i hci0 lescan --passive --duplicates`, read with `btmon -i hci0`), written as `bluetooth[]`. Needs a controller `hci0` and the tools, otherwise the layer stays off. Payload key: `bluetooth on\|off` (Settings > Bluetooth). |
 | `STARCHORUS_BT_WINDOW` | `5` | Length of the Bluetooth window in whole seconds, 5 to 15; anything else is 5, with one log line. Environment only. |
 | `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` on the first cycle and then every second one (written as `activity[]`, a relative share per frequency; the cycle in between publishes the answer of the cycle before, because the AP service counts over a window of 20 to 30 s and its command-line client costs about half a second of CPU per call on the Pager; at the payload's 30-s interval the call comes about once a minute) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
-| `STARCHORUS_ALERTS` | `1` | `1` = each cycle reads `$STARCHORUS_OUTDIR/alerts.log` when that file exists (the companion alert payload writes it; see Alerts above) and writes `alerts[]`; without the file nothing is read and no key is written. `0` = never read it. Environment only. |
+| `STARCHORUS_ALERTS` | `1` | `1` = each cycle reads `$STARCHORUS_OUTDIR/alerts.log` when that file exists (the companion alert payload writes it; see Alerts above) and writes `alerts[]`; without the file nothing is read and no key is written. `0` = never read it (any value but `1` reads nothing), which also locks the Settings row 'Alerts' on the Pager. Environment only. |
 | `STARCHORUS_ALERT_WINDOW` | `600` | How long a report counts, in whole seconds, 60 to 86400; anything else is 600, with one log line. Environment only. |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
