@@ -10,17 +10,18 @@
 #   for each step of the flicker and for nothing else, and the ring takes both its levels on the canvas · R6 the observation notes are as before, two lines · R7 no P10
 #   word in what the feature says · R8 the running page makes no request but GET to its own origin while the alert is shown · R9 the planted copies of the page
 #   (below) · R10 the colour role of the alert token · R11 the Scope's blip of an alerted access point blinks in the ring's rhythm (frames, both levels, reduced motion, paused, Foundation's
-#   pulse sampled at the half second)
+#   pulse sampled at the half second) · R12 the ring's band, as section 14.6 states it (it touches the selection ring)
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
 #                 shows without a ring or hides with one (or with its band filtered off); a flicker that freezes when the sky does not spin (the frame loop is not asked for
 #                 it) or that renders sixty frames a second for a change twice a second; a ring that lands on the security ring, its double, the identity frame or the new-plot
 #                 mark; an alert that adds a word the neutral-language rule forbids, or a path that sends; a generator that lets a malformed alerts[] through; a step of the flicker that arms the
-#                 phosphor fade again (WarGames, persistence on: 22 frames for each step); a Scope whose alerted blip never blinks, or that renders sixty frames a second for it.
+#                 phosphor fade again (WarGames, persistence on: 22 frames for each step); a Scope whose alerted blip never blinks, or that renders sixty frames a second for it; a ring that moves so
+#                 that the band stated in section 14.6 is no longer true.
 # NEGATIVE PROBE: R9 runs the same evals on planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
 #                 the flicker factor replaced by 1, the reduced-motion test removed, no frame request, a frame request every frame, and a legend row that ignores the band
-#                 filter; a step that arms the phosphor fade again (R5), and in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), are more. Each must
-#                 turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
+#                 filter; a step that arms the phosphor fade again (R5), in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), and a ring thinned to
+#                 1.25 px at 11.4 (R12), are more. Each must turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
@@ -298,6 +299,32 @@ AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_frames "$AL_T/p-fade.html" "$AL_T/frames-fade"
 AL_V=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["alerts"] <= 6, d["again"] <= 6, d["levels"] >= 2, d["wg"] > 6, d["errors"])' 2>/dev/null)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_FOK" = bad ] && [ "$AL_V" = "True True True True 0" ] && AL_OK=1
 rowif "alerts: the persistence key bites: a step that arms the phosphor fade again renders more than 6 frames in 0.7 s in WarGames with persistence on, and only there (Whitehall and the ring's levels stay green) [copy differs in $AL_C1 line, Whitehall frames/again/levels, WarGames over 6, errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+
+# ---- R12 the ring's band, read from the page's own numbers: the ring runs from 10.75 to 12.25 px beyond the star's edge (1.5 wide at offsetPx + 1.5). The hidden-SSID ring (offset 10, 1 wide) ends
+# at 10.5 and the selection ring (offset 13, 1.5 wide) starts at 12.25: the alert ring is 0.25 px clear of the first and touches the second. docs/architecture.md section 14.6 says exactly that; a free band
+# of 1.75 px cannot hold a ring that keeps 0.5 px from both and is still a ring the canvas rows can read (0.75 px). This row keeps the sentence true: the gaps are computed from the page, and a ring that is
+# moved or thinned is red until the section is read again.
+cat > "$AL_T/gap.py" <<'PY'
+import re, sys
+s = open(sys.argv[1], encoding="utf-8").read()
+def one(rx):
+    m = re.findall(rx, s)
+    if len(m) != 1: print("BROKEN:" + rx[:30]); sys.exit(0)
+    return m[0]
+w, d = one(r"ringArc\(THEME\.status\.alert, ([\d.]+), null, n\.alphaDraw .*? n\.px \+ ENCODING\.hidden\.offsetPx \+ ([\d.]+), 0, Math\.PI \* 2\)")
+hw, ho = one(r'hidden: \{ ring: "dashed", dash: \[4, 4\], widthPx: ([\d.]+), offsetPx: ([\d.]+) \}')
+so = one(r"selectionRingOffsetPx: ([\d.]+)")
+sw = one(r"if \(n\.id === S\.locked\) \{\s*setAlpha\(ctx, alpha\); ctx\.strokeStyle = THEME\.accent\.selection; ctx\.lineWidth = ([\d.]+);")
+w, d, hw, ho, so, sw = map(float, (w, d, hw, ho, so, sw))
+c = ho + d
+print("%.3f/%.3f/%.3f/%.3f" % (c - w / 2, c + w / 2, (c - w / 2) - (ho + hw / 2), (so - sw / 2) - (c + w / 2)))
+PY
+al_gap() { python3 -B "$AL_T/gap.py" "$1" 2>&1 | head -n 1; }   # al_gap PAGE -> inner edge/outer edge/gap to the hidden-SSID ring/gap to the selection ring, in px
+AL_GAP=$(al_gap "$H")
+al_copy "$AL_T/p-gap.html" 'ringArc(THEME.status.alert, 1.5, null, n.alphaDraw' 'ringArc(THEME.status.alert, 1.25, null, n.alphaDraw' 'n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); } }' 'n.px + ENCODING.hidden.offsetPx + 1.4, 0, Math.PI * 2); } }'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; AL_GAPP=$(al_gap "$AL_T/p-gap.html")
+AL_OK=0; [ "$AL_GAP" = "10.750/12.250/0.250/0.000" ] && [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_GAPP" != "$AL_GAP" ] && AL_OK=1
+rowif "alerts: the ring's band is as section 14.6 states it: from 10.75 to 12.25 px beyond the star, 0.25 px clear of the hidden-SSID ring and touching the selection ring [$AL_GAP]; a ring thinned to 1.25 px at 11.4 reads $AL_GAPP and the row is red for it (copy differs in $AL_C1 line)" [ "$AL_OK" = 1 ]
 
 # ---- R11 the Scope (phone fan, spec 2.3 and 2.4): the blip of an alerted access point blinks in the ring's rhythm. The ring is drawn by drawStars, which the Scope calls; what the Scope
 # lacked was the frame for each step (its frame rule knew only the wave and the snow). Whitehall, at 390x844 with the wave over: between 1 and 6 frames in 0.7 s, the ring takes both
