@@ -25,7 +25,7 @@ PHN_MAXB=625000   # bytes: the size the page may reach (wc -c starchorus.html); 
 # shared helpers inside every eval: visible, rect, pairwise overlap of the phone chrome, tap targets under 44 px, overflow
 PHN_JS='const E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).visibility!=="hidden"&&R(e).width>0,
 ovl=()=>{const L=["bar","sheet","classbar-top","classbar-bot","dtg","panels-pill"].map(E).filter(vis),o=[];for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=R(L[i]),b=R(L[j]),w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);if(w>0.5&&h>0.5)o.push(L[i].id+"/"+L[j].id)}return o},
-small=()=>[...document.querySelectorAll("#bar button,#sheet button,#panels-pill,#sheet button.chip,#sheet th[data-sort],#sheet tr[data-id],#sheet input,#sheet select")].filter(vis).filter(e=>R(e).width<43.5||R(e).height<43.5).map(e=>(e.id||e.tagName+":"+e.textContent.trim().slice(0,8))+" "+Math.round(R(e).width)+"x"+Math.round(R(e).height)),
+small=()=>[...document.querySelectorAll("#bar button,#sheet button,#t-scope,#panels-pill,#sheet button.chip,#sheet th[data-sort],#sheet tr[data-id],#sheet input,#sheet select")].filter(vis).filter(e=>R(e).width<43.5||R(e).height<43.5).map(e=>(e.id||e.tagName+":"+e.textContent.trim().slice(0,8))+" "+Math.round(R(e).width)+"x"+Math.round(R(e).height)),
 inner=e=>{for(let p=e.parentElement;p&&p.id!=="sheet-body"&&p.id!=="bar";p=p.parentElement)if(getComputedStyle(p).overflowX!=="visible")return true;return false},
 wide=()=>document.documentElement.scrollWidth!==innerWidth||[...document.querySelectorAll("#bar *,#sheet *")].some(e=>vis(e)&&!inner(e)&&(R(e).right>innerWidth+0.5||R(e).left<-0.5)),
 shown=()=>["controls","legend","detail","help"].filter(i=>vis(E(i))).join("+");'
@@ -92,6 +92,36 @@ PHN_V=$(evalv "out/$P-phn-land.json" 1)
 PHN_W='{"foundation":"ok","wargames":"ok","whitehall":"ok","errors":0}'
 rowif "phone 812x375 on its side: one left column, the sky right of it, full sheet below the bar, chip unclipped, no overlap, 44 px targets" [ "$PHN_V" = "$PHN_W" ]
 [ "$PHN_V" = "$PHN_W" ] || echo "    got: ${PHN_V:-no-value}"
+
+# ---- the Scope's button #t-scope (D22, spec 7.2): in #sheet-row where the row has the room (52 px beyond its other buttons: 375x812, 390x844, 430x932) and in #grp-look where it has not (320x568, and a
+# phone on its side); 44x44 or more where it is a square and small() names it; the row never scrolls sideways; shown on the controls card only (not on a drawer, the legend, the keys or a detail)
+PHN_EVS='(async()=>{'"$PHN_JS"'const W=STARCHORUS.wait,sc=E("t-scope"),row=E("sheet-row"),bad=[];
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(500);STARCHORUS.setSheet("full");await W(400);const r=R(sc);
+ if(!vis(sc))bad.push(t+" hidden");else{if(r.width<43.5||r.height<43.5)bad.push(t+" "+Math.round(r.width)+"x"+Math.round(r.height));if(small().some(x=>x.indexOf("t-scope")===0))bad.push(t+" small()")}
+ if(sc.parentNode.id!==WANT)bad.push(t+" in "+sc.parentNode.id);
+ if(row.scrollWidth>row.clientWidth)bad.push(t+" row "+row.scrollWidth+">"+row.clientWidth);
+ if(wide())bad.push(t+" wide")}
+STARCHORUS.setToggles({inventory:true});await W(400);if(vis(sc))bad.push("drawer");STARCHORUS.setToggles({inventory:false});await W(300);
+E("t-legend").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("legend");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
+E("t-help").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("keys");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
+STARCHORUS.select(STARCHORUS.nodes("ap")[0].id);await W(400);if(vis(sc))bad.push("detail");STARCHORUS.deselect();await W(300);if(!vis(sc))bad.push("back");
+return JSON.stringify([bad.join(";")||"ok",STARCHORUS.errors().length])})()'
+phn_scope() {   # phn_scope WANT WIDTH HEIGHT -> the eval's verdict on the page $H serves: ["ok",0], or what is wrong (WANT = the id of the parent the button should have)
+  runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-$2x$3" --width "$2" --height "$3" --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "(async()=>{const WANT=\"$1\";${PHN_EVS#\(async()=>\{}" >/dev/null 2>&1
+  evalv "out/$P-phn-sc-$2x$3.json" 1
+}
+PHN_V=""
+for PHN_Z in sheet-row:375:812 sheet-row:390:844 sheet-row:430:932 grp-look:320:568 grp-look:812:375; do
+  PHN_R=$(phn_scope "${PHN_Z%%:*}" "$(echo "$PHN_Z" | cut -d: -f2)" "${PHN_Z##*:}")
+  [ "$PHN_R" = '["ok",0]' ] || PHN_V="$PHN_V ${PHN_Z}=${PHN_R:-no-value}"
+done
+rowif "phone: #t-scope sits in #sheet-row at 375x812, 390x844 and 430x932 and in #grp-look at 320x568 and on its side (812x375), is 44x44 or more where it is a square and small() names it, the row never scrolls sideways, in all three themes, and is shown on the controls card only${PHN_V:+ [$PHN_V]}" [ -z "$PHN_V" ]
+# the control: a page copy whose room test is 0 puts the button into the row at 320x568, where it does not fit: the row scrolls (or the button is not in #grp-look) and the verdict is not "ok"
+sed 's/c.scrollWidth + 8), -8) >= 52;/c.scrollWidth + 8), -8) >= 0;/' "$H" > "out/$P-phn-noroom.html"
+PHN_KH=$H; H="out/$P-phn-noroom.html"; PHN_R=$(phn_scope grp-look 320 568); H=$PHN_KH
+PHN_KD=$(diff "$H" "out/$P-phn-noroom.html" | grep -c '^<')
+PHN_KOK=0; [ "$PHN_KD" = 1 ] && [ "$PHN_R" != '["ok",0]' ] && PHN_KOK=1
+rowif "phone: the Scope button's control: a page copy with the 52 px room test set to 0 (one line differs: $PHN_KD) is red at 320x568 [${PHN_R:-no-value}]" [ "$PHN_KOK" = 1 ]
 
 # ---- cards and tap targets (390x844): one card at a time, × back to the controls at their height, every target ≥ 44 px
 PHN_EVC='(async()=>{'"$PHN_JS"'const W=STARCHORUS.wait,o={},bad=[],cl=i=>E(i).dispatchEvent(new MouseEvent("click",{bubbles:true}));
