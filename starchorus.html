@@ -1464,7 +1464,7 @@ function normalizeDoc(raw) {
       // this device's own transmitters (interface MACs / operator file): kept in memory for the exclusion logic only; never rendered, exported or stored
       own_bssids: Array.isArray(rc.own_bssids) ? rc.own_bssids.map(normMac).filter(isMac).slice(0, 16) : [],
       own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
-    // optional alerts[] {type, t, ap, n} (a collector may report "many deauth/disassoc frames heard for this AP"); counts of directed frames stay local-live (P6)
+    // optional alerts[] {type, t, ap, n}: local-live (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
       if (!isObj(x) || x.type !== "deauth") return null;
       const ap = normMac(x.ap);
@@ -4068,7 +4068,6 @@ function scopeWantsFrame() {
   return !!SC.g && !reduceMotion && !S.ui.paused && S.fixedTime == null && (S.clock < SC.t0 + SC.dur + 1.5 || (SC.lv !== "live" && Math.floor(S.clock * 2) !== SC.sf));
 }
 function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and phosphor persistence) alive
-  if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) return true;
   if (S.fixedTime == null && !S.ui.paused && recvRingObj().active) return true;   // the contracting receive ring
   if (S.anim.edgeTravelDotSpeed <= 0 || S.ui.paused || S.fixedTime != null) return false;
   if (S.ui.links) for (const c of S.clientOrder) { if (!c.free && c.alphaDraw > 0.05) { const ap = S.aps.get(c.parent); if (ap && ap.alphaDraw > 0.05) return true; } }
@@ -4099,7 +4098,7 @@ function tick(t) {
   } else if (S.persistFade > 0) {   // §6.7 idle trail: let phosphor spurs fade, then one clean full frame
     S.persistFade--; render(); S.perf.rendered++;
     if (S.persistFade === 0 && S.persistOn) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }
-  }
+  } else if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }   // alert step
   perfTick(t);
   requestAnimationFrame(tick);
 }
@@ -5163,7 +5162,7 @@ function drawStars() {
   }
   const cm = THEME.render.changeCue, e2 = S.clock * 2 | 0;
   alAt = Infinity;
-  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) { alAt = reduceMotion ? Infinity : cm === "glowPulse" ? 0 : (e2 + 1) / 2; ringArc(THEME.status.alert, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); } }
+  for (const a of S.alerts) { const n = alertNode(a); if (n && n.alphaDraw > 0.02) { alAt = reduceMotion ? Infinity : cm === "glowPulse" && !scopeOn ? 0 : (e2 + 1) / 2; ringArc(THEME.status.alert, 1.5, null, n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1)), n.sx, n.sy, n.px + ENCODING.hidden.offsetPx + 1.5, 0, Math.PI * 2); } }
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }
@@ -7077,7 +7076,7 @@ function renderCaption() {
   }, 1600);
 }
 function lampsObj() { const lo = THEME.chrome.lamps, n = lo.count, v = S.captureSeq % (1 << n), bits = []; for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); return { value: v, bits, frozen: captureStale(), shown: !!lo.show }; }
-function renderLamps() {   // IMSAI-style lamps = the capture counter in binary; a stale feed freezes them; the Scope's bar has a second set
+function renderLamps() {   // IMSAI-style lamps = the capture counter in binary; a stale feed freezes them
   const o = lampsObj();
   for (const l of document.querySelectorAll("#lamps,#scope-lamps")) {
     l.hidden = !o.shown; if (!o.shown) continue;

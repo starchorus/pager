@@ -9,21 +9,24 @@
 #   legend row exists exactly while such a ring can be drawn (not with its band filtered off), in the alert token, with the neutral words · R5 the frame loop is asked
 #   for each step of the flicker and for nothing else, and the ring takes both its levels on the canvas · R6 the observation notes are as before, two lines · R7 no P10
 #   word in what the feature says · R8 the running page makes no request but GET to its own origin while the alert is shown · R9 the planted copies of the page
-#   (below) · R10 the colour role of the alert token
+#   (below) · R10 the colour role of the alert token · R11 the Scope's blip of an alerted access point blinks in the ring's rhythm (frames, both levels, reduced motion, paused, Foundation's
+#   pulse sampled at the half second)
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
 #                 shows without a ring or hides with one (or with its band filtered off); a flicker that freezes when the sky does not spin (the frame loop is not asked for
 #                 it) or that renders sixty frames a second for a change twice a second; a ring that lands on the security ring, its double, the identity frame or the new-plot
-#                 mark; an alert that adds a word the neutral-language rule forbids, or a path that sends; a generator that lets a malformed alerts[] through.
-# NEGATIVE PROBE: R9 runs the same evals on six planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
+#                 mark; an alert that adds a word the neutral-language rule forbids, or a path that sends; a generator that lets a malformed alerts[] through; a step of the flicker that arms the
+#                 phosphor fade again (WarGames, persistence on: 22 frames for each step); a Scope whose alerted blip never blinks, or that renders sixty frames a second for it.
+# NEGATIVE PROBE: R9 runs the same evals on planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
 #                 the flicker factor replaced by 1, the reduced-motion test removed, no frame request, a frame request every frame, and a legend row that ignores the band
-#                 filter. Each must turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
+#                 filter; a step that arms the phosphor fade again (R5), and in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), are more. Each must
+#                 turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
 #                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c).
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only AL_* globals are set. Runs without ?fixed (nodes must fade in) and freezes the
-# clock itself (STARCHORUS.setFixedTime) for the samples; the WarGames persistence is switched off for them (it would blend neighbouring frames).
+# clock itself (STARCHORUS.setFixedTime) for the samples; the WarGames persistence is switched off for them (it would blend neighbouring frames), and on in the one frame count of R5 that is about it.
 
 AL_FX="$F/alerts.json"; AL_T="out/$P-al"; mkdir -p "$AL_T"
 AL_Q="?poll=0&spin=0&intro=0&debug=1"
@@ -182,6 +185,8 @@ const keep=S.alerts;S.alerts=[];S.dirty=true;await sleep(300);o.none=await n();S
 STARCHORUS.setReducedMotion(true);await sleep(300);o.rm=await n();STARCHORUS.setReducedMotion(null);
 STARCHORUS.setToggles({paused:true});await sleep(300);o.paused=await n();STARCHORUS.setToggles({paused:false});
 await sleep(300);o.again=await n();
+fx.generated+=60;STARCHORUS.setTheme("wargames");STARCHORUS.setToggles({crt:true});STARCHORUS.load(fx,"al-rest-wg");await sleep(3000);   // WarGames with its phosphor persistence on: a step is one clean frame, it must not arm the 20-frame fade (it did: 30 frames in 0.7 s)
+o.wgOn=S.persistOn;o.wg=await n();o.wg2=await n();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 # al_frames PAGE PREFIX: the frame eval on PAGE (the page, or a planted copy); the value comes back in AL_F, its verdict ("ok" or "bad") in AL_FOK
 al_frames() {
@@ -189,10 +194,10 @@ al_frames() {
   runq "$AL_FX" "$AL_Q" "$2" --fps 0 --wait 3 --eval-timeout 60 --eval "$AL_EVF" >/dev/null 2>&1
   H=$AL_HK
   AL_F=$(evalv "$2.json" 1)
-  AL_FOK=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if 1<=d["alerts"]<=6 and 1<=d["again"]<=6 and d["levels"]>=2 and d["none"]<=3 and d["rm"]<=3 and d["paused"]<=3 and d["errors"]==0 else "bad")' 2>/dev/null)
+  AL_FOK=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if 1<=d["alerts"]<=6 and 1<=d["again"]<=6 and d["levels"]>=2 and d["none"]<=3 and d["rm"]<=3 and d["paused"]<=3 and d["wgOn"] is True and 1<=d["wg"]<=6 and 1<=d["wg2"]<=6 and d["errors"]==0 else "bad")' 2>/dev/null)
 }
 al_frames "$H" "$AL_T/frames"
-rowif "alerts: the frame loop is asked for each step of the flicker and for nothing else (Whitehall, which rests when nothing moves: between 1 and 6 frames in 0.7 s with alerts, not sixty a second; the ring takes both its levels on the canvas within 2.7 s; without alerts, under reduced motion and paused at most 3 frames each) [${AL_F:-no-value}]" [ "$AL_FOK" = ok ]
+rowif "alerts: the frame loop is asked for each step of the flicker and for nothing else (Whitehall, which rests when nothing moves: between 1 and 6 frames in 0.7 s with alerts, not sixty a second; the ring takes both its levels on the canvas within 2.7 s; without alerts, under reduced motion and paused at most 3 frames each; WarGames with its phosphor persistence on, which used to render 22 frames for every step, also between 1 and 6 frames in 0.7 s) [${AL_F:-no-value}]" [ "$AL_FOK" = ok ]
 
 # ---- R8 the running page, with the alert drawn, asks for nothing but its own page and file (GET, own origin)
 AL_NV=$(net_verdict "$AL_T/ring.json" - 0); AL_NC=$?
@@ -244,7 +249,7 @@ PY
 # al_copy OUT OLD NEW ...: al_plant, then AL_CPR = its status and AL_CPD = the lines of the page that differ in the copy
 al_copy() { al_plant "$@"; AL_CPR=$?; AL_CPD=$(diff "$H" "$1" 2>/dev/null | grep -c '^<'); }
 AL_FLK='n.alphaDraw * (reduceMotion ? 1 : cm === "glowPulse" ? 0.7 + 0.3 * Math.sin(S.clock * 3) : cm === "bloomPulse" ? 0.3 + 0.7 * hash(a.ap.slice(-2) + e2 * 97) : 0.4 + 0.6 * (e2 >> 1 & 1))'
-AL_REQ='!S.ui.paused && S.clock >= alAt) return true;'
+AL_REQ='!S.ui.paused && S.clock >= alAt) {'
 # the ring key: ring_key FILE KEY... prints the value of each key of the ring eval in FILE, comma-separated
 al_key() { printf '%s' "$AL_R" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
 
@@ -267,14 +272,14 @@ AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && case $AL_V in "True,True,True,
 rowif "alerts: the steady key bites: a ring that still flickers under reduced motion turns the steady key red and leaves the three flicker keys green [copy differs in $AL_C1 line, ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
 
 # no frame request: the loop is not asked for the step, so the ring never takes its second level and no frame is rendered
-al_copy "$AL_T/p-noreq.html" "$AL_REQ" '!S.ui.paused && false) return true;'
+al_copy "$AL_T/p-noreq.html" "$AL_REQ" '!S.ui.paused && false) {'
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_frames "$AL_T/p-noreq.html" "$AL_T/frames-noreq"
 AL_V=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["alerts"], d["levels"])' 2>/dev/null)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_FOK" = bad ] && [ "$AL_V" = "0 1" ] && AL_OK=1
 rowif "alerts: the frame key bites (no request): a loop that is never asked for the step renders no frame in 0.7 s and the ring keeps one level [copy differs in $AL_C1 line, frames/levels ${AL_V:-no-value}, verdict ${AL_FOK:-none}]" [ "$AL_OK" = 1 ]
 
 # a request every frame: the sixty frames a second this fix removed
-al_copy "$AL_T/p-always.html" "$AL_REQ" '!S.ui.paused && true) return true;'
+al_copy "$AL_T/p-always.html" "$AL_REQ" '!S.ui.paused && true) {'
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_frames "$AL_T/p-always.html" "$AL_T/frames-always"
 AL_V=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["alerts"] > 6, d["levels"] >= 2, d["errors"])' 2>/dev/null)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_FOK" = bad ] && [ "$AL_V" = "True True 0" ] && AL_OK=1
@@ -286,3 +291,50 @@ AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_legend "$AL_T/p-leg.html" "$AL_T/legend-leg"
 AL_V=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["off24"], d["off245"], d["on"], d["errors"])' 2>/dev/null)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "1/2 1/2 1/2 0" ] && AL_OK=1
 rowif "alerts: the filter key bites: a legend row that ignores the band filter stays when both bands are filtered off [copy differs in $AL_C1 line, off24/off245/on/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+
+# the persistence key: an alert step that arms the phosphor fade again (the 22 frames for each step that this fix removed): only WarGames' count goes over 6
+al_copy "$AL_T/p-fade.html" 'S.clock >= alAt) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }' 'S.clock >= alAt) { render(); S.perf.rendered++; S.persistFade = S.persistOn ? RENDER.persistFadeFrames : 0; }'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_frames "$AL_T/p-fade.html" "$AL_T/frames-fade"
+AL_V=$(printf '%s' "$AL_F" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["alerts"] <= 6, d["again"] <= 6, d["levels"] >= 2, d["wg"] > 6, d["errors"])' 2>/dev/null)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_FOK" = bad ] && [ "$AL_V" = "True True True True 0" ] && AL_OK=1
+rowif "alerts: the persistence key bites: a step that arms the phosphor fade again renders more than 6 frames in 0.7 s in WarGames with persistence on, and only there (Whitehall and the ring's levels stay green) [copy differs in $AL_C1 line, Whitehall frames/again/levels, WarGames over 6, errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+
+# ---- R11 the Scope (phone fan, spec 2.3 and 2.4): the blip of an alerted access point blinks in the ring's rhythm. The ring is drawn by drawStars, which the Scope calls; what the Scope
+# lacked was the frame for each step (its frame rule knew only the wave and the snow). Whitehall, at 390x844 with the wave over: between 1 and 6 frames in 0.7 s, the ring takes both
+# its levels on the canvas within 2.7 s; without alerts, under reduced motion (steady, one level) and paused at most 3 frames each.
+AL_EVS='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,o={};
+STARCHORUS.setTheme("whitehall");
+const fx=await (await fetch("starchorus.json")).json();fx.aps.forEach(a=>{a.clients=[];});fx.unassociated=[];fx.generated+=10;STARCHORUS.load(fx,"al-scope");await sleep(4500);   // the wave (0.7 s here) and its 1.5 s of grace are over
+o.on=document.documentElement.dataset.scope;
+const n=async()=>{const a=S.perf.rendered;await sleep(700);return S.perf.rendered-a;};
+const ring=()=>{const q=STARCHORUS.nodeScreen("02:00:5e:a1:00:01");return STARCHORUS.pixel("sky",Math.floor(q.sx+q.px+11.5),Math.round(q.sy)).a;};
+o.frames=await n();o.again=await n();
+const lv=new Set();for(let k=0;k<27;k++){lv.add(ring());await sleep(100);}o.levels=[...lv].filter(a=>a>0).length;
+const keep=S.alerts;S.alerts=[];S.dirty=true;await sleep(300);o.none=await n();S.alerts=keep;S.dirty=true;
+STARCHORUS.setReducedMotion(true);await sleep(300);o.rm=await n();
+const rl=new Set();for(let k=0;k<12;k++){rl.add(ring());await sleep(100);}o.rmLv=[...rl].filter(a=>a>0).length;STARCHORUS.setReducedMotion(null);
+STARCHORUS.setToggles({paused:true});await sleep(300);o.paused=await n();STARCHORUS.setToggles({paused:false});
+STARCHORUS.setTheme("foundation");await sleep(1500);o.fnd=await n();o.fnd2=await n();   // the pulse of Foundation is smooth in the sky and asks for every frame there; in the Scope it is sampled at the half second like the others
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+# al_scope PAGE PREFIX: the Scope eval on PAGE (the page, or a planted copy); the value comes back in AL_S, its verdict ("ok" or "bad") in AL_SOK
+al_scope() {
+  AL_HK=$H; H=$1
+  runq "$AL_FX" "$AL_Q&scope=1" "$2" --width 390 --height 844 --mobile --fps 0 --wait 3 --eval-timeout 90 --eval "$AL_EVS" >/dev/null 2>&1
+  H=$AL_HK
+  AL_S=$(evalv "$2.json" 1)
+  AL_SOK=$(printf '%s' "$AL_S" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if d["on"]=="on" and 1<=d["frames"]<=6 and 1<=d["again"]<=6 and d["levels"]>=2 and d["none"]<=3 and d["rm"]<=3 and d["rmLv"]==1 and d["paused"]<=3 and 1<=d["fnd"]<=6 and 1<=d["fnd2"]<=6 and d["errors"]==0 else "bad")' 2>/dev/null)
+}
+al_scope "$H" "$AL_T/scope"
+rowif "alerts: the Scope blip of an alerted access point blinks in the ring's rhythm (Whitehall, fan on, wave over: between 1 and 6 frames in 0.7 s and both levels of the chalk blink on the canvas within 2.7 s; without alerts, paused and under reduced motion at most 3 frames, and steady in one level under reduced motion; Foundation, whose pulse is smooth in the sky, between 1 and 6 frames in 0.7 s too) [${AL_S:-no-value}]" [ "$AL_SOK" = ok ]
+# the Scope key bites: the copy that is never asked for the step renders no frame in the Scope and the blip keeps one level (the same planted copy as the sky's frame key)
+al_copy "$AL_T/p-noreq-sc.html" "$AL_REQ" '!S.ui.paused && false) {'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_scope "$AL_T/p-noreq-sc.html" "$AL_T/scope-noreq"
+AL_V=$(printf '%s' "$AL_S" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["frames"], d["levels"], d["errors"])' 2>/dev/null)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_SOK" = bad ] && [ "$AL_V" = "0 1 0" ] && AL_OK=1
+rowif "alerts: the Scope key bites: a loop that is never asked for the step renders no frame in the Scope and the blip keeps one level [copy differs in $AL_C1 line, frames/levels/errors ${AL_V:-no-value}, verdict ${AL_SOK:-none}]" [ "$AL_OK" = 1 ]
+# the Foundation key bites: the smooth pulse asked for on every frame in the Scope as well (the sky's rule) renders more than 6 frames in 0.7 s there and only there
+al_copy "$AL_T/p-fnd.html" 'cm === "glowPulse" && !scopeOn ? 0 :' 'cm === "glowPulse" ? 0 :'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_scope "$AL_T/p-fnd.html" "$AL_T/scope-fnd"
+AL_V=$(printf '%s' "$AL_S" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["frames"] <= 6, d["levels"] >= 2, d["fnd"] > 6, d["errors"])' 2>/dev/null)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_SOK" = bad ] && [ "$AL_V" = "True True True 0" ] && AL_OK=1
+rowif "alerts: the Foundation key bites: a smooth pulse asked for on every frame in the Scope renders more than 6 frames in 0.7 s there, while Whitehall's blip stays within 6 [copy differs in $AL_C1 line, Whitehall frames/levels, Foundation over 6, errors ${AL_V:-no-value}, verdict ${AL_SOK:-none}]" [ "$AL_OK" = 1 ]
