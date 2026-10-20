@@ -132,6 +132,16 @@ if [ "$SRC_K" = '{"sym":true,"n":63,"rxEqActive":true}' ]; then
 else
   row "D4 copy group symmetric [$SRC_K]" FAIL
 fi
+# the control of that count (63 was 62 until the Scope's strip words came in, copy.scope.strip, once per theme): the same eval on a page copy without the three `scope: { strip: [...] }`
+# lines reads 62, so the one path that the pin took up is the Scope's and the count sees it
+sed '/^    scope: { strip: \[/d' "$H" > "out/$P-src-noscope.html"
+SRC_KH=$H; H="out/$P-src-noscope.html"   # runq serves $H: point it at the copy for this one call, then put it back
+runq demo "?debug=1&poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0" "out/$P-src-noscope" --wait 2 --fps 0 --eval "$SRC_EVK" >/dev/null 2>&1
+H=$SRC_KH
+SRC_K2=$(evalv "out/$P-src-noscope.json" 1)
+SRC_KD=$(diff "$H" "out/$P-src-noscope.html" | grep -c '^<')
+SRC_KOK=0; [ "$SRC_KD" = 3 ] && [ "$SRC_K2" = '{"sym":true,"n":62,"rxEqActive":true}' ] && SRC_KOK=1
+rowif "D4 copy group count control: the page without its three scope.strip lines (a copy that differs in $SRC_KD lines) counts 62 paths, still symmetric, where the page counts 63 [$SRC_K2]" [ "$SRC_KOK" = 1 ]
 
 # ---- static: every claim phrase lives in the pre-JS fallback (§0/§11) or in the copy tokens (§21)
 SRC_CS=$(grep -niE "$SRC_CLAIM" "$H" | cut -d: -f1 | secs | sort -un | tr '\n' ' ')
