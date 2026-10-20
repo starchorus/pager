@@ -752,11 +752,11 @@ PUI_BAD=""; pui_new; : > "$PUI_D/col.deaf"
 pui_run "$PUI_HL" sh "$PUI_PL" start; pui_col
 PUI_CP=$(pui_cpid)
 printf '#!/bin/sh\nwhile :; do sleep 1; done\n' > "$PUI_D/airodump-ng"
-pui_bg "$PUI_D/airodump-ng"; PUI_AD=$PUI_BGP; printf '%s\n' "$PUI_AD" > "$PUI_D/starchorus-airodump.pid"
+pui_bg "$PUI_D/airodump-ng"; PUI_ADP=$PUI_BGP; printf '%s\n' "$PUI_ADP" > "$PUI_D/starchorus-airodump.pid"
 pui_ans "=Stop" "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
 pui_is rc [ "$PUI_RC" = 0 ]
 pui_is loopgone pui_gone "${PUI_CP:-0}"
-pui_is adgone pui_gone "${PUI_AD:-0}"
+pui_is adgone pui_gone "${PUI_ADP:-0}"
 pui_is l3 [ "$(pui_x LOG green 'Stopped.')/$(pui_logc '^ERROR_DIALOG')" = 1/0 ]
 pui_is stopped [ "$(pui_x "$PUI_STOP" Start)" = 1 ]
 pui_new; : > "$PUI_D/col.fail"

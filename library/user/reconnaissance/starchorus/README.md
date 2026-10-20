@@ -117,7 +117,7 @@ The firmware tells a payload when it hears many deauth/disassoc frames for an ac
 `payload.sh`. The easy way is the Settings row 'Alerts': OFF while the companion is not in the firmware's alert tree, ON while it is. A press asks first ('Install the
 alert companion?') and then makes `/root/payloads/alerts/deauth_flood_detected/starchorus`, copies `alert-deauth.sh` there as `payload.sh` (through a temporary file and a
 rename, so that the firmware never finds half a script) and makes it executable; on an ON row a press asks 'Remove the alert companion?' and takes away that `payload.sh`
-and the directory if it is empty, and nothing else. The row toggles no switch of the firmware; an alert placed in the tree may run at once (not yet measured), and switching it off stays
+and the directory if it is empty, and nothing else of the tree, apart from a stale `DISABLED.starchorus` copy of ours. The row toggles no switch of the firmware; an alert placed in the tree may run at once (not yet measured), and switching it off stays
 with the firmware's Alerts page. A copy that the firmware's switch has renamed to `DISABLED.starchorus` reads 'OFF (firmware)': a press installs nothing over it and says to switch it on there,
 and Remove takes a stale copy of that kind away too. The row is locked while `STARCHORUS_ALERTS` is set in the environment to anything but 1 (the collector then ignores the alert log).
 The same installation by hand is:

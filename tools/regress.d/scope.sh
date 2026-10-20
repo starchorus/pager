@@ -26,7 +26,8 @@
 #                 that a newcomer does not read the fan as a field of view (docs/architecture.md §9.8b, the check on the phone); how the Scope looks at
 #                 a width the rows do not name; how the trail of the wave looks in WarGames, where the phosphor persistence is on while the arc runs (the Scope draws
 #                 the front and two trail strokes in every theme); the Scope's own growth is a measure by markers, not a diff against the old page (a marker that
-#                 moves is a red row, a new Scope line that matches no marker is counted as Scope).
+#                 moves is a red row, a new Scope line that matches no marker is counted as Scope, and a line trimmed since 8e75fe4 outside the Scope counts in its
+#                 favour: the series trimmed 104 bytes of the alerts[] ingest note and 34 of the lamps note, so the figure reads about 138 bytes lower than a strict diff would).
 # Runs at 390x844 with --mobile unless a row says otherwise. Rows that need the sky settled use ?fixed (the wave is then done: phase 1); the
 # wave, the idle and the reduced-motion rows run on the live clock.
 

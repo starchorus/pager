@@ -230,7 +230,7 @@ PY
 )
 rowif "alerts: the colour role of the alert ring holds in all three themes (hue red, ΔE ≥ 15 from the bands and selection: 18 checks, validator green) and bites on the amber alarm colour, a band colour and a missing token [$AL_CC]" [ "$AL_CC" = "18/0/111" ]
 
-# ---- R9 the keys bite: the same evals on six planted copies of the page. Fair by construction: each old text exists once, each copy differs from the page in exactly
+# ---- R9 the keys bite: the same evals on six planted copies of the page here (the R5 persistence copy and the R11 and R12 copies follow). Fair by construction: each old text exists once, each copy differs from the page in exactly
 # that line, and it boots without an error; each must turn its own key red, and the keys that belong to the other rows stay as they are. The copies are only served to
 # headless Chrome on 127.0.0.1; nothing in them sends.
 # al_plant OUT OLD NEW [OLD NEW ...]: a copy of the page with each OLD replaced by NEW; return 1 unless every OLD is in the page exactly once
@@ -331,7 +331,7 @@ rowif "alerts: the ring's band is as section 14.6 states it: from 10.75 to 12.25
 # its levels on the canvas within 2.7 s; without alerts, under reduced motion (steady, one level) and paused at most 3 frames each.
 AL_EVS='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,o={};
 STARCHORUS.setTheme("whitehall");
-const fx=await (await fetch("starchorus.json")).json();fx.aps.forEach(a=>{a.clients=[];});fx.unassociated=[];fx.generated+=10;STARCHORUS.load(fx,"al-scope");await sleep(4500);   // the wave (0.7 s here) and its 1.5 s of grace are over
+const fx=await (await fetch("starchorus.json")).json();fx.aps.forEach(a=>{a.clients=[];});fx.unassociated=[];fx.generated+=10;STARCHORUS.load(fx,"al-scope");await sleep(4500);   // the wave (1.2 s here) and its 1.5 s of grace are over
 o.on=document.documentElement.dataset.scope;
 const n=async()=>{const a=S.perf.rendered;await sleep(700);return S.perf.rendered-a;};
 const ring=()=>{const q=STARCHORUS.nodeScreen("02:00:5e:a1:00:01");return STARCHORUS.pixel("sky",Math.floor(q.sx+q.px+11.5),Math.round(q.sy)).a;};

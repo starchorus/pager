@@ -947,8 +947,9 @@ pl_set_page() {   # Web Page: while RUNNING the flip applies at once; while STOP
 }
 
 # ---- Alerts (2.5a): the companion alert payload in the firmware's alert tree. The row reads ON while our payload.sh is in our one
-# directory of that tree and OFF while it is not; a press asks, then installs or removes. Nothing else touches the tree: no other
-# path, nothing of the firmware's own alerts, and no switch that enables or disables one (that stays on the firmware's Alerts page).
+# directory of that tree and OFF while it is not; a press asks, then installs or removes (a stale DISABLED copy of ours goes with the
+# removal). Nothing else of the tree is touched: no other path, nothing of the firmware's own alerts, and no switch that enables or
+# disables one (that stays on the firmware's Alerts page).
 pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
 pl_alert_dis() { [ -f "$PL_ALERT_DIS/payload.sh" ]; }   # the firmware's switch renamed our directory: switched off on its Alerts page
 pl_alert_sw() { if pl_alert_on; then echo ON; elif pl_alert_dis && ! pl_has "$PL_ENV" alerts; then echo "OFF (firmware)"; else echo OFF; fi; }   # "(firmware)" and "(locked)" together would pass 28 characters
