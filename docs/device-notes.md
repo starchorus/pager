@@ -631,7 +631,7 @@ only, against stand-in variables (`tools/regress.d/hak5-package.sh`), and the co
 | g3 | What does the firmware count as many, and does it tell a deauthentication from a disassociation | the same burst, varied in length | the wording 'many deauth/disassoc frames' |
 | g4 | Do two launches for the same burst overlap, and does the firmware end one on a timeout | two events in quick succession, `ps` during the run | whether the lock in the companion is needed |
 | g5 | Are `LOG`, `VIBRATE`, `LED` and `RINGTONE` there inside an alert payload, with which exit codes and argument format | a throw-away alert that calls each | the owner's decision whether the companion adds a signal (it adds none) |
-| g6 | Does a hand-copied alert need `chmod +x`, does it start enabled, how does a `DISABLED.` directory behave | copy it by hand (README, Alerts) and look at the firmware's Alerts page | the install instructions, and the Settings row 'Alerts' (it installs and removes the companion after a confirmation; it enables nothing, so a copied alert that starts disabled stays for the Alerts page) |
+| g6 | Does a hand-copied alert need `chmod +x`, does it start enabled, how does a `DISABLED.` directory behave | copy it by hand (README, Alerts) and look at the firmware's Alerts page | the install instructions, and the Settings row 'Alerts' (it installs and removes the companion after a confirmation and enables nothing, so a copied alert that starts disabled stays for the Alerts page; it reads 'OFF (firmware)' while only a `DISABLED.starchorus` directory is there and installs nothing over it, and that rename is read from the firmware's files, not yet seen on the Pager) |
 | g7 | Does the alert engine need the AP service's recon or listening to be running, or is it always on | one burst with recon stopped, one with it running | when an empty `alerts.log` means 'nothing heard' |
 | g8 | Does the alert fire on the Pager's own deauth frames, and with which SOURCE | the Pager deauthing a network the owner controls, by another payload (an owner's decision; Starchorus never sends one) | whether an alert can be the owner's own test; nothing in the log tells it apart |
 
@@ -981,7 +981,10 @@ strike when it comes back within a second); how long a process takes to start, a
 reader's next wait takes to be registered after an answer (since 0.2.0 the stretch holds two process starts, because the reader renames the new counts onto
 their file with `mv` before it opens the wait; both are to be timed), and how long the shell takes to see a B and open
 the list; how the UI shares a key between a `LIST_PICKER` and a `WAIT_FOR_INPUT` that are open at once (the
-reader ends itself on a B so that the question does not arise); and where a line wider than 40 characters
+reader ends itself on a B so that the question does not arise); whether BusyBox ash collects a reader that was killed
+from outside while the shell naps, as `sh` and `dash` do on the development machine (the named failure 'could not read a
+key' within six seconds rests on it, and the Overview ends the dead reader's orphan wait before that dialogue so that it
+cannot take the press meant for it; measured there, not on the Pager); and where a line wider than 40 characters
 wraps or is cut.
 
 ---
