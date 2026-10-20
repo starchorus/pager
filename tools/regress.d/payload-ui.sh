@@ -58,10 +58,13 @@
 #                 Overview => the Overview row red (list, views, keys, reading, walk, walkcursor, btblock ...).
 # The Alerts row (section 15c; GUARDS AGAINST an install without its question, one that is not the README's three steps or leaves a half script in
 #                 the firmware's alert tree, a remove that takes more than our payload.sh and our empty directory, a second path under the alert tree,
-#                 a row that ignores STARCHORUS_ALERTS, and an argument or plain path that reaches the tree or a UI command). NEGATIVE PROBES: the
+#                 a row that locks for the wrong value of STARCHORUS_ALERTS or says the wrong thing when it does, an install made beside a copy that the
+#                 firmware's switch renamed to DISABLED.starchorus, and an argument or plain path that reaches the tree or a UI command). NEGATIVE PROBES: the
 #                 question taken out of pl_alert_install => a:c2, d:none red; its chmod taken out => a:calls, f:chmod:*, i:real red (cp keeps the
 #                 source's mode, so only the notes of the calls see it); the cleanup after a failed install taken out => f:cp/chmod/mv:clean, i:real red;
-#                 the lock taken off the row => e:rows, e:p1, e2:rows red; and the three mutants of i: (a recursive remove, a second path, a glob remove).
+#                 the lock taken off the row => e:rows, e:p2 red (planted copy e3:nolock); the old lock, for any value => e2:rows red (e3:oldlock);
+#                 no look for the renamed copy => k1:real red (k3:second makes the second copy); no removal of it => k2:both red (k3:left); and the five
+#                 mutants of i: (a recursive remove and a glob remove of the directory and of its renamed twin, a second path).
 # NOT PROVEN:     nothing on the device: the real UI commands, PROMPT_QR's argument order and exit status, the visible line width, BusyBox ash
 #                 (dash, if present, as a second POSIX shell for the headless start), /proc (the stand-ins answer through `ps`, a
 #                 fake uptime and a fake net/tcp). docs/device-notes.md §7 records what the device itself settled (M1 to M7, measured
@@ -877,7 +880,8 @@ rowif "payload ui: Traffic and Bluetooth rows after Channel Load flip in place, 
 #             installs nothing and does not even create the tree. Remove takes our payload.sh and our directory if it is empty (a file of somebody
 #             else's in it stays, and so does the firmware's own parent directory), L8g. A failed step is E14 / E15 with no .tmp and no empty
 #             directory of ours left. A companion that is not beside the payload is E13, before any question; _PAYLOAD_HOME finds it when the payload
-#             runs from a copy elsewhere (the device runs it from /tmp). STARCHORUS_ALERTS in the environment locks the row (P1 naming it). The tree
+#             runs from a copy elsewhere (the device runs it from /tmp). STARCHORUS_ALERTS in the environment, set to anything but 1, locks the row (P2: the collector then
+#             ignores the log); a copy that the firmware's switch renamed to DISABLED.starchorus reads 'OFF (firmware)' (P3, no install; Remove takes it too). The tree
 #             is $PUI_T/alerts (STARCHORUS_ALERT_TREE, set for every run); stand-ins for mkdir, cp, chmod, mv, rm and rmdir under $PUI_T/alb note
 #             each call in alert.cmds and fail on demand (alert.fail.NAME) for a path of the tree. The notes are read by their tabs, so a companion
 #             path with a space in it (tools/fresh-check.sh clones into one) is one argument; a control note with such a path proves the reading.
@@ -897,6 +901,7 @@ for pui_t in mkdir cp chmod mv rm rmdir; do
 done
 PUI_ALP="$PUI_T/ui:$PUI_T/alb:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys"   # the device UI stand-ins, then the stand-ins above
 PUI_AT="$PUI_T/alerts/deauth_flood_detected/starchorus"
+PUI_AD="$PUI_T/alerts/deauth_flood_detected/DISABLED.starchorus"   # where the firmware's switch puts our directory when the owner switches the alert off on its Alerts page
 PUI_AC="$R/library/user/reconnaissance/starchorus/alert-deauth.sh"
 pui_alx() {   # pui_alx ALERTS_ROW CURSOR -> how many Settings lists had the default rows, that Alerts row and the cursor on CURSOR
   pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' "$1" 'Port: 8199' 'Reset to Defaults' "$2"
@@ -905,10 +910,10 @@ pui_not() { ! "$@"; }   # the negation of a command, for pui_is
 pui_alclean() { [ -z "$(find "$PUI_T/alerts" -name '*.tmp' 2>/dev/null)" ] && [ ! -e "$PUI_AT" ]; }   # no .tmp anywhere in the tree and no directory of ours
 pui_alnew() { rm -rf "$PUI_T/alerts"; rm -f "$PUI_T/alert.cmds" "$PUI_T/alert.fail."*; pui_new; }   # no tree, no notes, a fresh payload directory
 pui_alins() { [ -x "$PUI_AT/payload.sh" ] && cmp -s "$PUI_AC" "$PUI_AT/payload.sh"; }               # our payload.sh is there, executable, the companion byte for byte
-pui_alcalls() {   # -> the notes that name the tree on one line (the tree, the companion's path and the tab shown as AT, SRC and a space; the path is
-  # taken between its tabs, whole, so that a space in it -- the fresh clone's directory has one -- does not split it)
+pui_alcalls() {   # -> the notes that name the tree on one line (the tree, the DISABLED directory, the companion's path and the tab shown as AT,
+  # AD, SRC and a space; the path is taken between its tabs, whole, so that a space in it -- the fresh clone's directory has one -- does not split it)
   pui_tb=$(printf '\t')
-  { grep -F "$PUI_T/alerts" "$PUI_T/alert.cmds" 2>/dev/null || :; } | sed -e "s|$PUI_AT|AT|g" -e "s|${pui_tb}[^${pui_tb}]*/alert-deauth\.sh${pui_tb}|${pui_tb}SRC${pui_tb}|" | tr '\t' ' ' | tr '\n' '|'
+  { grep -F "$PUI_T/alerts" "$PUI_T/alert.cmds" 2>/dev/null || :; } | sed -e "s|$PUI_AT|AT|g" -e "s|$PUI_AD|AD|g" -e "s|${pui_tb}[^${pui_tb}]*/alert-deauth\.sh${pui_tb}|${pui_tb}SRC${pui_tb}|" | tr '\t' ' ' | tr '\n' '|'
 }
 pui_altree() { if [ -d "$PUI_T/alerts" ]; then (cd "$PUI_T/alerts" && find . | LC_ALL=C sort | tr '\n' ' '); else echo none; fi; }
 # n. the reading of the notes: a planted note whose companion path holds a space reads as SRC whole (the fresh clone's directory is such a path)
@@ -955,18 +960,34 @@ pui_alnew
 pui_ans "=Settings" "=Alerts: OFF" "=0" "!2" "!2"
 pui_run_ui "$PUI_ALP" sh "$PUI_PL"
 pui_is d:none [ "$(pui_altree)/$(pui_alcalls)/$(pui_logc '^LOG	Alerts:')" = "none//0" ]
-# e. locked: STARCHORUS_ALERTS in the environment (0 and 1 both count as set); P1 names it, no question, nothing written
+# e. STARCHORUS_ALERTS is the collector's read switch (only 1 reads alerts.log, which an installed companion feeds). Set to anything but 1 (0 here) the row is locked, and P2 says
+# what that means (the collector ignores the log); no question, nothing written
 pui_alnew
 pui_ans "=Settings" "=Alerts: OFF (locked)" "!2" "!2"
 pui_run_ui "$PUI_ALP" STARCHORUS_ALERTS=0 sh "$PUI_PL"
 pui_is e:rows [ "$(pui_alx 'Alerts: OFF (locked)' 'Web Page: ON')" = 1 ]
-pui_is e:p1 [ "$(pui_x PROMPT 'Set by STARCHORUS_ALERTS.\nUnset it to change it here.')/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/0 ]
+pui_is e:p2 [ "$(pui_x PROMPT 'The collector ignores the\nalert log: STARCHORUS_ALERTS\nis not 1. Unset it to\nuse this row.')/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/0 ]
 pui_is e:none [ "$(pui_altree)/$(pui_alcalls)" = "none/" ]
+# e2. set to 1 (the collector's default) the row is free: no lock, a press asks C3, and a No keeps the file
 mkdir -p "$PUI_AT"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; pui_new
-pui_ans "=Settings" "=Alerts: ON (locked)" "!2" "!2"
+pui_ans "=Settings" "=Alerts: ON" "=0" "!2" "!2"
 pui_run_ui "$PUI_ALP" STARCHORUS_ALERTS=1 sh "$PUI_PL"
-pui_is e2:rows [ "$(pui_alx 'Alerts: ON (locked)' 'Web Page: ON')/$(pui_logc '^CONFIRMATION_DIALOG')" = 1/0 ]
+pui_is e2:rows [ "$(pui_alx 'Alerts: ON' 'Web Page: ON')/$(pui_x CONFIRMATION_DIALOG 'Remove the alert\ncompanion?')/$(pui_logc '^PROMPT')" = 1/1/0 ]
 pui_is e2:kept pui_alins
+# e3. the controls of e and e2 (planted copies of the payload, run from $PUI_T so _PAYLOAD_HOME says where the companion is): with the lock taken off the row, STARCHORUS_ALERTS=0 shows an
+# open 'Alerts: OFF' (e:rows would be red); with the old test, which locked for any value, STARCHORUS_ALERTS=1 shows 'Alerts: ON (locked)' (e2:rows would be red)
+# shellcheck disable=SC2016   # sed programs: the payload's own text, not to be expanded here
+sed '/^\[ "\${STARCHORUS_ALERTS:-1}" = 1 \] || PL_ENV=/d' "$PUI_PL" > "$PUI_T/alm5.sh"
+# shellcheck disable=SC2016   # (as above)
+sed 's/^\[ "\${STARCHORUS_ALERTS:-1}" = 1 \] || PL_ENV=/[ -z "${STARCHORUS_ALERTS:+x}" ] || PL_ENV=/' "$PUI_PL" > "$PUI_T/alm6.sh"
+pui_alnew; pui_ans "=Settings" "=Alerts: OFF" "!2" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$(dirname "$PUI_AC")" STARCHORUS_ALERTS=0 sh "$PUI_T/alm5.sh"
+pui_is e3:nolock [ "$(pui_alx 'Alerts: OFF' 'Web Page: ON')/$(pui_alx 'Alerts: OFF (locked)' 'Web Page: ON')" = 1/0 ]
+pui_alnew; mkdir -p "$PUI_AT"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; pui_new
+pui_ans "=Settings" "=Alerts: ON (locked)" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$(dirname "$PUI_AC")" STARCHORUS_ALERTS=1 sh "$PUI_T/alm6.sh"
+pui_is e3:oldlock [ "$(pui_alx 'Alerts: ON (locked)' 'Web Page: ON')/$(pui_alx 'Alerts: ON' 'Web Page: ON')" = 1/0 ]
+pui_is e3:diff [ "$(diff "$PUI_PL" "$PUI_T/alm5.sh" | grep -c '^<')/$(diff "$PUI_PL" "$PUI_T/alm6.sh" | grep -c '^<')" = 1/1 ]
 # f. a failed step: E14 and nothing left (no .tmp, no empty directory of ours), the row still OFF; a failed remove: E15, the file stays
 for pui_f in mkdir cp chmod mv; do
   pui_alnew; : > "$PUI_T/alert.fail.$pui_f"
@@ -1004,23 +1025,70 @@ pui_is h:plain [ "$PUI_RC/$(wc -l < "$PUI_T/case.log" | tr -d ' ')/$(pui_altree)
 pui_run "$PUI_HL" sh "$PUI_PL" stop
 pui_run "$PUI_HL" sh "$PUI_PL" get
 pui_is h:nokey [ "$PUI_RC/$(grep -c 'alert' "$PUI_T/out")" = 0/0 ]
-# i. static: every line of the payload that names the directory, read as code (comments and trailing comments dropped, blanks squeezed), is on a pinned list; the
-# default path is spelt once; three mutants (a recursive remove of the directory, a second path under the alert tree, a glob remove) are red, the real file is green
-pui_alpin() {   # pui_alpin FILE -> 0 iff the lines of FILE that name PL_ALERT_DIR are exactly the pinned ones and the default path is spelt once
+# k. the firmware's own switch: a payload switched off on its Alerts page is renamed DISABLED.<name> (the directory, beside the enabled one). With only that copy the row reads
+# 'Alerts: OFF (firmware)' (22 characters, ASCII; "(locked)" takes its place while STARCHORUS_ALERTS locks the row, so no label passes 28), a press says P3 and installs nothing: a second,
+# enabled copy would run beside the one the owner switched off. Remove (from ON) takes a stale copy of that kind too, our payload.sh and our empty directory only.
+pui_aldis() {   # pui_aldis -> a fresh payload directory and a tree that holds only the renamed copy of ours
+  rm -rf "$PUI_T/alerts"; rm -f "$PUI_T/alert.cmds" "$PUI_T/alert.fail."*; mkdir -p "$PUI_AD"; cp "$PUI_AC" "$PUI_AD/payload.sh"; chmod +x "$PUI_AD/payload.sh"; pui_new
+}
+pui_alk1() {   # pui_alk1 -> 0 iff the last run was the k1 run below: the 'firmware' row, P3 once, no question, only the renamed copy in the tree
+  [ "$(pui_alx 'Alerts: OFF (firmware)' 'Web Page: ON')/$(pui_x PROMPT 'Switched off on the\nfirmware Alerts page.\nSwitch it on there.')/$(pui_logc '^CONFIRMATION_DIALOG')/$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^LOG	Alerts:')" = 1/1/0/0/0 ] \
+    && [ "$(pui_altree)" = ". ./deauth_flood_detected ./deauth_flood_detected/DISABLED.starchorus ./deauth_flood_detected/DISABLED.starchorus/payload.sh " ] && [ -z "$(pui_alcalls)" ]
+}
+pui_aldis; pui_ans "=Settings" "=Alerts: OFF (firmware)" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is k1:real pui_alk1
+pui_is k1:kept [ -x "$PUI_AD/payload.sh" ] && cmp -s "$PUI_AC" "$PUI_AD/payload.sh"
+pui_is k1:label [ "$(printf '%s' 'Alerts: OFF (firmware)' | wc -c | tr -d ' ')" -le 28 ] && [ -z "$(printf '%s' 'Alerts: OFF (firmware)' | LC_ALL=C tr -d ' -~')" ]
+# k1b. the same tree under STARCHORUS_ALERTS=0: the lock wins, the label stays 'Alerts: OFF (locked)' (22 characters) and P2 is shown
+pui_aldis; pui_ans "=Settings" "=Alerts: OFF (locked)" "!2" "!2"
+pui_run_ui "$PUI_ALP" STARCHORUS_ALERTS=0 sh "$PUI_PL"
+pui_is k1b:row [ "$(pui_alx 'Alerts: OFF (locked)' 'Web Page: ON')/$(pui_logc '^CONFIRMATION_DIALOG')/$(pui_alcalls)" = 1/0/ ]
+# k2. both copies (an enabled one and a stale switched-off one, as the old row could leave them): ON; Yes removes both, and with a file of somebody else's in the renamed directory
+# that file and the directory stay
+pui_alnew; mkdir -p "$PUI_AT" "$PUI_AD"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; cp "$PUI_AC" "$PUI_AD/payload.sh"; printf 'not ours\n' > "$PUI_AD/other.txt"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is k2:calls [ "$(pui_alcalls)" = "rm -f AT/payload.sh AT/payload.sh.tmp|rmdir AT|rm -f AD/payload.sh|rmdir AD|" ]
+pui_is k2:tree [ "$(pui_altree)" = ". ./deauth_flood_detected ./deauth_flood_detected/DISABLED.starchorus ./deauth_flood_detected/DISABLED.starchorus/other.txt " ]
+pui_is k2:log [ "$(pui_x LOG 'Alerts: companion removed.')/$(pui_logc '^ERROR_DIALOG')" = 1/0 ]
+pui_alnew; mkdir -p "$PUI_AT" "$PUI_AD"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; cp "$PUI_AC" "$PUI_AD/payload.sh"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" sh "$PUI_PL"
+pui_is k2:both [ "$(pui_altree)/$(pui_alx 'Alerts: OFF' 'Alerts: OFF')" = ". ./deauth_flood_detected /1" ]
+# k3. the controls (planted copies, as in e3 and j): a payload that does not look for the renamed copy offers the install again and makes a second copy (k1:real would be red); one that
+# leaves the renamed copy in the remove leaves it there (k2:both would be red)
+sed 's|^pl_alert_dis() {.*|pl_alert_dis() { false; }|' "$PUI_PL" > "$PUI_T/alm7.sh"
+sed '/^    if pl_alert_dis; then rm -f /d' "$PUI_PL" > "$PUI_T/alm8.sh"
+pui_aldis; pui_ans "=Settings" "=Alerts: OFF" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$(dirname "$PUI_AC")" sh "$PUI_T/alm7.sh"
+pui_is k3:second [ -x "$PUI_AT/payload.sh" ] && [ -x "$PUI_AD/payload.sh" ] && pui_not pui_alk1
+pui_alnew; mkdir -p "$PUI_AT" "$PUI_AD"; cp "$PUI_AC" "$PUI_AT/payload.sh"; chmod +x "$PUI_AT/payload.sh"; cp "$PUI_AC" "$PUI_AD/payload.sh"; pui_new
+pui_ans "=Settings" "=Alerts: ON" "=1" "!2" "!2"
+pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$(dirname "$PUI_AC")" sh "$PUI_T/alm8.sh"
+pui_is k3:left [ -x "$PUI_AD/payload.sh" ] && [ ! -e "$PUI_AT" ]
+pui_is k3:diff [ "$(diff "$PUI_PL" "$PUI_T/alm7.sh" | grep -c '^<')/$(diff "$PUI_PL" "$PUI_T/alm8.sh" | grep -c '^<')" = 1/1 ]
+# i. static: every line of the payload that names the directory (or its renamed twin), read as code (comments and trailing comments dropped, blanks squeezed), is on a pinned list; the
+# default path is spelt once; five mutants (a recursive remove of the directory, a second path under the alert tree, a glob remove, and the same recursive and glob removes
+# of the renamed twin) are red, the real file is green
+pui_alpin() {   # pui_alpin FILE -> 0 iff the lines of FILE that name PL_ALERT_DIR or PL_ALERT_DIS are exactly the pinned ones and the default path is spelt once
   sed -e '/^[[:space:]]*#/d' -e 's/[[:space:]]#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g' "$1" > "$PUI_T/alcode.txt"
   [ "$(grep -c '/root/payloads/alerts' "$PUI_T/alcode.txt")" = 1 ] || return 1
-  grep 'PL_ALERT_DIR' "$PUI_T/alcode.txt" > "$PUI_T/alseen.txt"
+  grep 'PL_ALERT_DI[RS]' "$PUI_T/alcode.txt" > "$PUI_T/alseen.txt"
   cmp -s "$PUI_T/alseen.txt" "$PUI_T/alpin.txt"
 }
 cat > "$PUI_T/alpin.txt" <<'PUI_ALPIN'
 PL_ALERT_DIR=${STARCHORUS_ALERT_TREE:-/root/payloads/alerts}/deauth_flood_detected/starchorus
+PL_ALERT_DIS=${PL_ALERT_DIR%/*}/DISABLED.starchorus
 pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
+pl_alert_dis() { [ -f "$PL_ALERT_DIS/payload.sh" ]; }
 rm -f "$PL_ALERT_DIR/payload.sh.tmp"
 if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
 && chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null; then
 rm -f "$PL_ALERT_DIR/payload.sh.tmp"; rmdir "$PL_ALERT_DIR" 2>/dev/null
 rm -f "$PL_ALERT_DIR/payload.sh" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null
 rmdir "$PL_ALERT_DIR" 2>/dev/null
+if pl_alert_dis; then rm -f "$PL_ALERT_DIS/payload.sh" 2>/dev/null; rmdir "$PL_ALERT_DIS" 2>/dev/null; fi
 PUI_ALPIN
 pui_is i:real pui_alpin "$PUI_PL"
 # shellcheck disable=SC2016   # sed programs: the payload's own text, not to be expanded here
@@ -1031,7 +1099,13 @@ sed 's|rm -f "\$PL_ALERT_DIR/payload.sh" "\$PL_ALERT_DIR/payload.sh.tmp"|rm -f "
 pui_is i:mut1 pui_not pui_alpin "$PUI_T/alm1.sh"
 pui_is i:mut2 pui_not pui_alpin "$PUI_T/alm2.sh"
 pui_is i:mut3 pui_not pui_alpin "$PUI_T/alm3.sh"
-pui_is i:mutdiff [ "$(cmp -s "$PUI_PL" "$PUI_T/alm1.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm2.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm3.sh" && echo same)" = "" ]
+# shellcheck disable=SC2016   # (as above)
+sed 's|rmdir "\$PL_ALERT_DIS" 2>/dev/null; fi|rm -rf "$PL_ALERT_DIS" 2>/dev/null; fi|' "$PUI_PL" > "$PUI_T/alm9.sh"
+# shellcheck disable=SC2016   # (as above)
+sed 's|rm -f "\$PL_ALERT_DIS/payload.sh" 2>/dev/null|rm -f "$PL_ALERT_DIS/"* 2>/dev/null|' "$PUI_PL" > "$PUI_T/alm10.sh"
+pui_is i:mut4 pui_not pui_alpin "$PUI_T/alm9.sh"
+pui_is i:mut5 pui_not pui_alpin "$PUI_T/alm10.sh"
+pui_is i:mutdiff [ "$(cmp -s "$PUI_PL" "$PUI_T/alm1.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm2.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm3.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm9.sh" && echo same; cmp -s "$PUI_PL" "$PUI_T/alm10.sh" && echo same)" = "" ]
 # j. the control of the question's text (a:c2): a planted copy of the payload that asks the question as it was worded before (one line differs) asks that and not the
 # present one, so the pin of a: would be red for it; it runs from $PUI_T, so _PAYLOAD_HOME says where the companion is
 python3 -B - "$PUI_PL" "$PUI_T/alm4.sh" <<'PUI_PY'
@@ -1048,7 +1122,7 @@ pui_run_ui "$PUI_ALP" _PAYLOAD_HOME="$R/library/user/reconnaissance/starchorus" 
 pui_is j:old [ "$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? Manage it on\\nthe firmware's Alerts page.")/$(pui_x CONFIRMATION_DIALOG "Install the alert\\ncompanion? It may run at\\nonce; switch it off on\\nthe firmware Alerts page.")" = 1/0 ]
 pui_is j:diff [ "$(diff "$PUI_PL" "$PUI_T/alm4.sh" | grep -c '^<')" = 1 ]
 rm -rf "$PUI_T/alerts"
-rowif "payload ui: Alerts row: ON/OFF by our file in the alert tree; install after C2 (mkdir -p, cp, chmod +x through a rename: byte-identical, executable, no .tmp, L8f), No installs nothing; Remove after C3 takes our file and our empty directory only (L8g); E13/E14/E15; locked by STARCHORUS_ALERTS; plain paths touch nothing; every line naming the tree pinned, three mutants red, a planted copy with the question's old wording asks that and not the present one (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+rowif "payload ui: Alerts row: ON/OFF by our file in the alert tree; install after C2 (mkdir -p, cp, chmod +x through a rename: byte-identical, executable, no .tmp, L8f), No installs nothing; Remove after C3 takes our file and our empty directory only (L8g); E13/E14/E15; locked (P2) only while STARCHORUS_ALERTS is set to something but 1, free for 1; a copy the firmware's switch renamed to DISABLED.starchorus reads 'Alerts: OFF (firmware)', a press says P3 and makes no second copy, and Remove takes a stale one of ours too; plain paths touch nothing; every line naming the tree or its renamed twin pinned, five mutants red, planted copies (the question's old wording, no lock, the old lock, no look for the renamed copy, no removal of it) fail the pins they stand for (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 16 · locked rows: a key the environment sets reads "(locked)", A shows P1 naming that variable and writes nothing,
 #            the cursor stays; the longest locked label fits 28 characters; Reset asks (C1): No keeps everything and the

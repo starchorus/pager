@@ -62,9 +62,13 @@
 #   Alerts: ON when the companion alert payload (alert-deauth.sh, beside this file) is in the firmware's alert tree, OFF when
 #   it is not. A press asks first and then installs it (mkdir -p, cp, chmod +x: the steps the README gives for doing it by
 #   hand, the copy through a temporary file and a rename so that the firmware never finds half a script) or, when it is
-#   ON, removes our payload.sh and our empty directory and nothing else. That is the only place this payload writes outside
+#   ON, removes our payload.sh and our empty directory and nothing else (and a stale DISABLED.starchorus copy of ours, see
+#   below). The firmware's own switch renames a payload that is switched off on its Alerts page to DISABLED.starchorus: when
+#   only that copy exists the row reads "OFF (firmware)", a press installs nothing (a second, enabled copy would be a
+#   second companion) and says to switch it on on the firmware's page. That is the only place this payload writes outside
 #   its own directories, and the only action it takes on the alert tree: it never switches an alert on or off in the
-#   firmware. The row is "(locked)" while STARCHORUS_ALERTS is set in the environment (it names the collector's switch).
+#   firmware. The row is "(locked)" while STARCHORUS_ALERTS is set in the environment to anything but 1 (the collector then
+#   ignores the alert log, so an installed companion would feed nothing); STARCHORUS_ALERTS=1 or unset leaves the row free.
 #   Debounce: right after a spinner or the Overview, a Start, Stop or B that comes back within 0.6 s (/proc/uptime) is
 #   taken for a queued press and ignored; the menu is drawn again. At most three in a row: a picker that keeps failing
 #   at once ends the payload instead of being drawn for ever.
@@ -119,7 +123,7 @@ PL_ENV=""
 [ -z "${STARCHORUS_BLUETOOTH:+x}" ] || PL_ENV="$PL_ENV bluetooth"
 [ -z "${STARCHORUS_TRAFFIC:+x}" ] || PL_ENV="$PL_ENV traffic"
 [ -z "${STARCHORUS_PAGE:+x}" ] || PL_ENV="$PL_ENV page"
-[ -z "${STARCHORUS_ALERTS:+x}" ] || PL_ENV="$PL_ENV alerts"   # no settings key behind it: the collector's switch, which only locks the Alerts row
+[ "${STARCHORUS_ALERTS:-1}" = 1 ] || PL_ENV="$PL_ENV alerts"   # no settings key behind it: the collector's read switch (only 1 reads the log); anything else locks the Alerts row
 STARCHORUS_PORT=${STARCHORUS_PORT:-8199}
 STARCHORUS_BIND=${STARCHORUS_BIND:-auto}                  # payload only: the page server's address (see BIND above)
 export STARCHORUS_DIR STARCHORUS_PORT
@@ -142,6 +146,7 @@ PL_PROC=${STARCHORUS_PROC:-/proc}                         # tests only (see TEST
 PL_MARK=${STARCHORUS_MARKER:-/tmp/starchorus.started}     # R7: the epoch of the last Start; tmpfs, so a reboot clears it
 PL_PIDDIR=${STARCHORUS_PIDDIR:-$STARCHORUS_DIR}           # where the collector keeps its pidfiles (its own default: OUTDIR)
 PL_ALERT_DIR=${STARCHORUS_ALERT_TREE:-/root/payloads/alerts}/deauth_flood_detected/starchorus   # the firmware's alert tree: ours is this one directory
+PL_ALERT_DIS=${PL_ALERT_DIR%/*}/DISABLED.starchorus                                              # ... or this one, once the firmware's switch has renamed it (switched off on its Alerts page)
 
 pl_has() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }   # pl_has "WORD LIST" WORD
 pl_bit() { if [ "$1" = on ]; then echo 1; else echo 0; fi; }
@@ -915,7 +920,7 @@ pl_web_flow() {
 pl_envvar() {   # pl_envvar KEY -> the environment variable behind a settings key
     case $1 in window) echo STARCHORUS_MAX_AGE ;; interval) echo STARCHORUS_INTERVAL ;; port) echo STARCHORUS_PORT ;;
         vendor) echo STARCHORUS_VENDOR ;; survey) echo STARCHORUS_SURVEY ;; page) echo STARCHORUS_PAGE ;;
-        bluetooth) echo STARCHORUS_BLUETOOTH ;; traffic) echo STARCHORUS_TRAFFIC ;; alerts) echo STARCHORUS_ALERTS ;; esac
+        bluetooth) echo STARCHORUS_BLUETOOTH ;; traffic) echo STARCHORUS_TRAFFIC ;; esac
 }
 pl_lock() { pl_has "$PL_ENV" "$1" && printf ' (locked)'; return 0; }                # " (locked)" when the environment sets KEY
 pl_sw() { if [ "$(pl_value "$1")" = on ]; then echo ON; else echo OFF; fi; }      # R1: an ON/OFF value flips with one press
@@ -945,7 +950,8 @@ pl_set_page() {   # Web Page: while RUNNING the flip applies at once; while STOP
 # directory of that tree and OFF while it is not; a press asks, then installs or removes. Nothing else touches the tree: no other
 # path, nothing of the firmware's own alerts, and no switch that enables or disables one (that stays on the firmware's Alerts page).
 pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
-pl_alert_sw() { if pl_alert_on; then echo ON; else echo OFF; fi; }
+pl_alert_dis() { [ -f "$PL_ALERT_DIS/payload.sh" ]; }   # the firmware's switch renamed our directory: switched off on its Alerts page
+pl_alert_sw() { if pl_alert_on; then echo ON; elif pl_alert_dis && ! pl_has "$PL_ENV" alerts; then echo "OFF (firmware)"; else echo OFF; fi; }   # "(firmware)" and "(locked)" together would pass 28 characters
 pl_alert_src() {   # -> 0 and PL_ALSRC = alert-deauth.sh in the payload directory (the places pl_install looks in); 1 when there is none
     PL_ALSRC=
     for pl_ad in "${_PAYLOAD_HOME:-}" "$PL_HOME" /root/payloads/user/reconnaissance/starchorus /mmc/root/payloads/user/reconnaissance/starchorus; do
@@ -971,7 +977,8 @@ pl_alert_remove() {   # our payload.sh (and a temporary file of an interrupted i
     ui_confirm "Remove the alert\ncompanion?" || return 0                                                                 # C3
     rm -f "$PL_ALERT_DIR/payload.sh" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null
     rmdir "$PL_ALERT_DIR" 2>/dev/null
-    if pl_alert_on; then ui_err "Could not remove the\nalert companion."                                                   # E15
+    if pl_alert_dis; then rm -f "$PL_ALERT_DIS/payload.sh" 2>/dev/null; rmdir "$PL_ALERT_DIS" 2>/dev/null; fi            # a stale copy the firmware switched off: ours as well
+    if pl_alert_on || pl_alert_dis; then ui_err "Could not remove the\nalert companion."                                  # E15
     else ui_log "Alerts: companion removed."; fi                                                                           # L8g
     return 0
 }
@@ -1021,7 +1028,8 @@ pl_settings() {
             *)                 pl_scur="Reset to Defaults"; pl_k=reset ;;
         esac
         case $pl_c in
-            *" (locked)") ui_prompt "Set by $(pl_envvar "$pl_k").\nUnset it to change it here."; continue ;;   # P1
+            *" (locked)") if [ "$pl_k" = alerts ]; then ui_prompt "The collector ignores the\nalert log: STARCHORUS_ALERTS\nis not 1. Unset it to\nuse this row."                      # P2
+                          else ui_prompt "Set by $(pl_envvar "$pl_k").\nUnset it to change it here."; fi; continue ;;   # P1
         esac
         case $pl_k in
             page)     pl_set_page ;;
@@ -1035,7 +1043,9 @@ pl_settings() {
                       elif pl_save traffic on; then ui_log "Traffic: channel activity and frame rates."; fi ;;   # L8d
             bluetooth) if [ "$STARCHORUS_BLUETOOTH" = 1 ]; then pl_save bluetooth off
                        elif pl_save bluetooth on; then ui_log "Bluetooth: passive LE scan, $(pl_btwin) s per refresh."; fi ;;   # L8e (the window the collector will use)
-            alerts)   if pl_alert_on; then pl_alert_remove; else pl_alert_install; fi ;;                       # C2, C3
+            alerts)   if pl_alert_on; then pl_alert_remove
+                      elif pl_alert_dis; then ui_prompt "Switched off on the\nfirmware Alerts page.\nSwitch it on there."                 # P3: no second copy
+                      else pl_alert_install; fi ;;                                                                   # C2, C3
             port)     if pl_n=$(ui_num Port "$STARCHORUS_PORT"); then
                           if ! pl_valid port "$pl_n"; then ui_err "Use 1024 to 65535, not 1471."               # E7
                           elif [ "$pl_n" != "$STARCHORUS_PORT" ]; then pl_save port "$pl_n"; fi
