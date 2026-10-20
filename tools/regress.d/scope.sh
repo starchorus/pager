@@ -202,6 +202,9 @@ def perf(v, n, ms):
     if d[1] > float(ms): bad.append("mean %s ms over %s" % (d[1], ms))
     if d[3] != 0: bad.append("errors")
     return bad
+def ess(v):   # devices.json with ESS merge on: 3 folded members in 2 merged sets; in the Scope every one can be tapped and no count badge is drawn, in the sky none can and both badges are
+    d = json.loads(v); want = {"folded": 3, "merged": 2, "scope": [3, 0], "sky": [0, 2], "errors": 0}
+    return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
 ok(globals()[sys.argv[1]](*sys.argv[2:]))
 PY
 scp_j() { python3 -B "$SCP_T/judge.py" "$@" 2>&1 | head -n 1; }   # scp_j CHECK ARGS...: ok, or what is wrong
@@ -435,6 +438,13 @@ for(const t of ["wargames","whitehall","foundation"]){rec.length=0;STARCHORUS.se
  o[t]={n:tk.length,touch:touch.join(","),bgMin:Math.min(...bg.map(px)),hudMin:hud.length?Math.min(...hud.map(px)):99}}
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 
+# devices.json with the ESS merge on (the live clock: under ?fixed the sky's stars never fade in): the folded members of a merged set are drawn as blips, so each can be tapped and none carries the count badge of the sky's lead; in the sky it is the other way round
+SCP_EVE='(async()=>{const I=STARCHORUS._internals,S=I.S,W=STARCHORUS.wait,o={};
+STARCHORUS.setToggles({essMerge:true});await W(1500);STARCHORUS.frame();
+const fold=()=>[...S.aps.values()].filter(n=>n.essFolded),cnt=()=>STARCHORUS.labels().filter(l=>l.kind==="counter").length,hit=()=>fold().filter(n=>STARCHORUS.hitTest(n.sx,n.sy)===n.id).length;
+o.folded=fold().length;o.merged=STARCHORUS.stats().essMerged;o.scope=[hit(),cnt()];
+STARCHORUS.setToggles({scope:false});await W(1500);STARCHORUS.frame();o.sky=[hit(),cnt()];
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 # ---- geometry, lanes, captions, text size, overlaps and the sideways scroll: 4 phone sizes x 3 themes (devices.json)
 for SCP_Z in 390x844 375x812 430x932 812x375; do
   scp_run "geom-$SCP_Z" "$SCP_EVG" "$F/devices.json" "$SCP_Q" "${SCP_Z%x*}" "${SCP_Z#*x}"
@@ -597,6 +607,11 @@ for SCP_Z in 320x568 390x844; do
   scp_row "scope $SCP_Z, 3 themes: the channel ticks do not touch, and no text drawn on #bg (ticks, lane names, ring labels) or #hud (labels) is under 13 px" "$SCP_R"
 done
 
+# ---- the ESS merge in the Scope: every folded member is drawn as a blip, so each can be tapped, and the sky's count badge of a merged set (it counts members that the sky folds into the lead) is not drawn; the sky keeps both
+scp_run ess "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844
+SCP_R=$(scp_j ess "$(scp_ev "$SCP_T-ess.json")")
+scp_row "scope with the ESS merge on (devices.json: 3 folded members in 2 merged sets): in the Scope each of the 3 can be tapped and no count badge is drawn; with the Scope off none of them is hit and both badges are drawn" "$SCP_R"
+
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
   SCP_MP="$SCP_T/mut-$1.html"; sed "$2" "$H" > "$SCP_MP"; SCP_MN=$(cmp -l "$H" "$SCP_MP" 2>/dev/null | wc -l | tr -d ' ')
@@ -657,4 +672,9 @@ scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP
 [ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
 scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")" != ok ] || SCP_MB="$SCP_MB legendrow"; }
-rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
+# a folded ESS member that a tap in the Scope skips again, and the count badge drawn in the Scope again
+scp_mut essnode 's/n.target !== 1 || (isEssFolded(n.id) \&\& !scopeOn)) return; near/n.target !== 1 || isEssFolded(n.id)) return; near/' || SCP_MB="$SCP_MB essnode(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run messn "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messn.json")")" != ok ] || SCP_MB="$SCP_MB essnode"; }
+scp_mut essbadge 's/ap.alphaDraw > 0.05 \&\& !scopeOn) {/ap.alphaDraw > 0.05) {/' || SCP_MB="$SCP_MB essbadge(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run messb "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messb.json")")" != ok ] || SCP_MB="$SCP_MB essbadge"; }
+rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows, a folded ESS member a tap skips, the count badge drawn in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]

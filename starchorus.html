@@ -5151,7 +5151,7 @@ function drawStars() {
     const npm = THEME.render.newPlotMark; if (npm.enabled && isNewAp(ap) && !eventSkip(ap)) ringArc(THEME.ink.secondary, 1, npm.dash, ap.alphaDraw, ap.sx, ap.sy, ap.px + npm.offsetPx, 0, Math.PI * 2);   // a new plot's own dashed mark (D2: new for 3 captures) — not the identity channel
     if (S.identity.size || S.rules.length) { const idn = identityOf(ap.id); if (idn !== "unknown") { setAlpha(ctx, ap.alphaDraw); drawIdentityFrame(ctx, ap.sx, ap.sy, ap.px + 6, ENCODING.identity[idn]); } }
     const fc = essOfFolded(ap.id);   // §8.8 folded-ESS lead carries a count badge (= member APs), baked sprite
-    if (fc && fc.leadId === ap.id && ap.alphaDraw > 0.05) {
+    if (fc && fc.leadId === ap.id && ap.alphaDraw > 0.05 && !scopeOn) {
       const cs = getSprite("counter", "ink", fc.apCount, "sharp");
       setAlpha(ctx, Math.max(ap.alphaDraw, AGG.minCounterAlpha)); blitFixed(ctx, cs, ap.sx, ap.sy - ap.px - 9);
       ctx.strokeStyle = THEME.line.device; ctx.lineWidth = 1; ctx.setLineDash(ENCODING.merge.dash);   // merged-set ring (D17 pattern)
@@ -5475,7 +5475,7 @@ function nodeAt(mx, my, touch) {
     S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98 && !scopeOn) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
     if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
     if (S.ui.filters.bt) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
-    S.aps.forEach(n => { if (n.target !== 1 || isEssFolded(n.id)) return; near(n, hitRadius(n, touch)); });
+    S.aps.forEach(n => { if (n.target !== 1 || (isEssFolded(n.id) && !scopeOn)) return; near(n, hitRadius(n, touch)); });
     if (!scopeOn) S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
   }
