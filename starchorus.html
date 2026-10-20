@@ -6838,12 +6838,12 @@ function applyScope() {
 function renderScope() {
   if (!scopeOn) return;
   const T = THEME.copy.scope, ls = liveness(), st = S._stats || {}, aps = S.apOrder.filter(a => S.ui.filters[a.band] !== false), cl = S.ui.random === "cloud" ? st.clouds | 0 : 0;
-  const sp = el("scope-strip"), cs = sp.classList;
+  const sp = el("scope-strip"), cs = sp.classList, c0 = cs.value;
   sp.replaceChildren(...[aps.length, st.clients | 0, cl, aps.length ? aps[0].rssi + " dBm" : "—", eventsObj().newAps].flatMap((v, i) => [["b", v], ["i", T.strip[i]]].map(([t, x]) => Object.assign(document.createElement(t), { textContent: x }))));
   cs.remove("t", "n");
   for (const x of "tn") if (sp.scrollWidth > sp.clientWidth + 1) cs.add(x);
   el("sc-rx").textContent = copyFor("legRx") + (ls === "live" ? "" : " · " + modeChip.textContent);
-  if (ls !== SC.lv) { SC.lv = ls; resize(); }
+  if (ls !== SC.lv || cs.value !== c0) { SC.lv = ls; resize(); }
 }
 function phoneCardOf() { const d = DE.dataset.drawer || "legend"; return S.ui.help ? "help" : !detail.hidden ? "detail" : d !== "legend" ? "drawer" : S.ui.legendCard ? "legend" : "controls"; }
 function setSheet(d) { if (phoneOn && /^(peek|half|full)$/.test(d)) { S.ui.sheet = d; layoutEdges(); } return S.ui.sheet; }

@@ -205,6 +205,16 @@ def perf(v, n, ms):
 def ess(v):   # devices.json with ESS merge on: 3 folded members in 2 merged sets; in the Scope every one can be tapped and no count badge is drawn, in the sky none can and both badges are
     d = json.loads(v); want = {"folded": 3, "merged": 2, "scope": [3, 0], "sky": [0, 2], "errors": 0}
     return ["%s: %s" % (k, d.get(k)) for k in want if d.get(k) != want[k]]
+def stripgeom(v):   # an ingest that flips the strip's classes (t, n) moves the fan's top with it: the geometry follows the strip's height
+    d = json.loads(v); bad = []
+    for t in TH:
+        x = d.get(t)
+        if not x or len(x) != 3: bad.append(t + ": none"); continue
+        if len({r.split("|")[1] for r in x}) < 2: bad.append("%s: the strip never changed height %s" % (t, x))
+        for r in x:
+            c, h, top, want = r.split("|")
+            if abs(float(top) - float(want)) > 0.5: bad.append("%s: fan top %s, strip says %s (%s)" % (t, top, want, c))
+    return bad + (["errors"] if d.get("errors") != 0 else [])
 ok(globals()[sys.argv[1]](*sys.argv[2:]))
 PY
 scp_j() { python3 -B "$SCP_T/judge.py" "$@" 2>&1 | head -n 1; }   # scp_j CHECK ARGS...: ok, or what is wrong
@@ -445,6 +455,18 @@ const fold=()=>[...S.aps.values()].filter(n=>n.essFolded),cnt=()=>STARCHORUS.lab
 o.folded=fold().length;o.merged=STARCHORUS.stats().essMerged;o.scope=[hit(),cnt()];
 STARCHORUS.setToggles({scope:false});await W(1500);STARCHORUS.frame();o.sky=[hit(),cnt()];
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+# an ingest that flips the strip into its short form (class n: words hidden, 16 px less) and back: the fan's top (SC.g.top) must follow the strip's height (offsetHeight), which an ingest alone used to leave until the next resize
+SCP_EVH='(async()=>{const I=STARCHORUS._internals,SC=I.SC,W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};
+const doc={source:"recon-db",generated:1000,center:{label:"T",interval:30},aps:[{bssid:"02:00:00:00:00:01",ssid:"A",band:"2.4",channel:6,rssi:-48,security:"WPA2"}],unassociated:[]};
+const st=()=>{const s=E("scope-strip");return [s.className.replace(/panel|ph-only/g,"").trim()||"full",s.offsetHeight,Math.round(SC.g.top*10)/10,Math.round((SC.g.b.y+s.offsetHeight+4)*10)/10].join("|")};
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(600);
+ const w=I.THEMES[t].copy.scope.strip,keep=w[0],r=[];
+ doc.generated+=30;STARCHORUS.load(doc,"x");await W(500);r.push(st());
+ w[0]="x".repeat(60);doc.generated+=30;STARCHORUS.load(doc,"x");await W(500);r.push(st());   // a first word no panel can hold: the words go (class t, then n)
+ w[0]=keep;doc.generated+=30;STARCHORUS.load(doc,"x");await W(500);r.push(st());
+ o[t]=r}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+
 # ---- geometry, lanes, captions, text size, overlaps and the sideways scroll: 4 phone sizes x 3 themes (devices.json)
 for SCP_Z in 390x844 375x812 430x932 812x375; do
   scp_run "geom-$SCP_Z" "$SCP_EVG" "$F/devices.json" "$SCP_Q" "${SCP_Z%x*}" "${SCP_Z#*x}"
@@ -612,6 +634,11 @@ scp_run ess "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844
 SCP_R=$(scp_j ess "$(scp_ev "$SCP_T-ess.json")")
 scp_row "scope with the ESS merge on (devices.json: 3 folded members in 2 merged sets): in the Scope each of the 3 can be tapped and no count badge is drawn; with the Scope off none of them is hit and both badges are drawn" "$SCP_R"
 
+# ---- an ingest that changes the strip's form moves the fan with it (the strip's height and the fan's top were measured once, at the last resize)
+scp_run stripgeom "$SCP_EVH" "$F/devices.json" "$SCP_Q" 390 844
+SCP_R=$(scp_j stripgeom "$(scp_ev "$SCP_T-stripgeom.json")")
+scp_row "scope: an ingest that takes the strip's words off (class n) and one that brings them back leave the fan's top where the strip ends (SC.g.top = the box's top + the strip's height + 4 px, within 0.5 px) in all three themes, and the strip does change its height" "$SCP_R"
+
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
 scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
   SCP_MP="$SCP_T/mut-$1.html"; sed "$2" "$H" > "$SCP_MP"; SCP_MN=$(cmp -l "$H" "$SCP_MP" 2>/dev/null | wc -l | tr -d ' ')
@@ -677,4 +704,7 @@ scp_mut essnode 's/n.target !== 1 || (isEssFolded(n.id) \&\& !scopeOn)) return; 
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run messn "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messn.json")")" != ok ] || SCP_MB="$SCP_MB essnode"; }
 scp_mut essbadge 's/ap.alphaDraw > 0.05 \&\& !scopeOn) {/ap.alphaDraw > 0.05) {/' || SCP_MB="$SCP_MB essbadge(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run messb "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messb.json")")" != ok ] || SCP_MB="$SCP_MB essbadge"; }
-rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows, a folded ESS member a tap skips, the count badge drawn in the Scope each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
+# the strip's classes changed without the geometry following (renderScope as it was: a resize only when the feed's liveness changes)
+scp_mut stripgeom 's/if (ls !== SC.lv || cs.value !== c0) { SC.lv = ls; resize(); }/if (ls !== SC.lv) { SC.lv = ls; resize(); }/' || SCP_MB="$SCP_MB stripgeom(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mstripg "$SCP_EVH" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j stripgeom "$(scp_ev "$SCP_T-mstripg.json")")" != ok ] || SCP_MB="$SCP_MB stripgeom"; }
+rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows, a folded ESS member a tap skips, the count badge drawn in the Scope, a strip whose change of form leaves the fan where it was each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]
