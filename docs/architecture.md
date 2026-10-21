@@ -2818,9 +2818,10 @@ in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 
 of `RECON CHANNELS`) is never treated as fact until checked on the device and stays behind toggles (default off); `docs/device-notes.md` lists the
 open questions with the identifiers V-1 … V-13 from `tools/device-probe.sh` (V-13: the Bluetooth controller and tools, from files alone).
 
-**Gate for the Bluetooth default.** The summary's APs line with the Bluetooth figure is at most 45 characters (three-digit counts, '256+'), and how many characters fit on one console
-line of the Pager is measured only as 'at least 40' (`docs/device-notes.md`, M6; the 50-digit line and the line with the middle dot are not yet run). The fallback for a shorter line (the
-figure leaves the summary, the hub row reads 'Bluetooth (23)') is not built. Until M6 has passed, the Bluetooth setting stays off by default and the release pass does not switch it on.
+**Gate for the Bluetooth default.** The summary's APs line with the Bluetooth figure is at most 45 characters (three-digit counts, '256+'), and the Pager's console line holds 50 to 52
+characters, measured on 21 October 2026 (`docs/device-notes.md`, M6: a 50-digit line and the line with the middle dot each stayed on one line; longer lines wrap at a word boundary). The
+fallback for a shorter line (the figure leaves the summary, the hub row reads 'Bluetooth (23)') is therefore not needed and not built. M6 has passed; whether the Bluetooth setting goes
+on by default is a question of the load it adds (`docs/device-notes.md` section 6a) and the owner's choice, and the release pass does not switch it on by itself.
 
 **Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 625,000 bytes,
 and the pair was held to the share of that which the rest of the release left it). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
