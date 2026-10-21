@@ -236,11 +236,19 @@ rowif "sec_slice anchors on dummies ($((ssn - ssbad))/$ssn as expected)" [ "$ssb
 # src/PAGE.list is sound; and the judge, which plants each defect in a copy of the tree and wants the checks red for it (and green for
 # an intact copy). The hook only checks; it never rebuilds (that would change the index behind the author's back).
 src_manifest() {   # src_manifest ROOT: the rules for the fragments below ROOT/src; one finding per line (four blanks in front), no output = sound
-  _sm_s=$1/src; _sm_l=$_sm_s/PAGE.list; _sm_k=0; _sm_n=0
+  _sm_s=$1/src; _sm_l=$_sm_s/PAGE.list; _sm_k=0; _sm_n=0; _sm_prev=
   if [ ! -s "$_sm_l" ]; then echo "    src/PAGE.list is missing or empty"; return 1; fi
   # shellcheck disable=SC2094   # the manifest is only read, by the loop and by the grep in it; nothing here writes it
   while IFS= read -r _sm_p || [ -n "$_sm_p" ]; do
     _sm_n=$((_sm_n + 1))
+    # the four frame parts sit in fixed slots: swapped, the page is still the build of the manifest and its sections still run in turn,
+    # so no other rule sees it (shell/js-end.html, the last, is asked for after the loop)
+    case $_sm_p in
+      shell/head.html) [ "$_sm_n" = 1 ] || echo "    src/PAGE.list line $_sm_n: shell/head.html must be listed first (before section 00)" ;;
+      shell/css-end.html) case $_sm_prev in css/09-?*) ;; *) echo "    src/PAGE.list line $_sm_n: shell/css-end.html must be listed directly after section 09" ;; esac ;;
+      shell/js-begin.html) case $_sm_prev in html/19-?*) ;; *) echo "    src/PAGE.list line $_sm_n: shell/js-begin.html must be listed directly after section 19" ;; esac ;;
+    esac
+    _sm_prev=$_sm_p
     case $_sm_p in
       '' | /* | *..* | */*/* | *[!A-Za-z0-9._/-]*) echo "    src/PAGE.list line $_sm_n: '$_sm_p' is no usable path"; continue ;;
       shell/?* | css/?* | html/?* | js/?*) ;;
@@ -262,6 +270,7 @@ src_manifest() {   # src_manifest ROOT: the rules for the fragments below ROOT/s
       *) [ "$_sm_m" = 0 ] || echo "    src/$_sm_p is a frame part and holds $_sm_m section markers (want 0)" ;;
     esac
   done < "$_sm_l"
+  [ "$_sm_prev" = shell/js-end.html ] || echo "    src/PAGE.list: shell/js-end.html must be listed last (after section 41), the last line is '$_sm_prev'"
   [ "$_sm_k" -ge "$MIN_SECTIONS" ] || echo "    src/PAGE.list names $_sm_k section fragments (want at least $MIN_SECTIONS)"
   [ "$_sm_n" -ge "$MIN_SRC_FILES" ] || echo "    src/PAGE.list names $_sm_n fragments (want at least $MIN_SRC_FILES)"
   # every file below src/ is listed: a fragment the build does not use is dead text that a reader would take for live
@@ -285,13 +294,17 @@ else row "src manifest: $sp_n fragments (≥ $MIN_SRC_FILES), sections 00..$((sp
 # The judge: every defect planted in a copy of the tree (src/, the page and the builder), each with the words its finding has to hold, so
 # that a rule which went blind cannot hide behind another rule that is still red. Where a rule is the only one that can see the defect
 # (a CR, a missing final newline, a marker that names another section, the order), the copy's page is rebuilt first, so that the byte
-# comparison is green and only the manifest rule stands between the defect and a green row.
+# comparison is green and only the manifest rule stands between the defect and a green row. The intact copy's page is rebuilt too: were
+# the committed page stale, the row "page = build of src/" is red for that, and the judge must not be red for the same cause (two rows
+# for one fault); it judges the rules only, on a tree that is sound.
 spn=0; spbad=0
 sp_flip() { LC_ALL=C sed "$2s/^./X/" "$1" > "$1.new" && mv "$1.new" "$1"; }   # sp_flip FILE N: the first byte of line N becomes X
 sp_swap() { sed -e 's|^js/22-util\.js$|@|' -e 's|^js/23-normalize\.js$|js/22-util.js|' -e 's|^@$|js/23-normalize.js|' src/PAGE.list > src/PAGE.new && mv src/PAGE.new src/PAGE.list; }
 sp_cr() { sed "$2s/\$/$(printf '\r')/" "$1" > "$1.new" && mv "$1.new" "$1"; }   # sp_cr FILE N: a CR at the end of line N
 sp_nonl() { printf '%s' "$(cat "$1")" > "$1.new" && mv "$1.new" "$1"; }   # sp_nonl FILE: the final newline(s) taken away
 sp_mark() { sed '1s/==== 22 /==== 23 /' src/js/22-util.js > src/js/22-util.new && mv src/js/22-util.new src/js/22-util.js; }   # the marker names another section
+sp_fswap() { awk -v a="$1" -v b="$2" '$0 == a { print b; next } $0 == b { print a; next } { print }' src/PAGE.list > src/PAGE.new && mv src/PAGE.new src/PAGE.list; }   # sp_fswap A B: the two names change places in the manifest
+sp_few() { head -n $((MIN_SRC_FILES - 1)) src/PAGE.list > src/PAGE.new && mv src/PAGE.new src/PAGE.list && find src -type f ! -name PAGE.list | while IFS= read -r _sf_f; do grep -qFx -- "${_sf_f#src/}" src/PAGE.list || rm -f "$_sf_f"; done; }   # one fragment short of the floor, the rest gone from the disk too
 sp_case() {   # sp_case pass|fail 'WORDS THE FINDINGS HOLD' 'WHAT IS WRONG' 'SHELL TEXT THAT PLANTS IT (run inside the copy)'
   spn=$((spn + 1)); _sp_d="out/$P-srcjudge"; rm -rf "$_sp_d"; mkdir -p "$_sp_d/tools"
   if cp -R src "$_sp_d/" && cp tools/build-page.sh "$_sp_d/tools/" && cp starchorus.html "$_sp_d/"; then
@@ -304,7 +317,7 @@ sp_case() {   # sp_case pass|fail 'WORDS THE FINDINGS HOLD' 'WHAT IS WRONG' 'SHE
   [ "$_sp_ok" = 1 ] || { spbad=$((spbad + 1)); echo "    src judge case $spn ($3): want $1${2:+ with \"$2\"}, got rc $_sp_rc:"; printf '%s\n' "$_sp_o" | head -n 4 | cut -c1-170; }
   rm -rf "$_sp_d"
 }
-sp_case pass '' 'the intact copy' ':'
+sp_case pass '' 'the intact copy, its page rebuilt first so that only the rules are judged' 'sh tools/build-page.sh'
 sp_case fail 'differs from the build' 'one byte changed in the page' 'sp_flip starchorus.html 4'
 sp_case fail 'differs from the build' 'one byte changed in a fragment' 'sp_flip src/js/22-util.js 2'
 sp_case fail 'missing' 'a listed fragment is gone' 'rm src/js/30-step.js'
@@ -314,6 +327,15 @@ sp_case fail 'out of order' 'two fragments swapped in the manifest, the page reb
 sp_case fail 'holds a CR' 'a CR in a fragment, the page rebuilt' 'sp_cr src/js/22-util.js 2 && sh tools/build-page.sh'
 sp_case fail 'no final newline' 'a fragment without its final newline, the page rebuilt' 'sp_nonl src/js/40-debug-api.js && sh tools/build-page.sh'
 sp_case fail 'not the marker of section 22' 'a marker that names another section, the page rebuilt' 'sp_mark && sh tools/build-page.sh'
+# the frame parts: one swap of a pair gives two findings, so each end of it is asked for by its own words
+sp_case fail 'shell/head.html must be listed first' 'head.html and js-end.html swapped in the manifest, the page rebuilt: the first slot' 'sp_fswap shell/head.html shell/js-end.html && sh tools/build-page.sh'
+sp_case fail 'shell/js-end.html must be listed last' 'head.html and js-end.html swapped in the manifest, the page rebuilt: the last slot' 'sp_fswap shell/head.html shell/js-end.html && sh tools/build-page.sh'
+sp_case fail 'shell/css-end.html must be listed directly after section 09' 'css-end.html and js-begin.html swapped in the manifest, the page rebuilt: the end of the style block' 'sp_fswap shell/css-end.html shell/js-begin.html && sh tools/build-page.sh'
+sp_case fail 'shell/js-begin.html must be listed directly after section 19' 'css-end.html and js-begin.html swapped in the manifest, the page rebuilt: the start of the script' 'sp_fswap shell/css-end.html shell/js-begin.html && sh tools/build-page.sh'
+sp_case fail 'listed more than once' 'shell/js-end.html listed twice, the page rebuilt' 'echo shell/js-end.html >> src/PAGE.list && sh tools/build-page.sh'
+sp_case fail 'is a frame part and holds' 'a section marker in a frame part, the page rebuilt' 'echo "/* ==== 05 stray */" >> src/shell/css-end.html && sh tools/build-page.sh'
+sp_case fail "fragments (want at least $MIN_SRC_FILES)" 'one fragment fewer than the floor MIN_SRC_FILES, the page rebuilt' 'sp_few && sh tools/build-page.sh'
+sp_case fail 'starchorus.html is missing' 'the page is gone from the copy' 'rm starchorus.html'
 rowif "src checks on dummies ($((spn - spbad))/$spn as expected)" [ "$spbad" = 0 ]
 # information only, no ceiling per fragment yet: where the page's bytes are (the whole table: sh tools/build-page.sh --list)
 sp_i=$(sh tools/build-page.sh --list 2> /dev/null | awk 'NF == 2 { sub(/^[a-z]+\//, "", $2); printf "%s%s %s", (n++ ? ", " : ""), $2, $1 }')

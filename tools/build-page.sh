@@ -3,7 +3,8 @@
 # tools/build-page.sh -- builds starchorus.html from the fragments under src/; the manifest src/PAGE.list names them, in order.
 # usage: sh tools/build-page.sh            write starchorus.html (a temporary file beside it, then mv)
 #        sh tools/build-page.sh --check    build to a temporary file and compare it byte for byte with starchorus.html;
-#                                          writes nothing; exit 0 = identical, 1 = different (names the first differing line)
+#                                          writes nothing; exit 0 = identical, 1 = different (names the first differing line where
+#                                          cmp names one, not for a difference only in length), 2 = the page is missing
 #        sh tools/build-page.sh --where N  the fragment and the line in it that hold line N of the built page
 #        sh tools/build-page.sh --list     the manifest, one fragment per line, with its byte count
 # Building is pure concatenation: cat in manifest order. No minifying, no stripping of comments, no reformatting; the font stays
@@ -12,7 +13,7 @@
 # rebuilds, because that would change the index behind the author's back. Rebuilding is the author's step, and src/ and the page go
 # into one commit.
 # Exit 0 = done / identical, 1 = the page differs from the build (--check) or the line is past the page (--where),
-# 2 = usage or setup (manifest or fragment missing or unusable, no mktemp).
+# 2 = usage or setup (manifest or fragment missing or unusable, no mktemp; with --check also the page missing).
 # Needs only cat cmp mv chmod rm sed wc tr mktemp dirname (harness.sh PF_TOOLS_BASE). No git, no network, no device. Dev machine only.
 set -u
 root=$(cd "$(dirname "$0")/.." && pwd) || exit 2
@@ -56,6 +57,7 @@ if [ "$mode" = build ]; then
   if ! { chmod 644 "$tmp" && mv -f "$tmp" "$page"; }; then echo "build-page: cannot write starchorus.html" >&2; exit 2; fi
   echo "build-page: wrote starchorus.html from $# fragments, $(wc -c < "$page" | tr -d ' ') bytes"; exit 0
 fi
+[ -f "$page" ] || { echo "build-page: starchorus.html is missing" >&2; exit 2; }
 if cmp -s "$tmp" "$page"; then
   echo "build-page: starchorus.html is the build of $# fragments, $(wc -c < "$page" | tr -d ' ') bytes"; exit 0
 fi
