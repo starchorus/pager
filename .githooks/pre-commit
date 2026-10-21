@@ -7,7 +7,10 @@
 # directory and tools/quick.sh runs there (no .git in the export). An unstaged edit neither hides a staged violation nor
 # raises a false alarm. `git commit <paths>` and `-a` are covered the same way (git points the hook at the right index).
 # Path filter: the hook only runs when a staged path is the page (also index.html), the collector, a display script, payload*,
-# starchorus-serve.sh, or below tests/, tools/, library/, packaging/, .githooks/ or .github/. Deletions count as staged.
+# starchorus-serve.sh, or below src/ (the page's fragments), tests/, tools/ (tools/build-page.sh among them), library/, packaging/,
+# .githooks/ or .github/. Deletions count as staged. A commit that stages a fragment under src/ without the rebuilt page runs T1
+# and goes red on the row "page = build of src/"; rebuild with `sh tools/build-page.sh` and stage the page with the fragment.
+# The hook only checks; it never rebuilds (that would change the index behind the committer's back).
 #   Blind spot, on purpose named: a commit that stages only OTHER files (docs/, README, ...) skips the hook, so
 #   the documentation-drift rows (tools/regress.d/doc-drift.sh) are not seen until the next code commit or tools/regress.sh.
 # When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too.
@@ -21,7 +24,7 @@ set -u
 top=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
 cd "$top" || exit 1
 staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames) || { echo "pre-commit: cannot list the index" >&2; exit 1; }
-if ! printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|tests/|tools/|\.githooks/|\.github/)'; then
+if ! printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|src/|tests/|tools/|\.githooks/|\.github/)'; then
   exit 0   # only files outside the filter: T1 has nothing to say about them (see the blind spot above)
 fi
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-hook.XXXXXX") || { echo "pre-commit: mktemp failed" >&2; exit 1; }
