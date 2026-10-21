@@ -57,6 +57,7 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
 MIN_SELFTEST=482          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (482 checks), 19 October 2026: the alert log's eleven cases are in)
 MIN_SECTIONS=42           # grep -c '==== [0-9]' starchorus.html                              (measured: 00..41)
+MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four frame parts and one fragment for each of 00..41; about 80 %)
 MIN_FIXTURES=15           # ls tests/fixtures/*.json | wc -l   (measured: 15)
 MIN_QUICK_DROPINS=6       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server mutation-probe)
 MIN_QUICK_ROWS=50         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 66; quick.sh's own rows are also asked for by name)
@@ -229,6 +230,94 @@ ss 2 1 "$(printf '// ==== 20 B ====\nx\n// ==== 10 A ====')"
 ss 2 4 "$(printf '// ==== 10 A ====\n// ==== 20 B ====')"
 ss 2 1 ""
 rowif "sec_slice anchors on dummies ($((ssn - ssbad))/$ssn as expected)" [ "$ssbad" = 0 ]
+
+# ---- the page is the build of src/ (tools/build-page.sh). The fragments under src/ are the source; starchorus.html, which the device, the
+# Hak5 package and the installer read, is committed as their cat. Three rows: the build equals the page byte for byte; the manifest
+# src/PAGE.list is sound; and the judge, which plants each defect in a copy of the tree and wants the checks red for it (and green for
+# an intact copy). The hook only checks; it never rebuilds (that would change the index behind the author's back).
+src_manifest() {   # src_manifest ROOT: the rules for the fragments below ROOT/src; one finding per line (four blanks in front), no output = sound
+  _sm_s=$1/src; _sm_l=$_sm_s/PAGE.list; _sm_k=0; _sm_n=0
+  if [ ! -s "$_sm_l" ]; then echo "    src/PAGE.list is missing or empty"; return 1; fi
+  # shellcheck disable=SC2094   # the manifest is only read, by the loop and by the grep in it; nothing here writes it
+  while IFS= read -r _sm_p || [ -n "$_sm_p" ]; do
+    _sm_n=$((_sm_n + 1))
+    case $_sm_p in
+      '' | /* | *..* | */*/* | *[!A-Za-z0-9._/-]*) echo "    src/PAGE.list line $_sm_n: '$_sm_p' is no usable path"; continue ;;
+      shell/?* | css/?* | html/?* | js/?*) ;;
+      *) echo "    src/PAGE.list line $_sm_n: '$_sm_p' is not below shell/, css/, html/ or js/"; continue ;;
+    esac
+    [ "$(grep -cFx -- "$_sm_p" "$_sm_l")" = 1 ] || echo "    src/$_sm_p is listed more than once"
+    _sm_f=$_sm_s/$_sm_p
+    [ -f "$_sm_f" ] || { echo "    src/$_sm_p is listed but missing"; continue; }
+    [ "$(tr -cd '\r' < "$_sm_f" | wc -c | tr -d ' ')" = 0 ] || echo "    src/$_sm_p holds a CR"
+    { [ -s "$_sm_f" ] && [ "$(tail -c 1 "$_sm_f" | wc -l | tr -d ' ')" = 1 ]; } || echo "    src/$_sm_p has no final newline"
+    _sm_m=$(grep -c '==== [0-9][0-9]* ' "$_sm_f")   # the marker as harness.sh sec_slice counts it ("17b" has no blank after its digits)
+    _sm_b=${_sm_p##*/}
+    case $_sm_b in
+      [0-9][0-9]-*)   # a section: the name carries its number, the first line is its one marker, and the numbers run 00.. in turn
+        _sm_nn=${_sm_b%%-*}; _sm_want=$(printf '%02d' "$_sm_k"); _sm_k=$((_sm_k + 1))
+        [ "$_sm_nn" = "$_sm_want" ] || echo "    src/PAGE.list: $_sm_p is out of order (section $_sm_nn where $_sm_want is due)"
+        [ "$_sm_m" = 1 ] || echo "    src/$_sm_p holds $_sm_m section markers (want exactly 1)"
+        head -n 1 "$_sm_f" | grep -qF -- "==== $_sm_nn " || echo "    src/$_sm_p: its first line is not the marker of section $_sm_nn" ;;
+      *) [ "$_sm_m" = 0 ] || echo "    src/$_sm_p is a frame part and holds $_sm_m section markers (want 0)" ;;
+    esac
+  done < "$_sm_l"
+  [ "$_sm_k" -ge "$MIN_SECTIONS" ] || echo "    src/PAGE.list names $_sm_k section fragments (want at least $MIN_SECTIONS)"
+  [ "$_sm_n" -ge "$MIN_SRC_FILES" ] || echo "    src/PAGE.list names $_sm_n fragments (want at least $MIN_SRC_FILES)"
+  # every file below src/ is listed: a fragment the build does not use is dead text that a reader would take for live
+  find "$_sm_s" -type f ! -name .DS_Store | LC_ALL=C sort | while IFS= read -r _sm_f; do
+    _sm_r=${_sm_f#"$_sm_s"/}
+    [ "$_sm_r" = PAGE.list ] || grep -qFx -- "$_sm_r" "$_sm_l" || echo "    src/$_sm_r is not listed in src/PAGE.list"
+  done
+}
+src_verdict() {   # src_verdict ROOT: build-page.sh --check and src_manifest on the tree below ROOT; the findings on stdout, rc 1 when either is red
+  _sj_o=$( (cd "$1" && sh tools/build-page.sh --check) 2>&1 ); _sj_rc=$?
+  [ "$_sj_rc" = 0 ] || printf '%s\n' "$_sj_o" | sed 's/^/    /'
+  _sj_m=$(src_manifest "$1"); [ -z "$_sj_m" ] || printf '%s\n' "$_sj_m"
+  [ "$_sj_rc" = 0 ] && [ -z "$_sj_m" ]
+}
+sp_n=$(grep -c '' src/PAGE.list 2> /dev/null) || sp_n=0
+if sp_o=$(sh tools/build-page.sh --check 2>&1); then row "page = build of src/ ($sp_n fragments, $PG_SZ bytes)" PASS
+else row "page = build of src/ ($sp_n fragments, $PG_SZ bytes)" FAIL; printf '%s\n' "$sp_o" | sed 's/^/    /'; fi
+sp_m=$(src_manifest "$R"); sp_k=$(grep -c '^[a-z]*/[0-9][0-9]-' src/PAGE.list 2> /dev/null) || sp_k=0
+if [ -z "$sp_m" ]; then row "src manifest: $sp_n fragments (≥ $MIN_SRC_FILES), sections 00..$((sp_k - 1)) in order, once each, no CR" PASS
+else row "src manifest: $sp_n fragments (≥ $MIN_SRC_FILES), sections 00..$((sp_k - 1)) in order, once each, no CR" FAIL; printf '%s\n' "$sp_m"; fi
+# The judge: every defect planted in a copy of the tree (src/, the page and the builder), each with the words its finding has to hold, so
+# that a rule which went blind cannot hide behind another rule that is still red. Where a rule is the only one that can see the defect
+# (a CR, a missing final newline, a marker that names another section, the order), the copy's page is rebuilt first, so that the byte
+# comparison is green and only the manifest rule stands between the defect and a green row.
+spn=0; spbad=0
+sp_flip() { LC_ALL=C sed "$2s/^./X/" "$1" > "$1.new" && mv "$1.new" "$1"; }   # sp_flip FILE N: the first byte of line N becomes X
+sp_swap() { sed -e 's|^js/22-util\.js$|@|' -e 's|^js/23-normalize\.js$|js/22-util.js|' -e 's|^@$|js/23-normalize.js|' src/PAGE.list > src/PAGE.new && mv src/PAGE.new src/PAGE.list; }
+sp_cr() { sed "$2s/\$/$(printf '\r')/" "$1" > "$1.new" && mv "$1.new" "$1"; }   # sp_cr FILE N: a CR at the end of line N
+sp_nonl() { printf '%s' "$(cat "$1")" > "$1.new" && mv "$1.new" "$1"; }   # sp_nonl FILE: the final newline(s) taken away
+sp_mark() { sed '1s/==== 22 /==== 23 /' src/js/22-util.js > src/js/22-util.new && mv src/js/22-util.new src/js/22-util.js; }   # the marker names another section
+sp_case() {   # sp_case pass|fail 'WORDS THE FINDINGS HOLD' 'WHAT IS WRONG' 'SHELL TEXT THAT PLANTS IT (run inside the copy)'
+  spn=$((spn + 1)); _sp_d="out/$P-srcjudge"; rm -rf "$_sp_d"; mkdir -p "$_sp_d/tools"
+  if cp -R src "$_sp_d/" && cp tools/build-page.sh "$_sp_d/tools/" && cp starchorus.html "$_sp_d/"; then
+    ( cd "$_sp_d" && eval "$4" ) > /dev/null 2>&1
+    _sp_o=$(src_verdict "$_sp_d"); _sp_rc=$?
+  else _sp_o="the copy could not be made"; _sp_rc=-1; fi
+  _sp_ok=0
+  if [ "$1" = pass ]; then [ "$_sp_rc" = 0 ] && _sp_ok=1
+  elif [ "$_sp_rc" != 0 ] && printf '%s\n' "$_sp_o" | grep -qF -- "$2"; then _sp_ok=1; fi
+  [ "$_sp_ok" = 1 ] || { spbad=$((spbad + 1)); echo "    src judge case $spn ($3): want $1${2:+ with \"$2\"}, got rc $_sp_rc:"; printf '%s\n' "$_sp_o" | head -n 4 | cut -c1-170; }
+  rm -rf "$_sp_d"
+}
+sp_case pass '' 'the intact copy' ':'
+sp_case fail 'differs from the build' 'one byte changed in the page' 'sp_flip starchorus.html 4'
+sp_case fail 'differs from the build' 'one byte changed in a fragment' 'sp_flip src/js/22-util.js 2'
+sp_case fail 'missing' 'a listed fragment is gone' 'rm src/js/30-step.js'
+sp_case fail 'not listed' 'a fragment nobody lists' 'echo x > src/js/extra.js'
+sp_case fail 'differs from the build' 'two fragments swapped in the manifest, the page not rebuilt' 'sp_swap'
+sp_case fail 'out of order' 'two fragments swapped in the manifest, the page rebuilt' 'sp_swap && sh tools/build-page.sh'
+sp_case fail 'holds a CR' 'a CR in a fragment, the page rebuilt' 'sp_cr src/js/22-util.js 2 && sh tools/build-page.sh'
+sp_case fail 'no final newline' 'a fragment without its final newline, the page rebuilt' 'sp_nonl src/js/40-debug-api.js && sh tools/build-page.sh'
+sp_case fail 'not the marker of section 22' 'a marker that names another section, the page rebuilt' 'sp_mark && sh tools/build-page.sh'
+rowif "src checks on dummies ($((spn - spbad))/$spn as expected)" [ "$spbad" = 0 ]
+# information only, no ceiling per fragment yet: where the page's bytes are (the whole table: sh tools/build-page.sh --list)
+sp_i=$(sh tools/build-page.sh --list 2> /dev/null | awk 'NF == 2 { sub(/^[a-z]+\//, "", $2); printf "%s%s %s", (n++ ? ", " : ""), $2, $1 }')
+echo "note: src/ bytes per fragment (information only, no ceiling): ${sp_i:-no list}"
 
 # ---- theme branches, baselines, wall clock
 tc=""; tcbad=0
