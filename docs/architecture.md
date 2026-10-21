@@ -95,7 +95,7 @@ Editing: change the fragment, run `sh tools/build-page.sh`, and commit `src/` an
 `cat` in manifest order and nothing else (no minifying, no stripping of comments, no reformatting), so every rule in this
 specification that reads the page reads the same bytes as before. The T1 rows (`tools/static.sh`) fail when the page is not the
 build of `src/` by a single byte, when the manifest is unsound (a fragment missing, listed twice or not listed, sections out of
-order, a frame part out of its slot, a CR, no final newline), and the commit hook runs them for a commit that stages only a
+order, a frame part out of its slot or a slot without its part, a CR, no final newline), and the commit hook runs them for a commit that stages only a
 fragment. The hook checks; it never rebuilds. A merge conflict in `starchorus.html` is resolved by rebuilding, not by hand.
 
 ### 1.1 `<head>` and CSS
