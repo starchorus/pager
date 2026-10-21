@@ -1691,6 +1691,54 @@ done
 if [ "$DST_S31" = "$DST_N31" ]; then row "display secondterm: TERM, then TERM every 0.05 s while the cleanup waits for a reader that takes 0.6 s to end leaves no starchorus-ov.* directory and no waiter: the cleanup ignores TERM, INT and HUP for its own bounded time ($DST_X31 copy and shell combinations, $DST_SHELLS)" PASS
 else row "display secondterm: $DST_S31/$DST_N31 copy and shell combinations as expected" FAIL; DST_KEEP=1; fi
 
+# ---- S31 control: the second line of defence, proved with the window widened on purpose. Two planted copies of the root copy, run under sh as above:
+# (wide) ov_cleanup's first line comes 0.1 s late (a `sleep 0.1` before its `trap ''`), which with the real traps still leaves nothing, because the trap that
+# took the first TERM ignores the rest from that moment; (bare) the same copy with that ignore taken out of the three traps of ov_trap_exit, which must leave
+# a waiter or a temp dir behind (the fault that was seen once under load, and that the ignore is for). A planted copy that does not differ as meant is red.
+dst_s31_one() {   # dst_s31_one SHELL COPY TAG -> DST_T31, the tuple of the main case for that copy
+  DST_TG=$3; DST_T31=
+  printf '%s\n' A > "$DST_D/$DST_TG.keys"
+  rm -f "$DST_D/$DST_TG.calls" "$DST_D/$DST_TG.pids"; : > "$DST_D/$DST_TG.ui"; : > "$DST_D/$DST_TG.jq"; : > "$DST_D/$DST_TG.stat"; : > "$DST_D/$DST_TG.out"
+  rm -rf "$DST_D/$DST_TG.tmp"; mkdir -p "$DST_D/$DST_TG.tmp"; cp "$F/many-clients.json" "$DST_D/$DST_TG.json"
+  DST_PA="$DST_D/dev9:$DST_D/cnt:$PATH"
+  export STARCHORUS_SLOWTERM_AT=1 STARCHORUS_SLOWTERM=0.6
+  dst_s18_start "$1" "$2"
+  unset STARCHORUS_SLOWTERM_AT STARCHORUS_SLOWTERM
+  DST_W=0
+  while [ "$DST_W" -lt 200 ]; do
+    if [ -s "$DST_D/$DST_TG.pids" ] && grep -qxF 'LOG A: Refresh   B: Back' "$DST_D/$DST_TG.out"; then break; fi
+    sleep 0.05; DST_W=$((DST_W + 1))
+  done
+  DST_UP=$(dst_alive "$DST_D/$DST_TG.pids"); DST_TB=$(dst_ovleft "$DST_D/$DST_TG.tmp")
+  kill -TERM "$DST_P" 2>/dev/null
+  DST_NS=0; DST_W=0
+  while [ "$DST_W" -lt 160 ]; do
+    sleep 0.05; kill -0 "$DST_P" 2>/dev/null || break
+    kill -TERM "$DST_P" 2>/dev/null; DST_NS=$((DST_NS + 1)); DST_W=$((DST_W + 1))
+  done
+  DST_ENDED=1; if kill -0 "$DST_P" 2>/dev/null; then DST_ENDED=0; kill -9 "$DST_P" 2>/dev/null; fi
+  { wait "$DST_P"; DST_RC=$?; } 2>/dev/null
+  DST_TA=$(dst_ovleft "$DST_D/$DST_TG.tmp"); sleep 0.5; DST_TA=$((DST_TA + $(dst_ovleft "$DST_D/$DST_TG.tmp")))
+  DST_AL=$(dst_alive "$DST_D/$DST_TG.pids"); DST_NP=$(grep -c . "$DST_D/$DST_TG.pids")
+  if [ "$DST_AL" != 0 ]; then while read -r DST_WP; do [ -z "$DST_WP" ] || kill "$DST_WP" 2>/dev/null; done < "$DST_D/$DST_TG.pids"; fi
+  DST_NSOK=0; if [ "$DST_NS" -ge 4 ]; then DST_NSOK=1; fi
+  DST_T31="$DST_UP/$DST_TB/$DST_NSOK/$DST_ENDED/$DST_RC/$DST_NP/$DST_AL/$DST_TA"
+}
+sed 's|^ov_cleanup() {$|ov_cleanup() { sleep 0.1|' starchorus-display.sh > "$DST_D/s31-wide.sh"
+sed -e 's|^ov_cleanup() {$|ov_cleanup() { sleep 0.1|' -e 's|trap "" TERM INT HUP; exit 1|exit 1|g' starchorus-display.sh > "$DST_D/s31-bare.sh"
+DST_T31W=; DST_T31X=; DST_X31C=0
+DST_XP=$(command -v sh); case $DST_XP in /*) ;; *) DST_XP=$DST_SH ;; esac
+DST_C31W=$(grep -c '^ov_cleanup() { sleep 0.1$' "$DST_D/s31-wide.sh"); DST_C31I=$(grep -o 'trap "" TERM INT HUP; exit 1' "$DST_D/s31-wide.sh" | wc -l | tr -d ' ')
+DST_C31B=$(grep -o 'trap "" TERM INT HUP; exit 1' "$DST_D/s31-bare.sh" | wc -l | tr -d ' ')   # the three traps share one line, so occurrences are counted, not lines
+if [ "$DST_C31W" = 1 ] && [ "$DST_C31I" = 3 ] && [ "$DST_C31B" = 0 ]; then
+  dst_s31_one "$DST_XP" "$DST_D/s31-wide.sh" "s31c-wide"; DST_T31W=$DST_T31
+  dst_s31_one "$DST_XP" "$DST_D/s31-bare.sh" "s31c-bare"; DST_T31X=$DST_T31
+  case $DST_T31X in */*/*/*/*/*/0/0) ;; *) DST_X31C=1 ;; esac   # red for the right reason: a waiter or a temp dir left
+fi
+dst_s31c_ok() { [ "$DST_T31W" = "1/1/1/1/143/1/0/0" ] && [ "$DST_X31C" = 1 ]; }
+rowif "display secondterm control: with ov_cleanup's first line 0.1 s late (planted copy) the traps that ignore a second signal from the first one on still leave no waiter and no temp dir [$DST_T31W, want 1/1/1/1/143/1/0/0], and the same copy without that ignore leaves some [$DST_T31X, red for that reason $DST_X31C] (planted copies differ as meant: $DST_C31W/$DST_C31I/$DST_C31B, want 1/3/0)" dst_s31c_ok
+dst_s31c_ok || DST_KEEP=1
+
 # ---- S32 cleanpin: a text pin on both copies, with a detector self-check (a planted function is judged, a planted comment is not). The first code line of ov_cleanup is
 # `trap '' TERM INT HUP`, before the first signal is sent, the first nap and the removal: a signal that is only ignored from a later line can still land between the start of the
 # cleanup and that line, and one that is not ignored at all (S31 sees it only for TERM) would run `exit` from inside the EXIT trap. The self-check: a planted cleanup that starts with

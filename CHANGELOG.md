@@ -44,6 +44,7 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ### Fixed
 
+- A second TERM, INT or HUP that reached the Overview while its cleanup was starting could end the shell from inside the cleanup, before the reader was ended and the temp directory removed (seen once under load in the regression, with a TERM every 0.05 s); the trap that takes the first signal now ignores the others from that moment, and the cleanup's own first line still does so as well.
 - The Settings row 'Alerts' no longer installs a second companion when the firmware's own switch has renamed ours to `DISABLED.starchorus`: it reads 'OFF (firmware)' and says where to switch it on, and Remove takes a stale copy of that kind away too. It is locked only while `STARCHORUS_ALERTS` is set to something but 1, and its message then says that the collector ignores the alert log.
 - In WarGames with the CRT on, the flicker of an alert's ring asked for 22 frames at each half-second step (44 a second for as long as the alert lasted); it asks for one. In the Scope, the blip of an alerted access point blinks in the ring's rhythm, a folded member of a merged ESS set can be tapped, and the fan's top follows the number strip when an ingest changes its form.
 - A hidden network is judged by its newest beacon row, not by its strongest row of either kind. This is a robustness change: on the one device measured none of the 152 hidden networks has a probe-response row, so the flip between hidden and named that a stronger probe response could cause was never seen there.

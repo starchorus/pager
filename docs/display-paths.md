@@ -271,7 +271,7 @@ the output of the screen's `jq`. The directory is removed when the Overview ends
 when it forked it, and the wait it has open, by the pid the reader wrote down (so that the wait is ended even if the reader itself was killed from
 outside), and waits for the reader to be gone, about two seconds at most (about ten where `sleep` takes no fractions of a second), before it removes the directory (the reader's last act is to write a mark
 into it, which must not land in a directory that is being removed), so none is left behind: not after a B (the reader has ended itself), the payload
-gone, three strikes, TERM, INT or HUP, and not when a second of those comes while the exit trap waits (it ignores them for that time). A signal that comes
+gone, three strikes, TERM, INT or HUP, and not when a second of those comes while the exit trap waits (the trap that took the first ignores the others from that moment, and the cleanup's first line does so again). A signal that comes
 while the reader is being forked is held until its pid is known, and a TERM that reaches a reader in the instant after its fork can be lost
 (seen under `dash`, 4 ms after the start), so the exit trap leaves a mark in the directory before it signals, and the reader looks for the mark
 (and for its directory, and for its shell) before it opens a wait and again before it blocks. An Overview killed with KILL runs no exit trap and

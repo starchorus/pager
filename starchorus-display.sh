@@ -239,8 +239,11 @@ ov_reader() {
         esac
     done
 }
-# ov_trap_exit: TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup (that ignores them from its first line on)
-ov_trap_exit() { trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP; }
+# ov_trap_exit: TERM, INT and HUP end the Overview through `exit`, which runs ov_cleanup (that ignores them from its first line on). The trap
+# that takes the first of them ignores the others from that moment: the stretch between its `exit` and the cleanup's first line is a few
+# microseconds unloaded but, with the machine busy, long enough for a second signal to run `exit` again from inside the cleanup, before the
+# reader is ended and the temp dir removed (seen once in the regression, a TERM every 0.05 s).
+ov_trap_exit() { trap 'trap "" TERM INT HUP; exit 143' TERM; trap 'trap "" TERM INT HUP; exit 130' INT; trap 'trap "" TERM INT HUP; exit 129' HUP; }
 # ov_rstart: start the key reader. Everything in the queue has been taken by now and nothing is writing to it (the reader of the round
 # before ended on a B, and the first round has none), so the queue and its counts begin again from nothing. TERM, INT and HUP are only
 # noted while the reader is forked and its pid stored (ov_sig), and acted on once OV_RPID is known: ov_cleanup then ends the reader by
@@ -256,7 +259,7 @@ ov_rstart() {
     ov_reader > /dev/null 2>&1 < /dev/null &
     OV_RPID=$!
     ov_trap_exit
-    [ -z "$ov_sig" ] || exit "$ov_sig"
+    [ -z "$ov_sig" ] || { trap '' TERM INT HUP; exit "$ov_sig"; }   # the same, for a signal noted while the reader was forked
 }
 # ov_rstop: the reader that ended itself on a B is gone before the list opens (so no wait is open while it shows); `wait` reaps it
 ov_rstop() { [ -z "$OV_RPID" ] || { wait "$OV_RPID" 2>/dev/null; OV_RPID=; }; }
