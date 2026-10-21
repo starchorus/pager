@@ -1,0 +1,46 @@
+/* ==== 05 TOOLTIP & DETAIL ==== */
+#tip {
+  position: fixed; pointer-events: none; z-index: 30; opacity: 0; left: 0; top: 0;
+  transform: translate(-50%, calc(-100% - 14px)); transition: opacity .12s ease;
+  background: var(--panel-fill); border: 1px solid var(--panel-border); border-radius: var(--panel-radius);
+  padding: 10px 12px; min-width: 200px; max-width: 280px; box-shadow: var(--panel-shadow);
+  font-size: var(--size-tip); text-transform: var(--text-transform);
+}
+#tip .ssid { font-weight: 600; font-size: var(--size-title); color: var(--ink-primary); margin-bottom: 2px; word-break: break-word; }
+#tip .ssid.hidden { color: var(--ink-secondary); font-style: italic; }
+/* D16: data strings (SSID, vendor, group key, source and centre labels) are never transformed — capitals belong to the chrome */
+#tip .ssid, #tip .grid .v, #detail-title, #detail td, #source .desc b, #src-center { text-transform: none; }
+#tip .sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-muted); margin-bottom: 7px; text-transform: none; }
+#tip .grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--size-hud); }
+#tip .grid .k { color: var(--ink-secondary); }
+#tip .grid .v { color: var(--ink-primary); text-align: right; font-variant-numeric: tabular-nums; }
+/* plaque tooltip (chrome.plaqueTip, never a theme id): the same rows as every theme, paired two-up, label beside
+   value. Layout only, and deliberately no plot number: numbering stations would create a cross-session identifier
+   for people's devices. */
+:root[data-plaque="on"] #tip { max-width: min(340px, 92vw); }
+:root[data-plaque="on"] #tip .grid { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 4px 10px; }
+:root[data-plaque="on"] #tip .grid .v { text-align: left; }
+#tip .grid .v.mono { font-family: var(--font-mono); text-transform: none; }
+#tip .chip { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: -1px; }
+#tip canvas { display: block; margin-top: 6px; }
+#tip-spark { width: 120px; height: 28px; }
+
+#detail { top: var(--lay-detail-top, calc(var(--chrome-top) + 76px)); right: 20px; width: 300px; max-height: var(--lay-detail-maxh, calc(100vh - 140px - var(--chrome-top) - var(--chrome-bot))); overflow: auto; padding: 12px 14px 14px; z-index: 12; }
+#detail h3 { margin: 0 24px 2px 0; font-size: var(--size-title); font-weight: 600; word-break: break-word; }
+#detail-close { position: absolute; top: 8px; right: 8px; padding: 2px 7px; }
+#detail table { width: 100%; border-collapse: collapse; font-size: var(--size-hud); }
+#detail th { text-align: left; font-weight: 400; color: var(--ink-secondary); padding: 3px 8px 3px 0; vertical-align: top; white-space: nowrap; width: 34%; }
+#detail td { color: var(--ink-primary); padding: 3px 0; vertical-align: top; word-break: break-word; }
+#detail td.mono { font-family: var(--font-mono); }
+#detail td .est { color: var(--ink-secondary); }
+#detail canvas#detail-spark { display: block; width: 240px; height: 64px; margin: 6px 0 2px; }
+canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
+
+#help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); overflow-y: auto; z-index: 40; padding: 12px 16px 12px; }
+#help h3 { margin: 0 0 8px; font-size: var(--size-title); font-weight: 600; }
+#help dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: var(--size-hud); }
+#help dt { margin: 0; } #help dd { margin: 0; color: var(--ink-secondary); }
+#help p { margin: 8px 0 0; font-size: var(--size-hud); color: var(--ink-secondary); }
+#help kbd { font-family: var(--font-mono); font-size: 10px; color: var(--ink-primary); border: 1px solid var(--line-hairline); border-radius: 3px; padding: 0 4px; text-transform: none; }
+#help-close { margin-top: 10px; }
+

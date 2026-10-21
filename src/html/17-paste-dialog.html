@@ -1,0 +1,29 @@
+<!-- ==== 17 PASTE DIALOG ==== -->
+<div id="paste-wrap" style="position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)">
+  <div id="paste-box" class="panel" style="position:relative;width:min(560px,92vw);padding:20px">
+    <h3 style="margin:0 0 6px;font-size:var(--size-title);font-weight:600">Load a starchorus.json capture</h3>
+    <p style="margin:0 0 12px;color:var(--ink-secondary);line-height:1.5">Paste the JSON the collector wrote, or drop a file anywhere on the page. Expected shape: <code>{ aps: [ … ], unassociated: [ … ] }</code>. Everything runs in your browser — nothing is uploaded.</p>
+    <textarea id="paste-ta" style="width:100%;height:200px;resize:vertical;background:var(--surface-raised);border:1px solid var(--line-hairline);border-radius:var(--panel-radius);color:var(--ink-primary);font-family:var(--font-mono);font-size:11px;padding:10px;line-height:1.5;text-transform:none" placeholder='{ "generated": 0, "aps": [ { "ssid": "…", "bssid": "…", "band": "5", "channel": 44, "rssi": -52, "security": "WPA2", "clients": [ { "mac": "…", "rssi": -60 } ] } ], "unassociated": [] }'></textarea>
+    <div id="paste-err" style="color:var(--status-alarm);min-height:14px;margin-top:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn" id="paste-cancel">Cancel</button>
+      <button class="btn toggle on" id="paste-ok">Render</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==== 17b EXPORT DIALOG: text only, local; nothing is uploaded ==== -->
+<div id="export-wrap" style="position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)">
+  <div id="export-box" class="panel" role="dialog" aria-modal="true" aria-label="Export this sky" style="position:relative;width:min(680px,92vw);padding:20px">
+    <h3 style="margin:0 0 6px;font-size:var(--size-title);font-weight:600">Export this sky</h3>
+    <p style="margin:0 0 10px;color:var(--ink-secondary);line-height:1.5;text-transform:none">Access points and their client stations (received-only, incl. the AP association). Copy the text, print the report, or save the snapshot image. Everything stays on this page.</p>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><label for="export-fmt" style="color:var(--ink-secondary)">Format</label>
+      <select id="export-fmt" style="background:var(--surface-raised);color:var(--ink-primary);border:1px solid var(--line-hairline);border-radius:4px;padding:3px 6px"><option value="json">JSON</option><option value="csv">CSV</option><option value="sitrep">SITREP report</option></select></div>
+    <textarea id="export-ta" readonly style="width:100%;height:220px;resize:vertical;background:var(--surface-raised);border:1px solid var(--line-hairline);border-radius:var(--panel-radius);color:var(--ink-primary);font-family:var(--font-mono);font-size:11px;padding:10px;line-height:1.5;text-transform:none"></textarea>
+    <img id="export-png" alt="Sky snapshot (right-click or long-press to save)" hidden style="max-width:100%;margin-top:8px;border:1px solid var(--line-hairline)">
+    <div id="export-msg" style="min-height:14px;margin-top:6px;color:var(--ink-secondary)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn" id="export-copy">Copy</button><button class="btn" id="export-print">Print</button><button class="btn" id="export-snap">Snapshot</button><button class="btn" id="export-close">Close</button></div>
+  </div>
+</div>
+<pre id="export-printable" aria-hidden="true"></pre>
+

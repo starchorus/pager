@@ -1,0 +1,89 @@
+/* ==== 09 RESPONSIVE & MOTION ==== */
+@media (max-width: 1099px) { #masthead, #source { max-width: 300px; } }   /* D15: room for #stats to wrap into two rows */
+@media (max-height: 620px) { :root:not([data-phone="on"]) #cam.flat { display: none; } }   /* D15: the 2D Camera row gives way where the 760×600 and 1000×500 rules need its 40 px */
+@media (max-width: 899px) {   /* D15 (760×600): fewer wrapped control rows, so the detail sheet keeps its room; the two top panels give #stats room to wrap into three rows instead of a 100 px column */
+  #masthead .motto { display: none; }
+  #controls .btn { padding: 4px 6px; } #controls .glabel { width: 38px; } #controls { padding: 8px 10px; }
+  #masthead, #source { max-width: 220px; }
+}
+@media (pointer: coarse) { .btn { min-height: 36px; } }
+/* §9.8 phone mode (D21): applyPhone() moves the panels into #bar and #sheet; a rule inside #sheet needs no mode */
+:root:not([data-phone="on"]) .ph-only { display: none !important; }
+@media (max-width: 720px), (max-height: 460px) and (pointer: coarse) { :root:not([data-phone]) .panel { visibility: hidden; } }   /* PHONE.query: until the script has moved them */
+:root[data-phone="on"] { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; --ph-l: max(8px, env(safe-area-inset-left)); --ph-r: max(8px, env(safe-area-inset-right));
+  --ph-col: clamp(300px, 42vw, 360px); --ph-sheet-b: max(8px, calc(env(safe-area-inset-bottom) - 12px), calc(var(--ph-banner-b, 0px) + 8px)); }
+:root[data-phone="on"][data-banner="on"] { --chrome-top: var(--ph-banner-t, 24px); --chrome-bot: var(--ph-banner-b, 24px); }
+:root[data-phone="on"] :is(#classbar-top, #classbar-bot) { white-space: normal; font-size: 9px; letter-spacing: .1em; line-height: 1.45;
+  padding: calc(3px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 3px max(10px, env(safe-area-inset-left)); }
+:root[data-phone="on"] #classbar-bot { padding-top: 3px; padding-bottom: calc(3px + env(safe-area-inset-bottom)); }
+:root[data-phone="on"] #dtg { font-size: 10px; top: calc(var(--chrome-top) + 2px); }
+#bar { left: var(--ph-l); right: var(--ph-r); top: max(calc(env(safe-area-inset-top) + 8px), calc(var(--ph-top, 0px) + 6px)); height: 44px;
+  display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; z-index: 16; touch-action: none; }
+:root[data-dock="side"] :is(#bar, #sheet) { right: auto; width: var(--ph-col); }
+#bar .brand { font-size: 15px; gap: 7px; align-items: center; }
+#bar.tight .brand { letter-spacing: .06em; }
+#bar .mode { white-space: nowrap; }
+#bar-counts { flex: 1; min-width: 0; display: flex; justify-content: flex-end; gap: 12px; }
+#bar-counts .bc { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; white-space: nowrap; }
+#bar-counts b { font-size: 15px; font-weight: 600; color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+#bar-counts i { font-style: normal; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-secondary); }
+#bar.tighter #bar-counts i { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }   /* read aloud, not shown */
+#bar.tightest #bar-counts { display: none; }   /* the Sky section keeps them */
+#sheet { left: var(--ph-l); right: var(--ph-r); bottom: var(--ph-sheet-b); height: var(--ph-sheet-h, 66px); max-height: calc(100dvh - 64px); display: flex; flex-direction: column;
+  overflow: hidden; z-index: 15; backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(var(--panel-fill), var(--panel-fill)), var(--surface-base);
+  transition: height .28s cubic-bezier(.2,.8,.2,1), opacity .18s; }
+:root[data-sheet-drag="on"] #sheet { transition: none; }   /* it follows the finger */
+#sheet-head { flex: none; padding: 0 8px 8px 12px; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: grab; }
+#sheet-grab { height: 14px; display: flex; align-items: center; justify-content: center; }
+#sheet-grab::before { content: ""; width: 36px; height: 5px; border-radius: 3px; background: var(--ink-muted); }
+#sheet-row, #sheet-lead, #sheet-lead .group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#sheet-row { min-height: 44px; }
+#sheet-lead .glabel { display: none; }
+#sheet-title { flex: 1; min-width: 0; margin: 0; font-size: var(--size-title); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary); }
+:root[data-card="detail"] #sheet-title { text-transform: none; }   /* D16: a data string */
+#t-legend { margin-left: auto; }
+#sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 16px; }
+:root[data-sheet="peek"] #sheet-body { overflow: hidden; visibility: hidden; transition: visibility 0s .28s; }
+:root[data-sheet-drag] #sheet-body { visibility: visible; transition: none; }   /* dragged up from collapsed */
+#sheet-body > .panel { position: static; transform: none; width: auto; max-width: none; max-height: none; padding: 0;
+  background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
+#sheet-body > .panel::before, #sheet-body > .panel::after { content: none; }
+#sheet-body > #chanbar { position: relative; inset: auto; height: auto; }   /* #t-chan and #chan-tip are placed in it */
+:root[data-card]:not([data-card="controls"]) #sheet-body > :is(#controls, #chanbar, #stats, #source, #masthead),
+:root:not([data-card="legend"]):not([data-card="drawer"]) #sheet-body > #legend,
+:root:not([data-card="detail"]) #sheet-body > #detail, :root:not([data-card="help"]) #sheet-body > #help { display: none !important; }
+:root[data-phone="on"] :is(.btn, .filebtn, .idbtn, #t-chan, #sheet button.chip, #sheet input, #sheet select, #sheet .legrow[data-member], #sheet th[data-sort]) { min-height: 44px; min-width: 44px; touch-action: manipulation; }   /* tap targets */
+#sheet #inv-body :is(th[data-sort], tr[data-id] td) { height: 44px; }
+:root[data-phone="on"] .btn, #sheet .btn { padding: 6px 12px; font-size: calc(var(--size-hud) + 2px); }   /* #sheet: over the 899 px rule */
+#sheet #cam .btn { padding: 6px 0; }
+#sheet #controls { gap: 16px; } #sheet .group { gap: 8px; }
+#sheet :is(#controls .glabel, .ph-label) { display: block; flex: 0 0 100%; width: auto; margin: 0 0 -2px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-secondary); }
+#sheet :is(#grp-watch, #grp-analyse) { order: 1; }   /* View, Look, Layers, Camera first */
+#sheet #t-panels { position: static; }
+#sheet #chanbar .ph-label { line-height: 44px; margin: 0; }
+#sheet #t-chan { top: 0; right: 0; width: 44px; height: 44px; font-size: 14px; }   /* in the label row, clear of the bars */
+#sheet #stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 0; }
+#sheet #stats .ph-label { grid-column: 1 / -1; }
+#sheet #stats .cell { min-width: 0; padding: 2px 4px; border-right: 0; text-align: left; }
+#sheet #stats .num { font-size: 17px; }
+#sheet :is(#stats .lbl, #n-alarm) { justify-content: flex-start; letter-spacing: .08em; }
+#sheet #source { flex-wrap: wrap; gap: 8px 12px; }
+#sheet #source .desc { flex: 1 1 200px; font-size: 12px; }
+#sheet #masthead .tag { margin: 0; font-size: 12px; }
+#sheet #masthead .motto { display: block; }
+#sheet #masthead :is(.badge, .lamps, .plotclock) { position: relative; inset: auto; display: inline-flex; margin: 8px 8px 0 0; vertical-align: middle; }   /* relative: the dial needs it */
+#sheet :is(#detail-title, #detail-close, #help > h3, #help-close) { display: none; }   /* the head has them */
+#sheet canvas#detail-spark { width: 100%; }
+#sheet #legend > div { overflow: visible; margin: 0; padding: 0; }   /* the legend and drawer bodies */
+#sheet #legend > #inv-body { overflow-x: auto; }
+:root[data-phone="on"] :is(textarea, input, select) { font-size: 16px !important; }   /* iOS zooms in below 16 px */
+:root[data-phone="on"] :is(#paste-wrap, #export-wrap) { align-items: flex-start !important; padding: calc(env(safe-area-inset-top) + 12px) var(--ph-r) calc(env(safe-area-inset-bottom) + 12px) var(--ph-l); overflow-y: auto; }
+:root[data-phone="on"] #caption { top: calc(var(--ph-bar-b, 60px) + 10px); bottom: auto; left: var(--ph-sky-cx, 50%); }
+:root[data-phone="on"] #panels-pill { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(var(--ph-sheet-b) + 4px); touch-action: none !important; }   /* skyBox() keeps the sky above it */
+:root[data-phone="on"] #intro .skip { right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
+:root[data-rm="1"] :is(.cursor, .dot, #panels-pill .dot) { animation: none; }   /* :is() lends the pill dot its id rank */
+:root[data-rm="1"] #crt, :root[data-rm="1"] #intro { display: none !important; }
+:root:not([data-scope=on]) :is(#scope-strip,#scope-foot,#scope-lamps){display:none}
+:root[data-scope=on] :is(#bar-counts>*,#bar .ver,#caption,#grp-layers,#cam,#t-view,#t-rotate,#t-spin){display:none!important}
+#t-scope{display:inline-flex;align-items:center;gap:6px}
+#sheet-row #t-scope{padding:0;width:44px;justify-content:center}#sheet-row .lbl{display:none}

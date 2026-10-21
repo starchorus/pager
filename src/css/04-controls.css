@@ -1,0 +1,24 @@
+/* ==== 04 CONTROLS ==== */
+#controls { right: 20px; padding: 10px 13px; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }   /* gap and padding sized so the docked channel bar still fits at 1000×500 (D15) */
+#controls .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+@media (min-width: 721px) { #controls { max-width: calc(100vw - 340px); } }   /* D15: never wider than the space right of the legend (20 + 280 + 20 gap + 20 margin): the groups wrap instead of running under the legend */
+#controls .glabel { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-secondary); width: max(50px, 5.5em); flex: none; }   /* 50 px at 9 px; grows with a minimum font size so 'ANALYSE' never runs under its first button */
+.btn {
+  font-size: var(--size-hud); color: var(--ink-secondary); background: var(--line-soft); border: 1px solid var(--line-hairline);
+  border-radius: calc(var(--panel-radius) * .75); padding: 5px 9px; cursor: pointer; user-select: none;
+  text-transform: var(--text-transform); transition: color .16s ease, background-color .16s ease, border-color .16s ease;
+}
+.btn:hover, .filebtn:hover, #t-chan:hover { color: var(--ink-primary); border-color: var(--panel-border); }
+.btn.on { color: var(--ink-on-fill); font-weight: 600; }
+.btn.b24.on { background: var(--band-24); border-color: var(--band-24); }
+.btn.b5.on  { background: var(--band-5);  border-color: var(--band-5); }
+.btn.b6.on  { background: var(--band-6);  border-color: var(--band-6); }
+.btn.bbt.on { background: var(--bt-mark); border-color: var(--bt-mark); }
+@media (max-width: 374px) { #sheet-row { flex-wrap: wrap; justify-content: flex-end; } }   /* four layer buttons, Legend and the chevron need 338 px: below that the chevron (then Legend) goes to a second line */
+.btn.toggle.on { background: var(--toggle-on); border-color: var(--toggle-border); color: var(--toggle-ink); }
+.btn.forced { outline: 1px dashed var(--status-ring-neutral); }
+#cam .cam { min-width: 30px; text-align: center; }
+#t-random[data-state="hide"] { text-decoration: line-through; }
+#t-panels { position: absolute; top: 8px; right: 10px; }   /* the empty corner of the Bands row: takes no part in the layout */
+.btn:focus-visible, .filebtn:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent-focus); outline-offset: 2px; }
+

@@ -1,0 +1,14 @@
+/* ==== 08 LOGON (WARGAMES INTRO) ==== */
+#intro { position: fixed; inset: 0; z-index: 50; background: #000; display: none; font-family: var(--font-mono); color: var(--chrome-ink);
+  text-transform: uppercase; letter-spacing: .12em; padding: 12vh 10vw; font-size: 14px; }
+#intro pre { margin: 0; font: inherit; white-space: pre-wrap; }
+#intro .skip { position: absolute; right: 24px; bottom: 24px; }
+#intro.out { opacity: 0; transition: opacity .3s ease; }
+/* place-and-time caption: where the observer is (center.label, a data string, never re-cased) and when the
+   capture was made (`generated`). A transient overlay like #intro: it takes no layout and is pointer-transparent. */
+#caption { position: fixed; left: 50%; bottom: calc(var(--chrome-bot) + 106px); transform: translateX(-50%); z-index: 20;
+  pointer-events: none; font-size: 11px; letter-spacing: .22em; color: var(--ink-secondary);
+  border-top: 1px solid var(--line-hairline); padding: 5px 14px 0; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
+#caption .place { text-transform: none; letter-spacing: .12em; color: var(--ink-primary); }
+#caption.out { opacity: 0; transition: opacity .45s ease; }
+

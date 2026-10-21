@@ -1,0 +1,27 @@
+<!-- ==== 11 MASTHEAD & STATS ==== -->
+<div id="masthead" class="panel">
+  <span class="ph-label ph-only">About</span>
+  <span class="badge" id="mast-badge" hidden></span>
+  <div class="lamps" id="lamps" role="img" hidden></div>
+  <div class="plotclock" id="plotclock" role="img" hidden><i class="hand" id="plotclock-hand"></i></div>
+  <div class="brand" id="mast-brand"><span class="dot"></span>STARCHORUS<span class="ver" id="mast-ver" title="Starchorus version"></span><span class="cursor">▮</span></div>
+  <div class="tag">passive observation · rx only — access points are stars, their clients orbit as satellites; distance from the centre tracks signal strength.</div>
+  <div class="motto">Observation only — it listens, it never transmits.</div>
+  <button class="btn ph-only" id="t-help">Help</button>
+</div>
+
+<div id="stats" class="panel">
+  <span class="ph-label ph-only">Sky</span>
+  <div class="cell ap"><div class="num" id="n-ap" title="0">0</div><div class="lbl">Stars</div></div>
+  <div class="cell cl"><div class="num" id="n-cl" title="0 free · 0 associated">0</div><div class="lbl">Satellites</div></div>
+  <div class="cell b24"><div class="num" id="n-24" title="0">0</div><div class="lbl"><svg viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="3.5" fill="var(--band-24)"/></svg>2.4 GHz</div></div>
+  <div class="cell b5"><div class="num" id="n-5" title="0">0</div><div class="lbl"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M4 .5 7.5 4 4 7.5.5 4Z" fill="var(--band-5)"/></svg>5 GHz</div></div>
+  <div class="cell b6"><div class="num" id="n-6" title="0">0</div><div class="lbl"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M4 .5 7 2.25v3.5L4 7.5 1 5.75v-3.5Z" fill="var(--band-6)"/></svg>6 GHz</div></div>
+  <div class="cell fresh" id="n-fresh-cell" hidden><div class="num" id="n-fresh" title="0">0</div><div class="lbl">heard &lt; 1 min</div></div>
+  <div class="cell record" id="n-record-cell" hidden><div class="num" id="n-record" title="0">0</div><div class="lbl">on record</div></div>
+  <div class="cell bt" id="n-bt-cell" hidden><div class="num" id="n-bt" title="">0</div><div class="lbl">BT addresses</div></div>
+  <div class="cell alarm" id="n-alarm-cell" hidden><div id="n-alarm" title="0"><svg class="asw" viewBox="0 0 8 8" aria-hidden="true"><rect width="8" height="8" fill="var(--status-alarm)"/></svg><span class="num">0</span></div><div class="lbl">open/wep</div></div>
+  <div class="cell groups"><div class="num" id="n-groups" title="0">0</div><div class="lbl">ESSID sets</div></div>
+  <div class="cell crowd" id="n-crowd-cell" hidden><div class="num" id="n-crowd" title="">1</div><div class="lbl">crowding /5</div></div>
+</div>
+

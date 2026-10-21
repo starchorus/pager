@@ -1,0 +1,71 @@
+<!-- ==== 14 CONTROLS ==== -->
+<div id="sheet" class="panel ph-only" role="region" aria-label="Controls">
+  <div id="sheet-head"><div id="sheet-grab" aria-hidden="true"></div><div id="sheet-row"><div id="sheet-lead"></div>
+  <button class="btn" id="sheet-prev" hidden aria-label="Previous pinned node">‹</button><h2 id="sheet-title" hidden></h2><button class="btn" id="sheet-next" hidden aria-label="Next pinned node">›</button>
+  <button class="btn toggle ph-only" id="t-scope" aria-pressed="false" aria-label="Scope"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 16 3 5a12 12 0 0 1 12 0Z" fill="none" stroke="currentColor"/></svg><span class="lbl">Scope</span></button><button class="btn toggle" id="t-legend" aria-pressed="false">Legend</button><button class="btn" id="sheet-close" hidden aria-label="Close">×</button>
+  <button class="btn" id="sheet-toggle" aria-expanded="false" aria-controls="sheet-body" aria-label="Expand the sheet">⌃</button></div></div>
+  <div id="sheet-body"></div>
+</div>
+<div id="controls" class="panel">
+  <div class="group" id="grp-bands">
+    <span class="glabel">Bands</span>
+    <button class="btn b24 on" data-band="2.4" aria-pressed="true" title="2.4 GHz [1]">2.4</button>
+    <button class="btn b5 on" data-band="5" aria-pressed="true" title="5 GHz [2]">5</button>
+    <button class="btn b6 on" data-band="6" aria-pressed="true" title="6 GHz [3]">6</button>
+    <button class="btn bbt on" data-band="bt" hidden aria-pressed="true" title="Bluetooth [4]">BT</button>
+  </div>
+  <div class="group" id="grp-view">
+    <span class="glabel">View</span>
+    <button class="btn toggle on" id="t-labels" aria-pressed="true">Labels</button>
+    <button class="btn toggle on" id="t-orbits" aria-pressed="true">Orbits</button>
+    <button class="btn toggle on" id="t-links" aria-pressed="true">Links</button>
+    <button class="btn toggle" id="t-pause" aria-pressed="false">Pause</button>
+    <button class="btn toggle on" id="t-random" data-state="cloud" aria-label="Randomised addresses: one node per cloud">Random</button>
+  </div>
+  <div class="group" id="grp-watch">
+    <span class="glabel">Watch</span>
+    <button class="btn toggle" id="t-obs" aria-pressed="false">Observe</button>
+    <button class="btn toggle" id="t-baseline" aria-pressed="false">Baseline</button>
+    <button class="btn" id="baseline-set" title="Remember the access points and stations heard now as the baseline (this browser only)">Set</button>
+    <button class="btn" id="baseline-clear" title="Forget the baseline">Clear</button>
+    <button class="btn toggle" id="t-inv" aria-pressed="false" title="Inventory table [I]">Inventory</button>
+    <button class="btn" id="btn-export" title="Export this sky as text (local only)">Export</button>
+  </div>
+  <div class="group" id="grp-analyse">
+    <span class="glabel">Analyse</span>
+    <button class="btn" id="t-air" aria-pressed="false" title="Air quality per band [Q]">Air</button>
+    <button class="btn" id="t-time" aria-pressed="false" title="Signal over time, threshold [J]">Time</button>
+    <button class="btn" id="t-rec" aria-pressed="false" title="Recording and replay [H]">Record</button>
+    <button class="btn toggle ph-only" id="t-home" aria-pressed="false">Homing</button>
+  </div>
+  <div class="group" id="grp-look">
+    <span class="glabel">Look</span>
+    <button class="btn" id="t-theme">Wargames</button>
+    <button class="btn" id="t-view">3D</button>
+    <button class="btn toggle on" id="t-rotate" aria-pressed="true">Rotate</button>
+    <button class="btn toggle on" id="t-spin" aria-pressed="true" title="Sky spin: everything slowly orbits the device [S]">Spin</button>
+    <button class="btn toggle on" id="t-crt" aria-pressed="true" hidden>CRT</button>
+    <button class="btn" id="t-panels">Hide panels</button>
+  </div>
+  <div class="group" id="grp-layers">
+    <span class="glabel">Layers</span>
+    <button class="btn toggle on" id="t-agg" aria-pressed="true">Bubbles</button>
+    <button class="btn toggle" id="t-vendor" aria-pressed="false">Vendor</button>
+    <button class="btn toggle on" id="t-nebula" aria-pressed="true">Nebula</button>
+    <button class="btn toggle on" id="t-groups" aria-pressed="true">Groups</button>
+    <button class="btn toggle" id="t-devices" aria-pressed="false" title="Device links [D]">Devices</button>
+    <button class="btn toggle" id="t-merge" aria-pressed="false" title="Merge same-SSID APs [M]">Merge SSID</button>
+    <button class="btn toggle on" id="t-probes" aria-pressed="true" title="Probe orbits [P]">Probes</button>
+  </div>
+  <div class="group" id="cam">
+    <span class="glabel">Camera</span>
+    <button class="btn cam" id="cam-left" title="Orbit left [←]">⟲</button>
+    <button class="btn cam" id="cam-right" title="Orbit right [→]">⟳</button>
+    <button class="btn cam" id="cam-up" title="Elevation up [↑]">▲</button>
+    <button class="btn cam" id="cam-down" title="Elevation down [↓]">▼</button>
+    <button class="btn cam" id="cam-in" title="Zoom in [+]">+</button>
+    <button class="btn cam" id="cam-out" title="Zoom out [−]">−</button>
+    <button class="btn cam" id="cam-reset" title="Reset [0]">⌂</button>
+  </div>
+</div>
+

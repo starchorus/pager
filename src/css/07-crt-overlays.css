@@ -1,0 +1,9 @@
+/* ==== 07 CRT OVERLAYS ==== */
+#crt { position: fixed; inset: 0; pointer-events: none; z-index: 20; display: none; }
+#crt.on {
+  display: block;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,var(--crt-scanline-opacity)) 0 var(--crt-scanline-width), transparent var(--crt-scanline-width) var(--crt-scanline-period)),
+    radial-gradient(ellipse at center, transparent calc(var(--crt-vignette-inner) * 100%), rgba(0,0,0,var(--crt-vignette-alpha)) 100%);
+}
+
