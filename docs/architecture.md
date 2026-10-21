@@ -81,7 +81,7 @@ contents above is also the list of files.
 | `src/shell/head.html` | The document head up to and including `<style>`; it carries the page's one `SPDX-License-Identifier` line. |
 | `src/css/NN-name.css` | CSS sections 00–09, one file each (§00, the embedded font, is two long base64 lines). |
 | `src/shell/css-end.html` | `</style>`, `</head>`, `<body>`. |
-| `src/html/NN-name.html` | DOM sections 10–19, one file each. The marker `17b` (the export dialog) lies inside the file of §17. |
+| `src/html/NN-name.html` | DOM sections 10–19, one file each. The marker `17b` (the export dialogue) lies inside the file of §17. |
 | `src/shell/js-begin.html` | `<script>`, the opening of the one IIFE and `"use strict";`. |
 | `src/js/NN-name.js` | JavaScript sections 20–41, one file each. They are text slices of one IIFE, not modules: `S`, `THEME` and the rest stay in one scope. |
 | `src/shell/js-end.html` | The close of the IIFE, `</script>`, `</body>`, `</html>`. |
@@ -95,8 +95,8 @@ Editing: change the fragment, run `sh tools/build-page.sh`, and commit `src/` an
 `cat` in manifest order and nothing else (no minifying, no stripping of comments, no reformatting), so every rule in this
 specification that reads the page reads the same bytes as before. The T1 rows (`tools/static.sh`) fail when the page is not the
 build of `src/` by a single byte, when the manifest is unsound (a fragment missing, listed twice or not listed, sections out of
-order, a CR, no final newline), and the commit hook runs them for a commit that stages only a fragment. The hook checks; it
-never rebuilds. A merge conflict in `starchorus.html` is resolved by rebuilding, not by hand.
+order, a frame part out of its slot, a CR, no final newline), and the commit hook runs them for a commit that stages only a
+fragment. The hook checks; it never rebuilds. A merge conflict in `starchorus.html` is resolved by rebuilding, not by hand.
 
 ### 1.1 `<head>` and CSS
 
