@@ -56,6 +56,13 @@ JavaScript with a syntax check. The specification and the page stay in step: eve
 function is in §10, every key in §9.6 and every query parameter in §2.7 of
 [docs/architecture.md](docs/architecture.md).
 
+The page is built from fragments, one for each section: edit the fragment under `src/css/`, `src/html/`
+or `src/js/` (its file name carries the section number), run `sh tools/build-page.sh`, and commit `src/`
+together with the rebuilt `starchorus.html`. Do not edit `starchorus.html` by hand: a page that is not the
+build of `src/` is red in `sh tools/quick.sh` and in the commit hook, which checks and never rebuilds.
+Where each section lives is set out in §1.0 of [docs/architecture.md](docs/architecture.md); a merge
+conflict in the built page is resolved by rebuilding.
+
 Do not commit real SSIDs or MACs captured from the surroundings, only obviously invented sample data
 (fixtures are made with `tools/gen-testdata.py`; see
 [tools/README.md](tools/README.md#fixtures)).
@@ -63,7 +70,10 @@ Do not commit real SSIDs or MACs captured from the surroundings, only obviously 
 **Conventions:** documentation and code comments are in English. Every original source file carries
 `SPDX-License-Identifier: GPL-3.0-or-later` as a comment near the top (after a shebang or after
 `<!doctype html>`); the exceptions are JSON fixtures, the denylists under `tools/` (they must not
-contain comments), `tools/env-expected.txt` (a data file compared line by line) and `OFL.txt`.
+contain comments), `tools/env-expected.txt` (a data file compared line by line), `OFL.txt` and the
+fragments of the page under `src/`. Of those, only `src/shell/head.html` carries the line (after
+`<!doctype html>`); the other fragments and the manifest `src/PAGE.list` carry none, because the build
+only joins them and the built page is to hold the line once.
 
 ## Further checking tools (optional)
 

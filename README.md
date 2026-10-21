@@ -536,7 +536,8 @@ specification.
 |---|---|
 | `INSTALL.md` | step-by-step installation on the Pager, and the demo without one |
 | `starchorus-collect.sh` | passive collector (POSIX sh / BusyBox), writes `starchorus.json` atomically |
-| `starchorus.html` | the visualisation, one HTML/canvas file; `index.html` redirects to it |
+| `starchorus.html` | the visualisation, one HTML/canvas file, built from the fragments under `src/` and committed with them; `index.html` redirects to it |
+| `src/` | the page's source: one fragment for each section (CSS, DOM, JavaScript) and the frame, and `PAGE.list`, the order in which `sh tools/build-page.sh` joins them into `starchorus.html` (see [docs/architecture.md](docs/architecture.md) §1.0); not installed on the device |
 | `starchorus-display.sh` | the Overview on the device's display |
 | `starchorus-serve.sh` | netcat page server, the normal one on a Pager without `uhttpd` or `python3` |
 | `payload.sh` | lean launcher: collector and page server (`uhttpd`, BusyBox `httpd` or `python3`); the Pager's payload is the one under `library/` |

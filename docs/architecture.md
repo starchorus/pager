@@ -68,6 +68,36 @@ DOM `<!-- ==== NN NAME ==== -->`, JS `// ==== NN NAME ====`. No other comment be
 `grep -n "==== " starchorus.html` is the table of contents; the numbers are globally unique, ascending and
 have gaps (reserve). 'Section NN' in this file always means such a marker.
 
+### 1.0 Source layout: the page is built from `src/`
+
+`starchorus.html` is what the device, the Hak5 package and `tools/install.sh` read, and it stays one file with no external
+reference. It is not edited as one file, though: it is the concatenation of the fragments under `src/`, committed beside
+them and byte-identical to the build. The cut runs along the section markers, one fragment for each section, so the table of
+contents above is also the list of files.
+
+| Path | Holds |
+|---|---|
+| `src/PAGE.list` | The manifest: one path per line, relative to `src/`, in build order. No comments, no blank lines. |
+| `src/shell/head.html` | The document head up to and including `<style>`; it carries the page's one `SPDX-License-Identifier` line. |
+| `src/css/NN-name.css` | CSS sections 00–09, one file each (§00, the embedded font, is two long base64 lines). |
+| `src/shell/css-end.html` | `</style>`, `</head>`, `<body>`. |
+| `src/html/NN-name.html` | DOM sections 10–19, one file each. The marker `17b` (the export dialog) lies inside the file of §17. |
+| `src/shell/js-begin.html` | `<script>`, the opening of the one IIFE and `"use strict";`. |
+| `src/js/NN-name.js` | JavaScript sections 20–41, one file each. They are text slices of one IIFE, not modules: `S`, `THEME` and the rest stay in one scope. |
+| `src/shell/js-end.html` | The close of the IIFE, `</script>`, `</body>`, `</html>`. |
+
+Where a section lives: the number is in the file name, so section 37 is `src/js/37-ui.js` and its first line is its marker.
+Each marker `==== NN ` occurs once in the whole page, in the fragment of that number; the frame parts hold none. For a line
+number that a tool still prints for the built page, `sh tools/build-page.sh --where N` names the fragment and the line in it;
+`--list` prints the manifest with the byte count of every fragment (where the page's bytes are).
+
+Editing: change the fragment, run `sh tools/build-page.sh`, and commit `src/` and `starchorus.html` together. The build is
+`cat` in manifest order and nothing else (no minifying, no stripping of comments, no reformatting), so every rule in this
+specification that reads the page reads the same bytes as before. The T1 rows (`tools/static.sh`) fail when the page is not the
+build of `src/` by a single byte, when the manifest is unsound (a fragment missing, listed twice or not listed, sections out of
+order, a CR, no final newline), and the commit hook runs them for a commit that stages only a fragment. The hook checks; it
+never rebuilds. A merge conflict in `starchorus.html` is resolved by rebuilding, not by hand.
+
 ### 1.1 `<head>` and CSS
 
 | Marker | Content |

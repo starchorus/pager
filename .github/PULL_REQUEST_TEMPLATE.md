@@ -9,7 +9,8 @@
 - [ ] `sh tools/quick.sh` is green; for changes to the page, `sh tools/regress.sh <prefix>` as well.
 - [ ] Both copies of `starchorus-display.sh` are byte-identical (root and `library/…/starchorus/`).
 - [ ] No real captured data: no real SSIDs, MAC addresses or capture files, only the demo or synthetic fixtures.
-- [ ] New original source files carry `SPDX-License-Identifier: GPL-3.0-or-later`.
+- [ ] New original source files carry `SPDX-License-Identifier: GPL-3.0-or-later` (the fragments under `src/` do not: only `src/shell/head.html` does).
+- [ ] A change to the page is made in `src/` and `starchorus.html` is rebuilt with `sh tools/build-page.sh` and committed with it.
 - [ ] I agree to the [licensing of my contributions](https://github.com/starchorus/pager/blob/main/CONTRIBUTING.md#licensing-of-your-contributions) (GPL-3.0-or-later plus an additional right of use for the maintainer).
 
 ## Evidence
