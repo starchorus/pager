@@ -1423,7 +1423,8 @@ pui_is orphan [ "$PUI_RC/$(wc -l < "$PUI_T/case.log" | tr -d ' ')/$(pui_used)" =
 ( sleep 60 >/dev/null 2>&1 & echo $! > "$PUI_T/parent.pid" )
 pui_ans "x=A" "=A"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_PARENT_PID="$(cat "$PUI_T/parent.pid")" sh "$PUI_DS"
-pui_is orphankey [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/2/2/O R S N F" ]
+pui_okt="$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)"   # the tuple is kept, so that a red row names what diverged (it flickered under full load, twice in about 14 runs)
+pui_is orphankey [ "$pui_okt" = "0/2/2/O R S N F" ]; [ "$pui_okt" = "0/2/2/O R S N F" ] || PUI_BAD="$PUI_BAD(got $pui_okt)"
 pui_is "orphankey:gone" pui_nopids
 kill "$(cat "$PUI_T/parent.pid")" 2>/dev/null
 # no waiter left behind. A stand-in waiter that blocks for 4 s ("z") stands for one that would still be pending: after three strikes,

@@ -939,13 +939,13 @@ rnd_note() {
     case ${R_ncl:-0} in 0|''|*[!0-9]*) RN=" ($R_rnd random)" ;; 1) RN=" ($R_rnd random, 1 cloud)" ;; *) RN=" ($R_rnd random, $R_ncl clouds)" ;; esac
 }
 # alert_line N -> the one red line for the access points the firmware has reported many deauth/disassoc frames for (alerts[]): nothing for 0, for an
-# empty record or for anything that is not a number. At most 40 columns ('Many deauth/disassoc frames for 20 APs' is 38), ASCII; red because it is an
+# empty record or for anything that is not a number. At most 40 columns ('Deauth/disassoc frames heard: 20 APs' is 36), ASCII; red because it is an
 # alarm, like the open/WEP line. Every screen is drawn on a press and never by itself, so the line is as old as the capture it comes from (the frame
 # under it says how old that is).
 alert_line() {
     case ${1:-} in ''|0|*[!0-9]*) return 0 ;; esac
     if [ "$1" = 1 ]; then al_w="1 AP"; else al_w="$1 APs"; fi
-    log red "Many deauth/disassoc frames for $al_w"
+    log red "Deauth/disassoc frames heard: $al_w"
 }
 screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines, were printed instead)
     jq_warn
@@ -1421,7 +1421,7 @@ ST_JSON
         st_has "screen_summary: band counts match the fixture (2.4:1 5:2 6:1)" "$st_out" -qF '2.4:1  5:2  6:1'
         st_has "screen_summary: open/WEP line matches the fixture (2)" "$st_out" -qxF 'Open/WEP networks: 2'
         st_has "screen_summary: the Bluetooth figure follows the band counts (BT 2)" "$st_out" -qxF 'APs 4   ·   2.4:1  5:2  6:1  BT 2'
-        st_has "screen_summary: the alert line counts the access points the capture holds (2 of 3 reports)" "$st_out" -qxF 'Many deauth/disassoc frames for 2 APs'
+        st_has "screen_summary: the alert line counts the access points the capture holds (2 of 3 reports)" "$st_out" -qxF 'Deauth/disassoc frames heard: 2 APs'
         st_has "screen_bands: a band's activity bar (2.4: 75 percent)" "$st_bd" -qxF '  2.4 GHz: 1 AP(s)  act ######-- 75%'
         st_has "screen_bands: the note that explains the bar" "$st_bd" -qxF 'act = share of frames heard (relative)'
         st_has "screen_bluetooth: addresses, rotating and fixed (2, 1, 1)" "$st_bt" -qxF '2 addresses (1 rotating, 1 fixed)'

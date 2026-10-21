@@ -120,7 +120,7 @@ DSP_JQW='^jq_warn() { jq_healthy || log red "jq incomplete on this device -- cou
 # shellcheck disable=SC2016   # literal script text
 DSP_STL='    log red "No new scan for $st."'
 # shellcheck disable=SC2016   # literal script text
-DSP_ALR='    log red "Many deauth/disassoc frames for $al_w"'
+DSP_ALR='    log red "Deauth/disassoc frames heard: $al_w"'
 # the top screen's alarm line is the one its jq filter marked with "!" from the security field, not a text search
 DSP_TOPR="'!'*) log red \"\${line#?}\" ;;"
 dsp_redcount() {   # dsp_redcount FILE -> DSP_GREEN, DSP_RED (all red calls), DSP_REDJ, DSP_REDS, DSP_REDA (the pinned lines), DSP_REDSF, DSP_REDAF (the same two lines anywhere in the file) and DSP_REDL (red calls on no alarm) of a display script
@@ -144,12 +144,12 @@ DSP_RCD="out/$P-dsp-redpin"; rm -rf "$DSP_RCD"; mkdir -p "$DSP_RCD"
 cp starchorus-display.sh "$DSP_RCD/ok.sh"
 awk '{ print } /^screen_bands\(\) *{/ { print "    log red \"stray\"" }' starchorus-display.sh > "$DSP_RCD/m1.sh"
 # shellcheck disable=SC2016   # sed program: the display script's own text, not to be expanded here
-sed 's|log red "Many deauth/disassoc frames for \$al_w"|log red "Flood heard for $al_w"|' starchorus-display.sh > "$DSP_RCD/m2.sh"
-awk '{ print } /^    log red "Many deauth\/disassoc frames for \$al_w"$/ { print }' starchorus-display.sh > "$DSP_RCD/m3.sh"
+sed 's|log red "Deauth/disassoc frames heard: \$al_w"|log red "Flood heard for $al_w"|' starchorus-display.sh > "$DSP_RCD/m2.sh"
+awk '{ print } /^    log red "Deauth\/disassoc frames heard: \$al_w"$/ { print }' starchorus-display.sh > "$DSP_RCD/m3.sh"
 sed 's|^alert_line() {|alert_lin2() {|' starchorus-display.sh > "$DSP_RCD/m4.sh"
 awk '{ print } /^screen_bands\(\) *{/ { print "    log green \"stray\"" }' starchorus-display.sh > "$DSP_RCD/m5.sh"
 # shellcheck disable=SC2016   # awk programs: the display script's own text, not to be expanded here
-awk '{ print } /^screen_bands\(\) *{/ { print "    log red \"Many deauth/disassoc frames for $al_w\"" }' starchorus-display.sh > "$DSP_RCD/m6.sh"
+awk '{ print } /^screen_bands\(\) *{/ { print "    log red \"Deauth/disassoc frames heard: $al_w\"" }' starchorus-display.sh > "$DSP_RCD/m6.sh"
 # shellcheck disable=SC2016
 awk '{ print } /^screen_bands\(\) *{/ { print "    log red \"No new scan for $st.\"" }' starchorus-display.sh > "$DSP_RCD/m7.sh"
 DSP_RCB=""

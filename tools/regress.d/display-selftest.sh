@@ -1719,7 +1719,7 @@ for DST_E in $DST_COPIES; do
 done
 if [ "$DST_S32" = "$DST_X32" ]; then row "display cleanpin: the first code line of ov_cleanup is trap '' TERM INT HUP, before any signal is sent, any nap and the removal ($DST_X32 copies)" PASS
 else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP=1; fi
-# ---- S31 alertline (0.2): the summary's alert line, "Many deauth/disassoc frames for N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
+# ---- S31 alertline (0.2): the summary's alert line, "Deauth/disassoc frames heard: N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
 # points the capture has (9 and 4 reports) and one for an address it has not, so the line says 2 APs (the page draws a note and a ring for those two and for no other). Per copy, under the
 # real and the device-like jq (which has no regex builtin): (a) the line is there once, exactly that text, directly after the open/WEP line, at most 40 columns, ASCII, and neutral (no
 # 'attack', no 'flood'); (b) a document without alerts[], with an empty one, with only the unknown address, with entries of the wrong shape (a count of 0 or a text, a type that is not deauth,
@@ -1734,7 +1734,7 @@ else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP
 DST_AJ="$F/alerts.json"
 if [ ! -s "$DST_AJ" ]; then notcov "display alert line (needs tests/fixtures/alerts.json)"
 else
-  DST_AL='Many deauth/disassoc frames for 2 APs'; DST_AL1='Many deauth/disassoc frames for 1 AP'
+  DST_AL='Deauth/disassoc frames heard: 2 APs'; DST_AL1='Deauth/disassoc frames heard: 1 AP'
   dst_alv() { jq -c "$2" "$DST_AJ" > "$DST_D/alv-$1.json"; }   # dst_alv NAME PROGRAM: alerts.json changed by PROGRAM
   dst_alv noalerts 'del(.alerts)'
   dst_alv empty '.alerts = []'
@@ -1822,7 +1822,7 @@ DST_ALWEOF
       || DST_L31="$DST_L31 interactive: rc $DST_RC, screens '$DST_E1' (want sss), alert line red x$DST_E2 (want 3), red lines $DST_E3 (want 3), $DST_E4 jq (want 2), directly before the frame x$DST_E5 (want 3);"
     if [ -z "$DST_L31" ]; then DST_S31=$((DST_S31 + 1)); else echo "    alert line, $DST_G copy:$DST_L31"; fi
   done
-  if [ "$DST_S31" = "$DST_X31" ]; then row "display alert line: 'Many deauth/disassoc frames for 2 APs' after the open/WEP line (40 columns, ASCII, neutral), none without alerts[] or with junk, one AP per address (folded, cut at 20), none for the device's own transmitters (and a planted copy without that test prints it), none on the other fixtures, the only red line on the device path, three draws show it three times with 2 jq ($DST_X31 copies, each under the real and the device-like jq)" PASS
+  if [ "$DST_S31" = "$DST_X31" ]; then row "display alert line: 'Deauth/disassoc frames heard: 2 APs' after the open/WEP line (40 columns, ASCII, neutral), none without alerts[] or with junk, one AP per address (folded, cut at 20), none for the device's own transmitters (and a planted copy without that test prints it), none on the other fixtures, the only red line on the device path, three draws show it three times with 2 jq ($DST_X31 copies, each under the real and the device-like jq)" PASS
   else row "display alert line: $DST_S31/$DST_X31 copies as expected" FAIL; DST_KEEP=1; fi
 fi
 
