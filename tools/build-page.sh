@@ -3,8 +3,8 @@
 # tools/build-page.sh -- builds starchorus.html from the fragments under src/; the manifest src/PAGE.list names them, in order.
 # usage: sh tools/build-page.sh            write starchorus.html (a temporary file beside it, then mv)
 #        sh tools/build-page.sh --check    build to a temporary file and compare it byte for byte with starchorus.html;
-#                                          writes nothing; exit 0 = identical, 1 = different (names the first differing line where
-#                                          cmp names one, not for a difference only in length), 2 = the page is missing
+#                                          writes nothing; exit 0 = identical, 1 = different (names the first differing line only where
+#                                          cmp names one; BSD cmp does not for a difference only in length), 2 = the page is missing
 #        sh tools/build-page.sh --where N  the fragment and the line in it that hold line N of the built page
 #        sh tools/build-page.sh --list     the manifest, one fragment per line, with its byte count
 # Building is pure concatenation: cat in manifest order. No minifying, no stripping of comments, no reformatting; the font stays
