@@ -70,6 +70,24 @@
 #                 (lines that look like comments, heads, closing braces and definitions, of a listed program too, in strings and here-documents: text), `probe-ok-continued` and `probe-ok-fn-toplevel` (the same name, a genuine function at the start of a
 #                 line: its calls and a `trap` are the probe's own) stay green. Each part of the reader that decides this is blinded once in the meta probe (the column, depth, continued line and name of a definition, the list of all definitions,
 #                 the three conditions of a clean line, the heads, the closing brace, the code lines, the second run). `probe-pin-fn-string` is red for two reasons (the pins, and the string state lost at a head) and is the one mutation no single blind shows.
+# MAIN TOOLS, THE READER: the collector, both Overview copies, both payload.sh, the listener and library/ are read whole by the reader that reads the device probe (shview in the checker): the function a line belongs to, the function heads and
+#                 the comment lines come from that reading, no longer from a scan of the text, and a line in a here-document body, a string, a comment or after a backslash that looks like a head, a closing brace or a comment starts, ends and hides
+#                 nothing. The `main-head-` mutations plant a head in such a text with a device call behind it: `zz_evil() { cat <<'e' >/dev/null`, `apcli_ro() {` in the body, `e`, `WIFI_CONNECT zz` (`-heredoc-wifi`; `-heredoc-block` has the head of
+#                 `zz_evil` on its own line, `-heredoc-bare` a bare delimiter), the same with a word of SEC6_RE and the head of apcli_stub (`-heredoc-sec6`), with a word of the Bluetooth stack and the head of bt_stub (`-heredoc-bt`), in a single and a
+#                 double quoted string (`-string-single`, `-string-double`) and in the payload of the library (`-heredoc-payload`, `-string-payload`). The `main-comment-` ones plant a line that looks like a comment, which was dropped unread, in a string
+#                 (`-string`, `-string-payload`: a quote in it ends the string and a call stands behind it), in a quoted and in a bare here-document (`-heredoc`, `-heredoc-bare`) and after a backslash (`-continued`: the command behind the comment line was
+#                 read as an argument of the command before). `main-nested-definition`, `-bt` and `main-brace-indented` plant a head inside a function (a nested definition; a function above it that lost its closing brace at the start of a line): neither it nor
+#                 the lines after it have a function, and the fill row names it; `main-nested-indented` is the indented definition, which was red before. `main-heredoc-bare-built`, `-backtick`, `-glob`, `-find`, `-multiline` and `main-heredoc-then-built`
+#                 plant a built name or a glob in the body of a here-document with a bare delimiter (read as text with its expansions as code; the last one is a built name on the line after the document, to show that the state ends with it),
+#                 `main-two-heredocs`, `-second` and `-payload` the same with two here-documents on a line (the line is bare if either delimiter is); `probe-heredoc-two-bodies`, `-backtick` and `-second` plant a `$(` or a backtick in the bare body of
+#                 two here-documents on a line in the probe, `probe-nested-head` a head inside a function there. `main-iw-default-comment`, `-guard-comment`, `-guard-fake-head` and `-guard-moved` plant the default of the opt-in and the guard of
+#                 `iw scan` behind a comment sign, a copy of the head with the guard in a here-document in front of the real head, and a comment line between the head and the guard. The controls `main-ok-apcli-line`, `-apcli-call` and `-bt-line` (a word
+#                 of the lists as the first line of a genuine function, a call), `-heredoc-lines` (lines that look like heads, comments and closing braces, of apcli_ro too, in quoted and bare here-documents and in strings: text), `-heredoc-plain`
+#                 (plain expansions, quotes and escaped expansions in a bare body, and a `$( )` over several lines), `-two-heredocs` (two quoted, built names in their bodies), `-nested-function` (an indented definition with a name of its own) and
+#                 `-iw-guard`, and `probe-ok-heredoc-two`, stay green. Written down as limits, and green: `main-limit-second-definition` (a second top-level function with the name of an allowlisted one holds what the allowlist allows, as the first does;
+#                 the planted `-planted` mutations above rely on defining such a function) and `main-limit-quoted-script` (the script that a quoted here-document writes out is text, a program text that is built and then run). Each new part of the checker
+#                 is blinded once in the meta probe (the head and the comment line in a text, the three conditions of a clean line against the plants of the collector, the nested head and its report, the body of a bare here-document, the AND over the
+#                 delimiters, the text state and its end, the verdicts of the pass, the reading of the opt-in).
 # TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
 # PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
 #                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
@@ -96,7 +114,7 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=250    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (296 lines: 250 and 46 controls)
+MIN_MUT=284    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (341 lines: 284 and 57 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
@@ -410,6 +428,53 @@ if [ "$meta" = 1 ]; then
   metaprobe probe-view-open-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && !DCONT)' probe-string-comment-line 'mutation probe-string-comment-line: GREEN (BLIND!)'
   metaprobe probe-view-continued-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && dsp == 0)' probe-continued-comment 'mutation probe-continued-comment: GREEN (BLIND!)'
   metaprobe probe-view-code-blind tools/passivity-check.sh 'if (t != "" && !vcom) print $0 > VIEW' 'if (t != "") print $0 > VIEW' probe-ok-comment 'mutation probe-ok-comment: WRONG-ROW'
+  # (m) the main tools are read whole by the same reader (shview, row 6d and every row that reads the code lines): the function of a line, the heads, the comment lines, a definition nested in a function, the body of a here-document with a bare
+  #     delimiter (read as text with its expansions as code) and the quotedness of a line with two here-documents are blinded one part at a time. A head in a body or a string is taken for a head again, a comment-looking line in a string, in a
+  #     here-document or after a backslash is dropped again, a nested head switches the function again, a bare body is skipped again, the last delimiter alone decides again; the plants of the collector and of the payload of the library
+  #     that use exactly that must say GREEN (BLIND!). The reader that decides a clean line is the one of the probe: the blinds of the probe above and these below cut the same lines, and each is shown by a plant of its own.
+  metaprobe main-head-blind-heredoc tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-wifi 'mutation main-head-heredoc-wifi: GREEN (BLIND!)'
+  metaprobe main-head-blind-block tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-block 'mutation main-head-heredoc-block: GREEN (BLIND!)'
+  metaprobe main-head-blind-bare tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-bare 'mutation main-head-heredoc-bare: GREEN (BLIND!)'
+  metaprobe main-head-blind-sec6 tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-sec6 'mutation main-head-heredoc-sec6: GREEN (BLIND!)'
+  metaprobe main-head-blind-bt tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-bt 'mutation main-head-heredoc-bt: GREEN (BLIND!)'
+  metaprobe main-head-blind-single tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-string-single 'mutation main-head-string-single: GREEN (BLIND!)'
+  metaprobe main-head-blind-double tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-string-double 'mutation main-head-string-double: GREEN (BLIND!)'
+  metaprobe main-head-blind-payload tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-heredoc-payload 'mutation main-head-heredoc-payload: GREEN (BLIND!)'
+  metaprobe main-head-blind-string-payload tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) { vfn = "-";' main-head-string-payload 'mutation main-head-string-payload: GREEN (BLIND!)'
+  metaprobe main-nested-blind tools/passivity-check.sh 'if (vfn == "-" || VNEST == "") { vfn = nm; print vfn > VHEADS } else {' 'if (1) { vfn = nm; print vfn > VHEADS } else {' main-nested-definition 'mutation main-nested-definition: GREEN (BLIND!)'
+  metaprobe main-nested-blind-bt tools/passivity-check.sh 'if (vfn == "-" || VNEST == "") { vfn = nm; print vfn > VHEADS } else {' 'if (1) { vfn = nm; print vfn > VHEADS } else {' main-nested-bt 'mutation main-nested-bt: GREEN (BLIND!)'
+  metaprobe main-nested-blind-brace tools/passivity-check.sh 'if (vfn == "-" || VNEST == "") { vfn = nm; print vfn > VHEADS } else {' 'if (1) { vfn = nm; print vfn > VHEADS } else {' main-brace-indented 'mutation main-brace-indented: GREEN (BLIND!)'
+  metaprobe main-nested-report-blind tools/passivity-check.sh 'else { print nm > VNEST; vfn = "-" }' 'else { vfn = "-" }' main-nested-definition 'mutation main-nested-definition: GREEN (BLIND!)'
+  metaprobe main-nested-function-blind tools/passivity-check.sh 'else { print nm > VNEST; vfn = "-" }' 'else { print nm > VNEST }' main-brace-indented 'mutation main-brace-indented: GREEN (BLIND!)'
+  metaprobe main-nested-collect-blind tools/passivity-check.sh 'awk -v F="$_f" '"'"'{ print F ":" $0 }'"'"' "$tmp/e1" >> "$tmp/nested"' ':' main-nested-definition 'mutation main-nested-definition: GREEN (BLIND!)'
+  metaprobe main-nested-fill-blind tools/passivity-check.sh 'done < "$tmp/nested"' 'done < /dev/null' main-nested-bt 'mutation main-nested-bt: GREEN (BLIND!)'
+  metaprobe main-clean-heredoc-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (dsp == 0 && !DCONT)' main-head-heredoc-wifi 'mutation main-head-heredoc-wifi: GREEN (BLIND!)'
+  metaprobe main-clean-open-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && !DCONT)' main-head-string-single 'mutation main-head-string-single: GREEN (BLIND!)'
+  metaprobe main-clean-continued-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && dsp == 0)' main-comment-continued 'mutation main-comment-continued: GREEN (BLIND!)'
+  metaprobe main-comment-blind-string tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' main-comment-string 'mutation main-comment-string: GREEN (BLIND!)'
+  metaprobe main-comment-blind-string-payload tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' main-comment-string-payload 'mutation main-comment-string-payload: GREEN (BLIND!)'
+  metaprobe main-comment-blind-heredoc tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' main-comment-heredoc 'mutation main-comment-heredoc: GREEN (BLIND!)'
+  metaprobe main-comment-blind-bare tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' main-comment-heredoc-bare 'mutation main-comment-heredoc-bare: GREEN (BLIND!)'
+  metaprobe main-comment-blind-continued tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' main-comment-continued 'mutation main-comment-continued: GREEN (BLIND!)'
+  metaprobe main-heredoc-body-blind tools/passivity-check.sh 'else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t)' 'else if (0) hbody(t)' main-heredoc-bare-built 'mutation main-heredoc-bare-built: GREEN (BLIND!)'
+  metaprobe main-heredoc-body-blind-glob tools/passivity-check.sh 'else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t)' 'else if (0) hbody(t)' main-heredoc-bare-glob 'mutation main-heredoc-bare-glob: GREEN (BLIND!)'
+  metaprobe main-heredoc-body-blind-backtick tools/passivity-check.sh 'else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t)' 'else if (0) hbody(t)' main-heredoc-bare-backtick 'mutation main-heredoc-bare-backtick: GREEN (BLIND!)'
+  metaprobe main-heredoc-bare-blind tools/passivity-check.sh 'else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t)' 'else if (CMDS == "" && MODE == "dyn") hbody(t)' main-ok-two-heredocs 'mutation main-ok-two-heredocs: WRONG-ROW'
+  metaprobe main-heredoc-quoted-blind tools/passivity-check.sh 'hdq = !DHDB }' 'hdq = 0 }' main-ok-heredoc-lines 'mutation main-ok-heredoc-lines: WRONG-ROW'
+  metaprobe main-heredoc-last-wins tools/passivity-check.sh 'if (!DHDQ) DHDB = 1;' 'DHDB = !DHDQ;' main-two-heredocs 'mutation main-two-heredocs: GREEN (BLIND!)'
+  metaprobe main-heredoc-last-wins-payload tools/passivity-check.sh 'if (!DHDQ) DHDB = 1;' 'DHDB = !DHDQ;' main-two-heredocs-payload 'mutation main-two-heredocs-payload: GREEN (BLIND!)'
+  metaprobe probe-heredoc-last-wins tools/passivity-check.sh 'if (!DHDQ) DHDB = 1;' 'DHDB = !DHDQ;' probe-heredoc-two-bodies 'mutation probe-heredoc-two-bodies: GREEN (BLIND!)'
+  metaprobe probe-heredoc-last-wins-backtick tools/passivity-check.sh 'if (!DHDQ) DHDB = 1;' 'DHDB = !DHDQ;' probe-heredoc-two-backtick 'mutation probe-heredoc-two-backtick: GREEN (BLIND!)'
+  metaprobe main-heredoc-text-blind tools/passivity-check.sh 'if (top == "d" || top == "H") { dtext(c); continue }' 'if (top == "d") { dtext(c); continue }' main-ok-heredoc-plain 'mutation main-ok-heredoc-plain: WRONG-ROW'
+  metaprobe main-heredoc-end-blind tools/passivity-check.sh 'function hend() { if (!hbo) return; hbo = 0; dsp = hbi; dpop(); DCONT = 0 }' 'function hend() { if (!hbo) return; hbo = 0; DCONT = 0 }' main-ok-nested-function 'mutation main-ok-nested-function: WRONG-ROW'
+  metaprobe main-heredoc-line-end-blind tools/passivity-check.sh 'if (top != "q" && top != "d" && top != "H") { dfin();' 'if (top != "q" && top != "d") { dfin();' main-ok-heredoc-plain 'mutation main-ok-heredoc-plain: WRONG-ROW'
+  metaprobe main-view-verdicts-blind tools/passivity-check.sh 'cat "$tmp/b1" >> "$tmp/dyn_bad"; cat "$tmp/b2" >> "$tmp/dyn_bad2"' 'cat "$tmp/b1" >> "$tmp/dyn_bad"' main-heredoc-bare-glob 'mutation main-heredoc-bare-glob: GREEN (BLIND!)'
+  metaprobe main-view-builtin-blind tools/passivity-check.sh 'cat "$tmp/b1" >> "$tmp/dyn_bad"; cat "$tmp/b2" >> "$tmp/dyn_bad2"' 'cat "$tmp/b2" >> "$tmp/dyn_bad2"' main-ok-nested-function 'mutation main-ok-nested-function: WRONG-ROW'
+  metaprobe main-view-heads-blind tools/passivity-check.sh 'awk -v F="$_f" '"'"'{ print F ":" $0 }'"'"' "$tmp/h1" >> "$tmp/fns"' ': > "$tmp/h1"' main-ok-nested-function 'mutation main-ok-nested-function: WRONG-ROW'
+  metaprobe main-iw-default-blind tools/passivity-check.sh 'if (index(codepart(t), L) > 0) n++' 'if (index(t, L) > 0) n++' main-iw-default-comment 'mutation main-iw-default-comment: GREEN (BLIND!)'
+  metaprobe main-iw-guard-comment-blind tools/passivity-check.sh 'index(codepart(t), G) > 0) ok = 1' 'index(t, G) > 0) ok = 1' main-iw-guard-comment 'mutation main-iw-guard-comment: GREEN (BLIND!)'
+  metaprobe main-iw-guard-head-blind tools/passivity-check.sh 'if (fn == "build_from_iwscan" && t ~ /^build_from_iwscan' 'if (t ~ /^build_from_iwscan' main-iw-guard-fake-head 'mutation main-iw-guard-fake-head: GREEN (BLIND!)'
+  metaprobe main-iw-guard-line-blind tools/passivity-check.sh 'if (ln + 0 == hl + 1 && index(' 'if (index(' main-iw-guard-moved 'mutation main-iw-guard-moved: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -620,6 +685,196 @@ mut sqlite-ok-comment starchorus-collect.sh    fnappend 'sqlite3 -readonly -nohe
 mut sqlite-ok-two    starchorus-collect.sh     fnappend 'sqlite3 -readonly "$db" "SELECT 1" && sqlite3 -readonly "$db" "SELECT 2"' '' ''
 mut bt-comment       starchorus-collect.sh     fnappend '# hcitool cc 02:00:00:00:00:01' ''                             ''
 mut bt-sysfs-ok      starchorus-collect.sh     fnappend 'ls /sys/class/bluetooth; [ -d /sys/class/bluetooth/hci0 ]' ''  ''
+# ---- the shell scope is read whole, by one reader (the collector, both Overview copies, both payload.sh, the listener and library/): the function a line belongs to, the function heads and the comment lines come from that
+# reading, not from a scan of the text. A line in a here-document body, a string or after a backslash that looks like a function head, a closing brace or a comment is text: the poison was a head in such a text (the lines after it
+# took the function of the head, and with it the allowlist of apcli_ro or of BT_FUNCS) and a comment-looking line (dropped unread, so a quote in it ended a string and a command stood behind it). The plants are the review's:
+# `zz_evil() { cat <<'e' >/dev/null` with `apcli_ro() {` in the body and a device call behind it, the same with a word of SEC6_RE and with a function of BT_FUNCS, in a single and a double quoted string and in a bare
+# here-document, a comment-looking line in a string, in a quoted and a bare here-document and after a backslash, a definition nested in a function (at the start of a line, and indented), and in the payload of the library.
+mut main-head-heredoc-wifi    starchorus-collect.sh append "zz_evil() { cat <<'e' >/dev/null
+apcli_ro() {
+e
+WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-head-heredoc-block   starchorus-collect.sh append "zz_evil() {
+    cat <<'e' >/dev/null
+apcli_ro() {
+e
+    WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-head-heredoc-bare    starchorus-collect.sh append "zz_evil() {
+    cat <<e >/dev/null
+apcli_ro() {
+e
+    WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-head-heredoc-sec6    starchorus-collect.sh append "zz_evil() { cat <<'e' >/dev/null
+apcli_stub() {
+e
+DEAUTH zz
+}" '' '§14.6 device calls'
+mut main-head-heredoc-bt      starchorus-collect.sh append "zz_evil() { cat <<'e' >/dev/null
+bt_stub() {
+e
+zz_x=hcitool
+}" '' '§14.6b Bluetooth words'
+mut main-head-string-single   starchorus-collect.sh append "zz_evil() { zz_s='
+apcli_ro() {
+'
+WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-head-string-double   starchorus-collect.sh append 'zz_evil() { zz_s="
+apcli_ro() {
+"
+WIFI_CONNECT zz
+}' '' '§14.6 device calls'
+mut main-head-heredoc-payload library/user/reconnaissance/starchorus/payload.sh append "zz_evil() { cat <<'e' >/dev/null
+apcli_ro() {
+e
+WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-head-string-payload  library/user/reconnaissance/starchorus/payload.sh append "zz_evil() { zz_s='
+apcli_ro() {
+'
+WIFI_CONNECT zz
+}" '' '§14.6 device calls'
+mut main-comment-string       starchorus-collect.sh fnappend "zz_x='
+# '; WIFI_CONNECT zz; : '
+'" '' '§14.6 device calls'
+mut main-comment-heredoc      starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+# hcitool -i hci0 dev
+zz_eof" '' '§14.6b Bluetooth words'
+mut main-comment-heredoc-bare starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+# $($zz_a$zz_b -i hci0 lescan)
+zz_eof' '' '§14.6d command words'
+mut main-comment-continued    starchorus-collect.sh fnappend 'cat /etc/hostname \
+# a comment between the two lines
+$zz_a$zz_b -i hci0 lescan' '' '§14.6d command words'
+mut main-comment-string-payload library/user/reconnaissance/starchorus/payload.sh fnappend "zz_x='
+# '; WIFI_CONNECT zz; : '
+'" '' '§14.6 device calls'
+mut main-nested-definition    starchorus-collect.sh append 'zz_evil() {
+apcli_ro() {
+WIFI_CONNECT zz
+}
+}' '' '§14.6 device calls|§14.6 scope fill'
+mut main-nested-indented      starchorus-collect.sh append 'zz_evil() {
+    apcli_ro() {
+        WIFI_CONNECT zz
+    }
+}' '' '§14.6 device calls'
+mut main-nested-bt            starchorus-collect.sh append 'zz_evil() {
+bt_stub() {
+zz_x=hcitool
+}
+}' '' '§14.6b Bluetooth words|§14.6 scope fill'
+mut main-brace-indented       starchorus-collect.sh append 'apcli_stub() {
+    :
+  }
+zz_next() {
+    WIFI_CONNECT zz
+}' '' '§14.6 device calls|§14.6 scope fill'
+# the opt-in of `iw scan`: its default and the guard line are read from the code lines, not from the raw text. A copy of the default behind a comment sign, a copy of the guard behind one, and a copy of the head with the guard
+# inside a here-document in front of the real head (the real function then starts with another line) were green when the text was searched; a comment between the head and the guard moves the guard off the line right after the head
+mut main-iw-default-comment   starchorus-collect.sh subst   'ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-0}' 'ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-1} # ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-0}' 'iw scan opt-in'
+mut main-iw-guard-comment     starchorus-collect.sh subst   '[ "$ALLOW_ACTIVE" = "1" ] || return 1' ': # [ "$ALLOW_ACTIVE" = "1" ] || return 1' 'iw scan opt-in'
+mut main-iw-guard-fake-head   starchorus-collect.sh subst   '^build_from_iwscan() {' "zz_g() { cat <<'e' >/dev/null
+build_from_iwscan() {
+    [ \"\$ALLOW_ACTIVE\" = \"1\" ] || return 1
+e
+}
+build_from_iwscan() {
+    :" 'iw scan opt-in'
+mut main-iw-guard-moved       starchorus-collect.sh subst   '^build_from_iwscan() {' 'build_from_iwscan() {
+    # a comment between the head and the guard' 'iw scan opt-in'
+# a here-document with a bare delimiter is expanded when the document is read: a `$( )` or a backtick expression in its body is code, so a command word that is built or globbed in it is a line of the rows 6d and 6e (it was not read at
+# all). The body of one with a quoted delimiter is text. With two documents on a line the body is read when ANY of the delimiters is bare (the last delimiter alone used to decide)
+mut main-heredoc-bare-built   starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+$($zz_a$zz_b -i hci0 lescan)
+zz_eof' '' '§14.6d command words'
+mut main-heredoc-bare-backtick starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+`$zz_a$zz_b -i hci0 lescan`
+zz_eof' '' '§14.6d command words'
+mut main-heredoc-bare-glob    starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+$(/usr/bin/hc?tool -i hci0 lescan)
+zz_eof' '' '§14.6e command names'
+mut main-heredoc-bare-find    starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+$(find /tmp -name zz -ok sh {} +)
+zz_eof' '' '§14.6e command names'
+mut main-heredoc-bare-multiline starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+a $(echo b
+$zz_a$zz_b -i hci0 lescan
+) c
+zz_eof' '' '§14.6d command words'
+mut main-heredoc-then-built   starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+plain $(printf x)
+zz_eof
+$zz_a$zz_b -i hci0 lescan' '' '§14.6d command words'
+mut main-two-heredocs         starchorus-collect.sh fnappend "cat <<zz_a <<'zz_b' >/dev/null
+\$(\$zz_a\$zz_b -i hci0 lescan)
+zz_a
+plain
+zz_b" '' '§14.6d command words'
+mut main-two-heredocs-second  starchorus-collect.sh fnappend "cat <<'zz_a' <<zz_b >/dev/null
+plain
+zz_a
+\$(\$zz_a\$zz_b -i hci0 lescan)
+zz_b" '' '§14.6d command words'
+mut main-two-heredocs-payload library/user/reconnaissance/starchorus/payload.sh fnappend "cat <<zz_a <<'zz_b' >/dev/null
+\$(/usr/bin/hc?tool -i hci0 lescan)
+zz_a
+plain
+zz_b" '' '§14.6e command names'
+# the controls: what stays green. A genuine apcli_ro (a line with a word of SEC6_RE as its first line, a call of it), a genuine function of BT_FUNCS, text that only looks like a head, a comment or a closing brace in a quoted and a bare
+# here-document and in strings (plain words), a function defined inside a function with a name of its own, a bare here-document with plain expansions (a `$(printf x)`, `$((1 + 2))`, `${zz:-y}`, quotes in the text), a line with
+# two here-documents whose bodies are both quoted (built names in them are text), and the two limits that are written down: a second function with the name of an allowlisted one holds what the allowlist allows, as the first
+# does (the allowlist is by name; what the allowed functions hold is reviewed, except for the five `_pineap` lines), and the text of a script that a quoted here-document writes out is text (a program text that is built and then run)
+mut main-ok-apcli-line        starchorus-collect.sh fnline  'apcli_ro' 'WIFI_CONNECT zz'                                '' ''
+mut main-ok-apcli-call        starchorus-collect.sh fnappend 'apcli_ro present; apcli_ro recon_aps'                      '' ''
+mut main-ok-bt-line           starchorus-collect.sh fnline  'bt_stub' 'zz_x=hcitool'                                    '' ''
+mut main-ok-heredoc-lines     starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+# a line that looks like a comment
+zz_fn() {
+}
+apcli_ro() {
+\$(\$zz_a\$zz_b -i hci0 lescan)
+zz_eof
+cat <<zz_eof2 >/dev/null
+# plain \$zz_x text
+zz_gn() {
+}
+apcli_ro() {
+zz_eof2
+zz_x='
+# a line that looks like a comment
+apcli_ro() {
+}
+'
+zz_y=\"
+# also text
+zz_hn() {
+}
+\"" '' ''
+mut main-ok-heredoc-plain     starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+a $(printf x) b $((1 + 2)) c ${zz_n:-y} d `printf z` it'"'"'s "quoted" 5 > 3 \$(not run) \`not run\`
+$(cat /etc/hostname | tr a b
+)
+zz_eof
+cat /etc/hostname' '' ''
+mut main-ok-two-heredocs      starchorus-collect.sh fnappend "cat <<'zz_a' <<\"zz_b\" >/dev/null
+\$(\$zz_a\$zz_b -i hci0 lescan)
+zz_a
+\`/usr/bin/hc?tool -i hci0 lescan\`
+zz_b" '' ''
+mut main-ok-nested-function   starchorus-collect.sh fnappend 'zz_inner() { :; }
+    zz_inner' '' ''
+mut main-ok-iw-guard          starchorus-collect.sh subst   '^build_from_iwscan() {' 'build_from_iwscan() {   # the guard is the next line' '' ''
+mut main-limit-second-definition starchorus-collect.sh append 'apcli_ro() {
+    WIFI_CONNECT zz
+}' '' ''
+mut main-limit-quoted-script  starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+#!/bin/sh
+\$zz_a\$zz_b -i hci0 lescan
+zz_eof" '' ''
 
 # ---- tools/device-probe.sh (the rows 'device-probe.sh ...', 7d of the checker): a sending, scanning, Bluetooth or network tool in the probe, an `iw` that sets something, a command word that is built or globbed, a program that
 # no list names, and the pinned lines (a line changed by one character, a line gone, a line copied into another function). The names of the two allowlisted function families of the collector (BT_FUNCS, SEC6_FUNCS) have
@@ -861,6 +1116,27 @@ zz_eof
 cat <<zz_eof > /dev/null
 plain $T text ${PATH:-x}
 zz_eof' '' ''
+# the probe, two here-documents on a line: a body that the shell expands is a `$(` or a backtick in a bare body, and the line is bare when any of its delimiters is
+mut probe-heredoc-two-bodies tools/device-probe.sh fnappend "cat <<zz_a <<'zz_b' > /dev/null
+\$(od /etc/zz_a)
+zz_a
+plain
+zz_b" '' 'device-probe.sh programs'
+mut probe-heredoc-two-backtick tools/device-probe.sh fnappend "cat <<zz_a <<\"zz_b\" > /dev/null
+\`od /etc/zz_a\`
+zz_a
+plain
+zz_b" '' 'device-probe.sh programs'
+mut probe-heredoc-two-second tools/device-probe.sh fnappend "cat <<'zz_a' <<zz_b > /dev/null
+plain
+zz_a
+\$(od /etc/zz_a)
+zz_b" '' 'device-probe.sh programs'
+mut probe-ok-heredoc-two     tools/device-probe.sh fnappend "cat <<'zz_a' <<\"zz_b\" > /dev/null
+\$(od /etc/zz_a)
+zz_a
+\`od /etc/zz_b\`
+zz_b" '' ''
 # text that only looks like definitions, comments and heads stays text: lines in a string, a quoted and a bare here-document that look like a comment, a function head, a closing brace or a definition (of a listed program, too), and a continued command
 mut probe-ok-string-lines tools/device-probe.sh  fnappend 'zz_x='"'"'
 # a line that looks like a comment
