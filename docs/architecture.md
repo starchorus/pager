@@ -2724,14 +2724,21 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   or is missing (it then runs `echo` over what it reads), and for any `alias` definition. It compares with a pinned list in the same way; nothing of that kind stands in the
   scope today, so the list is empty and a first line is a new one. A glob in a for-list, in a case pattern or as an argument is no command word. **What these rows do not read:** a
   glob that is only handed on as an argument (`ln -s /usr/bin/hc?tool x`, then `x ...`; `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk
-  `system()`, a `jq` program given a built string, `. file`), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
+  `system()`, a `jq` program given a built string, `. file`, the script that a here-document with a quoted delimiter writes out), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
   check says nothing (the tool names themselves are still red outside the allowlist, wherever they stand in the text), and the guarantee rests on review. The run-time witness (the
   Bluetooth paragraph above: what was asked of the controller is read back from the monitor each window) covers only the collector's own window, so it cannot vouch for a scan that
   was started outside one. The mutation probe pins that limit: a built name (`zz_a=hci; zz_b=tool; "$zz_a$zz_b" -i hci0 lescan`) outside `BT_FUNCS` is red, and an `eval`
   or an awk `system()` over a built string, a glob that is only handed to `ln` and a built string piped into `sh` are controls that stay green, so a change in what the rows read shows up as a change in the controls. The five
   `_pineap` lines of `apcli_ro` are pinned byte for byte, each once, so a sixth line, a changed argument or a command name from a variable is
   red. A device check per command needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same
-  before and after.
+  before and after. The shell files of this scope are read whole, file by file, by one reader (the one that reads the device probe, below), and the function that a line belongs to (which
+  decides whether a word of the families above may stand there), the function heads and the comment lines come from that reading and not from a scan of the text: a line in a here-document
+  body, a string, a comment or after a backslash that looks like a head (`apcli_ro() {`), a closing brace or a comment starts, ends and hides nothing, and a comment-looking line in a string is
+  code. A head that comes while another function is still open (a definition nested in a body, or a function above it whose closing brace is not at the start of a line) is named by the first
+  row, and neither it nor the lines after it belong to a function, so no allowlist reaches them. The body of a here-document with a bare delimiter is expanded when it runs, so it is read as
+  text in which a `$( )` or backtick expression is code (rows `§14.6d` and `§14.6e`); with two here-documents on a line the line is bare if either delimiter is. The body of one with a quoted
+  delimiter is text, and so is a script it writes out (a program text that is built and then run: not read). The allowlists are by name; a second function with the name of an allowed one may
+  hold what the first may hold.
   **The device probe.** `tools/device-probe.sh` is the one file of `tools/` that runs on the device. It is in the scope of the static check, with three rows of its own (`device-probe.sh scope fill`,
   `named tools`, `programs`) and not in the file list of the rows above, so that nothing allowed there applies to it and nothing allowed for it applies there. It is read with the same families (`SEC6_RE`, `TX_WORDS` with the `iw`
   verbs, `BT_WORDS`, the `iw scan` test, the `sqlite3` word, the rows `§14.6d` and `§14.6e`) and with `PNET_WORDS`, the network, capture, package and service tools, which only it is read for. A function allowlist has no standing in it. Every line
@@ -2742,7 +2749,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   meets at the start of a line with nothing open, and the function heads that give a pinned line its function and the comment lines come from the same reading, so a line in a here-document body, a string or a comment that looks like a definition, a head, a closing brace
   or a comment defines, starts, ends and hides nothing. A `trap` runs its action as a command when the signal comes, and that is a
   string the check does not read, so the action is accepted only as `-`, an empty string, a function of the probe or `exit N`; a here-document only with a delimiter that is a plain name, bare or wholly in quotes (`<<wait"x"` ends at `waitx`), and,
-  when bare, with a body that has no `$(` and no backtick. The same row holds that the probe writes nowhere but its private directory, on the whole file: every redirection and every destination of `cp`, `mv` and `tee` is `/dev/null` or a file below
+  when bare (a line with two here-documents is bare if either delimiter is), with a body that has no `$(` and no backtick. The same row holds that the probe writes nowhere but its private directory, on the whole file: every redirection and every destination of `cp`, `mv` and `tee` is `/dev/null` or a file below
   `$T` whose name holds no expansion, and `T`, `OUT`, `A` and `B` are only ever set to one (three pinned lines write through a variable: the output of `run_limited`, the `mktemp -d`, and `vset`, whose every call has to give digits).
 
 - The alert log (`STARCHORUS_ALERTS`, default 1; nothing is read unless the file exists) and its companion file. **Companion:** `library/user/reconnaissance/starchorus/alert-deauth.sh`, a

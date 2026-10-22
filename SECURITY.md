@@ -89,7 +89,16 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   source reaches the command line only through `apcli_ro`. The firmware's other active or outward
   commands are denied the same way, by name and by the prefixes `WIFI_PCAP_`, `OPENVPN_`,
   `WIREGUARD_`, `AUTOSSH_`, `DNSSPOOF_` and `PINEAPPLE_`.
-- `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1`; no transmitting tool is called, and the
+- Which function a line belongs to, and with it which allowlist and which pinned line applies, is read from the file as a whole and not from a scan of its text. The collector, both
+  Overview copies, both `payload.sh`, `starchorus-serve.sh` and everything under `library/` are each read from the first line to the last by one reader, and the function of a line, the function heads and the comment lines
+  come from that reading: a function is a `name()` at the start of a line with nothing open and outside every other function, and a line inside a here-document body, a string, a comment or after a backslash that looks
+  like `apcli_ro() {`, a closing brace or a comment starts, ends and hides nothing (a comment-looking line in a string is code, and a quote in it ends the string). A head that comes while another function is still open
+  (a definition nested in a body, or a function above it whose closing brace is not at the start of a line) is named in the first row of the check, and neither it nor the lines after it belong to any function, so no
+  allowlist reaches them. The body of a here-document with a bare delimiter is expanded when it runs, so a `$( )` or backtick expression in it is read like any command line; with two here-documents on a line, the line is bare
+  if either delimiter is. The body of one with a quoted delimiter is text, and so is a script that it writes out, which is a program text that is built and then run (below). The allowlists are by name: a second function with the name of an
+  allowed one may hold what the first may hold, as before, and the words of the allowed functions are reviewed, except for the five `_pineap` lines.
+- `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1` (the default of the switch is 0, and the guard stands on the line right after the head of `build_from_iwscan`; both are read from the code of a line, not from a comment, a string or a copy of
+  the head in a here-document); no transmitting tool is called, and the
   check denies the Bluetooth verbs that transmit by name (`hcitool` with `scan`, `inq`, `cc`, `lecc`,
   `leadv` or `cmd`, `l2ping`, `btmgmt`, `gatttool`, `bluetoothctl scan on`, `hciconfig` beyond `-a`) as
   a second line of defence. The list of transmitting tools names, wherever they stand in a code line (a log text too), `aireplay-ng`, `mdk3`, `mdk4`,
@@ -120,7 +129,7 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   string (`xargs -I{} {}`: stdin then names the command) or is missing, and for any `alias` definition; nothing of that kind stands in the scope today, so its list of pins is
   empty. A glob in a for-list, in a case pattern or as an argument is no command word and is not read. **What the checks do not read:** a glob that is only handed
   on as an argument (`ln -s /usr/bin/hc?tool x` and then `x ...`, `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`,
-  `. file`) and a name made by a function the script defines. For those the static check says nothing and the guarantee rests on review; the run-time witness reads back what
+  `. file`, the script that a here-document with a quoted delimiter writes out) and a name made by a function the script defines. For those the static check says nothing and the guarantee rests on review; the run-time witness reads back what
   was asked of the controller during the collector's own scan window only, so it cannot vouch for a scan that something else started outside one. The tool names
   themselves are still red outside the allowlist, wherever they stand in the text. The five `_pineap` lines of `apcli_ro` are pinned byte for byte, each once. Read-only reads of `/sys/class/bluetooth` are the one exception to 'by tool', since sysfs holds no tool.
   The list of names is what is known of BlueZ, the programs that the project had not named yet included (`mpris-proxy`, `hex2hcd`, `obexctl`, `bluetooth-player`, `btinfo`,
@@ -135,7 +144,7 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   over a backslash is pinned with it). Every command it starts is a function of its own (a program named after `command` is never one), a builtin, a plain read command from a short list or one of those pinned lines; any other name,
   a path or a `.` is red, and so is a pin whose line has changed or gone. The probe is read whole, by one reader, and what counts as one of its functions, as a function head (which gives a pinned line its function) and as a comment comes from that reading, not from a scan of the text: a line in a here-document body, a string or a comment that looks like `name() { :; }`, a head, a closing brace or a comment defines, starts, ends and hides nothing. A function is a `name()` at the start of a line with nothing open, and one named like a listed program is red wherever it stands. A `trap` runs its action as a command when the signal comes and the check reads no string, so the action is accepted only as `-`, an empty string, a function of
   the probe or `exit N`; a here-document only with a delimiter that is a plain name, bare or wholly in quotes (the shell removes the quotes of the whole word: `<<wait"x"` ends at `waitx`), and, when the delimiter is bare, with a body that
-  has no `$(` and no backtick (such a body is expanded when it runs). It writes nowhere but its private directory, and that is read on the whole file, not on one section: every redirection (`>`, `>>`, `2>`, `9>`) and every
+  has no `$(` and no backtick (such a body is expanded when it runs; a line with two here-documents is bare if either delimiter is). It writes nowhere but its private directory, and that is read on the whole file, not on one section: every redirection (`>`, `>>`, `2>`, `9>`) and every
   destination of `cp`, `mv` and `tee` is `/dev/null` or a file below `$T` whose name holds no expansion (`$T/$1` is whatever the caller hands over); the variables that stand for such a file (`T`, `OUT`, `A`, `B`) are only ever set
   to one; the three lines that write through a variable (the output file of `run_limited`, the `mktemp -d` that makes `$T`, and `vset`, whose file is named by the number of the verification, so every call of `vset` has to give digits)
   are pinned. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
