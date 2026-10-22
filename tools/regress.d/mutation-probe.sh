@@ -10,10 +10,12 @@
 #                 row of the built names (§14.6d command words from an expansion): the row, its detection, its wrapper words, the report of a new line and of a vanished pin;
 #                 its second row (§14.6e command names from a glob, find -exec, xargs or alias): the row, the glob test, each of find's options, the placeholder and the
 #                 missing command of xargs, the alias, the end of a case pattern and the `${ }` state (their controls go red), a quoted wrapper; the pinned lines of the
-#                 transmit row (the row, a vanished pin, a pin that covers every copy) and three of the new alternatives (`--meta`, one image each). Mutations that wait for lines of the collector's Bluetooth code are PENDING (listed, not red) until they exist.
+#                 transmit row (the row, a vanished pin, a pin that covers every copy) and three of the new alternatives (`--meta`, one image each); the three rows of the device probe (tools/device-probe.sh,
+#                 which runs on the device: its scope fill, its 'named tools' with a pinned list of lines, its 'programs'): a sending, scanning, Bluetooth or network tool, an `iw` that sets something, a built or
+#                 globbed command word, a program no list names, an edited, a vanished and a copied pinned line, each part of the rows blinded once, and the family of network words (`alt pnet`). Mutations that wait for lines of the collector's Bluetooth code are PENDING (listed, not red) until they exist.
 # NOT PROVEN:     proves only that the source guard bites, not the behaviour of the running page (that is net-runtime.sh); one
 #                 example per alternative, not every spelling (header of tools/passivity-mutate.sh).
-# Sourced by tools/regress.sh with cwd = repo root; chrome-free (about 29 s plus 14 s for --meta). Only MUT_* names are set.
+# Sourced by tools/regress.sh with cwd = repo root; chrome-free; about ten minutes for the mutations and the alternatives (a checker run of about 2.5 s for each, more on a busy machine) and about as long again for --meta (T1 runs it only when the checker or this probe is staged). Only MUT_* names are set.
 MUT_out="out/$P-pmut.txt"
 sh tools/passivity-mutate.sh > "$MUT_out" 2>&1; MUT_rc=$?
 MUT_sum=$(sed -n 's/^passivity mutation probe: //p' "$MUT_out" | tail -n 1)

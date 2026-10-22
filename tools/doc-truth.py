@@ -5,10 +5,11 @@
 usage: python3 -B tools/doc-truth.py CHECK [--root DIR] [options]      (any cwd; python3 stdlib only; reads files, writes nothing)
   one label line on stdout; exit 0 = the check holds, 1 = it does not (indented detail lines follow), 2 = setup problem.
 CHECKS
-  lists     --list FILE... --exception GLOB=REASON...   every shell file of the repository (git ls-files, or a walk where there is
+  lists     --list FILE... --exception GLOB=REASON... [--keep FILE...]   every shell file of the repository (git ls-files, or a walk where there is
             no git work tree) is in the union of the list files or covered by a reasoned exception; every listed file exists; every
             exception matches a shell file that is NOT listed (otherwise: stale, "please remove"); a floor keeps an empty listing
-            from passing.
+            from passing. --keep names a file that no exception may cover, whatever its glob says (the exception `tools/*` leaves out
+            tools/device-probe.sh, which runs on the device): it has to be in the list, or the check is red, and it has to exist.
   sources   the "source" values tools/gen-testdata.py knows (SOURCES) = the ones starchorus-collect.sh emits (awk -v src="..." and the
             printf "source": "..." outside selftest()), both directions.
   census    --no-fixture NAME=REASON...   every SOURCES value occurs in >= 1 fixture or is listed (and a listed one has none).
@@ -108,14 +109,20 @@ def chk_lists(a, root):
             print("doc-truth: cannot read list %s: %s" % (lf, e), file=sys.stderr)
             return 2
     excs = kv(a.exception, "--exception")
+    keep = list(a.keep or [])
     prob = []
     if len(sh) < MIN_SHELL_FILES:
         prob.append("only %d shell files found (floor %d): the listing is broken, not the lists" % (len(sh), MIN_SHELL_FILES))
     if not listed:
         prob.append("the list files are empty")
     excepted = set()
+    for k in keep:
+        if k not in fset:
+            prob.append("kept file %s is not in the repository" % k)
+        elif k not in listed:
+            prob.append("kept file %s is not in the list (an exception cannot cover it)" % k)
     for glob_, why in excs:
-        hit = [f for f in sh if fnmatch.fnmatchcase(f, glob_)]
+        hit = [f for f in sh if fnmatch.fnmatchcase(f, glob_) and f not in keep]
         if not hit:
             prob.append("exception %r (%s) matches no shell file: please remove" % (glob_, why))
         also = [f for f in hit if f in listed]
@@ -467,6 +474,7 @@ def main():
     ap.add_argument("--root", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     ap.add_argument("--list", action="append")
     ap.add_argument("--exception", action="append")
+    ap.add_argument("--keep", action="append")
     ap.add_argument("--no-fixture", action="append", dest="no_fixture")
     ap.add_argument("--want", type=int, default=None)
     a = ap.parse_args()

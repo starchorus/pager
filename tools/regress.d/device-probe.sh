@@ -7,21 +7,22 @@
 #                 longer refuses on this machine; V-14 (flock, tail -c, /bin/bash with [[:xdigit:]] in a case) that reports "ok" for a tail that
 #                 refuses -c or ignores it, for a bash whose case gives another answer, or that fails on a machine without flock or without bash; a run
 #                 that is not silent, leaves its temp directory behind, or whose summary lacks V-14; a literal shell of V-14 that sources the
-#                 BASH_ENV file of its environment; a V-14 section that names a sending, scanning,
-#                 changing or network tool (the passivity checker's own families plus a list of network and change tools) or redirects anywhere but
-#                 /dev/null and its private directory; a probe that shellcheck dislikes.
+#                 BASH_ENV file of its environment; a V-14 section that redirects anywhere but /dev/null and its private directory; a passivity
+#                 checker that no longer reads the probe (tools/passivity-check.sh lists it in --files, and its three 'device-probe.sh' rows are
+#                 red for a sending, scanning, network or changing command anywhere in the probe, the V-14 code included); a probe that shellcheck dislikes.
 # NEGATIVE PROBE: planted copies of the probe, each of which must make one named part red: the V-14 line out of the header contract (header:14), vname 14
 #                 out (vname:14), the question of V-14 out (question:14), NV=13 (bound), the call of the last section out (call:sect_alertenv, and in a
-#                 run "V-14 not observed"), of a middle one (sect_oui) and of the first (sect_jq), the --list handler out (list), a `curl`, a `hcitool ... scan` and a write to /root/ planted into the V-14 code (scan), an
+#                 run "V-14 not observed"), of a middle one (sect_oui) and of the first (sect_jq), the --list handler out (list), a write to /root/ planted into the V-14 code (redirect), a `curl`, a
+#                 `hcitool ... scan` and an `iw ... set` planted into the V-14 code of a copy that the passivity checker then reads (its probe rows red), an
 #                 unquoted variable (shellcheck), a tail check that always says ok (the run with a tail that ignores -c no longer finds WRONG-OUTPUT), and
 #                 the two literal shells without the empty BASH_ENV and ENV in front of them (a run with a BASH_ENV file in its environment then sources it).
 #                 The stand-in runs are negative controls of V-14 itself: a tail that refuses -c, a tail that ignores it, a bash that gives the wrong
 #                 answer, a bash that is not executable, no bash, no flock.
 # NOT PROVEN:     anything on the device: BusyBox's ash, its flock and tail, whether /bin/bash exists there (the stand-ins are what such tools are assumed
-#                 to print), and how the firmware starts an alert payload (docs/device-notes.md 5c). The passivity checker does NOT read this probe:
-#                 tools/passivity-check.sh covers the collector, the Overview copies, both payload.sh and library/ (`--files`), and tools/* is exempt
-#                 as a whole (tools/regress.d/doc-truth.sh says so), although this one file runs on the device. The only static guard of the probe's text
-#                 is the V-14 scan below (the V-14 section only, not the other nine); the checker's own row in static.sh stays green on its own scope.
+#                 to print), and how the firmware starts an alert payload (docs/device-notes.md 5c). The passivity checker reads this probe, whole, with three rows
+#                 of its own and a pinned list of the lines that deliberately name a tool or start a program (tools/passivity-check.sh, row 7d; `--files`
+#                 prints it after the shell scope); what an awk or sed program in it does with its text is read by nobody (review). The redirection scan below
+#                 (the V-14 section only, not the other nine sections) is the one static guard that stays in this file.
 # Sourced by tools/regress.sh (T2) and tools/quick.sh (T1) with cwd = repo root; Chrome-free, no network, no device. About three seconds: nine
 # runs of the probe in forced mode (STARCHORUS_PROBE_FORCE=1, an empty root, GAP 1, no self-test), 0.3 s each. Sets only DPR_* names. It needs bash
 # (the stand-in /bin/bash is a link to the machine's), ls and readlink on the machine: harness.sh PF_TOOLS_QUICK names them, so the preflight stops first.
@@ -33,7 +34,6 @@
 DPR_P=tools/device-probe.sh
 DPR_SH=$(command -v sh)
 DPR_MINLINES=50          # code lines of the V-14 section the scan reads; measure: DPR_region tools/device-probe.sh | grep -c .   (the row's own count; measured: 63)
-DPR_NET='curl|wget|nc|ncat|netcat|socat|ping6?|ssh|scp|sftp|telnet|ftp|tftp|uci|opkg|ifconfig|ip|iw|iwinfo|sqlite3|tcpdump|wifi|service|reload_config|kill|pkill|reboot|poweroff|halt|mount|umount|rm|mv|cp|dd|tee|chmod|chown|ln|mkdir|touch|nice|setsid|env|eval|xargs'
 
 # the leading comment block of a probe text = its header contract; the code = every other line, a trailing comment cut off
 DPR_head() { awk '/^[^#]/ && NF { exit } { print }' "$1"; }
@@ -41,7 +41,6 @@ DPR_code() { grep -v '^[[:space:]]*#' "$1" | sed 's/[[:space:]][[:space:]]*#[[:s
 # the code of section 10 (V-14) alone
 DPR_region() { awk '/^# =+ 10\. /{ f = 1; next } /^# =+ summary/{ f = 0 } f' "$1" | grep -v '^[[:space:]]*#' | sed 's/[[:space:]][[:space:]]*#[[:space:]].*$//'; }
 DPR_slug() { sed -n "s/^ *$2) echo \([a-z0-9-][a-z0-9-]*\) ;;\$/\1/p" "$1" | head -n 1; }   # DPR_slug FILE N -> the name vname gives V-N
-DPR_rx() { sh tools/passivity-check.sh --regexes | awk -F'\t' -v n="$1" '$1 == n { print $2; exit }'; }   # one regex family of the passivity checker
 
 DPR_check() {   # DPR_check FILE -> DPR_bad = the parts that fail ("" = all hold)
   DPR_bad=""; DPR_h=$(DPR_head "$1"); DPR_c=$(DPR_code "$1")
@@ -88,12 +87,9 @@ DPR_check() {   # DPR_check FILE -> DPR_bad = the parts that fail ("" = all hold
   fi
 }
 
-DPR_scan() {   # DPR_scan FILE -> DPR_sbad = deny | redirect | empty; DPR_sn = code lines of section 10 read
+DPR_scan() {   # DPR_scan FILE -> DPR_sbad = redirect | empty; DPR_sn = code lines of section 10 read. (The tools it names are read by the passivity checker, row 5b below.)
   DPR_sbad=""; DPR_rg=$(DPR_region "$1"); DPR_sn=$(printf '%s\n' "$DPR_rg" | grep -c .)
-  DPR_tx=$(DPR_rx TX_WORDS); DPR_bt=$(DPR_rx BT_WORDS); DPR_s6=$(DPR_rx SEC6_RE); DPR_iwv=$(DPR_rx IW_VERBS)
-  { [ -n "$DPR_tx" ] && [ -n "$DPR_bt" ] && [ -n "$DPR_s6" ] && [ -n "$DPR_iwv" ] && ge "$DPR_sn" "$DPR_MINLINES"; } || DPR_sbad="$DPR_sbad empty(lines=$DPR_sn,families:${DPR_tx:+tx }${DPR_bt:+bt }${DPR_s6:+sec6 }${DPR_iwv:+iw})"
-  DPR_dh=$(printf '%s\n' "$DPR_rg" | grep -E "(^|[^A-Za-z0-9_-])($DPR_tx|$DPR_bt|$DPR_NET)([^A-Za-z0-9_]|\$)|($DPR_s6)|(^|[^A-Za-z_])iw[[:space:]].*[[:space:]]($DPR_iwv)([^A-Za-z_]|\$)")
-  [ -z "$DPR_dh" ] || DPR_sbad="$DPR_sbad deny($(printf '%s\n' "$DPR_dh" | head -n 1 | cut -c1-50))"
+  ge "$DPR_sn" "$DPR_MINLINES" || DPR_sbad="$DPR_sbad empty(lines=$DPR_sn)"
   # every redirection of the section goes to /dev/null or to a file of the private directory ($T/ae.NAME)
   DPR_rd=$(printf '%s\n' "$DPR_rg" | grep -oE '[0-9]*>>?[[:space:]]*[^[:space:];|&)]+' | sed -E 's/^[0-9]*>>?[[:space:]]*//' | grep -vE '^(/dev/null|"\$T/ae\.[a-z]+")$')
   [ -z "$DPR_rd" ] || DPR_sbad="$DPR_sbad redirect($(printf '%s\n' "$DPR_rd" | head -n 1 | cut -c1-40))"
@@ -200,10 +196,42 @@ DPR_need r5 r5-bash-noexec '^bash\.path: /bin/bash exists but is not runnable'
 DPR_need r5 r5-summary '^V-14 .* \(WRONG-OUTPUT\), -c 1 WRONG-OUTPUT, -c 262144 ok; /bin/bash: exists but is not runnable; case with \[\[:xdigit:\]\] under bash: not-run, under sh: ok$'
 rowif "device probe V-14 negative controls: tail refusing -c = ERROR, tail ignoring -c = WRONG-OUTPUT (while -c 262144 still passes), a wrong bash = WRONG-OUTPUT, an unrunnable bash named (bad:${DPR_abad:- none})" [ -z "$DPR_abad" ]
 
-# ---- 5 · V-14 sends nothing: the section's code against the checker's own families (read with --regexes) and a list of network and change tools; redirections
+# ---- 5 · V-14 writes nowhere but its private directory: every redirection of the section goes to /dev/null or to a file of the private directory (the tools it names are read by the passivity checker, 5b)
 DPR_scan "$DPR_PROBE"
 DPR_s1=$DPR_sbad; DPR_s1n=$DPR_sn
-rowif "device probe: the V-14 section ($DPR_s1n code lines) names no sending, scanning, Bluetooth, network or change tool and redirects only to /dev/null or its private directory (bad:${DPR_s1:- none})" [ -z "$DPR_s1" ]
+rowif "device probe: the V-14 section ($DPR_s1n code lines) redirects only to /dev/null or its private directory (bad:${DPR_s1:- none})" [ -z "$DPR_s1" ]
+
+# ---- 5b · the passivity checker reads the probe (tools/passivity-check.sh, row 7d): --files lists it, its three 'device-probe.sh' rows and every other row are green on it, and a curl, a `hcitool ... scan` and an `iw ... set`
+#      planted into the V-14 code turn the rows 'named tools' and 'programs' red, each planted line on its own as evidence. The checker reads the files under its own location, so it runs in a root of its own: a copy of the
+#      checker, its lists and the other files it reads, with the probe (as it is, or planted) copied in.
+DPR_PC="$DPR_T/pc"; mkdir -p "$DPR_PC/tools"
+for DPR_f in starchorus.html starchorus-collect.sh starchorus-display.sh payload.sh starchorus-serve.sh; do cp "$R/$DPR_f" "$DPR_PC/$DPR_f"; done
+cp -R "$R/library" "$DPR_PC/library"; cp "$R"/tools/passivity-check.sh "$R"/tools/denylist-check.sh "$R"/tools/denylist*.txt "$DPR_PC/tools/"
+DPR_pcrun() {   # DPR_pcrun NAME PROBE -> $DPR_T/NAME.pc = the checker's output on a root whose probe is PROBE; DPR_pcrc = its exit status
+  cp "$2" "$DPR_PC/tools/device-probe.sh"
+  (cd "$DPR_PC" && sh tools/passivity-check.sh > "$DPR_T/$1.pc" 2>&1 < /dev/null); DPR_pcrc=$?
+}
+DPR_pcrows() {   # DPR_pcrows NAME -> the rows of the output that begin with 'device-probe.sh' and end in FAIL, one per line
+  grep -E '^device-probe\.sh .* FAIL$' "$DPR_T/$1.pc" | cut -d: -f1 | sort -u
+}
+DPR_pbad5=""
+(cd "$R" && sh tools/passivity-check.sh --files) > "$DPR_T/pc-files.txt" 2>&1
+grep -qxF "$DPR_P" "$DPR_T/pc-files.txt" || DPR_pbad5="$DPR_pbad5 files-lacks-probe"
+DPR_pcrun pc0 "$DPR_PROBE"
+[ "$DPR_pcrc" = 0 ] || DPR_pbad5="$DPR_pbad5 unplanted-exit-$DPR_pcrc"
+[ "$(grep -cE '^device-probe\.sh .* PASS$' "$DPR_T/pc0.pc")" = 3 ] || DPR_pbad5="$DPR_pbad5 unplanted-rows"
+DPR_pbad=""
+DPR_plant p-pc '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    curl http://192.0.2.1/ > /dev/null"; print "    hcitool -i hci0 scan > /dev/null"; print "    iw dev wlan0 set type monitor" }'
+case $DPR_pbad in *noplant*) DPR_pbad5="$DPR_pbad5 noplant" ;; esac
+DPR_pcrun pc1 "$DPR_T/p-pc.sh"
+[ "$DPR_pcrc" = 1 ] || DPR_pbad5="$DPR_pbad5 planted-exit-$DPR_pcrc"
+DPR_pcr=$(DPR_pcrows pc1 | tr '\n' ',' | sed 's/,$//')
+[ "$DPR_pcr" = "device-probe.sh named tools,device-probe.sh programs" ] || DPR_pbad5="$DPR_pbad5 planted-rows($DPR_pcr)"
+for DPR_f in 'curl http://192.0.2.1/' 'hcitool -i hci0 scan' 'iw dev wlan0 set type monitor'; do
+  grep -qF "$DPR_f" "$DPR_T/pc1.pc" || DPR_pbad5="$DPR_pbad5 no-evidence($DPR_f)"
+done
+[ "$(grep -E ' FAIL$' "$DPR_T/pc1.pc" | grep -vc '^device-probe\.sh ')" = 0 ] || DPR_pbad5="$DPR_pbad5 other-rows-red"
+rowif "device probe: the passivity checker reads the probe: --files lists it, its three rows pass on it, and a curl, a hcitool scan and an iw set planted into the V-14 code turn 'named tools' and 'programs' red, each line as evidence, no other row (bad:${DPR_pbad5:- none})" [ -z "$DPR_pbad5" ]
 
 # ---- 6 · shellcheck on the probe
 DPR_sc=0; shellcheck "$DPR_PROBE" > "$DPR_T/sc.out" 2>&1 && DPR_sc=1
@@ -235,10 +263,6 @@ DPR_plant p-call-first '/^    sect_jq$/ { next } { print }'
 DPR_check "$DPR_T/p-call-first.sh"; DPR_aim p-call-first "$DPR_bad" call:sect_jq
 DPR_plant p-nolist '/^if \[ "\$\{1:-\}" = --list \]; then$/ { skip = 1 } skip { if ($0 == "fi") skip = 0; next } { print }'
 DPR_check "$DPR_T/p-nolist.sh"; DPR_aim p-nolist "$DPR_bad" list
-DPR_plant p-curl '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    curl http://127.0.0.1/ > /dev/null" }'
-DPR_scan "$DPR_T/p-curl.sh"; DPR_aim p-curl "$DPR_sbad" deny
-DPR_plant p-scan '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    hcitool -i hci0 scan > /dev/null" }'
-DPR_scan "$DPR_T/p-scan.sh"; DPR_aim p-scan "$DPR_sbad" deny
 DPR_plant p-write '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    printf x > /root/leak" }'
 DPR_scan "$DPR_T/p-write.sh"; DPR_aim p-write "$DPR_sbad" redirect
 DPR_plant p-sc '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    echo $T" }'
@@ -254,7 +278,7 @@ DPR_plant p-env '{ sub(/BASH_ENV=[^ ]* ENV=[^ ]* /, "") } { print }'
 DPR_run pe "$DPR_T/s-ul" "$DPR_T/r-good" "$DPR_T/p-env.sh" "$DPR_T/benv.sh"
 DPR_mk=""; [ ! -e "$DPR_T/benv.mark" ] || DPR_mk=sourced; DPR_aim p-env "$DPR_mk" sourced
 DPR_pk=$((DPR_pn - DPR_pf))
-rowif "device probe: planted copies go red ($DPR_pk/$DPR_pn): V-14 out of the header contract, of vname, of the questions; NV 13; the call of the last, of a middle and of the first section out (the last also in a run); the --list handler out; curl, hcitool scan and a write to /root in the V-14 code; an unquoted variable; a tail check that always passes; the shells without the empty BASH_ENV and ENV in front of them (they source a BASH_ENV file) (bad:${DPR_pbad:- none})" [ -z "$DPR_pbad" ]
+rowif "device probe: planted copies go red ($DPR_pk/$DPR_pn): V-14 out of the header contract, of vname, of the questions; NV 13; the call of the last, of a middle and of the first section out (the last also in a run); the --list handler out; a write to /root in the V-14 code; an unquoted variable; a tail check that always passes; the shells without the empty BASH_ENV and ENV in front of them (they source a BASH_ENV file) (bad:${DPR_pbad:- none})" [ -z "$DPR_pbad" ]
 
 # ---- 8 · the two literal shells source no file of the device: the probe run with a BASH_ENV file in its environment leaves the file unread (the control is the copy of row 7 that does read it)
 rm -f "$DPR_T/benv.mark"

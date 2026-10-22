@@ -8,7 +8,7 @@
 #   --only NAME  one mutation (used by --meta and for debugging); --only alts = the alternative probe alone
 #   --meta       the probe of the probe: blinds one rule family, or ONE alternative of one, in an image of the checker and
 #                demands that THIS script then reports GREEN (BLIND!) for the matching mutation / alternative.
-# Alternative probe: the regex families of the checker (`--regexes`: NETSURF_RE, NETX, TX_WORDS, IW_VERBS, SEC6_RE, BT_WORDS, BT_WRAP_RE)
+# Alternative probe: the regex families of the checker (`--regexes`: NETSURF_RE, NETX, TX_WORDS, IW_VERBS, SEC6_RE, BT_WORDS, BT_WRAP_RE, PNET_WORDS)
 # are split at their top-level `|`, DERIVED from the checker, not typed here. Every alternative needs exactly one planted sample in the
 # table `alt` below (sample matches its own alternative and no other; count of alternatives pinned as MIN_ALTS_*): all
 # samples of one file go in one copy, one checker run, and each must show up as its own line in the evidence of the expected
@@ -35,6 +35,12 @@
 #                 `xargs` whose command is its replacement string (`{}` and one of its own) or is missing, `dyn-alias` an alias; the `dyn-ok-` controls (a glob in a for-list, a case pattern
 #                 or as an argument, the test `[ ]`, a `${ }` with a blank or a parenthesis, `find` without `-exec`, `xargs` with its own command, an `alias` that only looks) and the two
 #                 `dyn-limit-` ones that were added (a glob only handed to `ln`, a built string piped into `sh`) must stay green: the limits are written down as tests.
+# DEVICE PROBE:   tools/device-probe.sh runs on the device and is in the scope of the checker with three rows of its own ('device-probe.sh scope fill', 'named tools', 'programs'; row 7d there). The `probe-`
+#                 mutations plant into a copy of the probe what the rows read: a sending, scanning, Bluetooth or network tool (also in a function that has the name of an allowlisted function of the collector), an
+#                 `iw` that sets something, a built or globbed command word, a program no list names, a function with the name of a listed program, and the pinned lines (one changed by one character, one gone, one
+#                 copied into another function); `probe-pin-in-collector` shows that a pin of the probe does not cover the same line in the collector, and `probe-limit-collector-curl` that the collector is
+#                 not read for the network words (they belong to the probe only). The `probe-ok-` controls (read commands, calls of its own functions, a comment, a case pattern, builtins) stay green. Every part of
+#                 the probe rows is blinded once in the meta probe, and the family PNET_WORDS has a sample per alternative (`alt pnet`).
 # TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
 # PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
 #                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
@@ -61,11 +67,11 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=128    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (152 lines: 128 and 24 controls)
+MIN_MUT=159    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (189 lines: 159 and 30 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
-# (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15)
-MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15
-MIN_ROWS=21   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias)
+# (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
+MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
+MIN_ROWS=24   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias, plus the three rows of the device probe)
 
 # ---- 0 · the probe may only ever RUN the checker (and itself for --meta) on a copy: grep our own executable lines
 self_guard() {
@@ -135,7 +141,7 @@ apply() {
 }
 
 # ---- the rows of passivity-check.sh, by name prefix. Every one must be red at least once (coverage line below).
-ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|sqlite3 read-only|starchorus-serve.sh: GET|§14.7 denylist'
+ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|sqlite3 read-only|starchorus-serve.sh: GET|device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs|§14.7 denylist'
 
 sel=""; meta=0
 while [ $# -gt 0 ]; do
@@ -272,6 +278,33 @@ if [ "$meta" = 1 ]; then
   metaprobe alt-tx-nmap tools/passivity-check.sh '|nmap|iwconfig' '|iwconfig' alts 'alt tx nmap: GREEN (BLIND!)'
   metaprobe alt-tx-hostapd-cli tools/passivity-check.sh '|hostapd_cli' '' alts 'alt tx hostapd_cli: GREEN (BLIND!)'
   metaprobe alt-bt-scotest tools/passivity-check.sh '|scotest|hcieventmask' '|hcieventmask' alts 'alt bt scotest: GREEN (BLIND!)'
+  # (i) the rows of tools/device-probe.sh (row 7d), one part at a time. Each row, the reports of a line that is not pinned and of a pin without a line, the fill, the list of unlisted commands and the
+  #     shadowing of a listed program stop reading what they read; each of the nine kinds of line that make up the hits of 'named tools' is left out once (a sending tool, a Bluetooth word, a network word,
+  #     a device call, an `iw scan`, the sqlite3 word, a built command word, a glob, a program of PROBE_PINNED); the recording of the command names, the end of a case pattern and the function definition
+  #     (`name()` is no command) are blinded and the controls go red. The mutation that plants what the part sees must say GREEN (BLIND!) (or, for a control, WRONG-ROW). A family whose
+  #     hits include pinned lines that no other family hits (Bluetooth, network, sqlite3, built names, programs) turns the unmutated row red when it is blinded (the pins lose their lines), so it
+  #     is shown by the control `probe-ok-read` going red (WRONG-ROW), as the row of the built names is.
+  metaprobe probe-named-row-blind tools/passivity-check.sh '[ "$pn_ok" = 1 ]' 'true' probe-iw-set 'mutation probe-iw-set: GREEN (BLIND!)'
+  metaprobe probe-new-line-blind tools/passivity-check.sh '[ ! -s "$tmp/pnew" ] && [ ! -s "$tmp/pgone" ] && pn_ok=1' '[ ! -s "$tmp/pgone" ] && pn_ok=1' probe-pin-twice 'mutation probe-pin-twice: GREEN (BLIND!)'
+  metaprobe probe-gone-pin-blind tools/passivity-check.sh '[ ! -s "$tmp/pnew" ] && [ ! -s "$tmp/pgone" ] && pn_ok=1' '[ ! -s "$tmp/pnew" ] && pn_ok=1' probe-pin-gone 'mutation probe-pin-gone: GREEN (BLIND!)'
+  metaprobe probe-fill-blind tools/passivity-check.sh '[ "$pfok" = 1 ]' 'true' probe-head-oneliner 'mutation probe-head-oneliner: GREEN (BLIND!)'
+  metaprobe probe-unlisted-blind tools/passivity-check.sh 'pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ]' 'pg_ok=0; [ ! -s "$tmp/pshadow" ]' probe-unlisted 'mutation probe-unlisted: GREEN (BLIND!)'
+  metaprobe probe-shadow-blind tools/passivity-check.sh 'pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ]' 'pg_ok=0; [ ! -s "$tmp/punl" ]' probe-shadow 'mutation probe-shadow: GREEN (BLIND!)'
+  metaprobe probe-hits-tx-blind tools/passivity-check.sh ' p_tx ' ' ' probe-aireplay 'mutation probe-aireplay: GREEN (BLIND!)'
+  metaprobe probe-hits-bt-blind tools/passivity-check.sh ' p_bt ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-net-blind tools/passivity-check.sh ' p_net ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-sec6-blind tools/passivity-check.sh 'in p_sec6 ' 'in ' probe-pineap 'mutation probe-pineap: GREEN (BLIND!)'
+  metaprobe probe-hits-scan-blind tools/passivity-check.sh ' p_scan ' ' ' probe-iw-scan-path 'mutation probe-iw-scan-path: GREEN (BLIND!)'
+  metaprobe probe-hits-sqlite-blind tools/passivity-check.sh ' p_sq ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-built-blind tools/passivity-check.sh ' pdyn_bad ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-glob-blind tools/passivity-check.sh ' pdyn_bad2 ' ' ' probe-glob 'mutation probe-glob: GREEN (BLIND!)'
+  metaprobe probe-hits-program-blind tools/passivity-check.sh ' pprog; do' '; do' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-record-blind tools/passivity-check.sh 'function rec(nm) { if (CMDS != "" && !dtexp && !dtglob) REC[++nrec] = nm }' 'function rec(nm) { nrec = nrec }' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-case-pattern-blind tools/passivity-check.sh 'if (dsp == 0) { nrec = rmark;' 'if (dsp == 0) {' probe-ok-case-pattern 'mutation probe-ok-case-pattern: WRONG-ROW'
+  metaprobe probe-funcdef-blind tools/passivity-check.sh 'if (fdef && nrec == n0 + 1) nrec--;' '' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe alt-pnet-curl tools/passivity-check.sh "PNET_WORDS='curl|" "PNET_WORDS='" alts 'alt pnet curl: GREEN (BLIND!)'
+  metaprobe alt-pnet-socat tools/passivity-check.sh '|socat|ping6?' '|ping6?' alts 'alt pnet socat: GREEN (BLIND!)'
+  metaprobe alt-pnet-halt tools/passivity-check.sh '|poweroff|halt' '|poweroff' alts 'alt pnet halt: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -483,10 +516,51 @@ mut sqlite-ok-two    starchorus-collect.sh     fnappend 'sqlite3 -readonly "$db"
 mut bt-comment       starchorus-collect.sh     fnappend '# hcitool cc 02:00:00:00:00:01' ''                             ''
 mut bt-sysfs-ok      starchorus-collect.sh     fnappend 'ls /sys/class/bluetooth; [ -d /sys/class/bluetooth/hci0 ]' ''  ''
 
+# ---- tools/device-probe.sh (the rows 'device-probe.sh ...', 7d of the checker): a sending, scanning, Bluetooth or network tool in the probe, an `iw` that sets something, a command word that is built or globbed, a program that
+# no list names, and the pinned lines (a line changed by one character, a line gone, a line copied into another function). The names of the two allowlisted function families of the collector (BT_FUNCS, SEC6_FUNCS) have
+# no standing in the probe. The texts that would trip the guard at the top of this script are written with an empty pair of quotes.
+mut probe-iw-set         tools/device-probe.sh   fnappend 'iw dev wlan0 set type monitor' ''                              'device-probe.sh named tools'
+mut probe-iw-scan-path   tools/device-probe.sh   fnappend '/usr/sbin/iw dev wlan0 scan' ''                              'device-probe.sh named tools|device-probe.sh programs'
+mut probe-hcitool-lescan tools/device-probe.sh   fnappend 'hcitool lescan --passive' ''                                'device-probe.sh named tools|device-probe.sh programs'
+mut probe-hcitool-scan   tools/device-probe.sh   fnappend 'hcitool scan' ''                                            'device-probe.sh named tools|device-probe.sh programs'
+mut probe-aireplay       tools/device-probe.sh   fnappend 'aireplay-ng -0 1 wlan0mon' ''                               'device-probe.sh named tools|device-probe.sh programs'
+mut probe-pineap         tools/device-probe.sh   fnappend '_pineap RECON ALL' ''                                       'device-probe.sh named tools|device-probe.sh programs'
+mut probe-nc-call        tools/device-probe.sh   fnappend 'nc 192.0.2.1 80 < /dev/null' ''                             'device-probe.sh named tools|device-probe.sh programs'
+mut probe-curl           tools/device-probe.sh   fnappend 'curl http://192.0.2.1/' ''                                  'device-probe.sh named tools|device-probe.sh programs'
+mut probe-uci-set        tools/device-probe.sh   fnappend 'uci set wireless.radio0.disabled=1' ''                      'device-probe.sh named tools|device-probe.sh programs'
+mut probe-sh-c-curl      tools/device-probe.sh   fnappend 'sh -c "curl http://192.0.2.1/"' ''                          'device-probe.sh named tools'
+mut probe-run-limited    tools/device-probe.sh   fnappend 'run_limited 5 "$T/x" uci commit' ''                         'device-probe.sh named tools'
+mut probe-sqlite-text    tools/device-probe.sh   fnappend 'echo "sqlite3 is here"' ''                                  'device-probe.sh named tools'
+mut probe-sqlite-write   tools/device-probe.sh   subst    'sqlite3 -readonly -noheader "$1" "$2"' 'sqlite3 -noheader "$1" "$2"' 'device-probe.sh named tools'
+mut probe-cp-target      tools/device-probe.sh   subst    'cp "$DB-wal" "$B-wal"' 'cp "$DB-wal" "$DB-wal.bak"'          'device-probe.sh named tools'
+mut probe-rm             tools/device-probe.sh   fnappend 'rm -rf /root/loot/zz_x' ''                                  'device-probe.sh named tools'
+mut probe-kill           tools/device-probe.sh   fnappend 'kill -9 1' ''                                               'device-probe.sh named tools'
+mut probe-expansion      tools/device-probe.sh   fnappend '"$zz_a$zz_b" -i hci0 lescan' ''                             'device-probe.sh named tools'
+mut probe-glob           tools/device-probe.sh   fnappend '/usr/bin/hc?tool -i hci0 lescan' ''                         'device-probe.sh named tools'
+mut probe-unlisted       tools/device-probe.sh   fnappend 'mv /tmp/zz_a /tmp/zz_b' ''                                  'device-probe.sh programs'
+mut probe-dot-"sour"ce   tools/device-probe.sh   fnappend '. /tmp/zz_x' ''                                             'device-probe.sh programs'
+mut probe-"ev"al         tools/device-probe.sh   fnappend 'ev''al "$zz_x"' ''                                          'device-probe.sh programs'
+mut probe-path-command   tools/device-probe.sh   fnappend '/bin/cat /etc/hostname' ''                                   'device-probe.sh programs'
+mut probe-bt-func-name   tools/device-probe.sh   fndef    'bt_begin' 'hcitool -i hci0 lescan'                           'device-probe.sh named tools|device-probe.sh programs'
+mut probe-apcli-func-name tools/device-probe.sh  fndef    'apcli_ro' '_pineap RECON ALL'                                'device-probe.sh named tools|device-probe.sh programs'
+mut probe-shadow         tools/device-probe.sh   fndef    'cat' ':'                                                     'device-probe.sh programs'
+mut probe-pin-edited     tools/device-probe.sh   subst    'wget nc timeout setsid' 'wget nc timeou setsid'              'device-probe.sh named tools'
+mut probe-pin-gone       tools/device-probe.sh   subst    "BTP_RE='^(bt|hci|l2|rf|sdp|gatt|obex|bluetooth|bluez|mesh|rctest|avinfo|isotest|ciptool|bccmd|bdaddr|hid2hci|mpris|hex2hcd|scotest)'" "BTP_RE='^(bt|hci)'" 'device-probe.sh named tools'
+mut probe-pin-twice      tools/device-probe.sh   fndef    'sect_tools' 'for _t in sqlite3 tcpdump iw iwinfo jq curl wget nc timeout setsid start-stop-daemon uhttpd python3 airodump-ng; do' 'device-probe.sh named tools'
+mut probe-no-main        tools/device-probe.sh   subst    '^main() {' 'zz_main() {'                                     'device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs'
+mut probe-head-oneliner  tools/device-probe.sh   subst    '^cleanup() {' 'cleanup() { :'                                'device-probe.sh scope fill|device-probe.sh named tools'
+mut probe-pin-in-collector starchorus-collect.sh fnappend 'for _t in hcitool btmon hciconfig bluetoothctl btmgmt bluetoothd gatttool l2ping rfkill; do' '' 'transmit tools invoked|§14.6b Bluetooth words'
+mut probe-ok-read        tools/device-probe.sh   fnappend 'cat /etc/openwrt_release | head -n 1 | wc -l; grep -c x /etc/hostname; readlink -f /sys/class/net; ls -1A /root' '' ''
+mut probe-ok-functions   tools/device-probe.sh   fnappend 'kv zz_k "$(isnum 5 && echo y)"; say zz; have iw || have jq' '' ''
+mut probe-ok-comment     tools/device-probe.sh   fnappend '# curl http://192.0.2.1/ ; hcitool scan ; iw dev wlan0 set channel 6' '' ''
+mut probe-ok-case-pattern tools/device-probe.sh  fnappend 'case "$zz_x" in a|b) : ;; zz_c) : ;; *) : ;; esac' '' ''
+mut probe-ok-builtins    tools/device-probe.sh   fnappend 'zz_x=$(date +%s); [ -n "$zz_x" ] || return 1; set -- a b; shift; read -r zz_y < /dev/null; trap - INT; printf "%s\n" "$zz_x" > /dev/null' '' ''
+mut probe-limit-collector-curl starchorus-collect.sh fnappend 'curl http://192.0.2.1/' ''                              ''
+
 # ============================== alternatives: one planted sample per regex alternative ==============================
 # alt FAMILY KEY SAMPLE ROW : KEY is a literal piece of exactly ONE alternative of the family (as `sh tools/passivity-check.sh
 # --regexes` prints it), SAMPLE the violation text (planted on its own line; it must match that alternative and no other),
-# ROW the row prefix under which the checker has to list that line. Families: netsurf, netx (page); tx, iw, sec6 (collector).
+# ROW the row prefix under which the checker has to list that line. Families: netsurf, netx (page); tx, iw, sec6, bt, btwrap (collector); pnet (tools/device-probe.sh).
 altfile="$tmp/alttab"; : > "$altfile"
 alt() { printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$altfile"; }
 alt netsurf 'method:'           'var zz = {method:"x"};'                          'HTML network surface'
@@ -633,6 +707,39 @@ alt sec6 'SYSTEM_DNS'           'SYSTEM_DNS=x'                                  
 alt sec6 'GPS_CONFIGURE'        'GPS_CONFIGURE=1'                                 '§14.6 device calls'
 alt sec6 'FIND_CLIENT_IP'       'FIND_CLIENT_IP=x'                                '§14.6 device calls'
 
+# pnet: the network, capture, package and service tools that only tools/device-probe.sh is read for, planted in functions of a copy of the probe (row 'device-probe.sh named tools'; the programs row lists a name that no list knows on the same line)
+alt pnet 'curl'                 'curl http://192.0.2.1/'                          'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'wget'                 'wget http://192.0.2.1/'                          'device-probe.sh named tools|device-probe.sh programs'
+alt pnet '=nc'                  'nc 192.0.2.1 80'                                 'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'ncat'                 'ncat 192.0.2.1 80'                               'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'netcat'               'netcat 192.0.2.1 80'                             'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'socat'                'socat - TCP:192.0.2.1:80'                        'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'ping'                 'ping -c 1 192.0.2.1'                             'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'traceroute'           'traceroute 192.0.2.1'                            'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'ssh'                  'ssh root@192.0.2.1'                              'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'scp'                  'scp zz root@192.0.2.1:/tmp/'                     'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'sftp'                 'sftp root@192.0.2.1'                             'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'telnet'               'telnet 192.0.2.1'                                'device-probe.sh named tools|device-probe.sh programs'
+alt pnet '=ftp'                 'ftp 192.0.2.1'                                   'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'tftp'                 'tftp 192.0.2.1'                                  'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'uci'                  'uci show wireless'                               'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'opkg'                 'opkg list'                                       'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'ifconfig'             'ifconfig wlan0'                                  'device-probe.sh named tools|device-probe.sh programs'
+alt pnet '=ip'                  'ip link show'                                    'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'iptables'             'iptables -L'                                     'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'tcpdump'              'tcpdump -i wlan1mon'                             'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'airodump-ng'          'airodump-ng wlan1mon'                            'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'dumpcap'              'dumpcap -i wlan1mon'                             'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'tshark'               'tshark -i wlan1mon'                              'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'service'              'service uhttpd restart'                          'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'reload_config'        'reload_config'                                   'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'wifi'                 'wifi reload'                                     'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'pkill'                'pkill uhttpd'                                    'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'killall'              'killall uhttpd'                                  'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'reboot'               'reboot'                                          'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'poweroff'             'poweroff'                                        'device-probe.sh named tools|device-probe.sh programs'
+alt pnet 'halt'                 'halt'                                            'device-probe.sh named tools|device-probe.sh programs'
+
 TAB=$(printf '\t')
 # the top-level alternatives of the ERE in $1, one per line (depth 0 of `(...)`, `[...]` classes and `\x` escapes respected)
 split_alts() {
@@ -653,7 +760,7 @@ split_alts() {
 }
 # key_in ALT KEY: KEY is a literal piece of ALT, or, written with a leading `=`, all of it (`=hostapd` is the alternative hostapd, not the one of hostapd_cli)
 key_in() { case $2 in =*) [ "$1" = "${2#=}" ] ;; *) case $1 in *"$2"*) return 0 ;; esac; return 1 ;; esac; }
-min_alts() { case $1 in netsurf) echo "$MIN_ALTS_NETSURF";; netx) echo "$MIN_ALTS_NETX";; tx) echo "$MIN_ALTS_TX";; iw) echo "$MIN_ALTS_IW";; bt) echo "$MIN_ALTS_BT";; btwrap) echo "$MIN_ALTS_BTWRAP";; *) echo "$MIN_ALTS_SEC6";; esac; }
+min_alts() { case $1 in netsurf) echo "$MIN_ALTS_NETSURF";; netx) echo "$MIN_ALTS_NETX";; tx) echo "$MIN_ALTS_TX";; iw) echo "$MIN_ALTS_IW";; bt) echo "$MIN_ALTS_BT";; btwrap) echo "$MIN_ALTS_BTWRAP";; pnet) echo "$MIN_ALTS_PNET";; *) echo "$MIN_ALTS_SEC6";; esac; }
 na=0; naok=0; nablind=0; nawrong=0; nauncov=0; nasetup=0; nafam=0; naderived=0
 
 # run_group FILE KIND FAMILIES [FUNCTION]: every entry of those families planted in ONE copy (kind append = a line, fn = a function of its own
@@ -700,13 +807,13 @@ alt_probe() {
   if ! run_check "$base" --regexes > "$tmp/rx" 2> "$tmp/rx.err" || [ ! -s "$tmp/rx" ]; then
     echo "alt probe: the checker prints no regex families (--regexes)" >&2; nasetup=$((nasetup + 1)); return 0; fi
   : > "$tmp/ents"
-  for _spec in netsurf:NETSURF_RE netx:NETX tx:TX_WORDS iw:IW_VERBS sec6:SEC6_RE bt:BT_WORDS btwrap:BT_WRAP_RE; do
+  for _spec in netsurf:NETSURF_RE netx:NETX tx:TX_WORDS iw:IW_VERBS sec6:SEC6_RE bt:BT_WORDS btwrap:BT_WRAP_RE pnet:PNET_WORDS; do
     _fam=${_spec%%:*}; _var=${_spec#*:}
     _re=$(awk -F'\t' -v N="$_var" '$1 == N { print $2; exit }' "$tmp/rx")
     split_alts "$_re" > "$tmp/alts.$_fam"; _n=$(grep -c '' "$tmp/alts.$_fam")
     nafam=$((nafam + 1)); naderived=$((naderived + _n))
     # a sample is read with the boundaries its family has in the checker (a word of TX_WORDS or BT_WORDS stands between characters that are no part of a name: hostapd_cli is no hostapd)
-    case $_fam in tx) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_]|$)' ;; bt) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_-]|$)' ;; *) _pre='('; _suf=')' ;; esac
+    case $_fam in tx) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_]|$)' ;; bt|pnet) _pre='(^|[^A-Za-z0-9_-])('; _suf=')([^A-Za-z0-9_-]|$)' ;; *) _pre='('; _suf=')' ;; esac
     if [ "$_n" -lt "$(min_alts "$_fam")" ]; then
       printf 'alt %s: SETUP-ERROR %s alternatives derived from %s (want at least %s)\n' "$_fam" "$_n" "$_var" "$(min_alts "$_fam")"; nasetup=$((nasetup + 1)); fi
     # every derived alternative needs a sample
@@ -736,6 +843,7 @@ alt_probe() {
   run_group starchorus.html append 'netsurf netx'
   run_group starchorus-collect.sh fn 'tx iw sec6 bt'
   run_group starchorus-collect.sh fn 'btwrap' bt_busy
+  run_group tools/device-probe.sh fn 'pnet'
   printf 'alternatives: %s/%s planted samples red on their row (%s families, %s alternatives derived), %s uncovered, %s blind, %s wrong-row\n' "$naok" "$na" "$nafam" "$naderived" "$nauncov" "$nablind" "$nawrong"
 }
 alt_ok() { [ "$na" -ge 1 ] && [ "$naok" = "$na" ] && [ "$nauncov" = 0 ] && [ "$nablind" = 0 ] && [ "$nawrong" = 0 ] && [ "$nasetup" = 0 ]; }

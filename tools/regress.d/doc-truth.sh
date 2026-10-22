@@ -6,15 +6,18 @@
 # NEGATIVE PROBE: one break per check in a copy (unlisted script, renamed source literal, wrong number, header bump,
 #                 swapped run list, ...) => red; the row "probes bite" repeats this every time (dummy copy, nothing runs in it).
 # NOT PROVEN:     that the text around a number is right (header against page binds a number, not a sentence); prose in words is
-#                 not read (nor a statement that runs over more than one line break); tools/* is exempted from the §14.6 scope as a
-#                 whole (a new file there is never checked against the scope; only "exception alive" keeps watch); the two payload.sh (root against library/...) are different files; only their version is bound here.
+#                 not read (nor a statement that runs over more than one line break); tools/* is exempted from the §14.6 scope except
+#                 tools/device-probe.sh, which runs on the device and is kept in the scope (--keep: it has to be in the list of the checker, and no
+#                 exception may cover it); every other file there is never checked against the scope, and only "exception alive" keeps watch
+#                 on them; the two payload.sh (root against library/...) are different files; only their version is bound here.
 # Sourced by tools/regress.sh (T2) with cwd = repo root, after tools/static.sh (it wrote out/$P-shfiles*.txt). Sets only DTR_* names.
 # The listing uses git where root is a git work tree (state before/after the commit) and a walk otherwise (fresh-check worktree, the probe copy).
 
 # shellcheck disable=SC2016   # the probe texts are literal document text (backticks), not expansions
 # Exceptions (--exception) / sources without a fixture (--no-fixture): reason per entry; every entry has to be alive (the checker says "please remove" for a stale one).
 # The shellcheck list has no exception at all: every shell file of the repository is checked (an entry would be GLOB=REASON passed to `lists`).
-DTR_SCOPE_EXC='tools/*=developer tools: they run only on the development machine, never on the device, and carry the search words of the §14.6 rules on purpose as test data'
+DTR_SCOPE_EXC='tools/*=developer tools: they run on the development machine and carry the search words of the §14.6 rules on purpose as test data; the one exception is tools/device-probe.sh, which runs on the device, is kept (DTR_KEEP) and is in the scope'
+DTR_KEEP='tools/device-probe.sh'
 DTR_NOFIX='tcpdump=collector path with security "Secured", entered by no viewer run; tests/fixtures is the contract corpus, a further fixture needs a decision of its own'
 DTR_NOFIX2='pineap=opt-in source of the recon lists of the AP service; its document comes from a stub run in the collector self-test, and a fixture would add a source the viewer runs have no reason to enter'
 DTR_dt="tools/doc-truth.py"
@@ -36,7 +39,7 @@ dtr_row() {   # dtr_row NAME CHECK [ARGS...]: a real check on the real tree is o
 # shellcheck disable=SC2086   # DTR_SCL / DTR_PCL are flag lists on purpose (relative paths without blanks)
 {
   dtr_row "shellcheck lists" lists $DTR_SCL
-  dtr_row "§14.6 scope list" lists $DTR_PCL --exception "$DTR_SCOPE_EXC"
+  dtr_row "§14.6 scope list" lists $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
 }
 dtr_row "SOURCES = collector" sources
 dtr_row "source census" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"
@@ -100,22 +103,29 @@ DTR_cbad=""
 # shellcheck disable=SC2086
 {
   dtr_run "$DTR_w" lists $DTR_SCL; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(sc)"
-  dtr_run "$DTR_w" lists $DTR_PCL --exception "$DTR_SCOPE_EXC"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(scope)"
+  dtr_run "$DTR_w" lists $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(scope)"
 }
 dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
 for DTR_c in sources fixtures prose runlist headers; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
 dtr_run "$DTR_w" contract --want 3; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad contract"
 [ -z "$DTR_cbad" ] || echo "    the unbroken copy is not green for:$DTR_cbad"
 grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
+grep -v 'tools/device-probe.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noprobe.txt"
 { cat "out/$P-shfiles.txt"; echo nosuch.sh; } > "$DTR_w/l-phantom.txt"
 # shellcheck disable=SC2086
 {
   # lists: a shell file nobody lists, the exception that is meant to cover tools/*, a script outside tools/, a list that lost starchorus-serve.sh,
   # a stale exception, an exception that covers a listed file, a listed file that is not there
   dtr_probe 1 'tools/zz-probe.sh' lists tools/zz-probe.sh create ': probe' '' $DTR_SCL
-  dtr_probe 0 '' lists tools/zz-probe.sh create ': probe' '' $DTR_PCL --exception "$DTR_SCOPE_EXC"
-  dtr_probe 1 'zz-probe.sh' lists zz-probe.sh create ': probe' '' $DTR_PCL --exception "$DTR_SCOPE_EXC"
-  dtr_probe 1 'starchorus-serve.sh' lists README.md none '' '' --list "$DTR_w/l-noserve.txt" --exception "$DTR_SCOPE_EXC"
+  dtr_probe 0 '' lists tools/zz-probe.sh create ': probe' '' $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
+  dtr_probe 1 'zz-probe.sh' lists zz-probe.sh create ': probe' '' $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
+  dtr_probe 1 'starchorus-serve.sh' lists README.md none '' '' --list "$DTR_w/l-noserve.txt" --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
+  # the device probe: kept in the scope. A scope list without it is red whatever the exception says; the exception on its own (the old `tools/*`, no --keep) covers a listed file and is red;
+  # a kept file that is not in the repository is red; a probe that is no longer a shell file of the repository does not hide behind the exception
+  dtr_probe 1 'tools/device-probe.sh' lists README.md none '' '' --list "$DTR_w/l-noprobe.txt" --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
+  dtr_probe 1 'kept file tools/device-probe.sh is not in the list' lists README.md none '' '' --list "$DTR_w/l-noprobe.txt" --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"
+  dtr_probe 1 'ARE listed (tools/device-probe.sh)' lists README.md none '' '' $DTR_PCL --exception "$DTR_SCOPE_EXC"
+  dtr_probe 1 'kept file tools/nosuch.sh is not in the repository' lists README.md none '' '' $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP" --keep tools/nosuch.sh
   dtr_probe 1 'matches no shell file: please remove' lists README.md none '' '' $DTR_SCL --exception 'tools/nosuch*=probe'
   dtr_probe 1 'ARE listed' lists README.md none '' '' $DTR_SCL --exception 'starchorus-collect.sh=probe'
   dtr_probe 1 'listed but not in the repository: nosuch.sh' lists README.md none '' '' --list "$DTR_w/l-phantom.txt" --list "out/$P-shfiles-tools.txt"
@@ -183,5 +193,5 @@ checks.' ''
   dtr_probe 1 'starchorus-collect.sh has no `# Contract:` header' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3
 }
 rm -rf "$DTR_w"
-DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 46 ] && DTR_pok=1
-rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 46), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]
+DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 50 ] && DTR_pok=1
+rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 50), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]
