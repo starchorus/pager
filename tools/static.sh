@@ -59,8 +59,8 @@ MIN_SELFTEST=482          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's
 MIN_SECTIONS=42           # grep -c '==== [0-9][0-9] ' starchorus.html                        (measured: 00..41; a bare '==== [0-9]' also counts the 17b marker)
 MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four frame parts and one fragment for each of 00..41; about 80 %)
 MIN_FIXTURES=15           # ls tests/fixtures/*.json | wc -l   (measured: 15)
-MIN_QUICK_DROPINS=6       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server mutation-probe)
-MIN_QUICK_ROWS=50         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 66; quick.sh's own rows are also asked for by name)
+MIN_QUICK_DROPINS=7       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server device-probe mutation-probe)
+MIN_QUICK_ROWS=90         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 121, 22 October 2026, with the device probe's seven rows and its 'ran' row; quick.sh's own rows are also asked for by name)
 MIN_DATA_ORACLE_CASES=122 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 140)
 MIN_PYFILES=5             # ls tools/*.py | wc -l                                               (cdp.py, gen-testdata.py, fuzz-doc.py, data-oracle.py, doc-truth.py)
 # section slices: about 80 % of the measured size; measure: . tools/harness.sh; sec_slice 22 31 | wc -l
@@ -81,7 +81,7 @@ MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERT
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.
-QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package page-server"
+QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package page-server device-probe"
 QUICK_DROPINS_MUTATE="mutation-probe"   # added by quick.sh only when QUICK_MUTATE=1 (the hook sets it when the checker itself is staged)
 
 # ---- static page rules (token reads "≤ baseline")

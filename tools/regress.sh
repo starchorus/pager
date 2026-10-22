@@ -78,7 +78,7 @@ done
 tm_lap "phase chrome rows (fixtures, 3D, stress)"
 # A drop-in that is renamed or lost takes its rows with it and the table still reads "0 FAIL", so the SET
 # of drop-ins is pinned by name (a count would miss a rename). Extend it deliberately in the commit that adds a drop-in.
-DROPINS="contrast edge-layout doc-drift jq-noregex display-selftest legal neutral-language theme-schema source-truth legend labels-particles ap-models collector-fields observations operator-tools channel-time theme-wargames theme-whitehall theme-foundation doc-binding small-screen display-parity theme-details text-budget station-inventory station-models station-tools station-outputs stop-scope page-server payload-ui hak5-package data-oracle doc-truth hook-behavior ingest-fuzz net-runtime order-invariance mutation-probe preflight phone poll-cadence clouds radio-pair alerts scope"
+DROPINS="contrast edge-layout doc-drift jq-noregex display-selftest legal neutral-language theme-schema source-truth legend labels-particles ap-models collector-fields observations operator-tools channel-time theme-wargames theme-whitehall theme-foundation doc-binding small-screen display-parity theme-details text-budget station-inventory station-models station-tools station-outputs stop-scope page-server payload-ui hak5-package data-oracle doc-truth hook-behavior ingest-fuzz net-runtime order-invariance mutation-probe preflight phone poll-cadence clouds radio-pair alerts scope device-probe"
 dih=$(for x in tools/regress.d/*.sh; do [ -f "$x" ] && basename "$x" .sh; done | LC_ALL=C sort | tr '\n' ' ')
 # shellcheck disable=SC2086   # DROPINS is a word list on purpose
 diw=$(printf '%s\n' $DROPINS | LC_ALL=C sort | tr '\n' ' ')
