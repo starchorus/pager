@@ -130,8 +130,12 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   of its own. It is read with the same denylists as the files above and, besides, for the network, capture, package and service tools (`curl`, `wget`, `nc`, `ssh`, `uci`, `opkg`, `tcpdump`, `reboot` and the rest of `PNET_WORDS`).
   The allowlists of the other files (`SEC6_FUNCS`, `BT_FUNCS` and every pin) do not apply to it, and none of its own applies to them. What the probe deliberately names or runs is a pinned line, byte for byte with its
   function and each once: a presence test by tool name, a read-only `iw` dump (`iw dev`, `iw dev X info`, `iw dev X survey dump`, `iw phy X info`), the one `sqlite3 -readonly` open on a copy inside its private directory, a version text,
-  the copies of the recon database, the self-tests of the installed Starchorus. Every command it starts is a function of its own, a builtin, a plain read command from a short list or one of those pinned lines; any other name,
-  a path or a `.` is red, and so is a pin whose line has changed or gone. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
+  the copies of the recon database, the lock (`flock -x 9`, taken once, in a subshell whose descriptor 9 is opened on a file of its private directory), the signals it sends to its own background jobs and the removal of its own
+  temp directory, the self-tests of the installed Starchorus, and every line that uses `date`, `sed` or `sort` (each can set the clock or write a file by an option of its own: `-s`, `-i`, `-o`; the next line of a command that goes on
+  over a backslash is pinned with it). Every command it starts is a function of its own (a program named after `command` is never one), a builtin, a plain read command from a short list or one of those pinned lines; any other name,
+  a path or a `.` is red, and so is a pin whose line has changed or gone. It writes nowhere but its private directory, and that is read on the whole file, not on one section: every redirection (`>`, `>>`, `2>`, `9>`) and every
+  destination of `cp`, `mv` and `tee` is `/dev/null` or a file below `$T`; the variables that stand for such a file (`T`, `OUT`, `A`, `B`) are only ever set to one; the two lines that write through a variable (the output file of
+  `run_limited`, the `mktemp -d` that makes `$T`) are pinned. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
 
 `tools/passivity-mutate.sh` shows that each of these checks can turn red (it plants one violation for every alternative of the
