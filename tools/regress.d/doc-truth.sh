@@ -164,7 +164,7 @@ checks.' ''
   # a number NEWER than the header is just as stale (one project, one version): higher numbers left over in the docs
   dtr_probe 1 'version claim 1.5 about the collector' prose README.md append '- The collector `starchorus-collect.sh` 1.5 delivers `vendor`; the dashboard `starchorus-display.sh` 1.4 shows it.' ''
   dtr_probe 1 'version claim 1.4 about the display script' prose README.md append '- The dashboard `starchorus-display.sh` 1.4 shows it.' ''
-  dtr_probe 1 'version claim 0.2 about the collector' prose README.md append '- A later stage builds collector 0.2.' ''
+  dtr_probe 1 'version claim 0.3 about the collector' prose README.md append '- A later stage builds collector 0.3.' ''   # 0.3 = 0.3.0: a deviation whatever the 0.2 line's own number is (0.2 read as 0.2.0 stopped deviating at the 0.2.0 release)
   # run list of the spec against the loop of regress.sh
   dtr_probe 1 'spec run list' runlist docs/architecture.md replace '`single-ap`, `empty-none`' '`empty-none`, `single-ap`'
   dtr_probe 1 'spec says 9 runs' runlist docs/architecture.md replace 'for all 10 runs' 'for all 9 runs'
