@@ -275,7 +275,10 @@ are left alone.
 - **A) A web server on the device:** where the Pager has `uhttpd` or `python3`, the payload
   starts it on port `STARCHORUS_PORT` (default 8199); the root `payload.sh`, a launcher to copy
   by hand, also tries BusyBox `httpd`. A Pager that has had the system update of 13 October 2026
-  has neither `uhttpd` nor `python3`, so on an updated Pager route C is the normal one. Every server listens on the
+  has neither `uhttpd` nor `python3`, so on an updated Pager route C is the normal one. A server of route A serves the
+  whole of the collector's directory, not only the page and the capture (also the settings file, the pid files and, when
+  `/tmp` has no room, a working copy of the recon database: see `SECURITY.md`); the netcat server of route C serves the
+  page and the capture alone. Every server listens on the
   management address only (`STARCHORUS_BIND`, below), so the page is reachable over USB-C and the
   management Wi-Fi, not from a network the device has joined.
 - **B) From a connected computer:** put `index.html` and the `starchorus.json` produced by the device

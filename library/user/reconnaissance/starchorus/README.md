@@ -53,7 +53,8 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
 - A page server on the device: the payload uses `uhttpd` or `python3` where the device has them,
   and otherwise the bundled netcat server `starchorus-serve.sh`. A Pager that has had its system
   update has neither `uhttpd` nor `python3`, so the netcat server is the normal case there; it
-  answers one request at a time, which suits one browser. Without any server, the collector still
+  answers one request at a time, which suits one browser, and serves the page and the capture alone, where
+  `uhttpd` and `python3` serve the whole of the collector's directory (`SECURITY.md` in the repository). Without any server, the collector still
   writes `starchorus.json`; the page then comes from a connected computer.
 
 ## Installation

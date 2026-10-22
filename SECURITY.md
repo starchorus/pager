@@ -298,8 +298,12 @@ writes its `PASS`/`FAIL` lines to stdout.
   [README](README.md#serving-the-page); the details are in
   [docs/display-paths.md](docs/display-paths.md).
 - The netcat server `starchorus-serve.sh` is the only part of Starchorus that listens on the
-  device itself; the other page servers are the device's own programs (`uhttpd`, BusyBox `httpd`,
-  `python3`), started by the payload. It answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`, everything
+  device itself; the other page servers are the device's own programs (`uhttpd` or `python3`, started by the payload;
+  BusyBox `httpd` by the root launcher). Those serve the whole of `/root/loot/starchorus` to whoever the bind setting lets
+  in: the page and `starchorus.json`, but also `settings.conf`, the pid files and, when `/tmp` has no room for the
+  collector's working copy, `cap/recon_copy.db`, a copy of the device's recon database with every address and network name it
+  has recorded; the next release narrows route A to a directory that holds only the page and the capture (0.2.5, track 1 of
+  its plan). The netcat server answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`, everything
   else with 404, one connection at a time. `starchorus-serve.sh stop` stops only the processes the
   script started itself. It sends no `Access-Control-Allow-Origin` header, so a web page of another
   origin that is open in the same browser cannot read `starchorus.json` from it. A client that stays

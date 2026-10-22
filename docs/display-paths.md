@@ -6,7 +6,8 @@ missing web server, tools, firewall, display commands) are in [device-notes.md](
 
 > **Strict passivity holds on every route.** None of these routes alters the purely passive
 > character of the tool: the collector reads the recon database read-only or receives in monitor
-> mode, the servers deliver only the page and `starchorus.json`, and the Overview reads only the
+> mode, the netcat server delivers only the page and `starchorus.json` (a web server of the device, route A, serves
+> the whole of the collector's directory: `SECURITY.md`), and the Overview reads only the
 > local `starchorus.json`. Nothing is ever transmitted: no deauth, no rogue AP, no injection, no
 > association, no active scan. A web server on a high port is ordinary HTTP traffic on the
 > management network and has nothing to do with Wi-Fi reception.
