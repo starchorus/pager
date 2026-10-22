@@ -41,6 +41,16 @@
 #                 copied into another function); `probe-pin-in-collector` shows that a pin of the probe does not cover the same line in the collector, and `probe-limit-collector-curl` that the collector is
 #                 not read for the network words (they belong to the probe only). The `probe-ok-` controls (read commands, calls of its own functions, a comment, a case pattern, builtins) stay green. Every part of
 #                 the probe rows is blinded once in the meta probe, and the family PNET_WORDS has a sample per alternative (`alt pnet`).
+# DEVICE PROBE, WRITES: the row 'device-probe.sh programs' also holds that the probe writes nowhere but its private directory. The `probe-redirect-` mutations plant every spelling of a redirection that leaves /dev/null and `$T`
+#                 (glued to the word before it, a descriptor number, `9>`, `>|`, `<>`, inside `$( )` bare and quoted, after a group, with `..` in the path, to a variable), `probe-append-etc` the `>>` into /etc, `probe-cp-root` and
+#                 `probe-cp-option-t` the destination of cp (`tee` and `mv` are unlisted programs, so `probe-tee-etc` and `probe-mv-etc` are red by the list of programs as well), `probe-assign-` the assignment of T and OUT to
+#                 another place, `probe-for-var` and `probe-read-var` a `for` or `read` that names a variable of the row, and `probe-write-pin-gone` an exception of the row that vanishes. `date -s`, `sed -i`, `sort -o` and a pinned sed
+#                 command given a file on its next line are planted too (`probe-date-set`, `probe-sed-inplace`, `probe-sort-output`, `probe-sed-continued`): those programs are pinned, so any new line of them is red. `probe-command-function`
+#                 is the top-level function `mv() { command mv "$@"; }` with a call, `probe-case-pipeline` and `probe-case-pipeline-alt` a command before a `case` on the same line (its `)` drops nothing),
+#                 `probe-case-stray-paren` a `)` that closes no case item at all (not valid shell, never run: it drops nothing either). These plant
+#                 `mv`, which the write rule also reds (its destination is outside `$T`), so the `-read` variants (and the stray `)`) plant `od`, an unlisted program that writes nothing, and the meta probe blinds against those. The controls
+#                 `probe-ok-redirects`, `probe-ok-assign`, `probe-ok-command-v`, `probe-ok-case-lines` (a pattern at the start of a line in an open case, one inside an item) and `probe-ok-case-fallthrough` stay green;
+#                 `probe-limit-awk-write` writes down that an awk program is not read. The `;&` of the fallthrough control shares one expression with `;;` in the checker, so only the pair is blinded.
 # TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
 # PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
 #                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
@@ -67,7 +77,7 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=162    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (192 lines: 162 and 30 controls)
+MIN_MUT=193    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (229 lines: 193 and 36 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
@@ -288,7 +298,7 @@ if [ "$meta" = 1 ]; then
   metaprobe probe-new-line-blind tools/passivity-check.sh '[ ! -s "$tmp/pnew" ] && [ ! -s "$tmp/pgone" ] && pn_ok=1' '[ ! -s "$tmp/pgone" ] && pn_ok=1' probe-pin-twice 'mutation probe-pin-twice: GREEN (BLIND!)'
   metaprobe probe-gone-pin-blind tools/passivity-check.sh '[ ! -s "$tmp/pnew" ] && [ ! -s "$tmp/pgone" ] && pn_ok=1' '[ ! -s "$tmp/pnew" ] && pn_ok=1' probe-pin-gone 'mutation probe-pin-gone: GREEN (BLIND!)'
   metaprobe probe-fill-blind tools/passivity-check.sh '[ "$pfok" = 1 ]' 'true' probe-head-oneliner 'mutation probe-head-oneliner: GREEN (BLIND!)'
-  metaprobe probe-unlisted-blind tools/passivity-check.sh 'pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ]' 'pg_ok=0; [ ! -s "$tmp/pshadow" ]' probe-unlisted 'mutation probe-unlisted: GREEN (BLIND!)'
+  metaprobe probe-unlisted-blind tools/passivity-check.sh 'pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ]' 'pg_ok=0; [ ! -s "$tmp/pshadow" ]' probe-unlisted-read 'mutation probe-unlisted-read: GREEN (BLIND!)'
   metaprobe probe-shadow-blind tools/passivity-check.sh 'pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ]' 'pg_ok=0; [ ! -s "$tmp/punl" ]' probe-shadow 'mutation probe-shadow: GREEN (BLIND!)'
   metaprobe probe-hits-tx-blind tools/passivity-check.sh ' p_tx ' ' ' probe-aireplay 'mutation probe-aireplay: GREEN (BLIND!)'
   metaprobe probe-hits-bt-blind tools/passivity-check.sh ' p_bt ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
@@ -298,13 +308,36 @@ if [ "$meta" = 1 ]; then
   metaprobe probe-hits-sqlite-blind tools/passivity-check.sh ' p_sq ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
   metaprobe probe-hits-built-blind tools/passivity-check.sh ' pdyn_bad ' ' ' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
   metaprobe probe-hits-glob-blind tools/passivity-check.sh ' pdyn_bad2 ' ' ' probe-glob 'mutation probe-glob: GREEN (BLIND!)'
-  metaprobe probe-hits-program-blind tools/passivity-check.sh ' pprog; do' '; do' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-program-blind tools/passivity-check.sh ' pprog pcont; do' ' pcont; do' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
   metaprobe probe-record-blind tools/passivity-check.sh 'function rec(nm) { if (CMDS != "" && !dtexp && !dtglob) REC[++nrec] = nm }' 'function rec(nm) { nrec = nrec }' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
-  metaprobe probe-case-pattern-blind tools/passivity-check.sh 'if (dsp == 0) { nrec = rmark;' 'if (dsp == 0) {' probe-ok-case-pattern 'mutation probe-ok-case-pattern: WRONG-ROW'
+  metaprobe probe-case-pattern-blind tools/passivity-check.sh 'if (dsp == 0) { if (cpat) nrec = rmark; cpat = 0;' 'if (dsp == 0) { cpat = 0;' probe-ok-case-pattern 'mutation probe-ok-case-pattern: WRONG-ROW'
   metaprobe probe-funcdef-blind tools/passivity-check.sh 'if (fdef && nrec == n0 + 1) nrec--;' '' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
   metaprobe alt-pnet-curl tools/passivity-check.sh "PNET_WORDS='curl|" "PNET_WORDS='" alts 'alt pnet curl: GREEN (BLIND!)'
   metaprobe alt-pnet-socat tools/passivity-check.sh '|socat|ping6?' '|ping6?' alts 'alt pnet socat: GREEN (BLIND!)'
   metaprobe alt-pnet-halt tools/passivity-check.sh '|poweroff|halt' '|poweroff' alts 'alt pnet halt: GREEN (BLIND!)'
+  # (j) the writes of the probe, the command word after `command`, the case items and the pinned programs date, sed and sort (row 7d, 'programs' and 'named tools'), one part at a time. A part
+  #     whose lines the unmutated probe needs (an exception that stands in the list of writes, the continuation of the privacy filter's sed, a `case` with a pattern in it) turns the unmutated row
+  #     red when it is blinded, and the control `probe-ok-read` (or the control of the case form) goes red: WRONG-ROW. The others have a mutation that goes GREEN (BLIND!).
+  metaprobe probe-write-new-blind tools/passivity-check.sh '[ ! -s "$tmp/pwnew" ] && [ ! -s "$tmp/pwgone" ] && [ "$pnc" -ge "$MIN_PROBE_CMDS" ] && pg_ok=1' '[ ! -s "$tmp/pwgone" ] && [ "$pnc" -ge "$MIN_PROBE_CMDS" ] && pg_ok=1' probe-append-etc 'mutation probe-append-etc: GREEN (BLIND!)'
+  metaprobe probe-write-gone-blind tools/passivity-check.sh '[ ! -s "$tmp/pwgone" ] && [ "$pnc" -ge "$MIN_PROBE_CMDS" ] && pg_ok=1' '[ "$pnc" -ge "$MIN_PROBE_CMDS" ] && pg_ok=1' probe-write-pin-gone 'mutation probe-write-pin-gone: GREEN (BLIND!)'
+  metaprobe probe-write-judge-blind tools/passivity-check.sh 'function okw(w,   v) { v = unq(w); return (v == "/dev/null"' 'function okw(w,   v) { v = unq(w); return (1 || v == "/dev/null"' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-write-assign-blind tools/passivity-check.sh 'if (nm != "T" && nm != "OUT" && nm != "A" && nm != "B") return 1' 'return 1' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-write-redirect-blind tools/passivity-check.sh 'if (c == ">" && WRF != "") {' 'if (0) {' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-write-input-blind tools/passivity-check.sh 'if (c == "<" && WRF != "") {' 'if (0) {' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-write-copy-blind tools/passivity-check.sh 'if (dcmd == "cp" || dcmd == "mv" || dcmd == "tee") {' 'if (0) {' probe-cp-root 'mutation probe-cp-root: GREEN (BLIND!)'
+  metaprobe probe-write-for-blind tools/passivity-check.sh '} else if (dcmd == "for" && dforv) {' '} else if (0) {' probe-for-var 'mutation probe-for-var: GREEN (BLIND!)'
+  metaprobe probe-write-read-blind tools/passivity-check.sh 'else if (dcmd == "read" && a !~ /^-/) WREC' 'else if (0) WREC' probe-read-var 'mutation probe-read-var: GREEN (BLIND!)'
+  metaprobe probe-command-tag-blind tools/passivity-check.sh 'rec((ac ? "!" : "") dn); sub(/^.*\//, "", dn); dcmd = dn; dcase(1, dn)' 'rec(dn); sub(/^.*\//, "", dn); dcmd = dn; dcase(1, dn)' probe-command-function-read 'mutation probe-command-function-read: GREEN (BLIND!)'
+  metaprobe probe-case-only-blind tools/passivity-check.sh 'if (cpat) nrec = rmark; cpat = 0;' 'nrec = rmark; cpat = 0;' probe-case-stray-paren 'mutation probe-case-stray-paren: GREEN (BLIND!)'
+  metaprobe probe-case-in-mark-blind tools/passivity-check.sh 'if (w == "in") { cdepth++; cpat = 1; rmark = nrec }' 'if (w == "in") { cdepth++; cpat = 1 }' probe-case-pipeline-read 'mutation probe-case-pipeline-read: GREEN (BLIND!)'
+  metaprobe probe-case-in-blind tools/passivity-check.sh 'if (w == "in") { cdepth++; cpat = 1; rmark = nrec }' 'if (w == "in") { cdepth++; rmark = nrec }' probe-ok-case-pattern 'mutation probe-ok-case-pattern: WRONG-ROW'
+  metaprobe probe-case-sep-blind tools/passivity-check.sh 'cpat = (i > 1 && substr(t, i - 1, 1) == ";")' 'cpat = 0' probe-ok-case-pattern 'mutation probe-ok-case-pattern: WRONG-ROW'
+  metaprobe probe-case-line-blind tools/passivity-check.sh 'if (!cl) cpat = (cdepth > 0 && dsp == 0) ? 1 : 0' 'if (!cl) cpat = 0' probe-ok-case-lines 'mutation probe-ok-case-lines: WRONG-ROW'
+  metaprobe probe-continued-blind tools/passivity-check.sh '{ cont = (($0 in h) && $0 ~ /\\$/) }' '{ cont = 0 }' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-hits-cont-blind tools/passivity-check.sh ' pcont; do' '; do' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-date-plain-blind tools/passivity-check.sh "PROBE_PINNED=' busybox chmod cp date find" "PROBE_PLAIN=\"\$PROBE_PLAIN date \"; PROBE_PINNED=' busybox chmod cp find" probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-sed-plain-blind tools/passivity-check.sh " run_limited sed sh sort sqlite3 timeout '" " run_limited sh sort sqlite3 timeout '; PROBE_PLAIN=\"\$PROBE_PLAIN sed \"" probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-sort-plain-blind tools/passivity-check.sh " run_limited sed sh sort sqlite3 timeout '" " run_limited sed sh sqlite3 timeout '; PROBE_PLAIN=\"\$PROBE_PLAIN sort \"" probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -532,7 +565,7 @@ mut probe-sh-c-curl      tools/device-probe.sh   fnappend 'sh -c "curl http://19
 mut probe-run-limited    tools/device-probe.sh   fnappend 'run_limited 5 "$T/x" uci commit' ''                         'device-probe.sh named tools'
 mut probe-sqlite-text    tools/device-probe.sh   fnappend 'echo "sqlite3 is here"' ''                                  'device-probe.sh named tools'
 mut probe-sqlite-write   tools/device-probe.sh   subst    'sqlite3 -readonly -noheader "$1" "$2"' 'sqlite3 -noheader "$1" "$2"' 'device-probe.sh named tools'
-mut probe-cp-target      tools/device-probe.sh   subst    'cp "$DB-wal" "$B-wal"' 'cp "$DB-wal" "$DB-wal.bak"'          'device-probe.sh named tools'
+mut probe-cp-target      tools/device-probe.sh   subst    'cp "$DB-wal" "$B-wal"' 'cp "$DB-wal" "$DB-wal.bak"'          'device-probe.sh named tools|device-probe.sh programs'
 mut probe-rm             tools/device-probe.sh   fnappend 'rm -rf /root/loot/zz_x' ''                                  'device-probe.sh named tools'
 mut probe-kill           tools/device-probe.sh   fnappend 'kill -9 1' ''                                               'device-probe.sh named tools'
 mut probe-expansion      tools/device-probe.sh   fnappend '"$zz_a$zz_b" -i hci0 lescan' ''                             'device-probe.sh named tools'
@@ -553,11 +586,60 @@ mut probe-pin-in-collector starchorus-collect.sh fnappend 'for _t in hcitool btm
 mut probe-lock-edited    tools/device-probe.sh   subst    '( flock -x 9; printf' '( flock -n 9; printf'                'device-probe.sh named tools'
 mut probe-lock-second    tools/device-probe.sh   fnappend 'flock -x 8' ''                                              'device-probe.sh named tools'
 mut probe-lock-"ex"ec    tools/device-probe.sh   fnappend 'ex''ec 9> /tmp/zz_lock' ''                                 'device-probe.sh programs'
+# programs that write by an option of their own (date -s, sed -i, sort -o are pinned programs: every line of them is a pinned line), and the line a pinned command goes on over after a backslash
+mut probe-date-set       tools/device-probe.sh   fnappend 'date -s "2020-01-01 00:00"' ''                               'device-probe.sh named tools'
+mut probe-sed-inplace    tools/device-probe.sh   fnappend 'sed -i "s/option disabled 0/option disabled 1/" /etc/config/wireless' '' 'device-probe.sh named tools'
+mut probe-sort-output    tools/device-probe.sh   fnappend 'sort -o /etc/config/wireless /etc/config/wireless' ''        'device-probe.sh named tools'
+mut probe-sed-continued  tools/device-probe.sh   subst    '\.[0-9A-Fa-f]{4}/<mac-withheld>/g'"'"' |' '\.[0-9A-Fa-f]{4}/<mac-withheld>/g'"'"' -i /etc/zz_x |' 'device-probe.sh named tools'
+# a write outside /dev/null and the private directory, anywhere in the probe: every form of a redirection, the destination of cp, mv and tee, the variables that stand for a target ('programs' reads them)
+mut probe-append-etc     tools/device-probe.sh   fnappend 'printf "option disabled 1\n" >> /etc/config/wireless' ''     'device-probe.sh programs'
+mut probe-redirect-glued tools/device-probe.sh   fnappend 'printf x>/etc/zz_x' ''                                      'device-probe.sh programs'
+mut probe-redirect-fd    tools/device-probe.sh   fnappend 'echo x 2> /root/zz_err' ''                                   'device-probe.sh programs'
+mut probe-redirect-fd9   tools/device-probe.sh   fnappend ': 9> /etc/zz_lock' ''                                       'device-probe.sh programs'
+mut probe-redirect-clobber tools/device-probe.sh fnappend 'printf x >| /etc/zz_x' ''                                   'device-probe.sh programs'
+mut probe-redirect-rw    tools/device-probe.sh   fnappend ': <> /etc/zz_x' ''                                          'device-probe.sh programs'
+mut probe-redirect-subst tools/device-probe.sh   fnappend 'zz_x=$(printf q > /etc/zz_q)' ''                            'device-probe.sh programs'
+mut probe-redirect-quoted-subst tools/device-probe.sh fnappend 'zz_x="$(printf q > /etc/zz_q)"' ''                      'device-probe.sh programs'
+mut probe-redirect-group tools/device-probe.sh   fnappend '{ printf x; } > /etc/zz_x' ''                               'device-probe.sh programs'
+mut probe-redirect-dotdot tools/device-probe.sh  fnappend 'printf x > "$T/../etc/zz_x"' ''                              'device-probe.sh programs'
+mut probe-redirect-var   tools/device-probe.sh   fnappend 'printf x > "$zz_f"' ''                                      'device-probe.sh programs'
+mut probe-cp-root        tools/device-probe.sh   fnappend 'cp "$DB" /root/leak' ''                                     'device-probe.sh named tools|device-probe.sh programs'
+mut probe-cp-option-t    tools/device-probe.sh   fnappend 'cp -t /etc "$DB"' ''                                        'device-probe.sh named tools|device-probe.sh programs'
+mut probe-tee-etc        tools/device-probe.sh   fnappend 'tee /etc/zz_x' ''                                           'device-probe.sh programs'
+mut probe-mv-etc         tools/device-probe.sh   fnappend 'mv /tmp/zz_a /etc/zz_b' ''                                   'device-probe.sh programs'
+mut probe-assign-out     tools/device-probe.sh   fnappend 'OUT=/etc/zz_out' ''                                          'device-probe.sh programs'
+mut probe-assign-t       tools/device-probe.sh   fnappend 'T=/etc' ''                                                   'device-probe.sh programs'
+mut probe-for-var        tools/device-probe.sh   fnappend 'for A in /etc/zz_a; do :; done' ''                           'device-probe.sh programs'
+mut probe-read-var       tools/device-probe.sh   fnappend 'read -r OUT < /dev/null' ''                                 'device-probe.sh programs'
+mut probe-write-pin-gone tools/device-probe.sh   subst    '"$@" > "$_of" 2>&1 < /dev/null &' '"$@" > "$T/zz_of" 2>&1 < /dev/null &' 'device-probe.sh named tools|device-probe.sh programs'
+# the word after `command` is a program of the PATH even when the file defines a function of that name; a `)` that closes no case item drops nothing before it
+mut probe-command-function tools/device-probe.sh append  'mv() { command mv "$@"; }; mv /etc/config/wireless /tmp/zz' '' 'device-probe.sh programs'
+mut probe-case-pipeline  tools/device-probe.sh   fnappend 'mv /etc/zz_a /tmp/zz_b | case x in x) : ;; esac' ''           'device-probe.sh programs'
+mut probe-case-pipeline-alt tools/device-probe.sh fnappend 'mv /etc/zz_a /tmp/zz_b | case x in a|b) : ;; esac' ''        'device-probe.sh programs'
+# the same two with an unlisted program that writes nothing (od), so that only the list of programs can make the row red; the meta probe blinds the parts against these
+mut probe-unlisted-read  tools/device-probe.sh   fnappend 'od /etc/hostname' ''                                         'device-probe.sh programs'
+mut probe-command-function-read tools/device-probe.sh append 'od() { command od "$@"; }; od /etc/hostname' ''           'device-probe.sh programs'
+mut probe-case-pipeline-read tools/device-probe.sh fnappend 'od /etc/zz_a | case x in x) : ;; esac' ''                  'device-probe.sh programs'
+mut probe-case-stray-paren tools/device-probe.sh fnappend 'od /etc/zz_a ) : ;;' ''                                      'device-probe.sh programs'
 mut probe-ok-read        tools/device-probe.sh   fnappend 'cat /etc/openwrt_release | head -n 1 | wc -l; grep -c x /etc/hostname; readlink -f /sys/class/net; ls -1A /root' '' ''
 mut probe-ok-functions   tools/device-probe.sh   fnappend 'kv zz_k "$(isnum 5 && echo y)"; say zz; have iw || have jq' '' ''
 mut probe-ok-comment     tools/device-probe.sh   fnappend '# curl http://192.0.2.1/ ; hcitool scan ; iw dev wlan0 set channel 6' '' ''
 mut probe-ok-case-pattern tools/device-probe.sh  fnappend 'case "$zz_x" in a|b) : ;; zz_c) : ;; *) : ;; esac' '' ''
-mut probe-ok-builtins    tools/device-probe.sh   fnappend 'zz_x=$(date +%s); [ -n "$zz_x" ] || return 1; set -- a b; shift; read -r zz_y < /dev/null; trap - INT; printf "%s\n" "$zz_x" > /dev/null' '' ''
+mut probe-ok-builtins    tools/device-probe.sh   fnappend 'zz_x=$(printf 5); [ -n "$zz_x" ] || return 1; set -- a b; shift; read -r zz_y < /dev/null; trap - INT; printf "%s\n" "$zz_x" > /dev/null' '' ''
+# the forms of a write that stay green: /dev/null, a file below $T, the variables the probe sets to one, a descriptor copy, the input redirections, and the assignments the row accepts
+mut probe-ok-redirects   tools/device-probe.sh   fnappend 'printf x > /dev/null; printf y >> "$T/zz_y"; printf z 2>&1; printf w >&2; : > "$OUT"; printf q 2> /dev/null > /dev/null; zz_x=$(printf q > "$T/zz_q"); printf v > "$T/v.$1"; cat < /dev/null 9> "$T/zz_lock"; printf u 2>"$T/zz.err" 1>&2' '' ''
+mut probe-ok-assign      tools/device-probe.sh   fnappend 'OUT=""; A="$T/zz_a"; B=$T/zz_b; T=""; OUT=$T/out; read -r zz_y < /dev/null; for zz_c in a b; do :; done' '' ''
+mut probe-ok-command-v   tools/device-probe.sh   fnappend 'command -v zz_x > /dev/null 2>&1' '' ''
+# the case items: a pattern at the start of a line inside an open case, after `;;` and after `;&` (the last two on one line, patterns with `|`, a case inside an item)
+mut probe-ok-case-lines  tools/device-probe.sh   fnappend 'case "$zz_x" in
+        a|b) : ;;
+        zz_c|zz_d)
+            : ;;
+        *) case "$zz_y" in zz_e|zz_f) : ;; esac ;;
+    esac' '' ''
+mut probe-ok-case-fallthrough tools/device-probe.sh fnappend 'case "$zz_x" in a) : ;& zz_c|zz_d) : ;;& zz_e) : ;; esac' '' ''
+# written down: what an awk program does with its text is not read (review), so a write from inside one stays green
+mut probe-limit-awk-write tools/device-probe.sh  fnappend "awk 'BEGIN { print \"x\" > \"/etc/zz_x\" }' < /dev/null" '' ''
 mut probe-limit-collector-curl starchorus-collect.sh fnappend 'curl http://192.0.2.1/' ''                              ''
 
 # ============================== alternatives: one planted sample per regex alternative ==============================

@@ -9,12 +9,14 @@
 #                 that is not silent, leaves its temp directory behind, or whose summary lacks V-14; a literal shell of V-14 that sources the
 #                 BASH_ENV file of its environment; a V-14 section that redirects anywhere but /dev/null and its private directory; a passivity
 #                 checker that no longer reads the probe (tools/passivity-check.sh lists it in --files, and its three 'device-probe.sh' rows are
-#                 red for a sending, scanning, network or changing command anywhere in the probe, the V-14 code included); a probe that shellcheck dislikes.
+#                 red for a sending, scanning, network or changing command anywhere in the probe, the V-14 code included, and for a write outside
+#                 /dev/null and the private directory anywhere in the probe: a redirection, a cp, a `date -s`, a `sed -i`); a probe that shellcheck dislikes.
 # NEGATIVE PROBE: planted copies of the probe, each of which must make one named part red: the V-14 line out of the header contract (header:14), vname 14
 #                 out (vname:14), the question of V-14 out (question:14), NV=13 (bound), the call of the last section out (call:sect_alertenv, and in a
 #                 run "V-14 not observed"), of a middle one (sect_oui) and of the first (sect_jq), the --list handler out (list), a write to /root/ planted into the V-14 code (redirect), a `curl`, a
 #                 `hcitool ... scan` and an `iw ... set` planted into the V-14 code of a copy that the passivity checker then reads (its probe rows red), an
-#                 unquoted variable (shellcheck), a tail check that always says ok (the run with a tail that ignores -c no longer finds WRONG-OUTPUT), and
+#                 unquoted variable (shellcheck), a write to /etc, a cp into /root, a `date -s` and a `sed -i` planted into the code of another section of a copy that the checker
+#                 reads (its rows red, each line as evidence), a tail check that always says ok (the run with a tail that ignores -c no longer finds WRONG-OUTPUT), and
 #                 the two literal shells without the empty BASH_ENV and ENV in front of them (a run with a BASH_ENV file in its environment then sources it).
 #                 The stand-in runs are negative controls of V-14 itself: a tail that refuses -c, a tail that ignores it, a bash that gives the wrong
 #                 answer, a bash that is not executable, no bash, no flock.
@@ -22,7 +24,8 @@
 #                 to print), and how the firmware starts an alert payload (docs/device-notes.md 5c). The passivity checker reads this probe, whole, with three rows
 #                 of its own and a pinned list of the lines that deliberately name a tool or start a program (tools/passivity-check.sh, row 7d; `--files`
 #                 prints it after the shell scope); what an awk or sed program in it does with its text is read by nobody (review). The redirection scan below
-#                 (the V-14 section only, not the other nine sections) is the one static guard that stays in this file.
+#                 (the V-14 section only) is the narrower guard that stays in this file as it was; the rule for the whole probe, every redirection and every destination of cp, mv and tee,
+#                 is the checker's (its row 'programs').
 # Sourced by tools/regress.sh (T2) and tools/quick.sh (T1) with cwd = repo root; Chrome-free, no network, no device. About three seconds: nine
 # runs of the probe in forced mode (STARCHORUS_PROBE_FORCE=1, an empty root, GAP 1, no self-test), 0.3 s each. Sets only DPR_* names. It needs bash
 # (the stand-in /bin/bash is a link to the machine's), ls and readlink on the machine: harness.sh PF_TOOLS_QUICK names them, so the preflight stops first.
@@ -254,7 +257,20 @@ for DPR_f in 'curl http://192.0.2.1/' 'hcitool -i hci0 scan' 'iw dev wlan0 set t
   grep -qF "$DPR_f" "$DPR_T/pc1.pc" || DPR_pbad5="$DPR_pbad5 no-evidence($DPR_f)"
 done
 [ "$(grep -E ' FAIL$' "$DPR_T/pc1.pc" | grep -vc '^device-probe\.sh ')" = 0 ] || DPR_pbad5="$DPR_pbad5 other-rows-red"
-rowif "device probe: the passivity checker reads the probe: --files lists it, its three rows pass on it, and a curl, a hcitool scan and an iw set planted into the V-14 code turn 'named tools' and 'programs' red, each line as evidence, no other row (bad:${DPR_pbad5:- none})" [ -z "$DPR_pbad5" ]
+# the same outside the V-14 code, with what writes: a `>>` into /etc, a cp into /root (neither is a read), a `date -s` and a `sed -i`; the redirection and the cp destination are what 'programs' reads, the other lines are unpinned
+# lines of pinned programs ('named tools'). The probe's own V-14 scan above does not see them (they stand in section 5).
+DPR_pbad=""
+DPR_plant p-pc2 '{ print } /^    heading 5 / { print "    printf x >> /etc/config/wireless"; print "    cp \"$DB\" /root/leak"; print "    date -s \"2020-01-01 00:00\""; print "    sed -i s/a/b/ /etc/config/wireless" }'
+case $DPR_pbad in *noplant*) DPR_pbad5="$DPR_pbad5 noplant2" ;; esac
+DPR_pcrun pc2 "$DPR_T/p-pc2.sh"
+[ "$DPR_pcrc" = 1 ] || DPR_pbad5="$DPR_pbad5 planted2-exit-$DPR_pcrc"
+DPR_pcr=$(DPR_pcrows pc2 | tr '\n' ',' | sed 's/,$//')
+[ "$DPR_pcr" = "device-probe.sh named tools,device-probe.sh programs" ] || DPR_pbad5="$DPR_pbad5 planted2-rows($DPR_pcr)"
+for DPR_f in 'printf x >> /etc/config/wireless' 'cp "$DB" /root/leak' 'date -s "2020-01-01 00:00"' 'sed -i s/a/b/ /etc/config/wireless'; do
+  grep -qF "$DPR_f" "$DPR_T/pc2.pc" || DPR_pbad5="$DPR_pbad5 no-evidence($DPR_f)"
+done
+[ "$(grep -E ' FAIL$' "$DPR_T/pc2.pc" | grep -vc '^device-probe\.sh ')" = 0 ] || DPR_pbad5="$DPR_pbad5 other-rows-red2"
+rowif "device probe: the passivity checker reads the probe: --files lists it, its three rows pass on it, a curl, a hcitool scan and an iw set planted into the V-14 code turn 'named tools' and 'programs' red, and so do a >> into /etc, a cp into /root, a date -s and a sed -i planted into section 5, each line as evidence, no other row (bad:${DPR_pbad5:- none})" [ -z "$DPR_pbad5" ]
 
 # ---- 6 · shellcheck on the probe
 DPR_sc=0; shellcheck "$DPR_PROBE" > "$DPR_T/sc.out" 2>&1 && DPR_sc=1
