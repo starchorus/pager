@@ -1003,7 +1003,7 @@ vname() {
 main() {
     T=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-probe.XXXXXX" 2>/dev/null) || { echo "device-probe: cannot create a private temp dir under ${TMPDIR:-/tmp}" >&2; return 2; }
     OUT=$T/out; : > "$OUT"
-    say "# Starchorus device-probe 0.2.0-dev.2: read-only, passive; observations, not facts"
+    say "# Starchorus device-probe 0.2.5: read-only, passive; observations, not facts"
     say "# started (device clock, UTC): $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)"
     vset 3 "NOT-OBSERVABLE needs the AP-service command line (its recon and monitor sub-commands), which this read-only probe never calls; recon.db tables and columns are in section 3"
     vset 4 "NOT-OBSERVABLE needs the radio-locking examine command, which changes radio state; not part of the read-only contract"

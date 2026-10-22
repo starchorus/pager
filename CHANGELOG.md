@@ -3,7 +3,13 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## 0.2.0 - unreleased
+## 0.2.5 - unreleased
+
+### Changed
+
+- The page is built from fragments: `starchorus.html` is cut along its section markers into one file for each section under `src/` (CSS 00 to 09, DOM 10 to 19, JavaScript 20 to 41, and the frame in four parts), and `sh tools/build-page.sh` joins them in the order of `src/PAGE.list`. The built page stays committed and does not change by a byte (the build is `cat`: no minifying, no stripping of comments), so the device, the Hak5 package and the installer read the one file as before. The static checks go red when the page is not the build of `src/`, when the manifest is unsound, and the commit hook now starts for a commit that stages only a fragment; `build-page.sh --where N` names the fragment and the line behind a line of the built page. The SPDX line stays in the head fragment only (CONTRIBUTING says so).
+
+## 0.2.0 - 2026-10-22
 
 *Development build `0.2.0-dev.1` of 18 October 2026: a GitHub pre-release for trying out; the stable release stays 0.1.1. This list goes further than that build does. dev.1 has Bluetooth, Traffic and the entries that are not named here, but not what was made after it: the Alerts entry, the Overview's key reader, the page's allowance of 625,000 bytes (dev.1: 620,000), the 256 KiB cap on the Bluetooth parse and the monitor's 5-s readiness wait (dev.1: 512 KiB and 3 s), and the four cost changes (the parse's first-byte test, the window's 0.5-s wait, the 5-s Bluetooth window and the Traffic read on every second cycle: dev.1 scans for 6 s and reads Traffic every cycle). Bluetooth and Traffic are opt-in; measured on the device on 18 October 2026 (`docs/device-notes.md` §6a): passive as designed, but the Bluetooth window costs about 8 % of the Pager's core per cycle with the 6-s window of dev.1 against the 3 % the design budgeted, and the Traffic read about half a second of CPU per cycle; both stay off by default.*
 
@@ -41,7 +47,6 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 - Documentation: the installation guide says that the Virtual Pager's terminal is the same shell as ssh, that Starchorus needs no packages and no Internet connection, what a firmware recovery, a factory reset and a system update do to `/root`, and what Hak5 advises for a long session; the README names the firmware that `LIST_PICKER` (1.0.8) and the QR dialogue of 'Open on Phone' (1.1.1) need.
 - The Bluetooth window is 5 s by default (it was 6): a sixth off the tools' and the parse's cost per cycle; `STARCHORUS_BT_WINDOW` still takes 5 to 15.
 - The Overview keeps a key reader open for its whole life: a press during a draw is kept in order; B, Left and Right still end the draw at once, A, Up and Down let it finish, and an A that came during the draw is satisfied by it, where 0.1.1 drew the same screen again. The health probe of the first draw ends on B, Left and Right as well.
-- The page is built from fragments: `starchorus.html` is cut along its section markers into one file for each section under `src/` (CSS 00 to 09, DOM 10 to 19, JavaScript 20 to 41, and the frame in four parts), and `sh tools/build-page.sh` joins them in the order of `src/PAGE.list`. The built page stays committed and does not change by a byte (the build is `cat`: no minifying, no stripping of comments), so the device, the Hak5 package and the installer read the one file as before. The static checks go red when the page is not the build of `src/`, when the manifest is unsound, and the commit hook now starts for a commit that stages only a fragment; `build-page.sh --where N` names the fragment and the line behind a line of the built page. The SPDX line stays in the head fragment only (CONTRIBUTING says so).
 
 ### Fixed
 
