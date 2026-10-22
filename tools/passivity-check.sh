@@ -10,7 +10,7 @@
 # Every row here has a planted violation in tools/passivity-mutate.sh: a row renamed or a rule widened makes that script
 # say which name/mutation to adjust. The sqlite3 (-readonly) and starchorus-serve.sh rows are covered the same way.
 # tools/device-probe.sh is the one file of tools/ that runs on the device. It is in the scope with three rows of its own (row 7d below, 'device-probe.sh ...'): the same denylists
-# read it, and what it deliberately names is a pinned line (file, function and text, each once); its 'programs' row also holds that it writes nowhere but its private directory (every redirection, every destination of cp, mv and tee).
+# read it, and what it deliberately names is a pinned line (file, function and text, each once); its 'programs' row also holds that it writes nowhere but its private directory (every redirection, every destination of cp, mv and tee), and that the action of every trap, the delimiter and the body of every here-document and the argument of every vset call are forms the reader can read.
 # The rows above do not read it and no allowlist, regex or pin of theirs applies to it.
 set -u
 here=$(cd "$(dirname "$0")" && pwd -P) || exit 2
@@ -333,7 +333,7 @@ rowif "Bluetooth word forms ($(printf '%s' "$BT_FORM_FNS" | sed 's/^ *//; s/ *$/
 # dyn = row 6d, over every line of every shell file of the scope, functions and top level alike (BT_SEG_FNS is `*`): it does not use mask() and cmds() above but reads the raw
 # text with a stack of its own (dyn() below) and lists each simple command whose command word holds an expansion; the row compares what it lists with a pinned list.
 # shellcheck disable=SC2016   # awk program
-BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"] }
+BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"]; PFN = " " ENVIRON["BT_PFN"] " " }
 function mask(t,   i, n, c, q, sd, bq, out) {
   n = length(t); q = ""; sd = 0; bq = 0; out = ""
   for (i = 1; i <= n; i++) {
@@ -399,11 +399,19 @@ function cmds(m,   i, n, c, cur, pd, bq, lastsep) {
 # joins two lines); DST is the stack of what is open: `$( )` (S), a backtick expression (K), `( )` (P), `$(( ))` (E, A, a), `${ }` (B), a single-quoted (q) or double-quoted (d)
 # string. The state starts afresh with every file and every function. dbad = 1 when a command word of the line holds an expansion; dbad2 = 1 when one holds an unquoted glob character (`[` and `[[`
 # apart), when a `find` has `-exec`, `-execdir`, `-ok` or `-okdir`, when an `xargs` has no command or its command is its replacement string, or when an `alias` is defined (row 6e).
+function dtrap(w,   v) {   # the probe pass: the first argument of `trap`, the action, is a string that the shell runs as a command when the signal comes, and this reader does not read a string. So only an action that runs nothing of its own is accepted: `-`, an empty string, the name of a function of the probe (its body is read like the rest of the code) and `exit N` with N a number, bare or in one pair of quotes; any other action, one with an expansion among them, is an unlisted command
+  v = "?"
+  if (w ~ /^[A-Za-z0-9_-]+$/) v = w
+  else if (w ~ /^\047[^\047]*\047$/ || w ~ /^"[^"]*"$/) v = substr(w, 2, length(w) - 2)
+  if (v == "-" || v == "" || v ~ /^exit [0-9]+$/ || (v ~ /^[A-Za-z_][A-Za-z0-9_]*$/ && index(PFN, " " v " ") > 0)) return
+  REC[++nrec] = "trap-action"
+}
 function darg(   a) {   # a word that is an argument of the simple command being read (dcmd = its name): `find ... -exec` and its three kin, `alias NAME=...`
   if (dcmd == "") return
   a = dtok; gsub(/["\047\\]/, "", a)
   if (dcmd == "find" && a ~ /^-(exec|execdir|ok|okdir)$/) dbad2 = 1
   else if (dcmd == "alias" && index(a, "=") > 0) dbad2 = 1
+  if (CMDS != "" && ++dtn == 1) { if (dcmd == "trap") dtrap(dtok); else if (dcmd == "vset" && dtok !~ /^[0-9]+$/) REC[++nrec] = "vset-argument" }   # the first argument of trap (above) and of vset (the number in the name of the file it writes: a pinned write below, so a call must hand it digits)
   if (WRF == "") return
   # the probe pass only (WRF): the files that cp, mv and tee write, as "kind<TAB>command number<TAB>word": every word of tee, and of cp and mv the last one (the row reads the last one). `-t DIR` names the destination before the
   # sources, so it is recorded as the word -t, which no rule accepts. The variable of a `for` and every name after `read` are assignments of a value nobody reads: recorded as such.
@@ -428,17 +436,24 @@ function dxarg(a) {   # a word after `xargs`: 1 = one of its options or the argu
 # CMDS (BT_CMDS, empty for every row above 7d): when set, mode dyn also records the NAME of each simple command, as the command word stands (a path stays a path), for the probe rows. Names that hold an
 # expansion or a glob are left to rows 6d and 6e. A case pattern (`a|b) ...`) is read like a command word until the `)` shows what it was: the names recorded since the case item began are then dropped, and
 # only then. A case item begins after `case WORD in`, after `;;` or `;&`, and at the start of a line inside an open case (ccase and cdepth follow `case` and `esac` as command words; cpat says that the segment
-# being read began an item); a `)` that closes nothing anywhere else (`mv a b | case x in x) ...` is the line this was shut for) drops nothing. A word after `command` (not `-v`, `-V`) is recorded with a `!` in front:
+# being read began an item); a `)` that closes nothing anywhere else (`mv a b | case x in x) ...` is the line this was shut for) drops nothing. All of it is kept for every level of the stack, not for the top level alone
+# (ccase, cdepth, cpat and rmark are arrays indexed by dsp, initialised by dpush): `case WORD in` inside `( )`, `$( )` or backticks marks that level, a `)` at a level with an open pattern ends the pattern and does not
+# pop the level (it used to pop it, and the `)` after the `esac` then dropped every name of a body line), `esac` ends the pattern, and what the line had flagged (a built command word) before the item began stays flagged
+# (pdb, pdb2). The other passes follow the top level only, and read the `)` as they did. A word after `command` (not `-v`, `-V`) is recorded with a `!` in front:
 # `command` skips the shell functions, so it names a program of the PATH even when the file defines a function of that name.
+# Three more things are recorded as names that no list holds, so that the row programs reports them as unlisted commands: the action of a `trap` that is not `-`, an empty string, the name of a function of the probe (BT_PFN)
+# or `exit N` (dtrap: the action is a string that the shell runs and this reader does not read), a call of `vset` whose first argument is not digits (it stands in the name of a file that the pinned write of vset makes), and a
+# here-document whose delimiter word is not a plain name, bare or wholly in quotes (dhdword: the shell removes the quotes of the whole word, `<<wait"x"` ends at `waitx`) or whose body holds a `$(` or a backtick while its
+# delimiter is bare (the body is then expanded when it runs).
 # WRF (BT_WRITES, the probe pass only): mode dyn also records what the code writes, as "kind<TAB>command number<TAB>word<TAB>line": the word after every `>`, `>>` or `>|` (a descriptor copy such as `2>&1` or `>&2` names no file;
 # `2>`, `9>` and a `>` glued to the word before it are the same redirection), the words cp, mv and tee write to (darg above), and every assignment `NAME=value` at command position with the variables of `for` and `read`.
 # The checker judges them (row 7d, the row programs); this pass only reads. Like the names, nothing of it is read inside a single-quoted string (an awk or sed program): that rests on review.
 function rec(nm) { if (CMDS != "" && !dtexp && !dtglob) REC[++nrec] = nm }
-function dcase(isc, w) {   # a token that has just ended at the top level (dsp 0): `case` as a command word opens the pattern, the next two words are its subject and `in`; `esac` closes it
-  if (dsp != 0) return
-  if (isc) { ccase = (w == "case"); if (w == "esac" && cdepth > 0) cdepth--; return }
-  if (ccase == 1) { ccase = 2; return }
-  if (ccase == 2) { ccase = 0; if (w == "in") { cdepth++; cpat = 1; rmark = nrec } }   # `case WORD in`: the first item begins here
+function dcase(isc, w) {   # a token that has just ended at the level dsp (the other passes follow the top level only, 0): `case` as a command word opens the pattern, the next two words are its subject and `in`; `esac` closes it and ends its pattern
+  if (dsp != 0 && CMDS == "") return
+  if (isc) { ccase[dsp] = (w == "case"); if (w == "esac" && cdepth[dsp] > 0) { cdepth[dsp]--; cpat[dsp] = 0 }; return }
+  if (ccase[dsp] == 1) { ccase[dsp] = 2; return }
+  if (ccase[dsp] == 2) { ccase[dsp] = 0; if (w == "in") { cdepth[dsp]++; cpat[dsp] = 1; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2 } }   # `case WORD in`: the first item begins here (what the line had flagged before it stays flagged)
 }
 function dxend() { if (dwr && dwc == "xargs") { dbad2 = 1; dwr = 0 } }   # `xargs` with no command of its own: it runs echo over what it reads (with -I its command would come from stdin)
 function dfin(   dn, ac) {   # the token that has just ended
@@ -466,17 +481,31 @@ function dfin(   dn, ac) {   # the token that has just ended
   if (dtglob && dtok !~ /^\[\[?$/) dbad2 = 1   # a glob in the command word: the name is whatever the directory holds when the line runs (`[` and `[[` are the test)
   rec((ac ? "!" : "") dn); sub(/^.*\//, "", dn); dcmd = dn; dcase(1, dn)
   if (dn == "cp" || dn == "mv" || dn == "tee") dwid = ++dwn   # the number tells the words of one command from those of another (darg)
-  dforv = (dn == "for")
+  dforv = (dn == "for"); dtn = 0
   dcs = 0; dwr = 0
 }
-function dpush(ty) { DST[++dsp] = ty; DSI[dsp] = dint; DSC[dsp] = dtcs; DSK[dsp] = dtok; DSE[dsp] = dtexp; DSS[dsp] = dcs; DSG[dsp] = dtglob; DSM[dsp] = dcmd; DSR[dsp] = wrd; DSW[dsp] = dwid; dcmd = ""; wrd = 0; dwid = 0 }
-function dpop() { dint = DSI[dsp]; dtcs = DSC[dsp]; dtok = DSK[dsp]; dtexp = DSE[dsp]; dcs = DSS[dsp]; dtglob = DSG[dsp]; dcmd = DSM[dsp]; wrd = DSR[dsp]; dwid = DSW[dsp]; dsp-- }
+function dpush(ty) { DST[++dsp] = ty; DSI[dsp] = dint; DSC[dsp] = dtcs; DSK[dsp] = dtok; DSE[dsp] = dtexp; DSS[dsp] = dcs; DSG[dsp] = dtglob; DSM[dsp] = dcmd; DSR[dsp] = wrd; DSW[dsp] = dwid; DSN[dsp] = dtn; dcmd = ""; wrd = 0; dwid = 0; ccase[dsp] = 0; cdepth[dsp] = 0; cpat[dsp] = 0; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2 }
+function dpop() { dint = DSI[dsp]; dtcs = DSC[dsp]; dtok = DSK[dsp]; dtexp = DSE[dsp]; dcs = DSS[dsp]; dtglob = DSG[dsp]; dcmd = DSM[dsp]; wrd = DSR[dsp]; dwid = DSW[dsp]; dtn = DSN[dsp]; dsp-- }
 function dtext(c) { if (!dint) { dint = 1; dtcs = dcs; dtok = ""; dtexp = 0; dtglob = 0 } dtok = dtok c }
-function dreset() { dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; ccase = 0; cdepth = 0; cpat = 0 }
-function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl) {
+function dreset() { dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; dtn = 0; split("", ccase); split("", cdepth); split("", cpat); split("", rmark); split("", pdb); split("", pdb2) }
+function dhdword(u,   i, n, c, q, w) {   # the delimiter word of a here-document as the shell reads it: from u (the text after << and an optional -, blanks cut) up to the first unquoted blank or metacharacter, quotes and backslashes as they stand; "?" when a quote stays open on the line
+  n = length(u); q = ""; w = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(u, i, 1)
+    if (q == "\047") { w = w c; if (c == "\047") q = ""; continue }
+    if (q == "\"") { w = w c; if (c == "\\" && i < n) { i++; w = w substr(u, i, 1) } else if (c == "\"") q = ""; continue }
+    if (c == "\\") { w = w c; if (i < n) { i++; w = w substr(u, i, 1) }; continue }
+    if (c == "\047" || c == "\"") { q = c; w = w c; continue }
+    if (c ~ /[ \t;&|<>()]/) break
+    w = w c
+  }
+  return (q == "" ? w : "?")
+}
+function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl, l, wd) {
   cl = DCONT   # the line before ended in a backslash: this one goes on with the same segment
-  n = length(t); dbad = 0; dbad2 = 0; bsep = 0; bsep2 = 0; DCONT = 0; DHDW = ""; nrec = 0; rmark = 0; nwr = 0
-  if (!cl) cpat = (cdepth > 0 && dsp == 0) ? 1 : 0   # a line that begins inside an open case begins a case item (or goes on with a body, where a `)` that closes nothing cannot stand)
+  n = length(t); dbad = 0; dbad2 = 0; bsep = 0; bsep2 = 0; DCONT = 0; DHDW = ""; DHDQ = 0; nrec = 0; nwr = 0
+  for (l = 0; l <= dsp; l++) { rmark[l] = 0; pdb[l] = 0; pdb2[l] = 0 }
+  if (!cl) { for (l = 0; l < dsp; l++) cpat[l] = 0; cpat[dsp] = (cdepth[dsp] > 0 && (dsp == 0 || DST[dsp] ~ /^[SKP]$/)) ? 1 : 0 }   # a line that begins inside an open case (of the level it begins in) begins a case item (or goes on with a body, where a `)` that closes nothing cannot stand)
   for (i = 1; i <= n; i++) {
     c = substr(t, i, 1); nx = substr(t, i + 1, 1); top = (dsp > 0) ? DST[dsp] : ""
     if (top == "q") { dtext(c); if (c == "\047") dsp--; continue }
@@ -504,17 +533,20 @@ function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl) {
     if (c == "\"") { dtext(c); DST[++dsp] = "d"; continue }
     if (c == "#" && !dint) break
     if (c == " " || c == "\t") { dfin(); continue }
-    if (c == ";" || c == "|" || (c == "&" && substr(t, i - 1, 1) !~ /[<>]/)) { dfin(); dxend(); drd = 0; dwr = 0; wrd = 0; dcs = 1; if (c != "|") { bsep = dbad; bsep2 = dbad2; rmark = nrec; if (dsp == 0) cpat = (i > 1 && substr(t, i - 1, 1) == ";") }; continue }   # `;;` and `;&` end a case item and begin the next
+    if (c == ";" || c == "|" || (c == "&" && substr(t, i - 1, 1) !~ /[<>]/)) { dfin(); dxend(); drd = 0; dwr = 0; wrd = 0; dcs = 1; if (c != "|") { bsep = dbad; bsep2 = dbad2; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2; if (dsp == 0 || CMDS != "") cpat[dsp] = (i > 1 && substr(t, i - 1, 1) == ";") }; continue }   # `;;` and `;&` end a case item and begin the next
     if (c == "<" && nx == "<" && substr(t, i + 2, 1) == "<") { dtext("<<<"); i += 2; continue }
     if (c == "<" && nx == "<") {   # a here-document: its delimiter word, for the caller
       u = substr(t, i + 2); DHDD = (substr(u, 1, 1) == "-"); if (DHDD) u = substr(u, 2)
-      sub(/^[ \t]+/, "", u); sub(/^["\047]/, "", u); sub(/[^A-Za-z0-9_].*$/, "", u)
+      sub(/^[ \t]+/, "", u)
+      if (CMDS != "") { wd = dhdword(u); DHDQ = (wd ~ /^(\047[A-Za-z_][A-Za-z0-9_]*\047|"[A-Za-z_][A-Za-z0-9_]*")$/); if (!DHDQ && wd !~ /^[A-Za-z_][A-Za-z0-9_]*$/) REC[++nrec] = "here-document" }   # the probe pass: any delimiter that is not a plain name, bare or wholly in quotes is a word this reader would read differently from the shell (`<<wait"x"` ends at `waitx`, not at `wait`): it is an unlisted command
+      sub(/^["\047]/, "", u); sub(/[^A-Za-z0-9_].*$/, "", u)
       if (u ~ /^[A-Za-z_]/) DHDW = u
       dtext("<<"); i++; continue }
     if (c == "(") { fdef = (nx == ")" && dint && dtcs); n0 = nrec; dfin(); if (fdef && nrec == n0 + 1) nrec--; dpush("P"); dint = 0; dcs = 1; continue }   # `name()` defines a function: the name is not a command
     if (c == ")") {
       dfin(); dxend()
-      if (dsp == 0) { if (cpat) nrec = rmark; cpat = 0; dbad = bsep; dbad2 = bsep2; dcs = 1; continue }   # a `)` that closes nothing ends a case pattern: its words are no commands (the names recorded since the item began go; if no item began, nothing goes)
+      if (dsp == 0) { if (cpat[0]) nrec = rmark[0]; if (CMDS != "" && cpat[0]) { dbad = pdb[0]; dbad2 = pdb2[0] } else { dbad = bsep; dbad2 = bsep2 }; cpat[0] = 0; dcs = 1; continue }   # a `)` that closes nothing ends a case pattern: its words are no commands (the names recorded since the item began go; if no item began, nothing goes)
+      if (CMDS != "" && cpat[dsp]) { nrec = rmark[dsp]; dbad = pdb[dsp]; dbad2 = pdb2[dsp]; cpat[dsp] = 0; wrd = 0; dcs = 1; continue }   # the probe pass: the same inside `( )`, `$( )` or backticks, where the `)` of a case pattern ends the pattern and closes nothing (the flags the line had before the item began stay)
       if (top == "S") { dpop(); dtext(")"); continue }
       dsp--; wrd = 0; dcs = 1; continue }
     if (c == ">" && WRF != "") {   # an output redirection (the probe pass only): the next word is where it writes. The digits before it are the descriptor, no word of the command; a word glued before it ends at the `>`
@@ -538,14 +570,14 @@ function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl) {
   t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
   if (MODE == "dyn") { fl = $0; sub(/:.*/, "", fl); if (fl != curfile || fn != dfn) { curfile = fl; dfn = fn; dreset() } }   # a new file or function starts with nothing open
   if (fn != hdfn) hd = ""
-  if (hd != "") { u = t; if (hddash) sub(/^\t+/, "", u); if (u == hd) hd = ""; next }   # the body of a here-document is text, not a command of the function
+  if (hd != "") { u = t; if (hddash) sub(/^\t+/, "", u); if (u == hd) hd = ""; else if (CMDS != "" && !hdq && (index(t, "$(") > 0 || index(t, "`") > 0)) print "here-document\t" $0 > CMDS; next }   # the body of a here-document is text, not a command of the function; but the body of one whose delimiter is bare is expanded when it runs, and a `$(` or a backtick in it starts a command (the probe pass: an unlisted command)
   nread++
   if (MODE == "dyn") {
     if (dyn(t)) print $0 > BAD
     if (dbad2) print $0 > BAD2
     if (CMDS != "") for (j = 1; j <= nrec; j++) print REC[j] "\t" $0 > CMDS
     if (WRF != "") for (j = 1; j <= nwr; j++) print WREC[j] "\t" $0 > WRF
-    if (DHDW != "") { hd = DHDW; hdfn = fn; hddash = DHDD }
+    if (DHDW != "") { hd = DHDW; hdfn = fn; hddash = DHDD; hdq = DHDQ }
     next
   }
   CWX = 0; m = mask(t); n = cmds(m); bad = 0
@@ -735,9 +767,11 @@ rowif "starchorus-serve.sh: GET|HEAD only, paths {$pats}, default 404 (blocks $n
 # A pin is an exact line, never a pattern. Row 'named tools': the union of every line that a denylist hits, that holds a built command word (6d) or a glob (6e), or whose command is one of PROBE_PINNED (and the lines
 # such a command goes on over after a trailing backslash), must be a pinned line, and every pin must have its line. Row 'programs': every simple command the probe starts is a function of the probe itself (not after
 # `command`, which skips functions: `mv() { command mv "$@"; }` does not make `mv` a probe function), a builtin or keyword (PROBE_BUILTINS), a plain read-only program (PROBE_PLAIN) or one of PROBE_PINNED (whose lines are
-# pinned); any other name, a path or a `.` is an unlisted command. A program that writes by an option of its own is not plain: `date` (-s), `sed` (-i, a w command) and `sort` (-o) are pinned, every line of them. The same row
-# keeps the probe from writing outside its private directory, on the whole file (below, before the fill of this part). Not read, as for the other scripts: a program text that is built and
-# then run, and what an awk or sed program does with its text (review; the run rows of tools/regress.d/device-probe.sh show what the probe does on a machine).
+# pinned); any other name, a path or a `.` is an unlisted command; the word after `command` is read against the lists without its `!`, and is never `run_limited`, which is no program. A program that writes by an option of its own is
+# not plain: `date` (-s), `sed` (-i, a w command) and `sort` (-o) are pinned, every line of them. A `trap` runs its action as a command when the signal comes, and an action is a string that this row does not read: only `-`, an
+# empty string, a function of the probe and `exit N` are accepted, any other is an unlisted command. A here-document is read by its delimiter: a delimiter word that is not a plain name, bare or wholly in quotes, and a body with a
+# `$(` or a backtick under a bare delimiter, are unlisted commands too. The same row keeps the probe from writing outside its private directory, on the whole file (below, before the fill of this part). Not read, as for the other
+# scripts: a program text that is built and then run, and what an awk or sed program does with its text (review; the run rows of tools/regress.d/device-probe.sh show what the probe does on a machine).
 cat > "$tmp/ppins0" <<'PPINS'
 ## text only: the usage hint the guard prints, which names the ssh command the person types; the probe never starts ssh
 -:echo "device-probe: usage: ssh root@<device> sh -s < tools/device-probe.sh | tee probe.txt" >&2
@@ -829,10 +863,10 @@ pscoped() { [ -f "$PROBE" ] || return 0; SCOPE_RE=$1 SCOPE_NORM=0 awk "$FNSCOPE"
 pscoped_n() { [ -f "$PROBE" ] || return 0; SCOPE_RE=$1 SCOPE_NORM=1 awk "$FNSCOPE" "$PROBE"; }
 pscoped '.' > "$tmp/pcode"
 : > "$tmp/pdyn_bad"; : > "$tmp/pdyn_bad2"; : > "$tmp/pdyn_n"; : > "$tmp/pcmds"; : > "$tmp/pwrites"
-BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_CMDS="$tmp/pcmds" BT_WRITES="$tmp/pwrites" awk -v BAD="$tmp/pdyn_bad" -v BAD2="$tmp/pdyn_bad2" -v NREAD="$tmp/pdyn_n" "$BTSEG" "$tmp/pcode"
-# the functions the probe defines (the heads `name() {` and the one-line forms: a call of any of them is not an unlisted command), the function heads that the scope check recognises (they give the pins their
-# function), and the lines whose command is one of PROBE_PINNED
+# the functions the probe defines (the heads `name() {` and the one-line forms: a call of any of them is not an unlisted command, and the name of one may stand as the action of a `trap`), the function heads that the
+# scope check recognises (they give the pins their function), and the lines whose command is one of PROBE_PINNED
 { [ ! -f "$PROBE" ] || awk '/^[ \t]*#/ { next } /^[A-Za-z_][A-Za-z0-9_]*[ \t]*\([ \t]*\)/ { f = $0; sub(/[ \t]*\(.*/, "", f); print f }' "$PROBE"; } | LC_ALL=C sort -u > "$tmp/pfn"
+BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_CMDS="$tmp/pcmds" BT_WRITES="$tmp/pwrites" BT_PFN="$(tr '\n' ' ' < "$tmp/pfn")" awk -v BAD="$tmp/pdyn_bad" -v BAD2="$tmp/pdyn_bad2" -v NREAD="$tmp/pdyn_n" "$BTSEG" "$tmp/pcode"
 { [ ! -f "$PROBE" ] || awk 'BEGIN { DEF = ENVIRON["FNDEF"] } $0 ~ DEF { f = $0; sub(/[ \t]*\(.*/, "", f); print f }' "$PROBE"; } | LC_ALL=C sort -u > "$tmp/pheads"
 awk -F'\t' -v PI="$PROBE_PINNED" '{ n = $1; sub(/^[^\t]*\t/, ""); sub(/^!/, "", n); if (index(PI, " " n " ") > 0) print }' "$tmp/pcmds" > "$tmp/pprog"
 # the arguments of a command go on over a trailing backslash: the lines after the line of a PROBE_PINNED command, for as long as the line before ends in a backslash, are hits of the same kind
@@ -850,25 +884,28 @@ awk '!seen[$0]++' "$tmp/ph0" > "$tmp/ph"
 pp=$(pin_cmp "$tmp/ph" "$tmp/ppins" "$tmp/pnew" "$tmp/pgone" 1)
 pn_ok=0; [ ! -s "$tmp/pnew" ] && [ ! -s "$tmp/pgone" ] && pn_ok=1
 # writes: the probe writes nowhere but its private directory, and the rule is read on the whole file, not on one section. Every redirection target (`>`, `>>`, `>|`, `2>`, `9>`, glued or not), every destination of `cp`, `mv` and
-# `tee` (the last word of the first two, every word of the third; `-t DIR` is never accepted) must be /dev/null or a file below $T: `$T/name`, `"$T/name"` or `${T}/name`, the name made of letters, digits, `.`, `_`, `-`, `/` and expansions,
-# with no `..` in it. The variables the probe sets to such a file stand for one too ($OUT, $A, $B, and $A-wal and $B-wal for the copy of a -wal file), on one condition that this row also reads: T, OUT, A and B are only ever assigned
+# `tee` (the last word of the first two, every word of the third; `-t DIR` is never accepted) must be /dev/null or a file below $T: `$T/name`, `"$T/name"` or `${T}/name`, the name made of letters, digits, `.`, `_`, `-` and `/`
+# (no expansion: `$T/$1` is whatever the caller hands over, `../../etc/x` among it), with no `..` in it. The variables the probe sets to such a file stand for one too ($OUT, $A, $B, and $A-wal and $B-wal for the copy of a -wal file), on one condition that this row also reads: T, OUT, A and B are only ever assigned
 # an empty string or a file below $T (OUT, A, B) and, for T, nothing but the empty string and the one pinned mktemp -d; a `for` or `read` that names one of them counts as an assignment of something else. A descriptor copy (`2>&1`, `>&2`)
-# names no file. The two lines below are the exceptions, each once and byte for byte: what the redirection of one of them writes to is not spelled in the line. Not read, as above: a program text of awk or sed (an awk `print > "file"`), `eval`,
+# names no file. The three lines below are the exceptions, each once and byte for byte: what the redirection of one of them writes to is not spelled in the line, or holds an expansion. The third is vset, whose file is named by the
+# number of the verification: every call of vset has to give digits as its first argument (row programs, unlisted command otherwise). Not read, as above: a program text of awk or sed (an awk `print > "file"`), `eval`,
 # and a variable set by `${NAME:=…}` or `getopts`.
 cat > "$tmp/wpins0" <<'WPINS'
 ## run_limited writes the output of the command it is handed to its second argument; both calls of it (section 8) hand it a file of the private directory (they are pinned lines of their own above)
 run_limited:"$@" > "$_of" 2>&1 < /dev/null &
 ## the private directory itself: the only assignment to T that is not an empty string, the one mktemp -d (a pinned line of its own above)
 main:T=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-probe.XXXXXX" 2>/dev/null) || { echo "device-probe: cannot create a private temp dir under ${TMPDIR:-/tmp}" >&2; return 2; }
+## vset writes the summary line of one verification into the file v.N of the private directory; the name holds an expansion (the number), so the line is pinned. This row reads every call of vset: the first argument has to be digits as written, never a variable or a path
+-:vset() { printf '%s\n' "$2" > "$T/v.$1"; }           # summary line of open verification $1
 WPINS
 grep -v '^##' "$tmp/wpins0" | sed "s|^|$PROBE:|" > "$tmp/wpins"
 # shellcheck disable=SC2016   # awk program
 WRAWK='
   function unq(v) { if (v ~ /^"[^"]*"$/ || v ~ /^\047[^\047]*\047$/) return substr(v, 2, length(v) - 2); return v }
-  function undert(v,   r) {   # a file below $T: what follows has no leading slash, no .. and only name characters and expansions
+  function undert(v,   r) {   # a file below $T: what follows has no leading slash, no .. and only name characters, no expansion (`$T/$1` is whatever the caller hands over)
     if (v !~ /^\$(T|\{T\})\//) return 0
     r = v; sub(/^\$(T|\{T\})\//, "", r)
-    return (r != "" && r !~ /^\// && index(r, "..") == 0 && r ~ /^[A-Za-z0-9_.$\/{}-]+$/)
+    return (r != "" && r !~ /^\// && index(r, "..") == 0 && r ~ /^[A-Za-z0-9_.\/-]+$/)
   }
   function okw(w,   v) { v = unq(w); return (v == "/dev/null" || v ~ /^\$(OUT|A|B|\{OUT\}|\{A\}|\{B\})(-wal)?$/ || undert(v)) }
   function okas(w,   nm, v) {   # NAME=value: the variables that stand for a target keep to a file below $T (T itself to the empty string)
@@ -901,8 +938,9 @@ rowif "device-probe.sh named tools: $(lines "$tmp/ph") lines hold one (sending $
 : > "$tmp/punl"; : > "$tmp/pnames"
 LC_ALL=C awk -F'\t' -v FNL="$(tr '\n' ' ' < "$tmp/pfn")" -v BI="$PROBE_BUILTINS" -v PL="$PROBE_PLAIN" -v PI="$PROBE_PINNED" -v UNL="$tmp/punl" -v NAMES="$tmp/pnames" '
   BEGIN { nf = split(FNL, fa, " "); for (i = 1; i <= nf; i++) fn[fa[i]] = 1 }
-  { n = $1; r = $0; sub(/^[^\t]*\t/, "", r); seen[n]++
-    if (index(PI, " " n " ") > 0 || index(BI, " " n " ") > 0 || index(PL, " " n " ") > 0 || (n in fn)) next
+  { n = $1; m = n; sub(/^!/, "", m); r = $0; sub(/^[^\t]*\t/, "", r); seen[n]++
+    if (n == "!run_limited") { print r > UNL; next }   # the word after `command` is a program of the PATH, and no program has the name of a function of the probe
+    if (index(PI, " " m " ") > 0 || index(BI, " " m " ") > 0 || index(PL, " " m " ") > 0 || (n in fn)) next   # the lists are read without the `!` of a program after `command`; a function of the probe is never one (`!NAME` is not in fn)
     print r > UNL }
   END { for (k in seen) print k > NAMES }' "$tmp/pcmds"
 # a function of the probe that has the name of a listed program would stand in for it
@@ -910,7 +948,7 @@ LC_ALL=C awk -F'\t' -v FNL="$(tr '\n' ' ' < "$tmp/pfn")" -v BI="$PROBE_BUILTINS"
 while IFS= read -r w; do [ "$w" != run_limited ] || continue; case "$PROBE_BUILTINS$PROBE_PLAIN$PROBE_PINNED" in *" $w "*) printf '%s\n' "$w" >> "$tmp/pshadow" ;; esac; done < "$tmp/pfn"
 pg_ok=0; [ ! -s "$tmp/punl" ] && [ ! -s "$tmp/pshadow" ] && [ ! -s "$tmp/pwnew" ] && [ ! -s "$tmp/pwgone" ] && [ "$pnc" -ge "$MIN_PROBE_CMDS" ] && pg_ok=1
 rowif "device-probe.sh programs: $pnc commands in $pnl lines, $(lines "$tmp/pnames") names, unlisted commands $(lines "$tmp/punl"), functions with the name of a listed program $(lines "$tmp/pshadow"), writes: $pnw targets read, $(lines "$tmp/pwr") lines write outside /dev/null and \$T, pinned $pw of $(lines "$tmp/wpins"), not pinned $(lines "$tmp/pwnew"), pins without a line $(lines "$tmp/pwgone")" [ "$pg_ok" = 1 ]
-[ ! -s "$tmp/punl" ] || { show < "$tmp/punl"; echo "    hint: the probe starts a program that no list names: a read command goes into PROBE_PLAIN, one whose arguments decide goes into PROBE_PINNED with its lines pinned, or it must go"; }
+[ ! -s "$tmp/punl" ] || { show < "$tmp/punl"; echo "    hint: the probe starts a program that no list names: a read command goes into PROBE_PLAIN, one whose arguments decide goes into PROBE_PINNED with its lines pinned, or it must go. (A trap whose action is not a function of the probe, - or exit N, a here-document with an odd delimiter or an expanded body and a vset that is not given digits are reported here too)"; }
 [ ! -s "$tmp/pshadow" ] || sed 's/^/    function with the name of a listed program: /' "$tmp/pshadow"
 [ ! -s "$tmp/pwnew" ] || { show < "$tmp/pwnew"; echo "    hint: the line writes to a place that is neither /dev/null nor a file below \$T, or sets T, OUT, A or B to one: the probe writes nowhere but its private directory"; }
 [ ! -s "$tmp/pwgone" ] || { sed 's/^/    pin without a line: /' "$tmp/pwgone" | cut -c1-200; echo "    hint: a line that was allowed to write changed or went: change the list of writes in row 7d with it"; }
