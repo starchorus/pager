@@ -2732,6 +2732,12 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   `_pineap` lines of `apcli_ro` are pinned byte for byte, each once, so a sixth line, a changed argument or a command name from a variable is
   red. A device check per command needs approval per command; the yardstick is that the transmit counters of the monitor interfaces are the same
   before and after.
+  **The device probe.** `tools/device-probe.sh` is the one file of `tools/` that runs on the device. It is in the scope of the static check, with three rows of its own (`device-probe.sh scope fill`,
+  `named tools`, `programs`) and not in the file list of the rows above, so that nothing allowed there applies to it and nothing allowed for it applies there. It is read with the same families (`SEC6_RE`, `TX_WORDS` with the `iw`
+  verbs, `BT_WORDS`, the `iw scan` test, the `sqlite3` word, the rows `§14.6d` and `§14.6e`) and with `PNET_WORDS`, the network, capture, package and service tools, which only it is read for. A function allowlist has no standing in it. Every line
+  that a family hits, that holds a built or globbed command word, or whose command is `iw`, `sqlite3`, `sh`, `busybox`, `flock`, `timeout`, `find`, `kill`, `rm`, `cp`, `mkdir`, `chmod`, `mktemp` or `run_limited` is a pinned line (function and
+  text byte for byte, each once, the reason beside the pin: a presence test by name, a read-only `iw` dump, the one `sqlite3 -readonly` open on a copy, a version text); a pin without its line is red. Every other command it starts is a function of its own, a builtin
+  or a plain read command from a short list, and anything else (a name no list has, a path, a `.`) is red.
 
 - The alert log (`STARCHORUS_ALERTS`, default 1; nothing is read unless the file exists) and its companion file. **Companion:** `library/user/reconnaissance/starchorus/alert-deauth.sh`, a
   bash file with the Hak5 header (Title, Description, Author, Version) that is not named `payload.sh`, so that the library's UpdatePayloads takes it for no payload of its own; the Hak5 package carries it

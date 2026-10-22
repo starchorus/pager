@@ -126,6 +126,12 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   The list of names is what is known of BlueZ, the programs that the project had not named yet included (`mpris-proxy`, `hex2hcd`, `obexctl`, `bluetooth-player`, `btinfo`,
   `scotest`, `hcieventmask`); the device's own file listing (`tools/device-probe.sh`, V-13) has not been taken yet, and every name it adds becomes one more alternative.
 - Every `sqlite3` call outside the self-test carries `-readonly`.
+- `tools/device-probe.sh`, the one file of `tools/` that runs on the device (it is piped into a device shell over ssh and reads, and sends and changes nothing), is in the scope of the check with three rows
+  of its own. It is read with the same denylists as the files above and, besides, for the network, capture, package and service tools (`curl`, `wget`, `nc`, `ssh`, `uci`, `opkg`, `tcpdump`, `reboot` and the rest of `PNET_WORDS`).
+  The allowlists of the other files (`SEC6_FUNCS`, `BT_FUNCS` and every pin) do not apply to it, and none of its own applies to them. What the probe deliberately names or runs is a pinned line, byte for byte with its
+  function and each once: a presence test by tool name, a read-only `iw` dump (`iw dev`, `iw dev X info`, `iw dev X survey dump`, `iw phy X info`), the one `sqlite3 -readonly` open on a copy inside its private directory, a version text,
+  the copies of the recon database, the self-tests of the installed Starchorus. Every command it starts is a function of its own, a builtin, a plain read command from a short list or one of those pinned lines; any other name,
+  a path or a `.` is red, and so is a pin whose line has changed or gone. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
 
 `tools/passivity-mutate.sh` shows that each of these checks can turn red (it plants one violation for every alternative of the
