@@ -60,6 +60,16 @@
 #                 `probe-vset-variable` and `probe-vset-path` a call of `vset` that is not given digits. `probe-heredoc-quote-mid`, `-quote-end` and `-hyphen` plant a delimiter that the shell reads otherwise than the reader (`<<wait"x"` ends at `waitx`),
 #                 `probe-heredoc-body-subst` and `-body-backtick` a `$(` and a backtick in the body of a here-document with a bare delimiter; `probe-ok-heredoc` (quoted delimiters with a `$(` in the body, a bare one with a plain body) stays green.
 #                 `probe-command-run-limited` is `command run_limited` (no program has that name), the control `probe-ok-command-plain` `command cat`, and `probe-writes-floor` raises the floor MIN_PROBE_WRITES. Each new rule is blinded once in the meta probe.
+# DEVICE PROBE, THE VIEW: the probe is read whole by one reader, and the lists the rows lean on (the functions it defines, its function heads and which function a line belongs to, which lines are comments) come from that reading, no longer from a
+#                 text scan of the raw file. The `probe-fn-` mutations plant a `name() { :; }` where it defines nothing, and then a call of that name or a `trap` that names it: in the body of a quoted and of a bare here-document, in a
+#                 string that runs over several lines (single and double quotes) and in a comment (`probe-fn-heredoc-call`, `-heredoc-trap`, `-heredoc-bare`, `-string-call`, `-string-trap`, `-dstring-call`, `-comment-call`), and the forms that are no
+#                 definition for the calls either (`-indented-call`, `-after-semicolon`, `-subshell-call`, `-continued`, `-odd-name`); `probe-shadow-nested` a function named like a listed program that is not at the start of a line. `probe-no-main-heredoc`,
+#                 `probe-pin-fn-heredoc`, `-pin-fn-string` and `-pin-fn-close-heredoc` plant a function head, and a closing brace, in a body or a string, where they gave the lines after them another function (the pins) and passed the fill probe;
+#                 `probe-string-comment-line` and `-comment-curl` a line that looks like a comment inside a string (it ends the string and a command follows), `probe-heredoc-body-comment` one in a bare here-document (a `$(` in it is run),
+#                 `probe-continued-comment` one after a backslash, `probe-string-head-reset` a line that looks like a head inside a string (it used to start the reading afresh). The controls `probe-ok-string-lines`, `probe-ok-heredoc-lines`
+#                 (lines that look like comments, heads, closing braces and definitions, of a listed program too, in strings and here-documents: text), `probe-ok-continued` and `probe-ok-fn-toplevel` (the same name, a genuine function at the start of a
+#                 line: its calls and a `trap` are the probe's own) stay green. Each part of the reader that decides this is blinded once in the meta probe (the column, depth, continued line and name of a definition, the list of all definitions,
+#                 the three conditions of a clean line, the heads, the closing brace, the code lines, the second run). `probe-pin-fn-string` is red for two reasons (the pins, and the string state lost at a head) and is the one mutation no single blind shows.
 # TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
 # PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
 #                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
@@ -86,7 +96,7 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=228    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (270 lines: 228 and 42 controls)
+MIN_MUT=250    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (296 lines: 250 and 46 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
@@ -376,6 +386,30 @@ if [ "$meta" = 1 ]; then
   metaprobe probe-command-strip-blind tools/passivity-check.sh 'm = n; sub(/^!/, "", m);' 'm = n;' probe-ok-command-plain 'mutation probe-ok-command-plain: WRONG-ROW'
   metaprobe probe-command-run-limited-blind tools/passivity-check.sh 'if (n == "!run_limited") { print r > UNL; next }' 'if (0) { print r > UNL; next }' probe-command-run-limited 'mutation probe-command-run-limited: GREEN (BLIND!)'
   metaprobe probe-writes-floor-blind tools/passivity-check.sh '[ "$pnw" -ge "$MIN_PROBE_WRITES" ] && ' '' probe-writes-floor 'mutation probe-writes-floor: GREEN (BLIND!)'
+  # (l) the probe is read whole, by one reader: its functions (`name()` met at the start of a line with nothing open), the function a line belongs to, and which lines are comments come from the reader, not from a scan of the raw
+  #     text (row 7d). Each part of that is blinded once: the column, the depth, the continued line and the name of a definition, the list of all definitions (the shadow test), the three conditions under which a line is "clean" (no
+  #     here-document body, nothing open, no line going on), the heads, the closing brace, what goes into the code lines, the second run with the functions. Parts that the unmutated probe needs (the heads, the closing
+  #     brace that gives the lines after a function no function, the call of the recorder, the second run) turn the unmutated row red when blinded, and a control goes red instead: WRONG-ROW.
+  metaprobe probe-fdef-column-blind tools/passivity-check.sh 'if (dsp == 0 && !cont && col == length(nm) + 1) print nm > FDEFS' 'if (dsp == 0 && !cont) print nm > FDEFS' probe-fn-indented-call 'mutation probe-fn-indented-call: GREEN (BLIND!)'
+  metaprobe probe-fdef-semicolon-blind tools/passivity-check.sh 'if (dsp == 0 && !cont && col == length(nm) + 1) print nm > FDEFS' 'if (dsp == 0 && !cont) print nm > FDEFS' probe-fn-after-semicolon 'mutation probe-fn-after-semicolon: GREEN (BLIND!)'
+  metaprobe probe-fdef-top-blind tools/passivity-check.sh 'if (dsp == 0 && !cont && col' 'if (!cont && col' probe-fn-subshell-call 'mutation probe-fn-subshell-call: GREEN (BLIND!)'
+  metaprobe probe-fdef-cont-blind tools/passivity-check.sh '&& !cont && col' '&& col' probe-fn-continued 'mutation probe-fn-continued: GREEN (BLIND!)'
+  metaprobe probe-fdef-name-blind tools/passivity-check.sh 'if (nm !~ /^[A-Za-z_][A-Za-z0-9_]*$/) return' 'if (0) return' probe-fn-odd-name 'mutation probe-fn-odd-name: GREEN (BLIND!)'
+  metaprobe probe-adef-blind tools/passivity-check.sh 'print nm > ADEFS' 'print nm > "/dev/null"' probe-shadow-nested 'mutation probe-shadow-nested: GREEN (BLIND!)'
+  metaprobe probe-shadow-all-blind tools/passivity-check.sh 'done < "$tmp/padef"' 'done < "$tmp/pfn"' probe-shadow-nested 'mutation probe-shadow-nested: GREEN (BLIND!)'
+  metaprobe probe-fdef-call-blind tools/passivity-check.sh 'if (fdef && VIEW != "") ddef(i, cl);' 'if (0) ddef(i, cl);' probe-ok-fn-toplevel 'mutation probe-ok-fn-toplevel: WRONG-ROW'
+  metaprobe probe-pfn-run-blind tools/passivity-check.sh 'pclear; pread "$(tr '"'"'\n'"'"' '"'"' '"'"' < "$tmp/pfn")"' 'pclear; pread ""' probe-ok-trap 'mutation probe-ok-trap: WRONG-ROW'
+  metaprobe probe-view-head-blind tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) {' probe-pin-fn-heredoc 'mutation probe-pin-fn-heredoc: GREEN (BLIND!)'
+  metaprobe probe-view-head-fill-blind tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) {' probe-no-main-heredoc 'mutation probe-no-main-heredoc: GREEN (BLIND!)'
+  metaprobe probe-view-head-reset-blind tools/passivity-check.sh 'if (vclean && t ~ DEFRE) {' 'if (t ~ DEFRE) {' probe-string-head-reset 'mutation probe-string-head-reset: GREEN (BLIND!)'
+  metaprobe probe-view-heads-blind tools/passivity-check.sh 'print vfn > VHEADS' 'print vfn > "/dev/null"' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-view-close-blind tools/passivity-check.sh 'if (vclean && t ~ /^}/) vclose = 1' 'if (t ~ /^}/) vclose = 1' probe-pin-fn-close-heredoc 'mutation probe-pin-fn-close-heredoc: GREEN (BLIND!)'
+  metaprobe probe-view-close-reset-blind tools/passivity-check.sh 'if (vclose) { vfn = "-"; vclose = 0 }' 'if (vclose) { vclose = 0 }' probe-ok-read 'mutation probe-ok-read: WRONG-ROW'
+  metaprobe probe-view-comment-blind tools/passivity-check.sh 'vcom = (vclean && t ~ /^[ \t]*#/)' 'vcom = (t ~ /^[ \t]*#/)' probe-string-comment-curl 'mutation probe-string-comment-curl: GREEN (BLIND!)'
+  metaprobe probe-view-heredoc-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (dsp == 0 && !DCONT)' probe-heredoc-body-comment 'mutation probe-heredoc-body-comment: GREEN (BLIND!)'
+  metaprobe probe-view-open-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && !DCONT)' probe-string-comment-line 'mutation probe-string-comment-line: GREEN (BLIND!)'
+  metaprobe probe-view-continued-blind tools/passivity-check.sh 'vclean = (hd == "" && dsp == 0 && !DCONT)' 'vclean = (hd == "" && dsp == 0)' probe-continued-comment 'mutation probe-continued-comment: GREEN (BLIND!)'
+  metaprobe probe-view-code-blind tools/passivity-check.sh 'if (t != "" && !vcom) print $0 > VIEW' 'if (t != "") print $0 > VIEW' probe-ok-comment 'mutation probe-ok-comment: WRONG-ROW'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -722,6 +756,84 @@ zz_eof' '' 'device-probe.sh programs'
 mut probe-heredoc-body-backtick tools/device-probe.sh fnappend 'cat <<zz_eof > /dev/null
 `od /etc/zz_a`
 zz_eof' '' 'device-probe.sh programs'
+# the functions of the probe, and the function a line belongs to, come from the reader, not from a text scan of the raw file. A line `name() { :; }` in the body of a here-document (quoted or bare), in a string that runs over several lines or in a
+# comment defines nothing, so a call of that name, and a `trap` that names it, stay unlisted commands; a definition that is indented, behind a `;`, in a subshell, after a backslash or with a name that is no plain name is none for the calls either
+mut probe-fn-heredoc-call tools/device-probe.sh  fnappend 'cat <<'"'"'zz_eof'"'"' > /dev/null
+nft() { :; }
+zz_eof
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-heredoc-trap tools/device-probe.sh  fnappend 'cat <<'"'"'zz_eof'"'"' > /dev/null
+nft() { :; }
+zz_eof
+trap nft EXIT' '' 'device-probe.sh programs'
+mut probe-fn-heredoc-bare tools/device-probe.sh  fnappend 'cat <<zz_eof > /dev/null
+nft() { :; }
+zz_eof
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-comment-call tools/device-probe.sh  fnappend '# nft() { :; }
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-string-call tools/device-probe.sh   fnappend 'zz_x='"'"'
+nft() { :; }
+'"'"'
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-string-trap tools/device-probe.sh   fnappend 'zz_x='"'"'
+nft() { :; }
+'"'"'
+trap nft EXIT' '' 'device-probe.sh programs'
+mut probe-fn-dstring-call tools/device-probe.sh  fnappend 'zz_x="
+nft() { :; }
+"
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-indented-call tools/device-probe.sh fnappend 'nft() { :; }
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-after-semicolon tools/device-probe.sh append 'zz_a() { :; }; nft() { :; }
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-subshell-call tools/device-probe.sh fnappend '(
+nft() { :; }
+)
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-continued   tools/device-probe.sh   fnappend 'zz_x=\
+nft() { :; }
+nft dev wlan0' '' 'device-probe.sh programs'
+mut probe-fn-odd-name    tools/device-probe.sh   append  'zz-nft() { :; }
+zz-nft dev wlan0' '' 'device-probe.sh programs'
+# a function head that stands in a here-document body or a string gives the lines after it no function (the pins), and counts as none for the fill; a closing brace in a body does not end a function
+mut probe-no-main-heredoc tools/device-probe.sh  subst    '^main() {' 'zz_main() {
+    cat <<'"'"'zz_eof'"'"' > /dev/null
+main() {
+zz_eof' 'device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs'
+mut probe-pin-fn-heredoc tools/device-probe.sh   subst    '^sect_radio() {' 'sect_zz() {
+    cat <<'"'"'zz_eof'"'"' > /dev/null
+sect_radio() {
+zz_eof' 'device-probe.sh named tools|device-probe.sh programs'
+mut probe-pin-fn-string  tools/device-probe.sh   subst    '^sect_radio() {' 'sect_zz() {
+    zz_x='"'"'
+sect_radio() {
+'"'"'' 'device-probe.sh named tools|device-probe.sh programs'
+mut probe-pin-fn-close-heredoc tools/device-probe.sh subst '^BTP_RE=' 'zz_f() {
+    cat <<'"'"'zz_eof'"'"' > /dev/null
+}
+zz_eof
+BTP_RE=' 'device-probe.sh named tools'
+# a line that looks like a comment, in a string that runs over several lines, in a bare here-document or after a backslash, is code: a quote in it ends the string, a `$(` in it is run, and the command after the comment of a continued line is a command
+mut probe-string-comment-line tools/device-probe.sh fnappend 'zz_x='"'"'
+# '"'"'; od /etc/zz_a; : '"'"'
+'"'"'' '' 'device-probe.sh programs'
+mut probe-string-comment-curl tools/device-probe.sh fnappend 'zz_x='"'"'
+# '"'"'; curl http://192.0.2.1/; : '"'"'
+'"'"'' '' 'device-probe.sh named tools|device-probe.sh programs'
+mut probe-heredoc-body-comment tools/device-probe.sh fnappend 'cat <<zz_eof > /dev/null
+# $(od /etc/zz_a)
+zz_eof' '' 'device-probe.sh programs'
+mut probe-continued-comment tools/device-probe.sh fnappend 'cat /etc/hostname \
+# a comment between the two lines
+od /etc/zz_a' '' 'device-probe.sh programs'
+# a line that looks like a function head, inside a string, starts no new reading: the string goes on, and ends where the shell ends it
+mut probe-string-head-reset tools/device-probe.sh fnappend 'zz_x='"'"'
+zz_fn() {
+'"'"'; od /etc/zz_a' '' 'device-probe.sh programs'
+# a function with the name of a listed program is red wherever it is defined, not only at the start of a line
+mut probe-shadow-nested  tools/device-probe.sh   fnappend 'cat() { :; }' ''                                           'device-probe.sh programs'
 # the word after `command` is read against the lists without its `!`; no program has the name of a function of the probe (run_limited)
 mut probe-command-run-limited tools/device-probe.sh fnappend 'command run_limited 5 "$T/zz_x" true' ''                'device-probe.sh named tools|device-probe.sh programs'
 # the floor of write targets read
@@ -749,6 +861,40 @@ zz_eof
 cat <<zz_eof > /dev/null
 plain $T text ${PATH:-x}
 zz_eof' '' ''
+# text that only looks like definitions, comments and heads stays text: lines in a string, a quoted and a bare here-document that look like a comment, a function head, a closing brace or a definition (of a listed program, too), and a continued command
+mut probe-ok-string-lines tools/device-probe.sh  fnappend 'zz_x='"'"'
+# a line that looks like a comment
+zz_fn() {
+}
+nft() { :; }
+cat() { :; }
+'"'"'
+zz_y="
+# also text
+zz_gn() {
+}
+ls() { :; }
+"' '' ''
+mut probe-ok-heredoc-lines tools/device-probe.sh fnappend 'cat <<'"'"'zz_eof'"'"' > /dev/null
+# a line that looks like a comment
+zz_fn() {
+}
+nft() { :; }
+cat() { :; }
+$(od /etc/zz_a)
+zz_eof
+cat <<zz_eof2 > /dev/null
+# plain $T text
+zz_gn() {
+}
+ls() { :; }
+zz_eof2' '' ''
+mut probe-ok-continued   tools/device-probe.sh   fnappend 'cat /etc/hostname \
+    /etc/openwrt_release > /dev/null' '' ''
+# the same name as a genuine function of the probe, at the start of a line at the top level: its calls and a trap that names it are the probe's own
+mut probe-ok-fn-toplevel tools/device-probe.sh   append  'nft() { :; }
+nft dev wlan0
+trap nft EXIT' '' ''
 # a case inside ( ), $( ) or backticks in a case body, and one that begins a line inside an open case of its own group
 mut probe-ok-case-nested tools/device-probe.sh   fnappend 'case "$zz_x" in
         a)
