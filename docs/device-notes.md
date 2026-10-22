@@ -602,7 +602,7 @@ every device of the session, is parsed device by device: it grows with the size 
 
 At the end, `tools/device-probe.sh` reports each open verification as `V-<id> <name>: OBSERVED …` or
 `NOT-OBSERVABLE …`. Beyond the table it covers V-6 (6 GHz reception), V-11 (multi-BSSID profiles,
-which the database may under-record) and V-13 (the Bluetooth controller and tools, from sysfs and file names alone, §2b). V-12, the five jq building blocks (§2a), was answered on the device by the Overview's self-test on 14 and 15 October 2026. V-3, V-4
+which the database may under-record), V-13 (the Bluetooth controller and tools, from sysfs and file names alone, §2b) and V-14 (`flock`, `tail -c` and `/bin/bash` for the alert companion, §5c). V-12, the five jq building blocks (§2a), was answered on the device by the Overview's self-test on 14 and 15 October 2026. V-3, V-4
 (a radio-locking examine command, not used by Starchorus), V-7 (the device's deauth reporter) and
 V-11 remain `NOT-OBSERVABLE` there: they would need a command that a read-only run does not call (V-3 was
 done by hand, see above).
@@ -636,7 +636,7 @@ only, against stand-in variables (`tools/regress.d/hak5-package.sh`), and the co
 | g8 | Does the alert fire on the Pager's own deauth frames, and with which SOURCE | the Pager deauthing a network the owner controls, by another payload (an owner's decision; Starchorus never sends one) | whether an alert can be the owner's own test; nothing in the log tells it apart |
 
 Also unmeasured, and assumed by the companion and the collector: that the device has `flock` (the lock is skipped without it), that its `tail` takes `-c` (the collector reads the last 256 KiB of the log with it)
-and that an alert payload runs under bash (`[[:xdigit:]]` in a `case` pattern). `tools/device-probe.sh` does not ask for them yet.
+and that an alert payload runs under bash (`[[:xdigit:]]` in a `case` pattern). `tools/device-probe.sh` asks for them in V-14 (section 10): `flock` (its path, and whether it is util-linux or a BusyBox applet), `tail -c 4`, `-c 1` and `-c 262144` on a ten-byte file of its own (the exact output is recorded) and `/bin/bash` (present, runnable, its version, and a `case` with `[[:xdigit:]]` on two literals under it and, for comparison, under `sh`). No lock is taken and no script of the device is run. That shows whether the tools are there and take the pattern, not how the firmware starts an alert payload (g2, g4, g6 above). It has not been run on the device yet.
 
 ---
 

@@ -5,6 +5,12 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ## 0.2.5 - unreleased
 
+### Added
+
+- `tools/device-probe.sh` answers V-14, the three things the alert companion and the collector assume of the device and nothing has measured: `flock` (its path, and whether it is util-linux or a BusyBox applet), `tail -c` (`-c 4`, `-c 1` and `-c 262144` on a ten-byte file of its own, with the exact output) and `/bin/bash` (present, runnable, its version, and a `case` with `[[:xdigit:]]` on two literals under it and under `sh`). No lock is taken, nothing is written outside the probe's private directory, and no script of the device is run. The header of the script now lists V-1 to V-14 with what each one reads.
+- `sh tools/device-probe.sh --list` prints V-1 to V-14 with a one-line question each, on any machine, and exits 0; it makes no temp directory and runs no program.
+- The device probe has a test of its own, `tools/regress.d/device-probe.sh` (in T1 and T2): the list of verifications against the header, the code and `--list`, a forced run on the development machine with stand-ins (a util-linux-looking and a BusyBox `flock`, none; a `tail` that refuses `-c` or ignores it; a `bash` that answers wrong, cannot run or is missing), a scan of the V-14 section for sending, scanning, network and change tools, shellcheck, and planted copies that must go red.
+
 ### Changed
 
 - The page is built from fragments: `starchorus.html` is cut along its section markers into one file for each section under `src/` (CSS 00 to 09, DOM 10 to 19, JavaScript 20 to 41, and the frame in four parts), and `sh tools/build-page.sh` joins them in the order of `src/PAGE.list`. The built page stays committed and does not change by a byte (the build is `cat`: no minifying, no stripping of comments), so the device, the Hak5 package and the installer read the one file as before. The static checks go red when the page is not the build of `src/`, when the manifest is unsound, and the commit hook now starts for a commit that stages only a fragment; `build-page.sh --where N` names the fragment and the line behind a line of the built page. The SPDX line stays in the head fragment only (CONTRIBUTING says so).

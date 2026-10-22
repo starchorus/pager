@@ -2846,7 +2846,7 @@ active LE scans, advertising, connections and GATT, fingerprinting/de-randomisat
 linked to another across a rotation), genuine spectrum analysis/direction finding, drone Remote ID. Anything device-dependent (semantics of `time`
 in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 GHz, own BSSIDs, `packets`, the passive Bluetooth window, the unit
 of `RECON CHANNELS`) is never treated as fact until checked on the device and stays behind toggles (default off); `docs/device-notes.md` lists the
-open questions with the identifiers V-1 … V-13 from `tools/device-probe.sh` (V-13: the Bluetooth controller and tools, from files alone).
+open questions with the identifiers V-1 … V-14 from `tools/device-probe.sh` (V-13: the Bluetooth controller and tools, from files alone; V-14: `flock`, `tail -c` and `/bin/bash`, which the alert companion and the collector assume).
 
 **Gate for the Bluetooth default.** The summary's APs line with the Bluetooth figure is at most 45 characters (three-digit counts, '256+'), and the Pager's console line holds 50 to 52
 characters, measured on 21 October 2026 (`docs/device-notes.md`, M6: a 50-digit line and the line with the middle dot each stayed on one line; longer lines wrap at a word boundary). The
