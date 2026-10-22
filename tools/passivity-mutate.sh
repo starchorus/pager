@@ -67,7 +67,7 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=159    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (189 lines: 159 and 30 controls)
+MIN_MUT=162    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (192 lines: 162 and 30 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
@@ -550,6 +550,9 @@ mut probe-pin-twice      tools/device-probe.sh   fndef    'sect_tools' 'for _t i
 mut probe-no-main        tools/device-probe.sh   subst    '^main() {' 'zz_main() {'                                     'device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs'
 mut probe-head-oneliner  tools/device-probe.sh   subst    '^cleanup() {' 'cleanup() { :'                                'device-probe.sh scope fill|device-probe.sh named tools'
 mut probe-pin-in-collector starchorus-collect.sh fnappend 'for _t in hcitool btmon hciconfig bluetoothctl btmgmt bluetoothd gatttool l2ping rfkill; do' '' 'transmit tools invoked|§14.6b Bluetooth words'
+mut probe-lock-edited    tools/device-probe.sh   subst    '( flock -x 9; printf' '( flock -n 9; printf'                'device-probe.sh named tools'
+mut probe-lock-second    tools/device-probe.sh   fnappend 'flock -x 8' ''                                              'device-probe.sh named tools'
+mut probe-lock-"ex"ec    tools/device-probe.sh   fnappend 'ex''ec 9> /tmp/zz_lock' ''                                 'device-probe.sh programs'
 mut probe-ok-read        tools/device-probe.sh   fnappend 'cat /etc/openwrt_release | head -n 1 | wc -l; grep -c x /etc/hostname; readlink -f /sys/class/net; ls -1A /root' '' ''
 mut probe-ok-functions   tools/device-probe.sh   fnappend 'kv zz_k "$(isnum 5 && echo y)"; say zz; have iw || have jq' '' ''
 mut probe-ok-comment     tools/device-probe.sh   fnappend '# curl http://192.0.2.1/ ; hcitool scan ; iw dev wlan0 set channel 6' '' ''

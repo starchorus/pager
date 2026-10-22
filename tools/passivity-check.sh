@@ -719,13 +719,15 @@ sect_radio:iw dev > "$T/iwdev.txt" 2>&1 < /dev/null; _rc=$?
 sect_radio:iw dev "$MON" info > "$T/iwinfo.txt" 2>&1 < /dev/null; _irc=$?
 sect_radio:iw dev "$MON" survey dump > "$T/survey.txt" 2>&1 < /dev/null; _src=$?
 sect_radio:iw phy "$_phy" info > "$T/phyinfo.txt" 2>&1 < /dev/null; _prc=$?
-## version and applet texts, nothing is run: busybox without an argument prints its usage, iw --version and timeout --version print a version, flock --version runs in the private directory and takes no lock, busybox --list prints applet names into grep, /bin/bash --version prints a version
+## version and applet texts, nothing is run: busybox without an argument prints its usage, iw --version and timeout --version print a version, flock --version runs in the private directory and is given no file, busybox --list prints applet names into grep, /bin/bash --version prints a version
 sect_tools:if have busybox; then kv busybox.version "$(busybox 2>&1 < /dev/null | head -n 1 | clean | cut -c1-80)"
 sect_tools:if have iw; then kv iw.version "$(iw --version 2>&1 < /dev/null | head -n 1 | clean | cut -c1-60)"; fi
 sect_tools:_tv=$(timeout --version 2>&1 < /dev/null | head -n 1 | clean | cut -c1-70)
 sect_alertenv:_fv=$( (cd "$T" && flock --version 2>&1 < /dev/null) | head -n 1 | clean | cut -c1-70)
 sect_alertenv:_fa=no; if have busybox && busybox --list 2> /dev/null < /dev/null | grep -qx flock; then _fa=yes; fi
 sect_alertenv:_bv=$("$BASHB" --version 2>&1 < /dev/null | head -n 1 | clean | cut -c1-70)
+## the lock, as the alert companion takes it (alert-deauth.sh): flock -x 9 once, in a subshell whose fd 9 is opened on a file of the private directory that no other process opens, so nothing waits; the exit status of flock is written from inside, and the lock ends with the subshell
+ae_lock:( flock -x 9; printf '%s' "$?" > "$T/ae.lockrc" ) 2> "$T/ae.lockerr" > /dev/null 9> "$T/ae.lock" < /dev/null; _lr=$?
 ## the two literals of the case test, run under /bin/bash and under sh with BASH_ENV and ENV empty; no script or file of the device is given to either shell
 ae_case:BASH_ENV='' ENV='' "$2" -c 'for s in 3f:A9 3g:A9; do case $s in [[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]) echo match ;; *) echo refuse ;; esac; done' > "$T/ae.case" 2>&1 < /dev/null; _cr=$?
 ## copies of the live recon.db (and its -wal file) into the private directory; the live file is only copied, never opened by the probe

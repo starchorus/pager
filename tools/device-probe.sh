@@ -15,8 +15,9 @@
 #     service start/stop, no Wi-Fi scan, no packet capture, no network call (curl, wget, nc, ping, ...), and it
 #     never reads handshake or capture files under /root/loot. Only read commands: cat, ls, grep, wc, head, df,
 #     readlink, find, iw dev/phy info, iw survey dump, jq on literals, sqlite3 -readonly on COPIES, and, in section 10 only,
-#     `command -v` for flock, busybox and bash, `flock --version`, `busybox --list` (read by `grep -qx flock`), `tail -c` (three times) on a
-#     file of its own, `/bin/bash --version` and `/bin/bash -c` on a literal, and `sh -c` on the same literal (the V-14 bullet below).
+#     `command -v` for flock, busybox and bash, `flock --version`, `flock -x 9` (once: the lock the alert companion takes, on a file of its own),
+#     `busybox --list` (read by `grep -qx flock`), `tail -c` (three times) on a file of its own, `/bin/bash --version` and `/bin/bash -c` on a
+#     literal, and `sh -c` on the same literal (the V-14 bullet below).
 #   * The live recon.db is never opened. It is COPIED with cp into a private mktemp -d directory under /tmp
 #     (RAM on the device) and, in this script's own code, only the copies are opened, only through sqlite3
 #     -readonly (the single sq() function).
@@ -36,7 +37,9 @@
 #     is the devbench's job, with the collector's own window.
 #   * The alert companion's environment (V-14, section 10) is read with exactly these programs, each on something the probe made itself or on a literal:
 #     `command -v flock`, `command -v busybox` and `command -v bash` (lookups, nothing is run); `flock --version` (it prints a version, or BusyBox's
-#     usage, and ends; it runs in the private directory, takes no lock and is given no file); `busybox --list` (the applet names, piped into
+#     usage, and ends; it runs in the private directory and is given no file); `flock -x 9` once, in the form of the lock in alert-deauth.sh: a subshell
+#     whose fd 9 is opened on a file of the probe's private directory (`ae.lock`, which no other process opens, so nothing waits), the exit status of flock
+#     written from inside the subshell, and the lock ends with the subshell (the file goes with the private directory); `busybox --list` (the applet names, piped into
 #     `grep -qx flock`: is flock an applet?); `tail -c 4`, `tail -c 1` and `tail -c 262144` on a ten-byte file that the probe writes into its private
 #     directory (the exact output is recorded: -c 4 must give the last four bytes); `/bin/bash --version`; and one `case` that holds [[:xdigit:]]
 #     patterns, run with `-c` on two literals once under /bin/bash and, for comparison, once under `sh -c`. No script and no file of the device is
@@ -71,7 +74,7 @@
 #   V-11 multi-bssid-undercount               never observed: needs beacon information-element parsing or a reference capture
 #   V-12 jq-endswith-until-index-slicing-tostring   section 1: jq on literals, one filter at a time
 #   V-13 bluetooth-controller-and-tools       section 9: sysfs, /proc/*/comm, file names, `command -v`; no Bluetooth tool is run
-#   V-14 alert-companion-environment          section 10: `flock` (path; BusyBox or util-linux, by `--version` and `busybox --list`), `tail -c` on a file of the probe's own,
+#   V-14 alert-companion-environment          section 10: `flock` (path; BusyBox or util-linux, by `--version` and `busybox --list`; the lock `flock -x 9` taken in the companion's form on a file of the probe's own), `tail -c` on a file of the probe's own,
 #                                             /bin/bash (present, version, a `case` with [[:xdigit:]] on a literal, run under bash -c and under sh -c)
 #
 # Safety guard: unless STARCHORUS_PROBE_FORCE=1 it refuses to run (exit 2) when uname -s is not Linux or
@@ -1015,11 +1018,11 @@ sect_bluetooth() {
 }
 
 # ============================================================================================ 10. alert companion environment
-# V-14. What the alert companion and the collector assume of the device and nothing has measured (docs/device-notes.md 5c): a flock for the
+# V-14. What the alert companion and the collector assume of the device and nothing has measured (docs/device-notes.md 5c): a flock that takes the
 # lock in alert-deauth.sh (the lock is skipped without it), a tail that takes -c (the collector reads the last 256 KiB of alerts.log with
 # `tail -c 262144`, and tests a final newline with `tail -c 1`), and a /bin/bash that takes [[:xdigit:]] in a case pattern (the companion's first
 # line is #!/bin/bash). Every reading is one plain program run on something the probe made itself or on a literal: the file is written into the
-# private directory, flock runs there with no file and takes no lock, busybox is asked only for its applet list, bash and sh get two literals and
+# private directory, flock is asked for its version there (no file) and for one lock on a file of ours, taken as the companion takes it and let go with its subshell, busybox is asked only for its applet list, bash and sh get two literals and
 # no script of the device (and no BASH_ENV or ENV file). The result is an observation of this device at this moment; how the firmware starts an
 # alert payload is not a thing this can show.
 AE_ST=""
@@ -1041,8 +1044,18 @@ ae_case() {   # ae_case LABEL SHELL -> kv line LABEL; AE_ST as above. The same c
     else AE_ST="WRONG-OUTPUT(got '$_co', want 'match refuse')"; fi
     kv "$1" "$AE_ST"
 }
+ae_lock() {   # ae_lock -> kv flock.lock; AE_LK = ok | ERROR(exit N: first line of what flock said). The lock as alert-deauth.sh takes it: a subshell whose fd 9 is opened on a lock file,
+    # `flock -x 9` in it, and the subshell ends (the lock goes with it). The file is one of the private directory that no other process opens, so nothing waits. The status of flock is
+    # written from inside the subshell: the lock is kept only until it ends. No lock file at all (the redirection failed, flock never ran) is an ERROR of its own.
+    ( flock -x 9; printf '%s' "$?" > "$T/ae.lockrc" ) 2> "$T/ae.lockerr" > /dev/null 9> "$T/ae.lock" < /dev/null; _lr=$?
+    _lc=$(cat "$T/ae.lockrc" 2> /dev/null)
+    if [ "$_lc" = 0 ]; then AE_LK=ok
+    elif [ -z "$_lc" ]; then AE_LK="ERROR(exit $_lr: no status from flock; the lock file could not be opened, or the subshell did not run)"
+    else AE_LK="ERROR(exit $_lc: $(head -n 1 "$T/ae.lockerr" 2>/dev/null | clean | cut -c1-80))"; fi
+    kv flock.lock "$AE_LK (flock -x 9 exited ${_lc:-with no status} in a subshell on a file of the private directory, as the alert companion takes it; the lock ended with the subshell)"
+}
 sect_alertenv() {
-    heading 10 "alert payload environment (flock, tail -c, /bin/bash; a version, a file of our own and two literals; nothing is sent or changed)"
+    heading 10 "alert payload environment (flock and its lock, tail -c, /bin/bash; a version, files of our own and two literals; nothing is sent or changed)"
     # flock: present? BusyBox applet or util-linux? (--version only prints text; run in the private directory, given no file)
     if have flock; then
         _fp=$(command -v flock)
@@ -1058,7 +1071,8 @@ sect_alertenv() {
         esac
         kv flock.path "$_fp"
         kv flock.kind "$_fk (--version said: ${_fv:-nothing}; busybox applet list names flock: $_fa)"
-        AE_FL="$_fp, ${_fk%% (*}"
+        ae_lock
+        AE_FL="$_fp, ${_fk%% (*}, lock ${AE_LK%%(*}"
     else
         kv flock.path "absent (the companion then writes without its lock)"
         AE_FL="absent"
@@ -1126,7 +1140,7 @@ vq() {
         11) echo "Does recon.db under-record Multiple-BSSID profiles? [never observed here: needs beacon parsing]" ;;
         12) echo "Does the device's jq have endswith, until, index, slicing and tostring, and no regex?" ;;
         13) echo "Which Bluetooth controller and which BlueZ tools does the device have (files and names only)?" ;;
-        14) echo "Has the device a flock, a tail that takes -c, and a /bin/bash that takes [[:xdigit:]] in a case pattern?" ;;
+        14) echo "Has the device a flock that takes the lock, a tail that takes -c, and a /bin/bash that takes [[:xdigit:]] in a case pattern?" ;;
     esac
 }
 NV=14   # the highest verification id: the summary loop, --list and the header list all end here

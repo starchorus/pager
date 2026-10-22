@@ -87,6 +87,16 @@ DPR_check() {   # DPR_check FILE -> DPR_bad = the parts that fail ("" = all hold
   fi
 }
 
+DPR_lockform() {   # DPR_lockform PROBE COMPANION -> DPR_lf = the parts that fail ("" = all hold): the probe takes its lock the way the companion does
+  DPR_lf=""; DPR_lc=$(DPR_code "$1"); DPR_cc=$(DPR_code "$2")
+  # the companion has one line `( flock -x 9; ... ) ... 9> "$DIR/alerts.lock"`: the form the probe copies; the probe has one line of that form on a file of its private directory, takes no other lock,
+  # and opens no descriptor with `exec` (a lock taken in the main shell would never be let go)
+  [ "$(printf '%s\n' "$DPR_cc" | grep -cE '^[[:space:]]*\( flock -x 9; .* \) .*9> "\$DIR/alerts\.lock"')" = 1 ] || DPR_lf="$DPR_lf companion"
+  [ "$(printf '%s\n' "$DPR_lc" | grep -cE '^[[:space:]]*\( flock -x 9; .* \) .*9> "\$T/ae\.lock"')" = 1 ] || DPR_lf="$DPR_lf form"
+  [ "$(printf '%s\n' "$DPR_lc" | grep -v '^[[:space:]]*kv ' | grep -cE '(^|[^A-Za-z0-9_])flock -[a-z]')" = 1 ] || DPR_lf="$DPR_lf count"
+  ! printf '%s\n' "$DPR_lc" | grep -qE '(^|[^A-Za-z0-9_])exec[[:space:]]+[0-9]*[<>]' || DPR_lf="$DPR_lf exec"
+}
+
 DPR_scan() {   # DPR_scan FILE -> DPR_sbad = redirect | empty; DPR_sn = code lines of section 10 read. (The tools it names are read by the passivity checker, row 5b below.)
   DPR_sbad=""; DPR_rg=$(DPR_region "$1"); DPR_sn=$(printf '%s\n' "$DPR_rg" | grep -c .)
   ge "$DPR_sn" "$DPR_MINLINES" || DPR_sbad="$DPR_sbad empty(lines=$DPR_sn)"
@@ -134,9 +144,10 @@ DPR_BASH=$(command -v bash)
 DPR_TAIL=$(command -v tail)
 DPR_FARM="$DPR_T/farm"; mkdir "$DPR_FARM"; path_farm "$DPR_FARM" flock busybox bash
 # stand-ins, one directory each (a directory with nothing in it for "no flock")
-mkdir "$DPR_T/s-none" "$DPR_T/s-ul" "$DPR_T/s-bb" "$DPR_T/s-tailerr" "$DPR_T/s-tailign"
+mkdir "$DPR_T/s-none" "$DPR_T/s-ul" "$DPR_T/s-bb" "$DPR_T/s-tailerr" "$DPR_T/s-tailign" "$DPR_T/s-lockfail"
 printf '#!/bin/sh\necho "flock from util-linux 2.99 (stand-in)"\n' > "$DPR_T/s-ul/flock"; chmod +x "$DPR_T/s-ul/flock"
-printf '#!/bin/sh\ncase ${0##*/} in flock) echo "flock: unrecognized option --version" >&2; echo "Usage: flock [-sxun] FILE PROG" >&2; exit 1 ;; esac\ncase ${1:-} in --list) echo ls; echo flock ;; *) echo "BusyBox v1.36.1 (stand-in) multi-call binary." ;; esac\n' > "$DPR_T/s-bb/busybox"
+printf '#!/bin/sh\ncase ${1:-} in -x) echo "flock: 9: Bad file descriptor" >&2; exit 1 ;; *) echo "flock from util-linux 2.99 (stand-in)" ;; esac\n' > "$DPR_T/s-lockfail/flock"; chmod +x "$DPR_T/s-lockfail/flock"
+printf '#!/bin/sh\ncase ${0##*/} in flock) case ${1:-} in -x) exit 0 ;; esac; echo "flock: unrecognized option --version" >&2; echo "Usage: flock [-sxun] FILE PROG" >&2; exit 1 ;; esac\ncase ${1:-} in --list) echo ls; echo flock ;; *) echo "BusyBox v1.36.1 (stand-in) multi-call binary." ;; esac\n' > "$DPR_T/s-bb/busybox"
 chmod +x "$DPR_T/s-bb/busybox"; ln -s busybox "$DPR_T/s-bb/flock"
 printf '#!/bin/sh\nfor a in "$@"; do case $a in -c) echo "tail: invalid option -- c" >&2; exit 1 ;; esac; done\nexec "%s" "$@"\n' "$DPR_TAIL" > "$DPR_T/s-tailerr/tail"
 printf '#!/bin/sh\ncase ${1:-} in -c) cat "$3" ;; *) exec "%s" "$@" ;; esac\n' "$DPR_TAIL" > "$DPR_T/s-tailign/tail"
@@ -152,6 +163,10 @@ DPR_check "$DPR_PROBE"
 DPR_b1=$DPR_bad
 rowif "device probe: V-1 to V-14 in the header contract (slug of vname), vname, vset, question, NV and the call; --list exits 0 with one line each and writes nothing; the guard refuses here (bad:${DPR_b1:- none})" [ -z "$DPR_b1" ]
 
+DPR_COMPANION=library/user/reconnaissance/starchorus/alert-deauth.sh
+DPR_lockform "$DPR_PROBE" "$R/$DPR_COMPANION"
+rowif "device probe: the lock of V-14 is the companion's: one line with a subshell, \`flock -x 9\` and fd 9 opened on a file of the private directory, as in $DPR_COMPANION; no other lock, no \`exec 9>\` (bad:${DPR_lf:- none})" [ -z "$DPR_lf" ]
+
 # ---- 2 · a forced run on this machine with a real bash, a util-linux-looking flock and the real tail: section 10 and the summary
 DPR_run r1 "$DPR_T/s-ul" "$DPR_T/r-good"; DPR_common r1; DPR_c1=$DPR_cbad
 [ -n "$DPR_BASH" ] || DPR_c1="$DPR_c1 no-bash"   # the stand-in root links the machine's bash: without one the run has nothing to read (harness.sh PF_TOOLS_QUICK names bash)
@@ -161,23 +176,26 @@ rowif "device probe: forced run (empty root, GAP 1, no self-test): exit 0, silen
 DPR_abad=""
 DPR_need r1 r1-flock-path "^flock\\.path: $DPR_T/s-ul/flock\$"
 DPR_need r1 r1-flock-kind '^flock\.kind: util-linux \(--version said: flock from util-linux 2\.99'
+DPR_need r1 r1-flock-lock '^flock\.lock: ok \(flock -x 9 exited 0 in a subshell on a file of the private directory, as the alert companion takes it; the lock ended with the subshell\)$'
 DPR_need r1 r1-tail4 "^tail\\.c4: ok \\(tail -c 4 of the ten bytes 0123456789 printed '6789'\\)\$"
 DPR_need r1 r1-tail1 '^tail\.c1: ok '
 DPR_need r1 r1-tailbig '^tail\.c262144: ok '
 DPR_need r1 r1-bash-path '^bash\.path: /bin/bash present'
 DPR_need r1 r1-bash-case '^bash\.xdigit_case: ok$'
 DPR_need r1 r1-sh-case '^sh\.xdigit_case: ok$'
-DPR_need r1 r1-summary "^V-14 alert-companion-environment: OBSERVED flock: $DPR_T/s-ul/flock, util-linux; tail -c 4 of 0123456789 printed '6789' \\(ok\\), -c 1 ok, -c 262144 ok; /bin/bash: present, .*case with \\[\\[:xdigit:\\]\\] under bash: ok, under sh: ok\$"
+DPR_need r1 r1-summary "^V-14 alert-companion-environment: OBSERVED flock: $DPR_T/s-ul/flock, util-linux, lock ok; tail -c 4 of 0123456789 printed '6789' \\(ok\\), -c 1 ok, -c 262144 ok; /bin/bash: present, .*case with \\[\\[:xdigit:\\]\\] under bash: ok, under sh: ok\$"
 DPR_run r2 "$DPR_T/s-bb" "$DPR_T/r-good"; DPR_common r2; DPR_abad="$DPR_abad$DPR_cbad"
 DPR_need r2 r2-flock-kind '^flock\.kind: BusyBox applet \(--version said: flock: unrecognized option --version; busybox applet list names flock: yes\)$'
-DPR_need r2 r2-summary '^V-14 .* flock: .*/s-bb/flock, BusyBox applet; tail -c 4 '
+DPR_need r2 r2-flock-lock '^flock\.lock: ok '
+DPR_need r2 r2-summary '^V-14 .* flock: .*/s-bb/flock, BusyBox applet, lock ok; tail -c 4 '
 DPR_run r3 "$DPR_T/s-none" "$DPR_T/r-none"; DPR_common r3; DPR_abad="$DPR_abad$DPR_cbad"
 DPR_need r3 r3-flock-absent '^flock\.path: absent '
+DPR_nonl r3 r3-lock-ran '^flock\.lock: '
 DPR_need r3 r3-bash-absent '^bash\.path: absent '
 DPR_nonl r3 r3-bash-case-ran '^bash\.xdigit_case: '
 DPR_need r3 r3-sh-case '^sh\.xdigit_case: ok$'
 DPR_need r3 r3-summary '^V-14 .* flock: absent; tail -c 4 .*; /bin/bash: absent; case with \[\[:xdigit:\]\] under bash: not-run, under sh: ok$'
-rowif "device probe V-14 readings: util-linux flock, BusyBox flock (applet list), none; tail -c 4 prints 6789; /bin/bash present with the case ok, or absent (bad:${DPR_abad:- none})" [ -z "$DPR_abad" ]
+rowif "device probe V-14 readings: util-linux flock, BusyBox flock (applet list), none, each with the lock it takes (or no lock without flock); tail -c 4 prints 6789; /bin/bash present with the case ok, or absent (bad:${DPR_abad:- none})" [ -z "$DPR_abad" ]
 
 # ---- 4 · negative controls of V-14 itself: a tail that refuses -c, a tail that ignores it, a bash that answers wrong, one that cannot run
 DPR_abad=""
@@ -194,7 +212,12 @@ DPR_need r5 r5-tail1 "^tail\\.c1: WRONG-OUTPUT\\(got '0123456789', want '9'\\) "
 DPR_need r5 r5-tailbig '^tail\.c262144: ok '
 DPR_need r5 r5-bash-noexec '^bash\.path: /bin/bash exists but is not runnable'
 DPR_need r5 r5-summary '^V-14 .* \(WRONG-OUTPUT\), -c 1 WRONG-OUTPUT, -c 262144 ok; /bin/bash: exists but is not runnable; case with \[\[:xdigit:\]\] under bash: not-run, under sh: ok$'
-rowif "device probe V-14 negative controls: tail refusing -c = ERROR, tail ignoring -c = WRONG-OUTPUT (while -c 262144 still passes), a wrong bash = WRONG-OUTPUT, an unrunnable bash named (bad:${DPR_abad:- none})" [ -z "$DPR_abad" ]
+DPR_run r7 "$DPR_T/s-lockfail" "$DPR_T/r-good"; DPR_common r7; DPR_abad="$DPR_abad$DPR_cbad"
+DPR_need r7 r7-lock-error '^flock\.lock: ERROR\(exit 1: flock: 9: Bad file descriptor\) \(flock -x 9 exited 1 in a subshell on a file of the private directory'
+DPR_need r7 r7-tail4 '^tail\.c4: ok '
+DPR_need r7 r7-summary "^V-14 .* flock: .*/s-lockfail/flock, util-linux, lock ERROR; tail -c 4 of 0123456789 printed '6789' \\(ok\\), "
+DPR_nonl r7 r7-says-ok '^flock\.lock: ok'
+rowif "device probe V-14 negative controls: tail refusing -c = ERROR, tail ignoring -c = WRONG-OUTPUT (while -c 262144 still passes), a flock whose lock fails = ERROR (the rest still read), a wrong bash = WRONG-OUTPUT, an unrunnable bash named (bad:${DPR_abad:- none})" [ -z "$DPR_abad" ]
 
 # ---- 5 · V-14 writes nowhere but its private directory: every redirection of the section goes to /dev/null or to a file of the private directory (the tools it names are read by the passivity checker, 5b)
 DPR_scan "$DPR_PROBE"
@@ -267,6 +290,19 @@ DPR_plant p-write '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { pri
 DPR_scan "$DPR_T/p-write.sh"; DPR_aim p-write "$DPR_sbad" redirect
 DPR_plant p-sc '{ print } /^    printf .0123456789. > "\$T\/ae\.tail"$/ { print "    echo $T" }'
 DPR_scr=""; shellcheck "$DPR_T/p-sc.sh" > /dev/null 2>&1 || DPR_scr=red; DPR_aim p-sc "$DPR_scr" red
+# the lock dropped (the call out, nothing else changed): the readings of row 3 then find no flock.lock line
+DPR_plant p-nolock '/^        ae_lock$/ { print "        AE_LK=none"; next } { print }'
+DPR_run pn "$DPR_T/s-ul" "$DPR_T/r-good" "$DPR_T/p-nolock.sh"; DPR_abad=""
+DPR_need pn pn-lock '^flock\.lock: ok '
+DPR_aim p-nolock "$DPR_abad" pn-lock
+# a lock check that always says ok: the run with a flock whose lock fails must then no longer find the ERROR
+DPR_plant p-lockok '/^    if \[ "\$_lc" = 0 \]; then AE_LK=ok$/ { sub(/\[ "\$_lc" = 0 \]/, ":") } { print }'
+DPR_run pk "$DPR_T/s-lockfail" "$DPR_T/r-good" "$DPR_T/p-lockok.sh"; DPR_abad=""
+DPR_need pk pk-lock-error '^flock\.lock: ERROR\(exit 1: '
+DPR_aim p-lockok "$DPR_abad" pk-lock-error
+# the lock taken in the main shell (exec 9>, never let go): the form of the companion's line is gone
+DPR_plant p-lockexec '/^    \( flock -x 9; printf/ { print "    exec 9> \"$T/ae.lock\"; flock -x 9 2> \"$T/ae.lockerr\"; printf \"%s\" \"$?\" > \"$T/ae.lockrc\"; _lr=0"; next } { print }'
+DPR_lockform "$DPR_T/p-lockexec.sh" "$R/$DPR_COMPANION"; DPR_aim p-lockexec "$DPR_lf" form
 # a tail check that always says ok: the run with a tail that ignores -c must then no longer find WRONG-OUTPUT
 DPR_plant p-tailok '/^    elif \[ "\$AE_OUT" = "\$_aw" \]; then AE_ST=ok$/ { sub(/\[ "\$AE_OUT" = "\$_aw" \]/, ":") } { print }'
 DPR_run pt "$DPR_T/s-tailign" "$DPR_T/r-noexec" "$DPR_T/p-tailok.sh"; DPR_abad=""
@@ -278,7 +314,7 @@ DPR_plant p-env '{ sub(/BASH_ENV=[^ ]* ENV=[^ ]* /, "") } { print }'
 DPR_run pe "$DPR_T/s-ul" "$DPR_T/r-good" "$DPR_T/p-env.sh" "$DPR_T/benv.sh"
 DPR_mk=""; [ ! -e "$DPR_T/benv.mark" ] || DPR_mk=sourced; DPR_aim p-env "$DPR_mk" sourced
 DPR_pk=$((DPR_pn - DPR_pf))
-rowif "device probe: planted copies go red ($DPR_pk/$DPR_pn): V-14 out of the header contract, of vname, of the questions; NV 13; the call of the last, of a middle and of the first section out (the last also in a run); the --list handler out; a write to /root in the V-14 code; an unquoted variable; a tail check that always passes; the shells without the empty BASH_ENV and ENV in front of them (they source a BASH_ENV file) (bad:${DPR_pbad:- none})" [ -z "$DPR_pbad" ]
+rowif "device probe: planted copies go red ($DPR_pk/$DPR_pn): V-14 out of the header contract, of vname, of the questions; NV 13; the call of the last, of a middle and of the first section out (the last also in a run); the --list handler out; a write to /root in the V-14 code; the lock call dropped, a lock check that always says ok (a failing flock then reads ok), the lock taken with exec 9> in the main shell; an unquoted variable; a tail check that always passes; the shells without the empty BASH_ENV and ENV in front of them (they source a BASH_ENV file) (bad:${DPR_pbad:- none})" [ -z "$DPR_pbad" ]
 
 # ---- 8 · the two literal shells source no file of the device: the probe run with a BASH_ENV file in its environment leaves the file unread (the control is the copy of row 7 that does read it)
 rm -f "$DPR_T/benv.mark"
