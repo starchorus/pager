@@ -133,9 +133,12 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   the copies of the recon database, the lock (`flock -x 9`, taken once, in a subshell whose descriptor 9 is opened on a file of its private directory), the signals it sends to its own background jobs and the removal of its own
   temp directory, the self-tests of the installed Starchorus, and every line that uses `date`, `sed` or `sort` (each can set the clock or write a file by an option of its own: `-s`, `-i`, `-o`; the next line of a command that goes on
   over a backslash is pinned with it). Every command it starts is a function of its own (a program named after `command` is never one), a builtin, a plain read command from a short list or one of those pinned lines; any other name,
-  a path or a `.` is red, and so is a pin whose line has changed or gone. It writes nowhere but its private directory, and that is read on the whole file, not on one section: every redirection (`>`, `>>`, `2>`, `9>`) and every
-  destination of `cp`, `mv` and `tee` is `/dev/null` or a file below `$T`; the variables that stand for such a file (`T`, `OUT`, `A`, `B`) are only ever set to one; the two lines that write through a variable (the output file of
-  `run_limited`, the `mktemp -d` that makes `$T`) are pinned. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
+  a path or a `.` is red, and so is a pin whose line has changed or gone. A `trap` runs its action as a command when the signal comes and the check reads no string, so the action is accepted only as `-`, an empty string, a function of
+  the probe or `exit N`; a here-document only with a delimiter that is a plain name, bare or wholly in quotes (the shell removes the quotes of the whole word: `<<wait"x"` ends at `waitx`), and, when the delimiter is bare, with a body that
+  has no `$(` and no backtick (such a body is expanded when it runs). It writes nowhere but its private directory, and that is read on the whole file, not on one section: every redirection (`>`, `>>`, `2>`, `9>`) and every
+  destination of `cp`, `mv` and `tee` is `/dev/null` or a file below `$T` whose name holds no expansion (`$T/$1` is whatever the caller hands over); the variables that stand for such a file (`T`, `OUT`, `A`, `B`) are only ever set
+  to one; the three lines that write through a variable (the output file of `run_limited`, the `mktemp -d` that makes `$T`, and `vset`, whose file is named by the number of the verification, so every call of `vset` has to give digits)
+  are pinned. Like the other scripts it is not read for a program text that is built and then run, or for what an awk or sed program does with its text; that rests on review.
 - `starchorus-serve.sh` answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`.
 
 `tools/passivity-mutate.sh` shows that each of these checks can turn red (it plants one violation for every alternative of the
