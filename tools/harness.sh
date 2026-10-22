@@ -185,8 +185,11 @@ selftest_verdict() {   # selftest_verdict FILE MIN [HAVE_SQLITE3: 1|0, default: 
 # The lists were measured: quick.sh and regress.sh ran to the end with a PATH that held exactly these tools and nothing else
 # (tools/regress.d/preflight.sh keeps the probe alive for the "no jq" case; tools/README.md has the measuring command).
 PF_TOOLS_BASE="awk basename cat chmod cmp cp cut date diff dirname find grep head ln mkdir mktemp mv paste rm sed sort tail tr uname wc"
-PF_TOOLS_QUICK="$PF_TOOLS_BASE python3 shellcheck jq"
-PF_TOOLS_FULL="$PF_TOOLS_QUICK chrome sqlite3 git tar touch env id ls ps rmdir sleep uniq"
+# bash, ls and readlink are the device-probe drop-in's (tools/regress.d/device-probe.sh): it links the machine's bash as the stand-in /bin/bash, tests
+# "a temp dir is empty" with ls -A (without ls that test passes on nothing) and the probe reads a link with readlink -f (without it the BusyBox reading fails);
+# measured: that drop-in alone, with a PATH of exactly PF_TOOLS_QUICK plus sh, ends with every row PASS
+PF_TOOLS_QUICK="$PF_TOOLS_BASE python3 shellcheck jq bash ls readlink"
+PF_TOOLS_FULL="$PF_TOOLS_QUICK chrome sqlite3 git tar touch env id ps rmdir sleep uniq"
 # what cdp.py would launch; a function of its own so a probe can say "no chrome" without hiding a real one
 _pf_chrome() { python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import cdp; print(cdp.find_chrome())' "$R/tools" >/dev/null 2>&1; }
 path_farm() {   # path_farm DIR TOOL... -> DIR holds a symlink to every executable on the current PATH except the named tools (probes: "PATH without jq")
