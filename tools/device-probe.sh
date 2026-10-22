@@ -14,13 +14,14 @@
 #   * No AP-service command line tool of any kind, no package manager, no config change (uci set/commit), no
 #     service start/stop, no Wi-Fi scan, no packet capture, no network call (curl, wget, nc, ping, ...), and it
 #     never reads handshake or capture files under /root/loot. Only read commands: cat, ls, grep, wc, head, df,
-#     readlink, find, iw dev/phy info, iw survey dump, jq on literals, sqlite3 -readonly on COPIES.
+#     readlink, find, iw dev/phy info, iw survey dump, jq on literals, sqlite3 -readonly on COPIES, and, in section 10 only,
+#     `flock --version`, `tail -c` on a file of its own and `bash -c` on a literal (the V-14 bullet below).
 #   * The live recon.db is never opened. It is COPIED with cp into a private mktemp -d directory under /tmp
 #     (RAM on the device) and, in this script's own code, only the copies are opened, only through sqlite3
 #     -readonly (the single sq() function).
 #   * It writes nowhere but that private directory (mode 0700). A trap removes it on EXIT, INT, TERM, HUP, PIPE.
-#   * The one place that starts other programs is section 8: the INSTALLED Starchorus collector's --status and
-#     --selftest (and the display script's --selftest when that script has the flag). Their TMPDIR, all STARCHORUS_*DIR
+#   * Section 8 starts programs of the INSTALLED Starchorus (section 10 starts three plain tools and nothing else, see the V-14 bullet
+#     below): the collector's --status and --selftest (and the display script's --selftest when that script has the flag). Their TMPDIR, all STARCHORUS_*DIR
 #     variables and a template-less mktemp are pinned into the private directory. By the selftest source they
 #     only feed synthetic data (databases built inside that directory) to the collector's parsers, and a run
 #     with tripwires on a dev machine saw no capture, scan, network, package or Bluetooth tool called. It can take minutes on
@@ -32,6 +33,13 @@
 #     files in /usr/bin and /usr/libexec/bluetooth that look like BlueZ. It calls NO Bluetooth tool, hciconfig included, starts no
 #     scan, changes no controller state. What a passive window shows (the scan parameters, the event types) it cannot say: that
 #     is the devbench's job, with the collector's own window.
+#   * The alert companion's environment (V-14, section 10) is read with three plain probes, each on something the probe made itself or on a
+#     literal. `command -v flock` and `flock --version` (it prints a version, or BusyBox's usage, and ends; it runs in the private directory,
+#     takes no lock and is given no file). `tail -c 4`, `tail -c 1` and `tail -c 262144` on a ten-byte file that the probe writes into its
+#     private directory (the exact output is recorded: -c 4 must give the last four bytes). `/bin/bash` (present, runnable, `--version`) and
+#     one `case` that holds [[:xdigit:]] patterns, run with `-c` on two literals under /bin/bash and, for comparison, under sh: no script and no
+#     file of the device is given to it. That bash exists and takes the pattern is all this shows: how the firmware starts an alert payload
+#     (which shell, which variables, once per event or per burst) stays open (docs/device-notes.md 5c).
 #   * Privacy (rule P9: the pasted output ends up in the repo): everything that comes out of recon.db is a count,
 #     a column name, a numeric range or a distribution -- never an SSID, BSSID, MAC, client identifier or per-
 #     device row. File and directory NAMES are the one other place where a device can leak (an SSID or a BSSID
@@ -44,15 +52,35 @@
 #     open verification as "V-<id> <name>: OBSERVED <value>" or "NOT-OBSERVABLE <reason>"; the ids are fixed
 #     (vname below). Whatever needs a forbidden command stays NOT-OBSERVABLE.
 #
+# THE OPEN VERIFICATIONS, V-1 to V-14 (`sh tools/device-probe.sh --list` prints them with their questions). The slug is what vname prints;
+# the line says what the probe reads to answer it:
+#   V-1 recon-db-time-semantics               section 3: two copies of recon.db, GAP seconds apart; the numeric `time` column of the ssid table as counts
+#   V-2 freq-is-rx-frequency                  section 3: `channel` against `freq` in the ssid table of the copy, as counts
+#   V-3 apcli-recon-monitor-read-only         never observed: needs the AP-service command line, which this probe does not call
+#   V-4 examine-side-effects-reset            never observed: needs the radio-locking examine command, which changes radio state
+#   V-5 radio-driver-and-iw-survey            section 4: `iw dev`, `iw dev <monitor> info` and `survey dump`; interface names, types, channels, driver names
+#   V-6 6ghz-reception                        sections 3 and 4: the frequencies `iw phy <phy> info` lists, and those in the recon.db copy
+#   V-7 deauth-detector-recon-only            never observed: needs a real deauth event heard by the alert runtime
+#   V-8 oui-txt-format                        section 5: /lib/hak5/oui.txt, size, line count and line shapes as counts
+#   V-9 own-bssid-ssid-pool-file              section 6: existence, kind and size of candidate paths; a name only from the word list; content never read
+#   V-10 wifi-device-packets-meaning          section 3: the wifi_device.packets column of the two copies, as counts and ranges
+#   V-11 multi-bssid-undercount               never observed: needs beacon information-element parsing or a reference capture
+#   V-12 jq-endswith-until-index-slicing-tostring   section 1: jq on literals, one filter at a time
+#   V-13 bluetooth-controller-and-tools       section 9: sysfs, /proc/*/comm, file names, `command -v`; no Bluetooth tool is run
+#   V-14 alert-companion-environment          section 10: `flock` (path, BusyBox or util-linux), `tail -c 4` on a file of the probe's own, /bin/bash (present, version,
+#                                             a `case` with [[:xdigit:]] on a literal)
+#
 # Safety guard: unless STARCHORUS_PROBE_FORCE=1 it refuses to run (exit 2) when uname -s is not Linux or
 # /etc/openwrt_release is missing, so an accidental `sh tools/device-probe.sh` on the dev machine does nothing.
+# The one argument is --list (`sh tools/device-probe.sh --list`, on any machine, the guard does not apply): it prints V-1 to V-14 with their
+# one-line questions and exits 0 before anything else; it opens no temp dir, reads no file and starts no program.
 #
 # Knobs (env; over ssh: ssh root@<device> 'STARCHORUS_PROBE_GAP=15 sh -s' < tools/device-probe.sh):
 #   STARCHORUS_PROBE_FORCE=1           skip the guard (tests on a dev machine)
 #   STARCHORUS_PROBE_RECON_DB=PATH     probe this recon.db instead of /root/recon/recon.db and /mmc/root/recon/recon.db
 #   STARCHORUS_PROBE_GAP=SECONDS       gap between the two recon.db copies (default 10, 1..120)
 #   STARCHORUS_PROBE_SKIP_SELFTEST=1   skip the installed collector's/display script's --selftest (section 8; can take minutes)
-#   STARCHORUS_PROBE_ROOT=DIR          test hook: prefix for /root /etc /lib /sys /mmc (empty on the device)
+#   STARCHORUS_PROBE_ROOT=DIR          test hook: prefix for /root /etc /lib /sys /proc /mmc and /bin/bash (empty on the device)
 #   STARCHORUS_PROBE_INSTALL_DIR=DIR   test hook: where Starchorus is installed (default /root/loot/starchorus)
 #
 # `sh -s` reads the script from stdin, so no command may ever read stdin (it would swallow the rest of the
@@ -60,10 +88,11 @@
 # as an argument. POSIX sh / BusyBox ash only: no local, no [[ ]], no arrays, no process substitution.
 
 # ---------------------------------------------------------------------------------------------- guard
-if [ "${STARCHORUS_PROBE_FORCE:-0}" != 1 ]; then
+if [ "${1:-}" != --list ] && [ "${STARCHORUS_PROBE_FORCE:-0}" != 1 ]; then
     if [ "$(uname -s 2>/dev/null)" != Linux ] || [ ! -f /etc/openwrt_release ]; then
         echo "device-probe: this script is for the device (Linux with /etc/openwrt_release); refusing to run here." >&2
         echo "device-probe: usage: ssh root@<device> sh -s < tools/device-probe.sh | tee probe.txt" >&2
+        echo "device-probe:        sh tools/device-probe.sh --list    (any machine: V-1 to V-14 with their questions; reads nothing, runs nothing)" >&2
         exit 2
     fi
 fi
@@ -981,6 +1010,82 @@ sect_bluetooth() {
     flush
 }
 
+# ============================================================================================ 10. alert companion environment
+# V-14. What the alert companion and the collector assume of the device and nothing has measured (docs/device-notes.md 5c): a flock for the
+# lock in alert-deauth.sh (the lock is skipped without it), a tail that takes -c (the collector reads the last 256 KiB of alerts.log with
+# `tail -c 262144`, and tests a final newline with `tail -c 1`), and a /bin/bash that takes [[:xdigit:]] in a case pattern (the companion's first
+# line is #!/bin/bash). Every reading is one plain program run on something the probe made itself or on a literal: the file is written into the
+# private directory, flock runs there with no file and takes no lock, bash gets two literals and no script of the device. The result is an
+# observation of this device at this moment; how the firmware starts an alert payload is not a thing this can show.
+AE_ST=""
+ae_tail() {   # ae_tail LABEL WANT ARGS... -> kv tail.LABEL; AE_ST = ok | ERROR(exit N: first line) | WRONG-OUTPUT(got X, want Y); AE_OUT = what tail printed
+    _al=$1; _aw=$2; shift 2
+    _ao=$(tail "$@" "$T/ae.tail" 2> "$T/ae.err" < /dev/null); _ar=$?
+    AE_OUT=$(printf '%s' "$_ao" | clean | cut -c1-40)
+    if [ "$_ar" -ne 0 ]; then AE_ST="ERROR(exit $_ar: $(head -n 1 "$T/ae.err" 2>/dev/null | clean | cut -c1-80))"
+    elif [ "$AE_OUT" = "$_aw" ]; then AE_ST=ok
+    else AE_ST="WRONG-OUTPUT(got '$AE_OUT', want '$_aw')"; fi
+    kv "tail.$_al" "$AE_ST (tail $* of the ten bytes 0123456789 printed '$AE_OUT')"
+}
+ae_case() {   # ae_case LABEL SHELL -> kv line LABEL; AE_ST as above. The same case as the companion's mac(): two literals, one of them with a non-hex digit
+    # shellcheck disable=SC2016   # the program text for the shell under test: $s is meant to be expanded by THAT shell
+    "$2" -c 'for s in 3f:A9 3g:A9; do case $s in [[:xdigit:]][[:xdigit:]]:[[:xdigit:]][[:xdigit:]]) echo match ;; *) echo refuse ;; esac; done' > "$T/ae.case" 2>&1 < /dev/null; _cr=$?
+    _co=$(clean < "$T/ae.case" | tr '\n' ' ' | sed 's/ *$//' | cut -c1-80)
+    if [ "$_cr" -ne 0 ]; then AE_ST="ERROR(exit $_cr: $(head -n 1 "$T/ae.case" 2>/dev/null | clean | cut -c1-80))"
+    elif [ "$_co" = "match refuse" ]; then AE_ST=ok
+    else AE_ST="WRONG-OUTPUT(got '$_co', want 'match refuse')"; fi
+    kv "$1" "$AE_ST"
+}
+sect_alertenv() {
+    heading 10 "alert payload environment (flock, tail -c, /bin/bash; a version, a file of our own and two literals; nothing is sent or changed)"
+    # flock: present? BusyBox applet or util-linux? (--version only prints text; run in the private directory, given no file)
+    if have flock; then
+        _fp=$(command -v flock)
+        _fr=$(readlink -f "$_fp" 2>/dev/null) || _fr=""
+        _fv=$( (cd "$T" && flock --version 2>&1 < /dev/null) | head -n 1 | clean | cut -c1-70)
+        _fa=no; if have busybox && busybox --list 2> /dev/null < /dev/null | grep -qx flock; then _fa=yes; fi
+        case $_fv in
+            *util-linux*) _fk="util-linux" ;;
+            *) case ${_fr##*/} in
+                   busybox) _fk="BusyBox applet" ;;
+                   *) _fk="unknown"; if [ "$_fa" = yes ]; then _fk="unknown (BusyBox lists a flock applet, but this path does not resolve to busybox)"; fi ;;
+               esac ;;
+        esac
+        kv flock.path "$_fp"
+        kv flock.kind "$_fk (--version said: ${_fv:-nothing}; busybox applet list names flock: $_fa)"
+        AE_FL="$_fp, ${_fk%% (*}"
+    else
+        kv flock.path "absent (the companion then writes without its lock)"
+        AE_FL="absent"
+    fi
+    # tail -c on a ten-byte file of our own, no trailing newline: the last four bytes must come back, exactly
+    printf '0123456789' > "$T/ae.tail"
+    ae_tail c4 6789 -c 4;               AE_C4=$AE_ST; AE_C4O=$AE_OUT
+    ae_tail c1 9 -c 1;                  AE_C1=$AE_ST
+    ae_tail c262144 0123456789 -c 262144; AE_CL=$AE_ST
+    # /bin/bash: present, runnable, which version, and the case pattern
+    BASHB=$RF/bin/bash
+    kv bash.in_path "$(command -v bash 2>/dev/null || echo 'no bash in PATH')"
+    if [ -x "$BASHB" ]; then
+        _br=$(readlink -f "$BASHB" 2>/dev/null) || _br=""
+        _bv=$("$BASHB" --version 2>&1 < /dev/null | head -n 1 | clean | cut -c1-70)
+        kv bash.path "/bin/bash present${_br:+ (resolves to ${_br#"$RF"})}"
+        kv bash.version "${_bv:-nothing}"
+        ae_case bash.xdigit_case "$BASHB"; AE_BC=$AE_ST
+        AE_BS="present, ${_bv:-no version text}"
+    elif [ -e "$BASHB" ] || [ -L "$BASHB" ]; then
+        kv bash.path "/bin/bash exists but is not runnable (a dangling link, or no execute bit)"
+        AE_BC="not-run"; AE_BS="exists but is not runnable"
+    else
+        kv bash.path "absent (a #!/bin/bash payload would not start)"
+        AE_BC="not-run"; AE_BS="absent"
+    fi
+    # the same case under sh, for comparison: if sh takes it too, the dependency is the #!/bin/bash line, not the pattern
+    ae_case sh.xdigit_case sh; AE_SC=$AE_ST
+    vset 14 "OBSERVED flock: $AE_FL; tail -c 4 of 0123456789 printed '$AE_C4O' (${AE_C4%%(*}), -c 1 ${AE_C1%%(*}, -c 262144 ${AE_CL%%(*}; /bin/bash: $AE_BS; case with [[:xdigit:]] under bash: ${AE_BC%%(*}, under sh: ${AE_SC%%(*}"
+    flush
+}
+
 # ============================================================================================ summary
 vname() {
     case $1 in
@@ -997,8 +1102,29 @@ vname() {
         11) echo multi-bssid-undercount ;;
         12) echo jq-endswith-until-index-slicing-tostring ;;
         13) echo bluetooth-controller-and-tools ;;
+        14) echo alert-companion-environment ;;
     esac
 }
+# The one-line question of each verification (--list prints it; the summary does not need it).
+vq() {
+    case $1 in
+        1) echo "Is the time in the recon database a first-seen time or an update time (does a row get replaced or appended)?" ;;
+        2) echo "Is freq the receive frequency, and does it agree with channel?" ;;
+        3) echo "Do the AP service's recon and monitor commands leave the radios alone? [never observed here: needs its command line]" ;;
+        4) echo "Does the radio-locking examine command reset anything? [never observed here: it changes radio state]" ;;
+        5) echo "Which driver does the monitor radio use, and does iw survey dump give noise and busy time?" ;;
+        6) echo "Can the device receive on 6 GHz (the phy's frequency list, the frequencies in recon.db)?" ;;
+        7) echo "Does the device's deauth reporter work from recon alone? [never observed here: needs a real deauth event]" ;;
+        8) echo "What form has the firmware's OUI file /lib/hak5/oui.txt?" ;;
+        9) echo "Is there a file of the device's own BSSIDs or an SSID pool (candidate paths only; content is never read)?" ;;
+        10) echo "What does wifi_device.packets count (does it only grow, is it updated steadily)?" ;;
+        11) echo "Does recon.db under-record Multiple-BSSID profiles? [never observed here: needs beacon parsing]" ;;
+        12) echo "Does the device's jq have endswith, until, index, slicing and tostring, and no regex?" ;;
+        13) echo "Which Bluetooth controller and which BlueZ tools does the device have (files and names only)?" ;;
+        14) echo "Has the device a flock, a tail that takes -c, and a /bin/bash that takes [[:xdigit:]] in a case pattern?" ;;
+    esac
+}
+NV=14   # the highest verification id: the summary loop, --list and the header list all end here
 
 main() {
     T=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-probe.XXXXXX" 2>/dev/null) || { echo "device-probe: cannot create a private temp dir under ${TMPDIR:-/tmp}" >&2; return 2; }
@@ -1018,10 +1144,11 @@ main() {
     sect_platform
     sect_starchorus
     sect_bluetooth
+    sect_alertenv
     flush
     printf '\n== summary ==\n'
     _i=1
-    while [ "$_i" -le 13 ]; do
+    while [ "$_i" -le "$NV" ]; do
         say "V-$_i $(vname "$_i"): $(cat "$T/v.$_i" 2>/dev/null || echo 'NOT-OBSERVABLE the section that answers it did not run')"
         _i=$((_i + 1))
     done
@@ -1030,6 +1157,12 @@ main() {
     printf '%s\n' "temp dir $T is removed on exit"
     return 0
 }
+
+if [ "${1:-}" = --list ]; then
+    _i=1
+    while [ "$_i" -le "$NV" ]; do printf 'V-%s %s: %s\n' "$_i" "$(vname "$_i")" "$(vq "$_i")"; _i=$((_i + 1)); done
+    exit 0
+fi
 
 main < /dev/null
 exit $?
