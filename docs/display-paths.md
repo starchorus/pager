@@ -6,8 +6,8 @@ missing web server, tools, firewall, display commands) are in [device-notes.md](
 
 > **Strict passivity holds on every route.** None of these routes alters the purely passive
 > character of the tool: the collector reads the recon database read-only or receives in monitor
-> mode, the netcat server delivers only the page and `starchorus.json` (a web server of the device, route A, serves
-> the whole of the collector's directory: `SECURITY.md`), and the Overview reads only the
+> mode, the netcat server delivers only the page and `starchorus.json` (a web server of the device, route A, is given a
+> directory of its own that holds two links, to the page and to the capture, and nothing else: `SECURITY.md`), and the Overview reads only the
 > local `starchorus.json`. Nothing is ever transmitted: no deauth, no rogue AP, no injection, no
 > association, no active scan. A web server on a high port is ordinary HTTP traffic on the
 > management network and has nothing to do with Wi-Fi reception.
@@ -49,6 +49,14 @@ computer on the management network (USB-C or management Wi-Fi). A Pager that has
 update of 13 October 2026 has no `uhttpd` and no `python3`: route C is the normal page server there,
 and this route needs `uhttpd` added again.
 
+**What is served.** The server is given `/root/loot/starchorus/www`, not the collector's directory. That `www` holds two
+symbolic links and nothing else, `index.html -> ../index.html` and `starchorus.json -> ../starchorus.json`, which the payload
+makes itself, so the settings, the pid files, the logs and a working copy of the recon database (kept in `cap/` when `/tmp` has
+no room) are not reachable from the page's port. If `www` is something else (a file, a symbolic link, a directory with other
+entries), the payload does not use `uhttpd` or `python3` and says so; the netcat server takes over where it is there. Whether the
+Pager's `uhttpd` follows the links is not measured (there is none on an updated Pager): a server that does not would answer
+404 for the page, not serve more.
+
 **Why `uhttpd`.** A browser loads the page and the data almost at once and then polls one request
 at a time. `uhttpd` is OpenWrt's standard web server, holds parallel connections and keep-alive,
 and carries this reliably.
@@ -81,8 +89,8 @@ lean launcher, which the installer does not copy to the device (copy it by hand 
 
 | Script | Order |
 |---|---|
-| root `payload.sh` | `uhttpd`, BusyBox `httpd`, `python3` (each started in foreground mode, so that `httpd.pid` holds the PID of exactly this server); with none of them it says so and serves nothing |
-| payload `library/user/reconnaissance/starchorus/payload.sh` | `uhttpd` (detaches itself), `python3`, finally the netcat server from C |
+| root `payload.sh` | `uhttpd`, BusyBox `httpd`, `python3` (each started in foreground mode, so that `httpd.pid` holds the PID of exactly this server, and each given `www`); with none of them, or with a `www` that is not ours, it says so and serves nothing |
+| payload `library/user/reconnaissance/starchorus/payload.sh` | `uhttpd` (detaches itself), `python3` (both given `www`), finally the netcat server from C (also when `www` is not ours) |
 
 If the payload finds no server at all (not even `nc`), it carries on collecting to
 `starchorus.json`; the view then comes through B. `payload.sh stop` ends the collector and the

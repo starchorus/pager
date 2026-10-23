@@ -2722,7 +2722,16 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   unquoted glob character (`*`, `?`, `[`: `/usr/bin/hc?tool`, `/usr/bin/hci[t]ool`, `/usr/sbin/i[w]`; `[` and `[[` alone are the test), for `find` with `-exec`, `-execdir`, `-ok` or `-okdir`
   (its command is whatever `find` turns up), for an `xargs` whose command is its own replacement string (`-I{} {}`, `-I X X`, `-i`, `--replace=`: the command comes from stdin)
   or is missing (it then runs `echo` over what it reads), and for any `alias` definition. It compares with a pinned list in the same way; nothing of that kind stands in the
-  scope today, so the list is empty and a first line is a new one. A glob in a for-list, in a case pattern or as an argument is no command word. **What these rows do not read:** a
+  scope today, so the list is empty and a first line is a new one. A glob in a for-list, in a case pattern or as an argument is no command word. A third row, `§14.6f docroot of the page servers`, reads the code lines of the same scope (comments are not code; every
+  line of a here-document body is read, quoted delimiter or bare, so nothing is taken from a scan of the text) for every docroot argument whose ARG names `STARCHORUS_DIR`: `-h ARG`, `--directory ARG` and `--directory=ARG`
+  on any line and, on a line that names a page server (`uhttpd`, `httpd`, `http.server`, `python`), also the argument glued to the option (`-h"$STARCHORUS_DIR"`), a cluster of options that ends in `h` (`-fh ARG`), `-d ARG`,
+  `-dARG` and an abbreviated long option (`--dir ARG`, `--dir=ARG`). The argument has to be
+  exactly `"$STARCHORUS_DIR/www"`, the directory of two links that the route-A servers are given, so a line that names the whole directory, or names it in another form (unquoted, braced, with
+  the `/www` outside the quotes, a sub-directory), is red; its floor, `MIN_DOCROOT_LINES` (5: two lines in the library payload, three in the root launcher), keeps it from turning green because
+  the lines went. The argument is the whole shell word, so text glued on after the closing quote belongs to it (`"$STARCHORUS_DIR/www"/..` is the whole directory, and red), and a line continued with
+  a backslash is read together with the next one, so a server named on one line and given `-d ARG` on the next is read as one line. It does not see a directory that reaches the argument through a variable
+  (`d=$STARCHORUS_DIR; ... -h "$d"`), a server given no directory at all (it serves the current directory) or a relative directory such as `-h .` after a cd into it, nor what a server does with the directory; the links themselves are
+  held by the `payload-ui` rows (section 28). **What these rows do not read:** a
   glob that is only handed on as an argument (`ln -s /usr/bin/hc?tool x`, then `x ...`; `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk
   `system()`, a `jq` program given a built string, `. file`, the part of a script that a here-document with a quoted delimiter writes out which stands before its first function head, or a script with none), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
   check says nothing (the tool names themselves are still red outside the allowlist, wherever they stand in the text), and the guarantee rests on review. The run-time witness (the

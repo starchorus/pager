@@ -16,7 +16,7 @@ network, sends no frames and changes no one else's radio state.
 
 | Path | Implementation |
 |---|---|
-| **Reading the recon database** | The preferred path on the device. The SQLite database that the device's recon service fills passively is **copied** before reading and opened only with `sqlite3 -readonly`, so that capture is never locked. The working copy lives in RAM (`STARCHORUS_TMPDIR`, default `/tmp`, a tmpfs on the device) and is deleted after each cycle. With too little room there, or if the copy fails, it is made in `STARCHORUS_CAPDIR` instead (flash; it stays there until a later copy fits in RAM), and as a last resort the live file is read in place, still read-only. It holds other people's MAC addresses and SSIDs, and on the default path it is not written to flash. The collector also keeps the document of its last full pass in its memory (not in a file), which a skipped cycle republishes with a new `generated`. |
+| **Reading the recon database** | The preferred path on the device. The SQLite database that the device's recon service fills passively is **copied** before reading and opened only with `sqlite3 -readonly`, so that capture is never locked. The working copy lives in RAM (`STARCHORUS_TMPDIR`, default `/tmp`, a tmpfs on the device) and is deleted after each cycle. With too little room there, or if the copy fails, it is made in `STARCHORUS_CAPDIR` instead (flash; it stays there until a later copy fits in RAM), and as a last resort the live file is read in place, still read-only. It holds other people's MAC addresses and SSIDs, and on the default path it is not written to flash. A copy made in `STARCHORUS_CAPDIR` (`cap/recon_copy.db`) is not in the directory that a page server serves (see Network exposure of the page, below). The collector also keeps the document of its last full pass in its memory (not in a file), which a skipped cycle republishes with a new `generated`. |
 | **Receiving in monitor mode** | Listening with `tcpdump` (or `airodump-ng`, if installed) on a monitor interface: receive only, no injection. |
 | **Tuning the receiver to a channel** | Only in order to listen; nothing is sent. |
 | **Bluetooth LE, passive scan** | Opt-in: `STARCHORUS_BLUETOOTH=1`, or Settings > Bluetooth; off by default. For 5 s per cycle the collector runs `hcitool -i hci0 lescan --passive --duplicates` and reads what the controller hands the host with `btmon -i hci0`. By the Bluetooth specification a passive scan sends no scan request: the controller only listens for advertisements that devices broadcast anyway. In a hand run on the device on 16 October 2026 the HCI transmit counter rose by 20 bytes in 3 commands (scan parameters, enable, disable), all passing from the host to the controller inside the device; they are not radio transmissions, and they change nothing in the controller's configuration beyond the passive scan's own parameters and its enable and disable. A window counts only when `btmon` shows the collector's own scan parameters with `Type: Passive` before the first report; that is what was asked of the controller (this project measures the host side; an observation of the air would need a separate sniffer). The scan is ended with SIGINT (a SIGTERM is the last resort and is logged, see [docs/device-notes.md](docs/device-notes.md) §2b, V-13); `hcitool` is never sent SIGKILL. A collector that is stopped sends the first SIGINT to a scan younger than a second one second after its start, because a scan that has not yet installed its handler would die of it with the controller still scanning (passively); a collector that was killed with SIGKILL leaves its tools to their own dead-man timers and to the next start's sweep, which sends SIGINT only. Nothing else of the Bluetooth stack is called. The collector ran its window on the Pager on 18 October 2026 at 6 s, the default then (device-notes §6a); the 5-s default has not run there yet, and the device checks that remain are listed in device-notes §2b and §6a. |
@@ -54,7 +54,7 @@ or stopping any instance stops every other collector loop on the device (`--once
 runs are left alone), and each loop so stopped is logged on stderr with its pid and working
 directory. `starchorus.json` is written atomically (temporary file, then `mv`) and lives in
 `STARCHORUS_OUTDIR`; pidfiles live in `STARCHORUS_PIDDIR`. The on-device payload writes its
-settings to `settings.conf` in the same directory. Run from a self-contained payload directory
+settings to `settings.conf` in the same directory. Where it starts a page server of route A (`uhttpd` or `python3`; the root launcher also BusyBox `httpd`), it also makes `www` in that directory, a directory of its own that holds two symbolic links, `index.html` and `starchorus.json`, with the relative targets `../index.html` and `../starchorus.json`, and writes nothing else below it. Run from a self-contained payload directory
 (`tools/hak5-package.sh`), it also copies its bundled collector, page, Overview and netcat server
 there once, on the first run, and never over a collector that is already installed. These are
 local file writes; nothing is sent.
@@ -324,11 +324,22 @@ writes its `PASS`/`FAIL` lines to stdout.
   [docs/display-paths.md](docs/display-paths.md).
 - The netcat server `starchorus-serve.sh` is the only part of Starchorus that listens on the
   device itself; the other page servers are the device's own programs (`uhttpd` or `python3`, started by the payload;
-  BusyBox `httpd` by the root launcher). Those serve the whole of `/root/loot/starchorus` to whoever the bind setting lets
-  in: the page and `starchorus.json`, but also `settings.conf`, the pid files and, when `/tmp` has no room for the
-  collector's working copy, `cap/recon_copy.db`, a copy of the device's recon database with every address and network name it
-  has recorded; the next release narrows route A to a directory that holds only the page and the capture (0.2.5, track 1 of
-  its plan). The netcat server answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`, everything
+  BusyBox `httpd` by the root launcher). Those are given `/root/loot/starchorus/www`, a directory of their own that holds
+  two symbolic links and nothing else, `index.html -> ../index.html` and `starchorus.json -> ../starchorus.json`, so that to
+  whoever the bind setting lets in they show the page and the capture and not `settings.conf`, the pid files, the logs,
+  `homing.target` or, when `/tmp` has no room for the collector's working copy, `cap/recon_copy.db`, a copy of the device's
+  recon database with every address and network name it has recorded. Before 0.2.5 they were given the whole of
+  `/root/loot/starchorus`. The payload uses `www` only when it is a plain directory (not a symbolic link) that holds nothing but
+  those two links, and makes the directory and the links itself. If `www` is a symbolic link or a file, holds any other entry
+  (a dot file too), holds `index.html` or `starchorus.json` as anything but a link, or the links cannot be made, it fails
+  closed: route A is not used, and in the payload of the library the netcat server takes over where it and `nc` are there; otherwise no page server starts
+  (the collector goes on, and one note on stderr names `www`); the root launcher has no netcat branch, so it starts none. Neither serves the whole directory in any branch. A `uhttpd` of an
+  earlier build (it detaches itself and survives a payload update) is still found by its port and its directory, `www` or the
+  whole of it, and stopped by `stop` in both launchers and, in the payload of the library, by the next Start as well. A server that does not follow the links would answer 404 for the page;
+  it cannot serve more than those two names. **Not measured on the device (as of 23 October 2026):** whether the Pager's `uhttpd`
+  follows symbolic links or lists a directory, and whether its BusyBox `ln -s` makes the links as the test machine's does; the
+  Pager after the system update of 13 October 2026 has neither `uhttpd` nor `python3`, so route C is the normal server there and none of
+  this runs on it. The netcat server answers only `GET` and `HEAD` on `/`, `/index.html` and `/starchorus.json`, everything
   else with 404, one connection at a time. `starchorus-serve.sh stop` stops only the processes the
   script started itself. It sends no `Access-Control-Allow-Origin` header, so a web page of another
   origin that is open in the same browser cannot read `starchorus.json` from it. A client that stays

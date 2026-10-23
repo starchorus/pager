@@ -426,6 +426,9 @@ management Wi-Fi only, not from a network the Pager has joined.
 of them, and otherwise with the small netcat server it carries (`starchorus-serve.sh`). A Pager
 that has had its system update has neither, so the netcat server is the normal case there. It
 answers one request at a time, which suits one browser; a second device is served after the first.
+`uhttpd` and `python3` are given `/root/loot/starchorus/www`, a directory of two links (the page and the capture) that the
+payload makes itself, so the settings, the pid files and the logs are not served; if `www` is something else (a file, a link, a
+directory with other entries) the payload does not use them and says so.
 If `payload.sh status` shows `Page: 172.16.52.1:8199 not running`, the page server did not start:
 'Start Web Page' in the menu tries again and says if the port is taken. For several viewers at once,
 or when no server can run on the Pager, you have two choices, both described in

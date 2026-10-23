@@ -1084,3 +1084,10 @@ The device's own rules restrict only ports 22 and 1471 to USB-C and the manageme
   absent here; the root `payload.sh` binds them the same way where they exist. The device's
   BusyBox does not accept `--list` (`-list: applet not found`), so the root `payload.sh`'s
   BusyBox `httpd` test is simply false here.
+- **Served directory, not measured (as of 23 October 2026):** since 0.2.5 `uhttpd`, BusyBox `httpd` and `python3` are given
+  `/root/loot/starchorus/www`, which holds two symbolic links, `index.html -> ../index.html` and
+  `starchorus.json -> ../starchorus.json`, and nothing else (`SECURITY.md`, Network exposure of the page). The Pager after the
+  system update has neither `uhttpd` nor `python3`, so no server of route A has run against this directory on the device. Open:
+  whether a `uhttpd` there follows the two links, whether it lists the directory, and whether the device's BusyBox `ln -s` makes
+  them as the test machine's `ln` does (the tests run stand-ins for the servers, and the `ln` of the development machine). The
+  netcat server of route C, the normal server on the updated Pager, is unchanged.

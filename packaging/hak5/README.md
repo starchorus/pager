@@ -78,7 +78,8 @@ and names the file to delete.
 - `sqlite3` and `jq`, both present on the Pager.
 - A page server on the Pager: the payload uses `uhttpd` or `python3` where the Pager has them,
   and otherwise the bundled netcat server, which is what a Pager normally has after its system
-  update. It answers one request at a time, which suits one browser. Without any server, the
+  update. It answers one request at a time, which suits one browser. `uhttpd` and `python3` are given `www` in
+  `/root/loot/starchorus`, a directory that holds two links (the page and the capture) and nothing else. Without any server, the
   collector still writes `starchorus.json`, and the Overview on the Pager works as usual.
 
 ## Running it
