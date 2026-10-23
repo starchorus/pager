@@ -17,6 +17,10 @@
 # The files of the other scope (the collector, both Overview copies, both payload.sh, starchorus-serve.sh and library/) are read the same way: whole, file by file, by the one reader (shview below), and the function a line belongs to
 # (the allowlists and the pins), the function heads and the comment lines come from that reading. A function head, a closing brace or a comment-looking line inside a here-document body, a string or after a backslash is text, a
 # head inside a function is a definition nested in its body, and the body of a here-document with a bare delimiter is expanded when it runs, so a `$( )` or a backtick expression in it is read as code.
+# A here-document body and a string that goes over several lines are text up to the first function head at the start of one of their lines. From that head to the end of the document or of the string the text is a script (the one that
+# starchorus-serve.sh writes for the nc listener is one), and the rows 6d and 6e read it once more, as code: the earlier reader did so, by accident, for the lines after such a head, and a form that was red then stays red now. A head in a script text is no
+# function of the file: it gives no line a function and no allowlist a name, and the first row counts it in its figure only (the figure counts the lines that have the form of a head, as it always did; the floor and the names read the functions). A line that is
+# empty or begins with a comment sign is not counted among the code lines read, wherever it stands. A here-document delimiter that is not a plain name, bare or wholly in quotes ends a body at another line than the shell does (`<<e"x"` ends at `ex`): the first row names it.
 set -u
 here=$(cd "$(dirname "$0")" && pwd -P) || exit 2
 R=$(cd "$here/.." && pwd -P) || exit 2
@@ -118,7 +122,7 @@ export FNDEF
 # dyn = row 6d, over every line of every shell file of the scope, functions and top level alike (BT_SEG_FNS is `*`): it does not use mask() and cmds() above but reads the raw
 # text with a stack of its own (dyn() below) and lists each simple command whose command word holds an expansion; the row compares what it lists with a pinned list.
 # shellcheck disable=SC2016   # awk program
-BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"]; PFN = " " ENVIRON["BT_PFN"] " "; VIEW = ENVIRON["BT_VIEW"]; VHEADS = ENVIRON["BT_HEADS"]; FDEFS = ENVIRON["BT_FDEFS"]; ADEFS = ENVIRON["BT_ADEFS"]; DEFRE = ENVIRON["FNDEF"]; VNEST = ENVIRON["BT_NESTED"]; vfn = "-" }
+BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"]; PFN = " " ENVIRON["BT_PFN"] " "; VIEW = ENVIRON["BT_VIEW"]; VHEADS = ENVIRON["BT_HEADS"]; FDEFS = ENVIRON["BT_FDEFS"]; ADEFS = ENVIRON["BT_ADEFS"]; DEFRE = ENVIRON["FNDEF"]; VNEST = ENVIRON["BT_NESTED"]; SCRF = ENVIRON["BT_SCRIPT"]; SHF = ENVIRON["BT_SHEADS"]; ODDF = ENVIRON["BT_ODD"]; CNT = ENVIRON["BT_CNT"]; vfn = "-" }
 function mask(t,   i, n, c, q, sd, bq, out) {
   n = length(t); q = ""; sd = 0; bq = 0; out = ""
   for (i = 1; i <= n; i++) {
@@ -239,6 +243,10 @@ function dxarg(a) {   # a word after `xargs`: 1 = one of its options or the argu
 # Here-documents: the delimiter of every `<<` on a line is read (dyn), the body ends at the last of them, and the line is bare when ANY of its delimiters is not wholly in quotes (DHDB; the last delimiter alone used to decide, so `cat <<a <<"b"`
 # was a quoted document and a `$(` in the bare body of the first was skipped). The probe pass lists a `$(` or a backtick in such a body (REC "here-document"); the pass over the shell scope (CMDS empty) reads the body as text in which
 # `$( )` and backtick expressions are code (hbody: the state H on the stack is the text, a quote does not end it) and takes the verdicts of rows 6d and 6e from them like from any other line.
+# Script texts (the pass over the shell scope; SCRF, SHF, ODDF and CNT are the files it writes and the switch it counts by): a function head at the start of a line in a here-document body (hscr), bare or quoted, or in a string that goes over several lines (sstr) begins a
+# script text, which runs to the delimiter or to the end of the string. sline() hands each of its lines to a second reading of this same program (shview: the lines of the file in one piece, no VIEW, no SCRF), with a segment number behind the function (a head and the line after a closing
+# brace begin a segment, where the state starts afresh, as the old reader had it by the function of the line), and the heads in it go to SHF. The second reading reads the lines as code (a quoted body too) and its verdicts join those of the first. A delimiter that is not a plain
+# name, bare or wholly in quotes goes to ODDF. CNT: a line that is empty or begins with a comment sign is read where a string or a body makes it code, and is not counted (the figure of rows 6d and 6e counts what it always counted).
 function rec(nm) { if (CMDS != "" && !dtexp && !dtglob) REC[++nrec] = nm }
 function dcase(isc, w) {   # a token that has just ended at the level dsp (the other passes follow the top level only, 0): `case` as a command word opens the pattern, the next two words are its subject and `in`; `esac` closes it and ends its pattern
   if (dsp != 0 && CMDS == "") return
@@ -278,7 +286,15 @@ function dfin(   dn, ac) {   # the token that has just ended
 function dpush(ty) { DST[++dsp] = ty; DSI[dsp] = dint; DSC[dsp] = dtcs; DSK[dsp] = dtok; DSE[dsp] = dtexp; DSS[dsp] = dcs; DSG[dsp] = dtglob; DSM[dsp] = dcmd; DSR[dsp] = wrd; DSW[dsp] = dwid; DSN[dsp] = dtn; dcmd = ""; wrd = 0; dwid = 0; ccase[dsp] = 0; cdepth[dsp] = 0; cpat[dsp] = 0; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2 }
 function dpop() { dint = DSI[dsp]; dtcs = DSC[dsp]; dtok = DSK[dsp]; dtexp = DSE[dsp]; dcs = DSS[dsp]; dtglob = DSG[dsp]; dcmd = DSM[dsp]; wrd = DSR[dsp]; dwid = DSW[dsp]; dtn = DSN[dsp]; dsp-- }
 function dtext(c) { if (!dint) { dint = 1; dtcs = dcs; dtok = ""; dtexp = 0; dtglob = 0 } dtok = dtok c }
-function dreset() { hbo = 0; dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; dtn = 0; split("", ccase); split("", cdepth); split("", cpat); split("", rmark); split("", pdb); split("", pdb2) }
+function dreset() { hbo = 0; hscr = 0; sstr = 0; dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; dtn = 0; split("", ccase); split("", cdepth); split("", cpat); split("", rmark); split("", pdb); split("", pdb2) }
+function sline(   h, nm, p) {   # the main pass (SCRF set): the current line belongs to a script text, handed on to the next reading with the number of its segment in the function field ("file:line:function@segment:text"). A segment begins at a function head and after a line that begins with a closing brace, as the functions of the earlier reader did, so that the state of the reader starts afresh there (a quote left open in one function does not swallow the next). The heads of such a text are listed (SHF) for the count of the first row
+  h = (t ~ DEFRE)
+  if (h && SHF != "") { nm = t; sub(/[ \t]*\(.*/, "", nm); print nm > SHF }
+  if (h || sclose) sseg++
+  sclose = (t ~ /^}/)
+  p = index($0, ":"); p += index(substr($0, p + 1), ":"); p += index(substr($0, p + 1), ":")
+  print substr($0, 1, p - 1) "@" sseg substr($0, p) > SCRF
+}
 function hbody(t) {   # the main pass (CMDS empty): a line of the body of a here-document with a bare delimiter is read as text in which `$( )` and backtick expressions are code, as the shell expands it when the document is read: the state H below the stack is the text (a quote does not end it), what a `$( )` holds is read like any command line, and a built command word or a glob in it is a verdict of the line like on any other line. The lines are not counted among the code lines read
   if (!hbo) { dpush("H"); hbi = dsp; hbo = 1; dint = 0; dcs = 0 }
   dyn(t)
@@ -342,7 +358,7 @@ function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl, l, wd) {
     if (c == "<" && nx == "<") {   # a here-document: its delimiter word, for the caller
       u = substr(t, i + 2); DHDD = (substr(u, 1, 1) == "-"); if (DHDD) u = substr(u, 2)
       sub(/^[ \t]+/, "", u)
-      wd = dhdword(u); DHDQ = (wd ~ /^(\047[A-Za-z_][A-Za-z0-9_]*\047|"[A-Za-z_][A-Za-z0-9_]*")$/); if (!DHDQ) DHDB = 1; if (CMDS != "") { if (!DHDQ && wd !~ /^[A-Za-z_][A-Za-z0-9_]*$/) REC[++nrec] = "here-document" }   # the probe pass: any delimiter that is not a plain name, bare or wholly in quotes is a word this reader would read differently from the shell (`<<wait"x"` ends at `waitx`, not at `wait`): it is an unlisted command
+      wd = dhdword(u); DHDQ = (wd ~ /^(\047[A-Za-z_][A-Za-z0-9_]*\047|"[A-Za-z_][A-Za-z0-9_]*")$/); if (!DHDQ) DHDB = 1; if (CMDS != "") { if (!DHDQ && wd !~ /^[A-Za-z_][A-Za-z0-9_]*$/) REC[++nrec] = "here-document" } else if (ODDF != "" && !DHDQ && wd !~ /^[A-Za-z_][A-Za-z0-9_]*$/) print $0 > ODDF   # the probe pass: any delimiter that is not a plain name, bare or wholly in quotes is a word this reader would read differently from the shell (`<<wait"x"` ends at `waitx`, not at `wait`): it is an unlisted command
       sub(/^["\047]/, "", u); sub(/[^A-Za-z0-9_].*$/, "", u)
       if (u ~ /^[A-Za-z_]/) DHDW = u
       dtext("<<"); i++; continue }
@@ -384,11 +400,15 @@ VIEW != "" {   # the probe pass (BT_VIEW, mode dyn): the input is every line of 
   if (FNS != "*" && index(FNS, " " fn " ") == 0) next
   t = $0; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
   if (MODE == "dyn") { fl = $0; sub(/:.*/, "", fl); if (fl != curfile || fn != dfn) { curfile = fl; dfn = fn; dreset() } }   # a new file or function starts with nothing open
-  if (fn != hdfn) { hd = ""; hend() }
-  if (hd != "") { u = t; if (hddash) sub(/^\t+/, "", u); if (u == hd) { hd = ""; hend() } else if (CMDS != "" && !hdq && (index(t, "$(") > 0 || index(t, "`") > 0)) print "here-document\t" $0 > CMDS; else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t); next }   # the body of a here-document is text, not a command of the function; but the body of one whose delimiter is bare is expanded when it runs, and a `$(` or a backtick in it starts a command (the probe pass: an unlisted command)
-  nread++
+  if (fn != hdfn) { hd = ""; hscr = 0; hend() }
+  if (hd != "") { u = t; if (hddash) sub(/^\t+/, "", u)
+    if (SCRF != "" && u != hd && (hscr || t ~ DEFRE)) { hscr = 1; sline() }   # a function head at the start of a line in a body: from there to the delimiter the text is a script, which the second reading reads as code (the earlier reader did so by accident)
+    if (u == hd) { if (SCRF != "" && hscr) sline(); hd = ""; hscr = 0; hend() } else if (CMDS != "" && !hdq && (index(t, "$(") > 0 || index(t, "`") > 0)) print "here-document\t" $0 > CMDS; else if (CMDS == "" && MODE == "dyn" && !hdq) hbody(t); next }   # the body of a here-document is text, not a command of the function; but the body of one whose delimiter is bare is expanded when it runs, and a `$(` or a backtick in it starts a command (the probe pass: an unlisted command)
+  if (CNT == "" || (t != "" && t !~ /^[ \t]*#/)) nread++   # the shell scope counts the lines that are neither empty nor begin with a comment sign, as it always did (a line like that in a string is read and not counted)
   if (MODE == "dyn") {
+    if (SCRF != "" && !sstr && dsp > 0 && (DST[dsp] == "q" || DST[dsp] == "d") && t ~ DEFRE) sstr = dsp   # a function head at the start of a line inside a string that goes over several lines: the text from there to the end of the string is a script as well
     if (dyn(t)) print $0 > BAD
+    if (sstr) { sline(); if (dsp < sstr) sstr = 0 }
     if (dbad2) print $0 > BAD2
     if (CMDS != "") for (j = 1; j <= nrec; j++) print REC[j] "\t" $0 > CMDS
     if (WRF != "") for (j = 1; j <= nwr; j++) print WREC[j] "\t" $0 > WRF
@@ -427,16 +447,30 @@ SCOPE='BEGIN { RE = ENVIRON["SCOPE_RE"]; NORM = ENVIRON["SCOPE_NORM"] }
 #   $tmp/code   the code lines of the scope, "file:line:function:text" (what scoped() reads);  $tmp/fns  "file:function" of every function head;  $tmp/nested  "file:function" of every head that came while a function was open (the fill probe names them);
 #   $tmp/dyn_bad, $tmp/dyn_bad2, $tmp/dyn_n   the two verdicts of rows 6d and 6e (the lines that hold a built command word, a glob, find -exec, xargs or alias) and the number of code lines read: the same pass, so the
 #   rows 6d and 6e read what the heads and the attribution of the other rows are made from.
+# UNMARK takes the segment number off the function field of a line of a script text ("file:line:function@segment:text" is "file:line:function:text" again)
+# shellcheck disable=SC2016   # awk program
+UNMARK='{ p = index($0, ":"); p += index(substr($0, p + 1), ":"); q = p + index(substr($0, p + 1), ":"); f = substr($0, p + 1, q - p - 1); sub(/@.*/, "", f); print substr($0, 1, p) f substr($0, q) }'
 shview() {
-  : > "$tmp/code"; : > "$tmp/fns"; : > "$tmp/nested"; : > "$tmp/dyn_bad"; : > "$tmp/dyn_bad2"; _tot=0
+  : > "$tmp/code"; : > "$tmp/fns"; : > "$tmp/nested"; : > "$tmp/dyn_bad"; : > "$tmp/dyn_bad2"; : > "$tmp/sheads"; : > "$tmp/odd"; _tot=0
   while IFS= read -r _f; do
     awk '{ print FILENAME ":" FNR ":-:" $0 }' "$_f" > "$tmp/vraw"
-    : > "$tmp/v1"; : > "$tmp/h1"; : > "$tmp/e1"; : > "$tmp/b1"; : > "$tmp/b2"; : > "$tmp/n1"
-    BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_VIEW="$tmp/v1" BT_HEADS="$tmp/h1" BT_NESTED="$tmp/e1" BT_FDEFS=/dev/null BT_ADEFS=/dev/null awk -v BAD="$tmp/b1" -v BAD2="$tmp/b2" -v NREAD="$tmp/n1" "$BTSEG" "$tmp/vraw"
+    : > "$tmp/v1"; : > "$tmp/h1"; : > "$tmp/e1"; : > "$tmp/b1"; : > "$tmp/b2"; : > "$tmp/n1"; : > "$tmp/s1"; : > "$tmp/t1"
+    BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_VIEW="$tmp/v1" BT_HEADS="$tmp/h1" BT_NESTED="$tmp/e1" BT_FDEFS=/dev/null BT_ADEFS=/dev/null BT_SCRIPT="$tmp/s1" BT_SHEADS="$tmp/t1" BT_ODD="$tmp/odd" BT_CNT=1 awk -v BAD="$tmp/b1" -v BAD2="$tmp/b2" -v NREAD="$tmp/n1" "$BTSEG" "$tmp/vraw"
     cat "$tmp/v1" >> "$tmp/code"; cat "$tmp/b1" >> "$tmp/dyn_bad"; cat "$tmp/b2" >> "$tmp/dyn_bad2"
     awk -v F="$_f" '{ print F ":" $0 }' "$tmp/h1" >> "$tmp/fns"; awk -v F="$_f" '{ print F ":" $0 }' "$tmp/e1" >> "$tmp/nested"
     _n=$(cat "$tmp/n1"); _tot=$((_tot + ${_n:-0}))
+    cat "$tmp/t1" >> "$tmp/sheads"
+    # the script texts of the file (from a function head at the start of a line in a here-document body or a string to its end) are read once more, as code, from their own file: the reader starts afresh at every segment (a function head, the line after a closing brace), as it did when
+    # these texts were part of the file, so a nested here-document or string ends there and reads the rest as code, and there is no third reading
+    if [ -s "$tmp/s1" ]; then
+      : > "$tmp/k1"; : > "$tmp/k2"; : > "$tmp/kn"
+      BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_ODD="$tmp/odd" BT_CNT=1 awk -v BAD="$tmp/k1" -v BAD2="$tmp/k2" -v NREAD="$tmp/kn" "$BTSEG" "$tmp/s1"
+      awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"
+      _n=$(cat "$tmp/kn"); _tot=$((_tot + ${_n:-0}))
+    fi
   done < "$tmp/shfiles"
+  awk '!seen[$0]++' "$tmp/dyn_bad" > "$tmp/dyn_bad.u"; mv "$tmp/dyn_bad.u" "$tmp/dyn_bad"
+  awk '!seen[$0]++' "$tmp/dyn_bad2" > "$tmp/dyn_bad2.u"; mv "$tmp/dyn_bad2.u" "$tmp/dyn_bad2"
   printf '%s\n' "$_tot" > "$tmp/dyn_n"
 }
 scoped() { # scoped ERE → "file:line:function:text" over the code lines of the scope (ERE via ENVIRON: no awk -v escape mangling)
@@ -492,7 +526,7 @@ apcli_scan() { # the lines of apcli_ro that hold `_pineap`: $tmp/ap_bad = the on
 # 0 · fill probe: every "outside the allowlist" / "stray" row below reads its hits through scoped(); a file list that
 # lost a shell file, or a function head the awk no longer recognises, would turn those rows green by looking at
 # less. So the scope is checked by NAME and by a floor, not just counted.
-MIN_FNSCOPE=127  # functions recognised over the shell files: the heads the reader takes, $tmp/fns  (measured 291, of 294 lines that have the form of a head: the other three are the stop_nc, guard and short of the here-document that writes the handler of starchorus-serve.sh, text and no function of the file; the floor is 0.1.1's 95 plus the 32 collector functions of the radio pair)
+MIN_FNSCOPE=127  # functions recognised over the shell files: the heads the reader takes, $tmp/fns  (measured 291; the figure of the row is 294, the lines that have the form of a head: the other three are the stop_nc, guard and short in the script text of the here-document that writes the handler of starchorus-serve.sh, no function of the file, so the floor reads the 291; the floor is 0.1.1's 95 plus the 32 collector functions of the radio pair)
 cut -d: -f2 "$tmp/fns" | LC_ALL=C sort -u > "$tmp/fnames"
 if [ "${1:-}" = --pending ]; then   # what is announced and not there yet (empty once the collector has the Bluetooth code)
   for f in $BT_FUNCS; do grep -qxF "$f" "$tmp/fnames" || case "$BT_NOT_YET" in *" $f "*) printf '%s\n' "$f" ;; esac; done
@@ -500,7 +534,7 @@ if [ "${1:-}" = --pending ]; then   # what is announced and not there yet (empty
   for f in $APCLI_NOT_YET; do awk -F'\t' -v I="$f" '$1 == I && $2 == 0 { f = 1 } END { exit !f }' "$tmp/ap_cnt" && printf 'apcli_ro/%s\n' "$f"; done
   exit 0
 fi
-nfn=$(lines "$tmp/fns"); nsh=$(lines "$tmp/shfiles")
+nfs=$(lines "$tmp/fns"); nfn=$((nfs + $(lines "$tmp/sheads"))); nsh=$(lines "$tmp/shfiles")
 miss=""
 for w in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh "$DISPLAY_COPY" payload.sh library/user/reconnaissance/starchorus/payload.sh; do
   grep -qxF "$w" "$tmp/shfiles" || miss="$miss $w"
@@ -508,7 +542,9 @@ done
 while IFS= read -r w; do [ -f "$w" ] || miss="$miss $w(no such file)"; done < "$tmp/shfiles"   # a listed file that is gone is read as empty
 for w in build_from_iwscan run_cycle selftest; do grep -qxF "starchorus-collect.sh:$w" "$tmp/fns" || miss="$miss starchorus-collect.sh:$w()"; done
 while IFS= read -r w; do miss="$miss $w(a head inside a function)"; done < "$tmp/nested"   # a definition nested in a body, or a function above it that lost its closing brace at the start of a line: neither it nor what follows has a function
-fillok=0; [ "$nsh" -ge 4 ] && [ "$nfn" -ge "$MIN_FNSCOPE" ] && [ -z "$miss" ] && fillok=1
+cut -d: -f1,2 "$tmp/odd" | awk '!seen[$0]++' > "$tmp/odd.u"
+while IFS= read -r w; do miss="$miss $w(a here-document delimiter that the reader reads otherwise than the shell)"; done < "$tmp/odd.u"   # a delimiter that is not a plain name, bare or wholly in quotes (`<<e"x"` ends at `ex`, where the reader looks for `e`): the reader would end the body before the shell does and take the lines after it for code, heads among them (a left shift `<<` in `(( ))` is named too: write it inside `$(( ))`)
+fillok=0; [ "$nsh" -ge 4 ] && [ "$nfs" -ge "$MIN_FNSCOPE" ] && [ -z "$miss" ] && fillok=1
 rowif "§14.6 scope fill: $nsh files, $nfn functions (≥ $MIN_FNSCOPE), unseen:${miss:- none}" [ "$fillok" = 1 ]
 
 # 1-4 · browser page: the only network call is fetch("starchorus.json…") (§14.2 Passiv; operator-tools.sh repeats 1+2 for homing)

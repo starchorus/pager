@@ -82,12 +82,22 @@
 #                 `main-two-heredocs`, `-second` and `-payload` the same with two here-documents on a line (the line is bare if either delimiter is); `probe-heredoc-two-bodies`, `-backtick` and `-second` plant a `$(` or a backtick in the bare body of
 #                 two here-documents on a line in the probe, `probe-nested-head` a head inside a function there. `main-iw-default-comment`, `-guard-comment`, `-guard-fake-head` and `-guard-moved` plant the default of the opt-in and the guard of
 #                 `iw scan` behind a comment sign, a copy of the head with the guard in a here-document in front of the real head, and a comment line between the head and the guard. The controls `main-ok-apcli-line`, `-apcli-call` and `-bt-line` (a word
-#                 of the lists as the first line of a genuine function, a call), `-heredoc-lines` (lines that look like heads, comments and closing braces, of apcli_ro too, in quoted and bare here-documents and in strings: text), `-heredoc-plain`
+#                 of the lists as the first line of a genuine function, a call), `-heredoc-lines` (lines that look like heads, comments and closing braces, of apcli_ro too, in quoted and bare here-documents and in strings: text; the built name in the quoted body stands before its first head), `-heredoc-plain`
 #                 (plain expansions, quotes and escaped expansions in a bare body, and a `$( )` over several lines), `-two-heredocs` (two quoted, built names in their bodies), `-nested-function` (an indented definition with a name of its own) and
-#                 `-iw-guard`, and `probe-ok-heredoc-two`, stay green. Written down as limits, and green: `main-limit-second-definition` (a second top-level function with the name of an allowlisted one holds what the allowlist allows, as the first does;
-#                 the planted `-planted` mutations above rely on defining such a function) and `main-limit-quoted-script` (the script that a quoted here-document writes out is text, a program text that is built and then run). Each new part of the checker
-#                 is blinded once in the meta probe (the head and the comment line in a text, the three conditions of a clean line against the plants of the collector, the nested head and its report, the body of a bare here-document, the AND over the
+#                 `-iw-guard`, `-script-plain` (a script text with a case pattern that is a glob, a command substitution, a parameter expansion and plain words, in a quoted and a bare here-document and in a string) and `-delimiters` (`<<-name`, `<<"name"`, `<<name`), and `probe-ok-heredoc-two`, stay green. Written down as limits, and green: `main-limit-second-definition` (a second
+#                 top-level function with the name of an allowlisted one holds what the allowlist allows, as the first does; the planted `-planted` mutations above rely on defining such a function), `main-limit-quoted-script` (a script that a quoted here-document
+#                 writes out, a `#!` line and a built command word, with no function head in it, is text: a program text that is built and then run) and `main-limit-before-head` (the part of a quoted body before its first function head is text as well). Each new part
+#                 of the checker is blinded once in the meta probe (the head and the comment line in a text, the three conditions of a clean line against the plants of the collector, the nested head and its report, the body of a bare here-document, the AND over the
 #                 delimiters, the text state and its end, the verdicts of the pass, the reading of the opt-in).
+# MAIN TOOLS, SCRIPT TEXTS: a here-document body (quoted or bare) and a string that goes over several lines are text up to the first function head at the start of one of their lines; from that head to the delimiter or to the end of the string the text is a script, which the
+#                 rows 6d and 6e read once more as code (the earlier reader read the lines after such a head as code, by accident: the handler that starchorus-serve.sh writes for the nc listener is such a text, and a built command word planted in the lower part of it was
+#                 red on row 6d at 8b1d4bf and stays red). The `main-script-` mutations plant a built name below a head in a quoted body (`-quoted-built`, in the payload of the library `-quoted-payload`; `-quoted-glob` a glob), in a bare body (`-bare-built`: plain text there, so only
+#                 the second reading sees it), in a single and a double quoted string (`-string-built`, `-string-payload`), in a body nested in a script text (`-nested`), and in the handler of the listener itself (`-handler`, a line added to the real text); `-reset-head` and
+#                 `-reset-close` leave a quote open in one function of the text, and the built name stands in the next function (a head begins a segment, so does the line after a closing brace; the state of the reader starts afresh there); `-head-decoy` puts the head of
+#                 `apcli_selftest` in a here-document in front of the renamed real one (a head in a script text is no function of the file: the names of the allowlists read the functions only). The `main-odd-delimiter` mutations plant a delimiter that is not a plain name, bare
+#                 or wholly in quotes (`<<e"x"` ends at `ex`, `<<$zz_x`), where the reader ended the body at another line than the shell and took the lines after it for code: the first row names it. The controls `main-ok-script-plain`, `main-ok-delimiters` and
+#                 `main-limit-before-head` stay green. Each part is blinded once in the meta probe (the head in a body, the head in a string, the second reading, the hand-over of the lines, the verdicts of the second reading, the two ways a segment begins, the
+#                 heads that stay out of the functions, the delimiter test and its report).
 # TRANSMIT ROW:   its three pinned lines (the `airmon-ng` last resort of create_monitor, the Nmap OUI path) have an edited, a vanished and a copied-elsewhere mutation (`tx-pin-`).
 # PENDING:        the Bluetooth allowlist and the fifth apcli_ro line belong to the collector's Bluetooth code. While the checker still
 #                 announces them (`sh tools/passivity-check.sh --pending` is not empty: BT_NOT_YET, APCLI_NOT_YET), a mutation whose
@@ -114,7 +124,7 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=284    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (341 lines: 284 and 57 controls)
+MIN_MUT=298    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (358 lines: 298 and 60 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
@@ -475,6 +485,26 @@ if [ "$meta" = 1 ]; then
   metaprobe main-iw-guard-comment-blind tools/passivity-check.sh 'index(codepart(t), G) > 0) ok = 1' 'index(t, G) > 0) ok = 1' main-iw-guard-comment 'mutation main-iw-guard-comment: GREEN (BLIND!)'
   metaprobe main-iw-guard-head-blind tools/passivity-check.sh 'if (fn == "build_from_iwscan" && t ~ /^build_from_iwscan' 'if (t ~ /^build_from_iwscan' main-iw-guard-fake-head 'mutation main-iw-guard-fake-head: GREEN (BLIND!)'
   metaprobe main-iw-guard-line-blind tools/passivity-check.sh 'if (ln + 0 == hl + 1 && index(' 'if (index(' main-iw-guard-moved 'mutation main-iw-guard-moved: GREEN (BLIND!)'
+  # (m) the script texts (a function head at the start of a line in a here-document body or a string, and the text from there to its end read as code once more), one part at a time: the head in a body, the head in a string, the second
+  #     reading and what it hands back (the built names, the globs), the hand-over of the lines, the two ways a segment begins, the heads that stay out of the functions of the file, and the delimiters that the shell reads otherwise
+  metaprobe main-script-head-blind tools/passivity-check.sh 'u != hd && (hscr || t ~ DEFRE))' 'u != hd && (hscr || 0))' main-script-quoted-built 'mutation main-script-quoted-built: GREEN (BLIND!)'
+  metaprobe main-script-head-blind-bare tools/passivity-check.sh 'u != hd && (hscr || t ~ DEFRE))' 'u != hd && (hscr || 0))' main-script-bare-built 'mutation main-script-bare-built: GREEN (BLIND!)'
+  metaprobe main-script-head-blind-payload tools/passivity-check.sh 'u != hd && (hscr || t ~ DEFRE))' 'u != hd && (hscr || 0))' main-script-quoted-payload 'mutation main-script-quoted-payload: GREEN (BLIND!)'
+  metaprobe main-script-head-blind-handler tools/passivity-check.sh 'u != hd && (hscr || t ~ DEFRE))' 'u != hd && (hscr || 0))' main-script-handler 'mutation main-script-handler: GREEN (BLIND!)'
+  metaprobe main-script-string-blind tools/passivity-check.sh 'DST[dsp] == "d") && t ~ DEFRE) sstr = dsp' 'DST[dsp] == "d") && 0) sstr = dsp' main-script-string-built 'mutation main-script-string-built: GREEN (BLIND!)'
+  metaprobe main-script-string-blind-payload tools/passivity-check.sh 'DST[dsp] == "d") && t ~ DEFRE) sstr = dsp' 'DST[dsp] == "d") && 0) sstr = dsp' main-script-string-payload 'mutation main-script-string-payload: GREEN (BLIND!)'
+  metaprobe main-script-reading-blind tools/passivity-check.sh 'if [ -s "$tmp/s1" ]; then' 'if false; then' main-script-quoted-built 'mutation main-script-quoted-built: GREEN (BLIND!)'
+  metaprobe main-script-handover-blind tools/passivity-check.sh '"@" sseg substr($0, p) > SCRF' '"@" sseg substr($0, p) > "/dev/null"' main-script-quoted-built 'mutation main-script-quoted-built: GREEN (BLIND!)'
+  metaprobe main-script-built-blind tools/passivity-check.sh 'awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"' 'awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"' main-script-quoted-built 'mutation main-script-quoted-built: GREEN (BLIND!)'
+  metaprobe main-script-glob-blind tools/passivity-check.sh 'awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"' 'awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"' main-script-quoted-glob 'mutation main-script-quoted-glob: GREEN (BLIND!)'
+  metaprobe main-script-segment-head-blind tools/passivity-check.sh 'if (h || sclose) sseg++' 'if (sclose) sseg++' main-script-reset-head 'mutation main-script-reset-head: GREEN (BLIND!)'
+  metaprobe main-script-segment-close-blind tools/passivity-check.sh 'if (h || sclose) sseg++' 'if (h) sseg++' main-script-reset-close 'mutation main-script-reset-close: GREEN (BLIND!)'
+  metaprobe main-script-nested-blind tools/passivity-check.sh 'if (h || sclose) sseg++' 'if (0) sseg++' main-script-nested 'mutation main-script-nested: GREEN (BLIND!)'
+  metaprobe main-script-heads-blind tools/passivity-check.sh 'cat "$tmp/t1" >> "$tmp/sheads"' 'cat "$tmp/t1" >> "$tmp/sheads"; awk -v F="$_f" '"'"'{ print F ":" $0 }'"'"' "$tmp/t1" >> "$tmp/fns"' main-script-head-decoy 'mutation main-script-head-decoy: GREEN (BLIND!)'
+  metaprobe main-odd-delimiter-blind tools/passivity-check.sh 'else if (ODDF != "" && !DHDQ' 'else if (0 && !DHDQ' main-odd-delimiter 'mutation main-odd-delimiter: GREEN (BLIND!)'
+  metaprobe main-odd-delimiter-blind-payload tools/passivity-check.sh 'else if (ODDF != "" && !DHDQ' 'else if (0 && !DHDQ' main-odd-delimiter-payload 'mutation main-odd-delimiter-payload: GREEN (BLIND!)'
+  metaprobe main-odd-delimiter-blind-expansion tools/passivity-check.sh 'else if (ODDF != "" && !DHDQ' 'else if (0 && !DHDQ' main-odd-delimiter-expansion 'mutation main-odd-delimiter-expansion: GREEN (BLIND!)'
+  metaprobe main-odd-delimiter-report-blind tools/passivity-check.sh 'done < "$tmp/odd.u"' 'done < /dev/null' main-odd-delimiter 'mutation main-odd-delimiter: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -824,6 +854,86 @@ mut main-two-heredocs-payload library/user/reconnaissance/starchorus/payload.sh 
 zz_a
 plain
 zz_b" '' '§14.6e command names'
+# script texts: the text of a here-document body or of a string that goes over several lines is text up to the first function head at the start of one of its lines; from that head to its end it is a script, which the rows 6d and 6e read once
+# more as code (the earlier reader read the lines after such a head as code, by accident, and the handler that starchorus-serve.sh writes for the nc listener is such a script: a built command word in the lower part of it was red on row 6d, and
+# had to stay red). The plants are a built name and a glob below a head in a quoted body (the collector and the payload of the library), a built name in a bare body (plain text there, so only the second reading sees it), in a single and a double
+# quoted string, in a body nested in a script text, in the handler itself, after a quote that one function leaves open (the next function is read afresh: the head begins a segment, so does the line after a closing brace), and the head of an allowlisted
+# function inside a body (it is no function of the file). A here-document delimiter that is not a plain name, bare or wholly in quotes (`<<e"x"` ends at `ex`, where the reader looked for `e` and took the lines after it for code) is named in the first row.
+mut main-script-quoted-built  starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_fn() {
+    \$zz_a\$zz_b -i hci0 lescan
+}
+zz_eof" '' '§14.6d command words'
+mut main-script-quoted-glob   starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_fn() {
+    /usr/bin/hc?tool -i hci0 lescan
+}
+zz_eof" '' '§14.6e command names'
+mut main-script-quoted-payload library/user/reconnaissance/starchorus/payload.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_fn() {
+    \$zz_a\$zz_b -i hci0 lescan
+}
+zz_eof" '' '§14.6d command words'
+mut main-script-bare-built    starchorus-collect.sh fnappend 'cat <<zz_eof >/dev/null
+zz_fn() {
+    $zz_a$zz_b -i hci0 lescan
+}
+zz_eof' '' '§14.6d command words'
+mut main-script-string-built  starchorus-collect.sh fnappend "zz_s='
+zz_fn() {
+    \$zz_a\$zz_b -i hci0 lescan
+}
+'" '' '§14.6d command words'
+mut main-script-string-payload library/user/reconnaissance/starchorus/payload.sh fnappend 'zz_s="
+zz_fn() {
+    $zz_a$zz_b -i hci0 lescan
+}
+"' '' '§14.6d command words'
+mut main-script-nested        starchorus-collect.sh fnappend "cat <<'zz_o' >/dev/null
+zz_f() {
+    cat <<'zz_i' >/dev/null
+zz_g() {
+    \$zz_a\$zz_b -i hci0 lescan
+}
+zz_i
+}
+zz_o" '' '§14.6d command words'
+mut main-script-handler       starchorus-serve.sh subst '    kill -0 "$np" 2>/dev/null || return' '    kill -0 "$np" 2>/dev/null || return
+    $zz_a$zz_b -i hci0 lescan' '§14.6d command words'
+mut main-script-reset-head    starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_f() {
+    echo it's
+zz_g() {
+    \$zz_a\$zz_b -i hci0 lescan
+}
+zz_eof" '' '§14.6d command words'
+mut main-script-reset-close   starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_f() {
+    echo it's
+}
+\$zz_a\$zz_b -i hci0 lescan
+zz_eof" '' '§14.6d command words'
+mut main-script-head-decoy    starchorus-collect.sh subst '^apcli_selftest() {' "cat <<'zz_eof' >/dev/null
+apcli_selftest() {
+zz_eof
+zz_apcli_selftest() {" '§14.6 device calls|§14.6 allowlist names'
+mut main-odd-delimiter        starchorus-collect.sh append "zz_evil() { cat <<e\"x\" >/dev/null
+e
+apcli_ro() {
+ex
+WIFI_CONNECT zz
+}" '' '§14.6 scope fill'
+mut main-odd-delimiter-payload library/user/reconnaissance/starchorus/payload.sh append "zz_evil() { cat <<e\"x\" >/dev/null
+e
+apcli_ro() {
+ex
+WIFI_CONNECT zz
+}" '' '§14.6 scope fill'
+mut main-odd-delimiter-expansion starchorus-collect.sh append 'zz_evil() { cat <<$zz_x >/dev/null
+apcli_ro() {
+$zz_x
+WIFI_CONNECT zz
+}' '' '§14.6 scope fill|§14.6d command words'
 # the controls: what stays green. A genuine apcli_ro (a line with a word of SEC6_RE as its first line, a call of it), a genuine function of BT_FUNCS, text that only looks like a head, a comment or a closing brace in a quoted and a bare
 # here-document and in strings (plain words), a function defined inside a function with a name of its own, a bare here-document with plain expansions (a `$(printf x)`, `$((1 + 2))`, `${zz:-y}`, quotes in the text), a line with
 # two here-documents whose bodies are both quoted (built names in them are text), and the two limits that are written down: a second function with the name of an allowlisted one holds what the allowlist allows, as the first
@@ -833,10 +943,10 @@ mut main-ok-apcli-call        starchorus-collect.sh fnappend 'apcli_ro present; 
 mut main-ok-bt-line           starchorus-collect.sh fnline  'bt_stub' 'zz_x=hcitool'                                    '' ''
 mut main-ok-heredoc-lines     starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
 # a line that looks like a comment
+\$(\$zz_a\$zz_b -i hci0 lescan)
 zz_fn() {
 }
 apcli_ro() {
-\$(\$zz_a\$zz_b -i hci0 lescan)
 zz_eof
 cat <<zz_eof2 >/dev/null
 # plain \$zz_x text
@@ -868,12 +978,43 @@ zz_b" '' ''
 mut main-ok-nested-function   starchorus-collect.sh fnappend 'zz_inner() { :; }
     zz_inner' '' ''
 mut main-ok-iw-guard          starchorus-collect.sh subst   '^build_from_iwscan() {' 'build_from_iwscan() {   # the guard is the next line' '' ''
+mut main-ok-script-plain      starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+zz_fn() {
+    case \$1 in ''|*[!0-9]*) return ;; esac
+    zz_x=\$(printf '%s' \"\$1\" | tr a b)
+    kill -0 \"\$1\" 2>/dev/null || return
+}
+zz_eof
+cat <<zz_eof2 >/dev/null
+zz_gn() {
+    echo \$zz_x \$(printf z) \${zz_y:-w}
+}
+zz_eof2
+zz_s='
+zz_hn() {
+    echo plain text here
+}
+'" '' ''
+mut main-ok-delimiters        starchorus-collect.sh fnappend 'cat <<-zz_e >/dev/null
+a
+zz_e
+cat <<"zz_f" >/dev/null
+b
+zz_f
+cat <<zz_g >/dev/null
+c
+zz_g' '' ''
 mut main-limit-second-definition starchorus-collect.sh append 'apcli_ro() {
     WIFI_CONNECT zz
 }' '' ''
 mut main-limit-quoted-script  starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
 #!/bin/sh
 \$zz_a\$zz_b -i hci0 lescan
+zz_eof" '' ''
+mut main-limit-before-head    starchorus-collect.sh fnappend "cat <<'zz_eof' >/dev/null
+\$zz_a\$zz_b -i hci0 lescan
+zz_fn() {
+}
 zz_eof" '' ''
 
 # ---- tools/device-probe.sh (the rows 'device-probe.sh ...', 7d of the checker): a sending, scanning, Bluetooth or network tool in the probe, an `iw` that sets something, a command word that is built or globbed, a program that
