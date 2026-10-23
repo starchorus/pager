@@ -2724,7 +2724,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   or is missing (it then runs `echo` over what it reads), and for any `alias` definition. It compares with a pinned list in the same way; nothing of that kind stands in the
   scope today, so the list is empty and a first line is a new one. A glob in a for-list, in a case pattern or as an argument is no command word. **What these rows do not read:** a
   glob that is only handed on as an argument (`ln -s /usr/bin/hc?tool x`, then `x ...`; `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk
-  `system()`, a `jq` program given a built string, `. file`, the script that a here-document with a quoted delimiter writes out), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
+  `system()`, a `jq` program given a built string, `. file`, the part of a script that a here-document with a quoted delimiter writes out which stands before its first function head, or a script with none), a name made by a function the script defines, and a wrapper behind options these rows do not know; for those the static
   check says nothing (the tool names themselves are still red outside the allowlist, wherever they stand in the text), and the guarantee rests on review. The run-time witness (the
   Bluetooth paragraph above: what was asked of the controller is read back from the monitor each window) covers only the collector's own window, so it cannot vouch for a scan that
   was started outside one. The mutation probe pins that limit: a built name (`zz_a=hci; zz_b=tool; "$zz_a$zz_b" -i hci0 lescan`) outside `BT_FUNCS` is red, and an `eval`
@@ -2736,8 +2736,11 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   body, a string, a comment or after a backslash that looks like a head (`apcli_ro() {`), a closing brace or a comment starts, ends and hides nothing, and a comment-looking line in a string is
   code. A head that comes while another function is still open (a definition nested in a body, or a function above it whose closing brace is not at the start of a line) is named by the first
   row, and neither it nor the lines after it belong to a function, so no allowlist reaches them. The body of a here-document with a bare delimiter is expanded when it runs, so it is read as
-  text in which a `$( )` or backtick expression is code (rows `§14.6d` and `§14.6e`); with two here-documents on a line the line is bare if either delimiter is. The body of one with a quoted
-  delimiter is text, and so is a script it writes out (a program text that is built and then run: not read). The allowlists are by name; a second function with the name of an allowed one may
+  text in which a `$( )` or backtick expression is code (rows `§14.6d` and `§14.6e`); with two here-documents on a line the line is bare if either delimiter is. A here-document body,
+  bare or quoted, and a string that goes over several lines are text up to the first function head at the start of one of their lines; from that head to the end the text is a script (the handler that
+  `starchorus-serve.sh` writes for the nc listener is one), which the same two rows read once more as code; a head in it is no
+  function of the file, and the first row counts it in its figure only. The part of a quoted body before its first head, and a script it writes out that holds none, is a program text that is built and then run: not read. A delimiter that is
+  not a plain name, bare or wholly in quotes (`<<e"x"` ends at `ex`) ends a body at another line than the shell does, and the first row names it. The allowlists are by name; a second function with the name of an allowed one may
   hold what the first may hold.
   **The device probe.** `tools/device-probe.sh` is the one file of `tools/` that runs on the device. It is in the scope of the static check, with three rows of its own (`device-probe.sh scope fill`,
   `named tools`, `programs`) and not in the file list of the rows above, so that nothing allowed there applies to it and nothing allowed for it applies there. It is read with the same families (`SEC6_RE`, `TX_WORDS` with the `iw`

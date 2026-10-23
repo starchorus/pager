@@ -95,8 +95,11 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   like `apcli_ro() {`, a closing brace or a comment starts, ends and hides nothing (a comment-looking line in a string is code, and a quote in it ends the string). A head that comes while another function is still open
   (a definition nested in a body, or a function above it whose closing brace is not at the start of a line) is named in the first row of the check, and neither it nor the lines after it belong to any function, so no
   allowlist reaches them. The body of a here-document with a bare delimiter is expanded when it runs, so a `$( )` or backtick expression in it is read like any command line; with two here-documents on a line, the line is bare
-  if either delimiter is. The body of one with a quoted delimiter is text, and so is a script that it writes out, which is a program text that is built and then run (below). The allowlists are by name: a second function with the name of an
-  allowed one may hold what the first may hold, as before, and the words of the allowed functions are reviewed, except for the five `_pineap` lines.
+  if either delimiter is. A here-document body, bare or quoted, and a string that goes over several lines are text (a bare body with its expansions as code) up to the first function head at the start of one of their lines; from that head to the end the text is a script
+  (the handler that `starchorus-serve.sh` writes for the `nc` listener is one), and the rows for built names and globs read it once more as code. A head in it is no
+  function of the file: it gives no line a function and no allowlist a name. The part of a quoted body before its first head is text, and so is a script it writes out that holds no function head, which is a program text that is built and
+  then run (below). A here-document delimiter that is not a plain name, bare or wholly in quotes ends a body at another line than the shell does (`<<e"x"` ends at `ex`), and the first row of the check names it. The allowlists are by
+  name: a second function with the name of an allowed one may hold what the first may hold, as before, and the words of the allowed functions are reviewed, except for the five `_pineap` lines.
 - `iw scan` appears only behind `STARCHORUS_ALLOW_ACTIVE=1` (the default of the switch is 0, and the guard stands on the line right after the head of `build_from_iwscan`; both are read from the code of a line, not from a comment, a string or a copy of
   the head in a here-document); no transmitting tool is called, and the
   check denies the Bluetooth verbs that transmit by name (`hcitool` with `scan`, `inq`, `cc`, `lecc`,
@@ -129,7 +132,7 @@ when the owner presses 'Alerts' in Settings and confirms (the row above).
   string (`xargs -I{} {}`: stdin then names the command) or is missing, and for any `alias` definition; nothing of that kind stands in the scope today, so its list of pins is
   empty. A glob in a for-list, in a case pattern or as an argument is no command word and is not read. **What the checks do not read:** a glob that is only handed
   on as an argument (`ln -s /usr/bin/hc?tool x` and then `x ...`, `cp`), a program text that is built and then run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`,
-  `. file`, the script that a here-document with a quoted delimiter writes out) and a name made by a function the script defines. For those the static check says nothing and the guarantee rests on review; the run-time witness reads back what
+  `. file`, the part of a script that a here-document with a quoted delimiter writes out which stands before its first function head, or a script with none) and a name made by a function the script defines. For those the static check says nothing and the guarantee rests on review; the run-time witness reads back what
   was asked of the controller during the collector's own scan window only, so it cannot vouch for a scan that something else started outside one. The tool names
   themselves are still red outside the allowlist, wherever they stand in the text. The five `_pineap` lines of `apcli_ro` are pinned byte for byte, each once. Read-only reads of `/sys/class/bluetooth` are the one exception to 'by tool', since sysfs holds no tool.
   The list of names is what is known of BlueZ, the programs that the project had not named yet included (`mpris-proxy`, `hex2hcd`, `obexctl`, `bluetooth-player`, `btinfo`,
