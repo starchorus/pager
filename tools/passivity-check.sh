@@ -747,8 +747,8 @@ cat > "$tmp/dynpins" <<'DYNPINS'
 -:elif "$NC" -h 2>&1 </dev/null | grep -qE -- '(^|[[:space:]])-s([ ,]|$)'; then
 pl_col_launch:$PL_NICE setsid ./starchorus-collect.sh </dev/null >/dev/null 2>collect.log &
 pl_overview:STARCHORUS_SINCE=$pl_since STARCHORUS_PAGE_URL=$pl_pu STARCHORUS_PARENT_PID=$$ $PL_NICE sh "$STARCHORUS_DIR/starchorus-display.sh" >/dev/null 2>&1
-pl_serve:$PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 &
-pl_serve:$PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" || {
+pl_serve:$PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR/www" >/dev/null 2>&1 &
+pl_serve:$PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR/www" || {
 pl_serve:STARCHORUS_BIND=$pl_sb $PL_NICE setsid "$STARCHORUS_DIR/starchorus-serve.sh" </dev/null >/dev/null 2>&1 &
 pl_serve:STARCHORUS_BIND=$pl_sb $PL_NICE start-stop-daemon -S -b -x "$STARCHORUS_DIR/starchorus-serve.sh"
 render:top|bands|devices|probes|clients|bluetooth|air) "screen_$1" ;;
@@ -757,9 +757,9 @@ selftest:"$rsq" "$ldb" >/dev/null 2>&1 <<SQL
 selftest:"$rsq" "$npdb" >/dev/null 2>&1 <<SQL
 selftest:"$rsq" "$tdir/recon_pn.db" "INSERT INTO ssid VALUES (3,0,1,8,'AABBCC00000A','New',0,0,-40,2437,6,17184063752);" >/dev/null 2>&1
 selftest:i=0; while [ "$i" -lt 150 ]; do printf "INSERT INTO ssid VALUES (%s,0,1,8,'D2D2D2%06d','Grown%s',0,%s,-80,2437,6,8);\n" $((100 + i)) "$i" "$i" $((n0 + 90)); i=$((i + 1)); done | "$rsq" "$kdb" >/dev/null 2>&1
-serve:$NICE busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
-serve:$NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
-serve:$NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
+serve:$NICE busybox httpd -f -h "$STARCHORUS_DIR/www" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
+serve:$NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR/www" >/dev/null 2>&1 & srv=$!
+serve:$NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR/www" & srv=$!
 stop_servers:"$STARCHORUS_DIR/starchorus-serve.sh" stop >/dev/null 2>&1
 DYNPINS
 # shellcheck disable=SC2016   # the literal text of the pinned lines
@@ -784,6 +784,64 @@ dyn_ok2=0; [ ! -s "$tmp/dyn_new2" ] && [ ! -s "$tmp/dyn_gone2" ] && dyn_ok2=1
 rowif "§14.6e command names from a glob, find -exec, xargs or alias: $(lines "$tmp/dyn_bad2") lines hold one, pinned $dyn_p2, not pinned $(lines "$tmp/dyn_new2"), pins without a line $(lines "$tmp/dyn_gone2") ($(cat "$tmp/dyn_n") code lines read)" [ "$dyn_ok2" = 1 ]
 [ ! -s "$tmp/dyn_new2" ] || { show < "$tmp/dyn_new2"; echo "    hint: the command of that line is found by a glob, by find or by xargs, or is an alias: name the tool in the line, or read it and add the line (function:text) to the pinned list of row 6e"; }
 [ ! -s "$tmp/dyn_gone2" ] || { sed 's/^/    pin without a line: /' "$tmp/dyn_gone2" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of row 6e with it"; }
+
+# 6f · the docroot of the page servers, anywhere in the shell scope (SECURITY.md, docs/architecture.md §14.6). Route A's servers (uhttpd, BusyBox httpd, python3's http.server) serve the directory they are given, and
+# the whole of STARCHORUS_DIR holds more than a browser should reach: settings.conf, the pid files, the logs, homing.target and, when /tmp has no room, cap/recon_copy.db (a copy of the recon database). They are given
+# $STARCHORUS_DIR/www, a directory that holds two symbolic links (index.html, starchorus.json) and nothing else. This row reads every code line of the scope (the view the rows above read: comments are not in it; every
+# line of a here-document body is, quoted delimiter or bare, because nothing is taken from a scan of the text here: a body that only prints such an argument is red as well, which errs on the safe side) and takes every
+# docroot argument whose ARG mentions STARCHORUS_DIR; ARG must be exactly "$STARCHORUS_DIR/www", with the quotes. A docroot argument is `-h ARG`, `--directory ARG` and `--directory=ARG` on any line, and on a line that
+# names a page server (uhttpd, httpd, http.server or python) also the spellings the programs accept: the argument glued to the option (`-h"$STARCHORUS_DIR"`), a cluster of options that ends in h (`-fh ARG`), python's
+# `-d ARG` and `-dARG`, and any abbreviation of the long option (`--dir ARG`, `--dir=ARG`). A line that names the whole directory, or the directory in any other form (`$STARCHORUS_DIR/www` unquoted, "${STARCHORUS_DIR}",
+# "$STARCHORUS_DIR"/www, a sub-directory), is red. ARG is the whole shell word: what is glued on after the closing quote belongs to it (`"$STARCHORUS_DIR/www"/..` and `"$STARCHORUS_DIR/www"'/..'` are
+# the whole directory, and red), and a line continued with a backslash is read together with the next one, so a page server named on the first line and `-d ARG` on the second count as one line.
+# The floor keeps the row from turning green because the lines went: 2 in the library payload (uhttpd, python3) and 3 in the root launcher (uhttpd, BusyBox httpd, python3).
+# NOT SEEN, and docs/architecture.md §14.6 and tools/README.md say so: a directory that reaches the argument through an alias (`d=$STARCHORUS_DIR; ... -h "$d"`), a server started from a program text that is built and then
+# run, a server given no directory at all (it then serves the current directory: `(cd "$STARCHORUS_DIR" && python3 -m http.server 1)`) or a relative directory such as `-h .` after a cd
+# into it (`cd "$STARCHORUS_DIR" && uhttpd -h .`), and a program that takes its docroot from somewhere else than these options (a configuration file).
+# Nothing here reads what the server does with the directory; the links themselves are checked by the payload-ui rows (served-names, served-root).
+MIN_DOCROOT_LINES=5   # code lines with a docroot argument that names STARCHORUS_DIR (measured: 5; 2 in the library payload, 3 in the root launcher)
+# shellcheck disable=SC2016   # awk program
+DRAWK='BEGIN { RE1 = "(^|[ \t])(-h[ \t]+|--directory[ \t]+|--directory=)"                 # the plain spellings, on every line
+  RE2 = "(^|[ \t])(-[A-Za-z]*[hd][ \t]*|--d[a-z]*([ \t]+|=))" }                           # all the spellings, on a line that names a page server
+function word(s,   w, c, e) {                                         # the whole shell word at the head of s: quoted parts and what is glued to them, up to a blank or ;&|)<>
+  w = ""
+  while (s != "") {
+    c = substr(s, 1, 1)
+    if (c == "\"" || c == "\047") { e = index(substr(s, 2), c); if (e == 0) return w s; w = w substr(s, 1, e + 1); s = substr(s, e + 2) }
+    else if (index(" \t;&|)<>", c) > 0) return w
+    else if (c == "\\") { w = w substr(s, 1, 2); s = substr(s, 3) }
+    else { w = w c; s = substr(s, 2) }
+  }
+  return w
+}
+function one(rec, t,   hit, bad, re, rest, arg) {                     # one logical line: rec is its first record, t its text
+  hit = 0; bad = 0
+  re = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1
+  while (match(t, re)) {
+    rest = substr(t, RSTART + RLENGTH); t = rest
+    arg = word(rest)
+    if (index(arg, "STARCHORUS_DIR") == 0) continue
+    hit = 1
+    if (arg != "\"$STARCHORUS_DIR/www\"") bad = 1
+  }
+  if (hit) { n++; if (bad) print rec > BADS }
+}
+{ t = $0
+  for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)          # "file:line:fn:" off, the text stays
+  f = substr($0, 1, index($0, ":")); rec = $0
+  if (pend != "" && f == pf) { t = pend t; rec = prec }              # a line continued with a backslash is read as one line with the line before
+  else if (pend != "") one(prec, pend)
+  pend = ""
+  if (match(t, /\\+$/) && RLENGTH % 2 == 1) { pend = substr(t, 1, length(t) - 1) " "; prec = rec; pf = f; next }
+  one(rec, t)
+}
+END { if (pend != "") one(prec, pend); print n + 0 }'
+: > "$tmp/drbad"
+ndr=$(awk -v BADS="$tmp/drbad" "$DRAWK" "$tmp/code")
+ndrb=$(lines "$tmp/drbad")
+drok=0; [ "$ndrb" = 0 ] && [ "$ndr" -ge "$MIN_DOCROOT_LINES" ] && drok=1
+rowif "§14.6f docroot of the page servers: $ndr lines give a server a directory of STARCHORUS_DIR (≥ $MIN_DOCROOT_LINES), other than \"\$STARCHORUS_DIR/www\" $ndrb" [ "$drok" = 1 ]
+[ "$ndrb" = 0 ] || { show < "$tmp/drbad"; echo "    hint: a page server is to be given \"\$STARCHORUS_DIR/www\" (two links, nothing else), never the whole directory: change the line, or read it and change this row on purpose"; }
 
 # 7b · recon.db is only ever READ, and read-only (SECURITY.md, first permitted way): every sqlite3 CALL outside
 # selftest() carries -readonly. `have sqlite3` is a presence test, not a call. The floor keeps the row from turning

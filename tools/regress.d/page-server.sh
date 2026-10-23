@@ -23,6 +23,12 @@
 #   P5 server     (script + handler + FIFO + stand-in nc) a request is answered and the next one too; a silent client is dropped
 #                 and the next one served; a quiet listener is replaced after IDLE; an answer nobody reads is ended; stop ends all
 #                 of it and removes the copy a killed handler left, of its port only
+#   P6 neighbours the files that lie beside the page and the capture in the directory it serves (settings.conf, a pid file,
+#                 cap/recon_copy.db = a copy of the recon database, alerts.log), asked for by GET and HEAD, also as /./x, //x,
+#                 /index.html/../x and with %2E for the dot: the exact 404 bytes, under every shell found here. CONTROL: a copy of
+#                 the handler whose case is widened to serve one of them is caught by the same count. No code change: this server
+#                 names its two files and has no path to a third, whatever lies beside them; route A's servers are given a
+#                 directory instead, a directory of their own (payload-ui, section 28)
 # Sourced by tools/regress.sh and tools/quick.sh with cwd = repo root, after the core rows. Only SRV_* names and srv_* functions are set.
 
 SRV_T=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-srv.XXXXXX") || SRV_T=""
@@ -220,6 +226,38 @@ srv_ask "${SRV_RT:-sh}" "$SRV_T/cors.h" cors 'GET /starchorus.json HTTP/1.1'
 SRV_CORSMUT=$(printf '%s' "$SRV_HEAD" | grep -ci '^access-control-')
 rowif "page server: no Access-Control header in $SRV_NANS answers ($SRV_CORS found); a handler that sends one is seen ($SRV_CORSMUT)" \
   [ "$SRV_CORS" = 0 ] && [ "$SRV_CORSMUT" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/cors.h"
+
+# ---- P6 neighbours refused: what lies beside the page and the capture in the served directory is not reachable. The route-A servers
+# serve a directory and so need one of their own (payload-ui, section 28); this server names its two files, and the rows say that nothing
+# beside them gets out, in any spelling of the path a browser or a script can send (a dot segment, a double slash, a parent segment after
+# the page, an encoded dot). The planted files hold a canary line; a handler that served one would be caught by its bytes.
+SRV_CAN='canary: a file of the payload directory that is not the page'
+printf '%s\n' "$SRV_CAN" > "$SRV_D/settings.conf"; printf '4242\n' > "$SRV_D/starchorus-loop.pid"
+mkdir -p "$SRV_D/cap"; printf '%s\n' "$SRV_CAN" > "$SRV_D/cap/recon_copy.db"; printf '%s\n' "$SRV_CAN" > "$SRV_D/alerts.log"
+srv_neigh() {   # srv_neigh SHELL HANDLER TAG -> every neighbour, GET and HEAD, is asked for; what is not exactly the 404 bytes is named by srv_bad; SRV_N6 counts the answers
+  srv_nq=0
+  for srv_np in /settings.conf /starchorus-loop.pid /cap/recon_copy.db /alerts.log /./settings.conf //settings.conf /index.html/../settings.conf /settings%2Econf; do
+    srv_nq=$((srv_nq + 1))
+    srv_ask "$1" "$2" "$3-g$srv_nq" "GET $srv_np HTTP/1.1"; SRV_N6=$((SRV_N6 + 1))
+    cmp -s "$SRV_T/$3-g$srv_nq.out" "$SRV_T/404.exp" || srv_bad "$3 GET $srv_np"
+    srv_ask "$1" "$2" "$3-h$srv_nq" "HEAD $srv_np HTTP/1.1"; SRV_N6=$((SRV_N6 + 1))
+    cmp -s "$SRV_T/$3-h$srv_nq.out" "$SRV_T/404h.exp" || srv_bad "$3 HEAD $srv_np"
+  done
+}
+SRV_BADS=""; SRV_N6=0
+for SRV_X in $SRV_SHELLS; do srv_neigh "$SRV_X" "$SRV_H" "$(basename "$SRV_X")-nb"; done
+rowif "page server: neighbours refused: settings.conf, a pid file, cap/recon_copy.db, alerts.log (also /./x, //x, /index.html/../x, %2E) get the exact 404 for GET and HEAD ($SRV_N6 answers, $SRV_SHN shells; bad:${SRV_BADS:- none})" \
+  [ -z "$SRV_BADS" ] && [ "$SRV_N6" -ge 32 ]
+# negative control: the same handler with its case widened by one arm that serves settings.conf is seen by the same count, and its bytes are the canary's
+awk '/^[ \t]*\*\)[ \t]+f="" ;;/ { print "    /settings.conf) f=$DIR/settings.conf; ct=\"text/plain\"; cc=\"no-store\" ;;" } { print }' "$SRV_H" > "$SRV_T/wide.h"
+SRV_BADS=""; SRV_N6=0
+srv_neigh "${SRV_RT:-sh}" "$SRV_T/wide.h" wide
+SRV_WIDE=$SRV_BADS
+srv_ask "${SRV_RT:-sh}" "$SRV_T/wide.h" widecan 'GET /settings.conf HTTP/1.1'
+rowif "page server: a handler whose case is widened to serve settings.conf is caught ($SRV_WIDE; its answer carries the canary: $(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body"))" \
+  [ "$SRV_WIDE" = " [wide GET /settings.conf] [wide HEAD /settings.conf]" ] && [ "$(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body")" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/wide.h"
+rm -rf "$SRV_D/settings.conf" "$SRV_D/starchorus-loop.pid" "$SRV_D/cap" "$SRV_D/alerts.log"
+SRV_BADS=""
 
 # ---- P3 snapshot: the collector's mv lands between the measuring and the sending (the wc stand-in lands it)
 srv_swap() {   # srv_swap TAG PATH: GET starchorus.json with a replacement (B) staged to land after the length is taken -> SRV_SWAPPED

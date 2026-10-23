@@ -12,6 +12,10 @@
 # Drop this whole folder at /root/loot/starchorus on the device (starchorus-collect.sh, starchorus.html
 # as index.html, and this payload.sh). Run it from the Payloads UI or by hand. Stop with
 # `./payload.sh stop`.  Everything here is receive-only.
+# The page server is given $STARCHORUS_DIR/www, a directory of its own that holds two symbolic links and nothing else
+# (index.html and starchorus.json, both pointing one level up), never the whole of STARCHORUS_DIR: the settings, pid files,
+# logs and the like stay out of reach of a browser. When www is not ours, no page server starts. A server of an earlier build
+# (given the whole directory) is still found and stopped.
 
 STARCHORUS_DIR=${STARCHORUS_DIR:-/root/loot/starchorus}      # persistent eMMC (== /mmc/root/loot/starchorus)
 STARCHORUS_PORT=${STARCHORUS_PORT:-8199}                # NOT 1471 (mgmt UI) and NOT 80
@@ -53,6 +57,33 @@ bind_addr() {
     echo 127.0.0.1
 }
 
+# web_prepare -> 0 iff $STARCHORUS_DIR/www is a plain directory of ours (not a symbolic link) that holds nothing but two
+# symbolic links, index.html -> ../index.html and starchorus.json -> ../starchorus.json, made here when they are missing.
+# Returns 1 with one note on stderr when www is a symbolic link, is not a directory, holds any other entry (a file, a dot
+# file, a directory), holds index.html or starchorus.json as anything but a link (or as a link to a directory), or when
+# mkdir or ln fail. Nothing is written but below $STARCHORUS_DIR/www.
+web_prepare() {
+    wd=$STARCHORUS_DIR/www
+    wok=1
+    if [ -L "$wd" ] || { [ -e "$wd" ] && [ ! -d "$wd" ]; }; then wok=0
+    elif mkdir -p "$wd" 2>/dev/null; then
+        for we in "$wd"/* "$wd"/.[!.]* "$wd"/..?*; do
+            [ -e "$we" ] || [ -L "$we" ] || continue
+            case ${we##*/} in
+                index.html|starchorus.json) { [ -L "$we" ] && [ ! -d "$we" ]; } || wok=0 ;;
+                *) wok=0 ;;
+            esac
+        done
+        if [ "$wok" = 1 ]; then
+            ln -sf ../index.html "$wd/index.html" 2>/dev/null && ln -sf ../starchorus.json "$wd/starchorus.json" 2>/dev/null || wok=0
+        fi
+    else wok=0
+    fi
+    [ "$wok" = 1 ] && return 0
+    echo "Starchorus: note: $wd is not a plain directory of ours that holds the two links alone (or the links cannot be made); no page server" >&2
+    return 1
+}
+
 # ---- pick a static file server (passive; serves index.html + starchorus.json) -----------------
 # Every server is started in the FOREGROUND mode of its program and backgrounded here, so $! is the server itself and
 # httpd.pid holds exactly our own server's pid (busybox httpd daemonises unless it gets -f: the call would return at once,
@@ -61,13 +92,14 @@ bind_addr() {
 # in front; nice execs the server, so $! still is the server.
 serve() {
     srv=
+    web_prepare || return 1
     # shellcheck disable=SC2086   # NICE is "nice -n 19" or empty: split on purpose
     if command -v uhttpd >/dev/null 2>&1; then
-        $NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" & srv=$!
+        $NICE uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR/www" & srv=$!
     elif busybox --list 2>/dev/null | grep -qx httpd; then
-        $NICE busybox httpd -f -h "$STARCHORUS_DIR" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
+        $NICE busybox httpd -f -h "$STARCHORUS_DIR/www" -p "$ADDR:$STARCHORUS_PORT" & srv=$!
     elif command -v python3 >/dev/null 2>&1; then
-        $NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 & srv=$!
+        $NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$ADDR" --directory "$STARCHORUS_DIR/www" >/dev/null 2>&1 & srv=$!
     else
         echo "no static file server (install: opkg install -d mmc uhttpd  or  python3-light)" >&2
         return 1
@@ -78,18 +110,18 @@ serve() {
 }
 
 # our_servers -> the pids of OUR page servers in BusyBox `ps w`: an httpd/uhttpd with -p [ADDR:]PORT, or a python
-# http.server PORT, AND our directory (-h DIR or --directory DIR) as a word pair of its own. The port is matched only as the
-# listening argument, never anywhere on the line, and our directory is required, so the device's own uhttpd (:80, :1471,
-# another -h) never matches.
+# http.server PORT, AND our directory (-h DIR or --directory DIR, DIR being $STARCHORUS_DIR/www or, for a server of an earlier
+# build, $STARCHORUS_DIR) as a word pair of its own. The port is matched only as the listening argument, never anywhere on
+# the line, and our directory is required, so the device's own uhttpd (:80, :1471, -h /www) never matches.
 our_servers() {
     case $STARCHORUS_PORT in ''|*[!0-9]*) return 0 ;; esac   # the port goes into a pattern: digits only
     # shellcheck disable=SC2009  # busybox-safe; pgrep/pkill -f unavailable/unreliable here
-    ps w 2>/dev/null | awk -v d="$STARCHORUS_DIR" -v port="$STARCHORUS_PORT" '
+    ps w 2>/dev/null | awk -v d="$STARCHORUS_DIR" -v w="$STARCHORUS_DIR/www" -v port="$STARCHORUS_PORT" '
         !/httpd|http\.server/ || /awk/ { next }
         {
             lp = 0; dir = 0
             for (i = 2; i <= NF; i++) {
-                if (($i == "-h" || $i == "--directory") && $(i + 1) == d) dir = 1
+                if (($i == "-h" || $i == "--directory") && ($(i + 1) == d || $(i + 1) == w)) dir = 1
                 if ($i ~ ("^([0-9.]*:)?" port "$") && ($(i - 1) == "-p" || $(i - 1) ~ /http\.server$/)) lp = 1
             }
             if (lp && dir) print $1

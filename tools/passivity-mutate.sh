@@ -35,6 +35,16 @@
 #                 `xargs` whose command is its replacement string (`{}` and one of its own) or is missing, `dyn-alias` an alias; the `dyn-ok-` controls (a glob in a for-list, a case pattern
 #                 or as an argument, the test `[ ]`, a `${ }` with a blank or a parenthesis, `find` without `-exec`, `xargs` with its own command, an `alias` that only looks) and the two
 #                 `dyn-limit-` ones that were added (a glob only handed to `ln`, a built string piped into `sh`) must stay green: the limits are written down as tests.
+# DOCROOT:        the row '§14.6f docroot of the page servers' reads every docroot argument on a code line of the shell scope whose ARG names STARCHORUS_DIR (`-h ARG`, `--directory ARG` and `--directory=ARG` on any line; on a line that
+#                 names a page server also the argument glued to the option, a cluster of options that ends in h, `-d ARG` and an abbreviated long option) and wants it to be exactly "$STARCHORUS_DIR/www" (the directory that holds
+#                 the two links, not the whole of STARCHORUS_DIR), with a floor of lines so that it cannot turn green because they went; every line of a here-document body is read. The `docroot-` mutations plant the whole directory
+#                 in the launcher (`docroot-whole-launcher`, `-whole-uhttpd-launcher`: pinned lines, so the row of the built names is red as well) and in each form of the argument in the payload of the library (`-uhttpd-whole`,
+#                 `-python-whole`, `-python-whole-eq`, `-attached`, `-cluster`, `-cluster-attached`, `-python-d`, `-python-d-attached`, `-python-abbrev`, `-python-abbrev-eq`), the right directory written otherwise (`-unquoted`,
+#                 `-braced`, `-suffix-outside`), a sub-directory (`-subdir`), the whole directory in a quoted here-document body, in a line after a here-document opener inside a string and in a bare one (`-heredoc-quoted`,
+#                 `-heredoc-in-string`, `-heredoc-bare`, `-heredoc-after`), the right directory with text glued on after the closing quote (`-www-parent`, `-www-parent-quoted`: the word is the whole
+#                 directory), python's `-d` and `--dir` on a line continued from the one that names the server (`-python-d-continued`, `-python-abbrev-continued`), and a line that loses its argument (`-floor`: the floor and the pin). The controls `docroot-ok-www`, `-ok-python-d-www`, `-ok-cluster-www`, `-ok-comment`,
+#                 `-ok-test-d` (a `[ -d ]` test on a line that names no page server), `-ok-other-dir` (an argument that does not name STARCHORUS_DIR), `-ok-continued-www` (the right directory on a continued line),
+#                 `-limit-alias` (a directory that reaches the argument through a variable) and `-limit-cd` (a relative `-h .` after a cd into the directory; both written down as limits) stay green. Each part of the row is blinded once in the meta probe.
 # DEVICE PROBE:   tools/device-probe.sh runs on the device and is in the scope of the checker with three rows of its own ('device-probe.sh scope fill', 'named tools', 'programs'; row 7d there). The `probe-`
 #                 mutations plant into a copy of the probe what the rows read: a sending, scanning, Bluetooth or network tool (also in a function that has the name of an allowlisted function of the collector), an
 #                 `iw` that sets something, a built or globbed command word, a program no list names, a function with the name of a listed program, and the pinned lines (one changed by one character, one gone, one
@@ -124,11 +134,11 @@ R=$(cd "$here/.." && pwd -P) || exit 2
 if ! { [ -f "$R/tools/passivity-check.sh" ] && [ -f "$R/starchorus.html" ]; }; then echo "passivity-mutate: repo files missing" >&2; exit 2; fi
 me="$here/$(basename "$0")"
 
-MIN_MUT=298    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (358 lines: 298 and 60 controls)
+MIN_MUT=323    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (392 lines: 323 and 69 controls)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31)
 MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31
-MIN_ROWS=24   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias, plus the three rows of the device probe)
+MIN_ROWS=25   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias, plus the three rows of the device probe, plus the row of the docroot of the page servers)
 
 # ---- 0 · the probe may only ever RUN the checker (and itself for --meta) on a copy: grep our own executable lines
 self_guard() {
@@ -198,7 +208,7 @@ apply() {
 }
 
 # ---- the rows of passivity-check.sh, by name prefix. Every one must be red at least once (coverage line below).
-ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|sqlite3 read-only|starchorus-serve.sh: GET|device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs|§14.7 denylist'
+ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|§14.6f docroot of the page servers|sqlite3 read-only|starchorus-serve.sh: GET|device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs|§14.7 denylist'
 
 sel=""; meta=0
 while [ $# -gt 0 ]; do
@@ -505,6 +515,20 @@ if [ "$meta" = 1 ]; then
   metaprobe main-odd-delimiter-blind-payload tools/passivity-check.sh 'else if (ODDF != "" && !DHDQ' 'else if (0 && !DHDQ' main-odd-delimiter-payload 'mutation main-odd-delimiter-payload: GREEN (BLIND!)'
   metaprobe main-odd-delimiter-blind-expansion tools/passivity-check.sh 'else if (ODDF != "" && !DHDQ' 'else if (0 && !DHDQ' main-odd-delimiter-expansion 'mutation main-odd-delimiter-expansion: GREEN (BLIND!)'
   metaprobe main-odd-delimiter-report-blind tools/passivity-check.sh 'done < "$tmp/odd.u"' 'done < /dev/null' main-odd-delimiter 'mutation main-odd-delimiter: GREEN (BLIND!)'
+  # (j) the row of the docroot of the page servers (§14.6f), one part at a time: the row, the test of the argument, the `--directory=` form, the floor, the report; the mutation that plants what the part sees must say GREEN (BLIND!)
+  metaprobe docroot-row-blind tools/passivity-check.sh '[ "$drok" = 1 ]' 'true' docroot-uhttpd-whole 'mutation docroot-uhttpd-whole: GREEN (BLIND!)'
+  metaprobe docroot-arg-blind tools/passivity-check.sh 'if (arg != "\"$STARCHORUS_DIR/www\"") bad = 1' 'if (0) bad = 1' docroot-uhttpd-whole 'mutation docroot-uhttpd-whole: GREEN (BLIND!)'
+  metaprobe docroot-arg-blind-python tools/passivity-check.sh 'if (arg != "\"$STARCHORUS_DIR/www\"") bad = 1' 'if (0) bad = 1' docroot-python-whole 'mutation docroot-python-whole: GREEN (BLIND!)'
+  metaprobe docroot-equals-blind tools/passivity-check.sh '([ \t]+|=))" }' '([ \t]+))" }' docroot-python-whole-eq 'mutation docroot-python-whole-eq: GREEN (BLIND!)'
+  metaprobe docroot-floor-blind tools/passivity-check.sh '[ "$ndr" -ge "$MIN_DOCROOT_LINES" ] && drok=1' 'drok=1' docroot-floor 'mutation docroot-floor: GREEN (BLIND!)'
+  metaprobe docroot-report-blind tools/passivity-check.sh 'if (hit) { n++; if (bad) print rec > BADS }' 'if (hit) { n++ }' docroot-whole-launcher 'mutation docroot-whole-launcher: GREEN (BLIND!)'
+  metaprobe docroot-spellings-blind-attached tools/passivity-check.sh 're = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1' 're = RE1' docroot-attached 'mutation docroot-attached: GREEN (BLIND!)'
+  metaprobe docroot-spellings-blind-cluster tools/passivity-check.sh 're = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1' 're = RE1' docroot-cluster 'mutation docroot-cluster: GREEN (BLIND!)'
+  metaprobe docroot-spellings-blind-python-d tools/passivity-check.sh 're = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1' 're = RE1' docroot-python-d 'mutation docroot-python-d: GREEN (BLIND!)'
+  metaprobe docroot-spellings-blind-python-abbrev-eq tools/passivity-check.sh 're = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1' 're = RE1' docroot-python-abbrev-eq 'mutation docroot-python-abbrev-eq: GREEN (BLIND!)'
+  metaprobe docroot-spellings-blind-control tools/passivity-check.sh 're = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1' 're = RE2' docroot-ok-test-d 'mutation docroot-ok-test-d: WRONG-ROW'
+  metaprobe docroot-word-blind tools/passivity-check.sh 'w = w substr(s, 1, e + 1); s = substr(s, e + 2) }' 'return w substr(s, 1, e + 1) }' docroot-www-parent-quoted 'mutation docroot-www-parent-quoted: GREEN (BLIND!)'
+  metaprobe docroot-continued-blind tools/passivity-check.sh 'if (match(t, /\\+$/) && RLENGTH % 2 == 1)' 'if (0)' docroot-python-d-continued 'mutation docroot-python-d-continued: GREEN (BLIND!)'
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
@@ -652,6 +676,53 @@ mut dyn-helper           library/user/reconnaissance/starchorus/helper newfile '
 mut dyn-pin-edited       payload.sh                subst    'NICE uhttpd -f -p' 'NICE "$zz_a$zz_b" -f -p'                      '§14.6d command words'
 mut dyn-pin-gone         payload.sh                subst    '$NICE busybox httpd' 'nice busybox httpd'                         '§14.6d command words'
 mut dyn-pin-twice        payload.sh                append   '$NICE ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &' '' '§14.6d command words'
+# ---- the docroot of the page servers (§14.6f): the directory a route-A server is given must be "$STARCHORUS_DIR/www", never the whole of STARCHORUS_DIR
+mut docroot-whole-launcher       payload.sh  subst 'busybox httpd -f -h "$STARCHORUS_DIR/www"' 'busybox httpd -f -h "$STARCHORUS_DIR"' '§14.6d command words|§14.6f docroot'
+mut docroot-whole-uhttpd-launcher payload.sh subst 'uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR/www"' 'uhttpd -f -p "$ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR"' '§14.6d command words|§14.6f docroot'
+mut docroot-uhttpd-whole         library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-python-whole         library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 --directory "$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-python-whole-eq      library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 --directory="$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-unquoted             library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h $STARCHORUS_DIR/www' '' '§14.6f docroot'
+mut docroot-braced               library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "${STARCHORUS_DIR}"' '' '§14.6f docroot'
+mut docroot-suffix-outside       library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "$STARCHORUS_DIR"/www' '' '§14.6f docroot'
+mut docroot-subdir               library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "$STARCHORUS_DIR/cap"' '' '§14.6f docroot'
+mut docroot-floor                payload.sh  subst '--directory "$STARCHORUS_DIR/www" >/dev/null 2>&1 & srv=$!' '--directory "$zz_d" >/dev/null 2>&1 & srv=$!' '§14.6d command words|§14.6f docroot'
+mut docroot-attached                 library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h"$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-cluster                  library/user/reconnaissance/starchorus/payload.sh fnappend 'busybox httpd -fh "$STARCHORUS_DIR" -p 1:2' '' '§14.6f docroot'
+mut docroot-cluster-attached         library/user/reconnaissance/starchorus/payload.sh fnappend 'busybox httpd -fh"$STARCHORUS_DIR" -p 1:2' '' '§14.6f docroot'
+mut docroot-python-d                 library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 -d "$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-python-d-attached        library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 -d"$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-python-abbrev            library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 --dir "$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-python-abbrev-eq         library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 --dir="$STARCHORUS_DIR"' '' '§14.6f docroot'
+mut docroot-ok-www               library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "$STARCHORUS_DIR/www"' '' ''
+mut docroot-ok-comment           library/user/reconnaissance/starchorus/payload.sh fnappend '# uhttpd -p 1:2 -h "$STARCHORUS_DIR"' '' ''
+mut docroot-heredoc-quoted       library/user/reconnaissance/starchorus/payload.sh fnappend "cat <<'zz_e' > /dev/null
+uhttpd -p 1:2 -h \"\$STARCHORUS_DIR\"
+zz_e" '' '§14.6f docroot'
+mut docroot-heredoc-in-string    library/user/reconnaissance/starchorus/payload.sh fnappend "echo \"<<'zz_e'\" > /dev/null
+uhttpd -p 1:2 -h \"\$STARCHORUS_DIR\"
+zz_e" '' '§14.6f docroot'
+mut docroot-heredoc-bare         library/user/reconnaissance/starchorus/payload.sh fnappend "cat <<zz_e > /dev/null
+\$(uhttpd -p 1:2 -h \"\$STARCHORUS_DIR\")
+zz_e" '' '§14.6f docroot'
+mut docroot-heredoc-after        library/user/reconnaissance/starchorus/payload.sh fnappend "cat <<'zz_e' > /dev/null
+text
+zz_e
+uhttpd -p 1:2 -h \"\$STARCHORUS_DIR\"" '' '§14.6f docroot'
+mut docroot-ok-python-d-www          library/user/reconnaissance/starchorus/payload.sh fnappend 'python3 -m http.server 1 -d "$STARCHORUS_DIR/www"' '' ''
+mut docroot-ok-cluster-www           library/user/reconnaissance/starchorus/payload.sh fnappend 'busybox httpd -fh "$STARCHORUS_DIR/www" -p 1:2' '' ''
+mut docroot-ok-test-d                library/user/reconnaissance/starchorus/payload.sh fnappend '[ -d "$STARCHORUS_DIR" ]' '' ''
+mut docroot-ok-other-dir         library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h /www' '' ''
+mut docroot-limit-alias          library/user/reconnaissance/starchorus/payload.sh fnappend 'zz_d=$STARCHORUS_DIR; uhttpd -p 1:2 -h "$zz_d"' '' ''
+mut docroot-www-parent              library/user/reconnaissance/starchorus/payload.sh fnappend 'uhttpd -p 1:2 -h "$STARCHORUS_DIR/www"/..' '' '§14.6f docroot'
+mut docroot-www-parent-quoted       library/user/reconnaissance/starchorus/payload.sh fnappend "uhttpd -p 1:2 -h \"\$STARCHORUS_DIR/www\"'/..'" '' '§14.6f docroot'
+mut docroot-python-d-continued      library/user/reconnaissance/starchorus/payload.sh fnappend "python3 -m http.server 1 \\
+        -d \"\$STARCHORUS_DIR\"" '' '§14.6f docroot'
+mut docroot-python-abbrev-continued library/user/reconnaissance/starchorus/payload.sh fnappend "python3 -m http.server 1 \\
+        --dir \"\$STARCHORUS_DIR\"" '' '§14.6f docroot'
+mut docroot-ok-continued-www        library/user/reconnaissance/starchorus/payload.sh fnappend "python3 -m http.server 1 \\
+        -d \"\$STARCHORUS_DIR/www\"" '' ''
+mut docroot-limit-cd                library/user/reconnaissance/starchorus/payload.sh fnappend 'cd "$STARCHORUS_DIR" && uhttpd -p 1:2 -h .' '' ''
 mut dyn-ok-assign        starchorus-collect.sh     fnappend 'zz_x=$(zz_f); zz_y="$(zz_f)"; zz_n=$(( $(zz_f) + 30 ))'      '' ''
 mut dyn-ok-argument      starchorus-collect.sh     fnappend 'echo "$(zz_f)" "$zz_x" $zz_y; command -v "$zz_x" > /dev/null; for zz_i in "$@"; do echo "$zz_i"; done' '' ''
 mut dyn-ok-case-pattern  starchorus-collect.sh     fnappend 'case "$zz_x" in $zz_y|z) : ;; esac'                          '' ''

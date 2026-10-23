@@ -23,7 +23,7 @@
 #   leaves the payload, and whatever runs keeps running. See MENU below.
 # Everywhere else, and with any argument, no UI command runs:
 #   payload.sh [start]          start per settings (the Overview only opens from the menu); exit 1 if both services are off
-#   payload.sh stop             stop the collector and our page server (our port, the port last served, our directory, our pidfiles only)
+#   payload.sh stop             stop the collector and our page server (our port, the port last served, our directory or its www, our pidfiles only)
 #   payload.sh status           status lines on stdout
 #   payload.sh get [KEY]        KEY=VALUE (env|file|default) for one key or all
 #   payload.sh set KEY VALUE    validate and save; exit 2 on an unknown key or an invalid value (file untouched)
@@ -95,6 +95,13 @@
 # SERVER: uhttpd may be present on the device (installed, not enabled at boot); the payload uses it when present,
 # else python3, else the bundled nc mini-server. Without any server it still collects to starchorus.json; view it
 # from a connected computer. A port that already has a listener (/proc/net/tcp, read-only) is not tried.
+# What is served: uhttpd and python3 serve $STARCHORUS_DIR/www, a directory of their own that holds two symbolic links
+# and nothing else: index.html -> ../index.html and starchorus.json -> ../starchorus.json (pl_web_prepare makes them). The
+# settings, the pid files, the logs, the homing target and, when /tmp has no room, cap/recon_copy.db (a copy of the recon
+# database, every address and name in it) stay out of reach of a browser. When www is not ours (a symbolic link, a plain
+# file, or a directory that holds anything else) route A is not used: the nc mini-server takes over, which answers only
+# the page and the capture by name, or, without it, no page server starts. A uhttpd of an earlier build (which was given
+# the whole of STARCHORUS_DIR, and outlives a payload update) is still stopped, by its port and its directory.
 #
 # TESTS ONLY: STARCHORUS_PROC (default /proc: uptime, net/tcp, PID/cmdline, PID/stat) and STARCHORUS_MARKER (default
 # /tmp/starchorus.started) point the payload at stand-ins; STARCHORUS_FIRST_CAP (tenths of a second, default 200) is how long
@@ -495,18 +502,20 @@ pl_fast_stop() {
 }
 
 # pl_pids PORT -> the pids of OUR OWN page server(s) listening on PORT: a uhttpd -p [ADDR:]PORT -h our-dir, or a
-# python -m http.server PORT [--bind ADDR] --directory our-dir. It matches the listening argument only, not the whole `ps w` line, so
-# a PID/USER/VSZ column or an unrelated argument that happens to equal PORT is never mistaken for it; and it requires our
-# own directory, so the device's own uhttpd on :80/:1471 (a different -h) is never touched even if PORT collides with it.
+# python -m http.server PORT [--bind ADDR] --directory our-dir, where our-dir is $STARCHORUS_DIR/www (what pl_serve starts)
+# or $STARCHORUS_DIR itself (what the builds before 0.2.5 started; a uhttpd daemonises and survives a payload update). It
+# matches the listening argument only, not the whole `ps w` line, so a PID/USER/VSZ column or an unrelated argument that
+# happens to equal PORT is never mistaken for it; and it requires our own directory, so the device's own uhttpd on
+# :80/:1471 (its -h is /www, which is neither) is never touched even if PORT collides with it.
 pl_pids() {
     # shellcheck disable=SC2009  # busybox-safe; pgrep/pkill unreliable here
-    ps w 2>/dev/null | awk -v p="$1" -v d="$STARCHORUS_DIR" '
+    ps w 2>/dev/null | awk -v p="$1" -v d="$STARCHORUS_DIR" -v w="$STARCHORUS_DIR/www" '
         !/uhttpd|http\.server/ || /awk/ { next }
         {
             uh = 0; py = 0; dir = 0
             for (i = 2; i <= NF; i++) {
-                if (($i == "-h" || $i == "--directory") && $(i + 1) == d) dir = 1
-                if ($i == ("--directory=" d)) dir = 1
+                if (($i == "-h" || $i == "--directory") && ($(i + 1) == d || $(i + 1) == w)) dir = 1
+                if ($i == ("--directory=" d) || $i == ("--directory=" w)) dir = 1
                 if ($i ~ ("^([0-9.]*:)?" p "$") && $(i - 1) == "-p") uh = 1
                 if ($i ~ ("^([0-9.]*:)?" p "$") && $(i - 1) ~ /http\.server$/) py = 1
             }
@@ -602,8 +611,41 @@ pl_port_busy() {
         END { exit !f }'
 }
 
+# pl_web_prepare -> 0 iff $STARCHORUS_DIR/www is a plain directory of ours (not a symbolic link) that holds nothing but two
+# symbolic links, index.html -> ../index.html and starchorus.json -> ../starchorus.json, made here when they are missing. This
+# is the directory the route-A page servers (uhttpd, python3) are given, so that a browser reaches the page and the capture
+# and nothing else in STARCHORUS_DIR (settings, pid files, logs, the homing target, cap/recon_copy.db). Returns 1 with one note
+# on stderr, and leaves it at that, when www is a symbolic link, is not a directory, holds any other entry (a file, a dot
+# file, a directory), holds index.html or starchorus.json as anything but a link (or as a link to a directory), or when
+# mkdir or ln fail (a BusyBox build without ln counts): the caller then does not use route A. Nothing is written but
+# below $STARCHORUS_DIR/www. The links point at files that may not exist yet (the first capture is still to come): they
+# dangle until the collector's rename lands, which is how the page already behaved.
+pl_web_prepare() {
+    pl_wd=$STARCHORUS_DIR/www
+    pl_wok=1
+    if [ -L "$pl_wd" ] || { [ -e "$pl_wd" ] && [ ! -d "$pl_wd" ]; }; then pl_wok=0
+    elif mkdir -p "$pl_wd" 2>/dev/null; then
+        for pl_we in "$pl_wd"/* "$pl_wd"/.[!.]* "$pl_wd"/..?*; do
+            [ -e "$pl_we" ] || [ -L "$pl_we" ] || continue
+            case ${pl_we##*/} in
+                index.html|starchorus.json) { [ -L "$pl_we" ] && [ ! -d "$pl_we" ]; } || pl_wok=0 ;;
+                *) pl_wok=0 ;;
+            esac
+        done
+        if [ "$pl_wok" = 1 ]; then
+            ln -sf ../index.html "$pl_wd/index.html" 2>/dev/null && ln -sf ../starchorus.json "$pl_wd/starchorus.json" 2>/dev/null || pl_wok=0
+        fi
+    else pl_wok=0
+    fi
+    [ "$pl_wok" = 1 ] && return 0
+    echo "Starchorus: note: $pl_wd is not a plain directory of ours that holds the two links alone (or the links cannot be made); no page server from it" >&2
+    return 1
+}
+
 # Best-effort static server for the visualiser: uhttpd, else python3, else the bundled nc mini-server. Every server
 # listens on PL_ADDR (pl_addr) only, niced by PL_NICE; the address and port served are recorded in page.addr and page.port.
+# uhttpd and python3 are given $STARCHORUS_DIR/www (pl_web_prepare) and never the whole of STARCHORUS_DIR; when www cannot be
+# made ready they are not used at all: the nc mini-server takes over when it is there, else no page server starts (1).
 # 0 = a server was started (whether it holds the port shows in pl_page_up), 1 = no server program, 2 = the port is taken
 # or the server refused to start.
 pl_serve() {
@@ -616,16 +658,25 @@ pl_serve() {
         echo "Starchorus: port $STARCHORUS_PORT is in use on $PL_ADDR; no page server started" >&2
         return 2
     fi
+    pl_ra=0
+    if command -v uhttpd >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+        if pl_web_prepare; then pl_ra=1
+        elif [ -x "$STARCHORUS_DIR/starchorus-serve.sh" ] && command -v nc >/dev/null 2>&1; then :
+        else
+            echo "Starchorus: no web server for the page -> $STARCHORUS_DIR/starchorus.json (view from a connected computer)" >&2
+            return 1
+        fi
+    fi
     # shellcheck disable=SC2086   # PL_NICE is "nice -n 19" or empty: split on purpose
-    if command -v uhttpd >/dev/null 2>&1; then
+    if [ "$pl_ra" = 1 ] && command -v uhttpd >/dev/null 2>&1; then
         # uhttpd daemonises itself (no -f), so it detaches cleanly and stop_servers sweeps it by port and our directory.
-        $PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR" || {
+        $PL_NICE uhttpd -p "$PL_ADDR:$STARCHORUS_PORT" -h "$STARCHORUS_DIR/www" || {
             echo "Starchorus: uhttpd could not listen on $PL_ADDR:$STARCHORUS_PORT" >&2
             return 2
         }
         pl_srvn=""
-    elif command -v python3 >/dev/null 2>&1; then
-        $PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR" >/dev/null 2>&1 &
+    elif [ "$pl_ra" = 1 ] && command -v python3 >/dev/null 2>&1; then
+        $PL_NICE python3 -m http.server "$STARCHORUS_PORT" --bind "$PL_ADDR" --directory "$STARCHORUS_DIR/www" >/dev/null 2>&1 &
         echo $! > "$STARCHORUS_DIR/httpd.pid"
         pl_srvn=""
     else

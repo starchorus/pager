@@ -7,10 +7,12 @@
 #                         file (pidfiles, checked against the command line) -- never another process with "netcat" (or
 #                         "starchorus-serve.sh", or "nc … -p PORT…") in its command line that someone else started.
 #   payload.sh (root)     busybox httpd daemonizes unless it gets -f, so $! would be empty or foreign (the collector started
-#                         just before) and `stop` would leave the server running; httpd.pid must hold our server's pid.
+#                         just before) and `stop` would leave the server running; httpd.pid must hold our server's pid. The
+#                         servers are given $dir/www (two links, nothing else), and a stop also ends a server of the build before,
+#                         which was given $dir itself (a uhttpd outlives a payload update): -h $dir/www and -h $dir are both ours.
 #   bind                  every server listens on the management address by default (br-lan from a stand-in `ip`), on an
 #                         explicit address, or on 0.0.0.0 only for `all`; a nc without -s does not start unless `all`; the
-#                         stop matcher takes -p ADDR:PORT as well as -p PORT and still needs our own -h directory; and no
+#                         stop matcher takes -p ADDR:PORT as well as -p PORT and still needs our own -h directory (the www one, or the old whole one); and no
 #                         server start line in the three scripts listens on every interface by default (static).
 # Stand-ins, all in $STP_T/bin (first on PATH): nc (a GNU-netcat listener that never gets a client; `-h` names -s like
 # GNU netcat 0.7.1), busybox (the applet list names httpd; `httpd` without -f forks a server and returns at once, like the
@@ -106,19 +108,20 @@ echo $$ > "$STARCHORUS_OUTDIR/col.pid"; while :; do sleep 1; done
 STP_COL
 chmod +x "$STP_PD/starchorus-collect.sh" "$STP_PD/payload.sh"
 sh "$STP_T/decoy/httpd" -h "$STP_T/elsewhere" -p "$STP_PORT" </dev/null >/dev/null 2>&1 & STP_D4=$!
+STP_OLD=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD" -p "172.16.52.1:$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)   # a server of the build before: the whole directory (not a job of this shell: no zombie to keep it "alive")
 (cd "$STP_PD" && STARCHORUS_DIR="$STP_PD" STARCHORUS_PORT=$STP_PORT PATH="$STP_PATH" sh ./payload.sh </dev/null >/dev/null 2>&1)
 STP_HP=$(sed -n 1p "$STP_PD/httpd.pid" 2>/dev/null); STP_CP=$(sed -n 1p "$STP_PD/col.pid" 2>/dev/null)
-STP_SRV=$(stp_pids "-h $STP_PD -p 172.16.52.1:$STP_PORT")
+STP_SRV=$(stp_pids "-h $STP_PD/www -p 172.16.52.1:$STP_PORT")
 STP_HPOK=0; [ -n "$STP_HP" ] && [ "$STP_HP" != "$STP_CP" ] && case " $STP_SRV" in *" $STP_HP "*) STP_HPOK=1 ;; esac
 (cd "$STP_PD" && STARCHORUS_DIR="$STP_PD" STARCHORUS_PORT=$STP_PORT PATH="$STP_PATH" sh ./payload.sh stop </dev/null >/dev/null 2>&1)
 # shellcheck disable=SC2086
-stp_gone $STP_SRV ${STP_CP:-}; STP_PST=$?
-STP_PLEFT=$(stp_pids "-h $STP_PD -p 172.16.52.1:$STP_PORT")
+stp_gone $STP_SRV "$STP_OLD" ${STP_CP:-}; STP_PST=$?
+STP_PLEFT="$(stp_pids "-h $STP_PD/www -p 172.16.52.1:$STP_PORT")$(stp_pids "-h $STP_PD -p 172.16.52.1:$STP_PORT")"
 STP_PDEC=""; stp_alive "$STP_D4" || STP_PDEC=" httpd-of-another-dir"
 if [ "$STP_HPOK" = 1 ] && [ "$STP_PST" = 0 ] && [ -z "$STP_PLEFT" ] && [ ! -f "$STP_PD/httpd.pid" ] && [ -z "$STP_PDEC" ]; then row "stop scope: payload.sh busybox httpd: httpd.pid [${STP_HP:-empty}] = our server [${STP_SRV:-none}] (collector ${STP_CP:-none}), stop leaves:${STP_PLEFT:- nothing}, decoys killed:${STP_PDEC:- none}" PASS
 else row "stop scope: payload.sh busybox httpd: httpd.pid [${STP_HP:-empty}] = our server [${STP_SRV:-none}] (collector ${STP_CP:-none}), stop leaves:${STP_PLEFT:- nothing}, decoys killed:${STP_PDEC:- none}" FAIL; fi
 # shellcheck disable=SC2046,SC2086
-kill $STP_D4 $(stp_pids "$STP_PD") ${STP_CP:-} 2>/dev/null
+kill $STP_D4 "$STP_OLD" $(stp_pids "$STP_PD") ${STP_CP:-} 2>/dev/null
 wait "$STP_D4" 2>/dev/null
 # ---- bind · starchorus-serve.sh: the nc of the first run above listened on br-lan; explicit, all, and an nc without -s
 stp_serve1() {   # stp_serve1 PATH BIND -> STP_NCA (the nc's arguments, "" if none), STP_RC (exit status if it ended), STP_ERR
@@ -185,19 +188,20 @@ case "$STP_RA " in *" -p 127.0.0.1:$STP_PORT "*) ;; *) STP_BAD="$STP_BAD lo[$STP
 case $STP_RERR in *"127.0.0.1 only"*) ;; *) STP_BAD="$STP_BAD lo-note" ;; esac
 stp_root_stop
 printf '%s\n' "$STP_IPBR" > "$STP_T/ip.out"
-# no pid file: the sweep stops ours in both forms (-p ADDR:PORT, the old -p PORT), not the same address:port of another
-# directory, not the device's own uhttpd on :80/:1471, not a server whose port is only a stray argument
+# no pid file: the sweep stops ours in both forms (-p ADDR:PORT, the old -p PORT) for our www directory, and a server of the
+# build before (the whole directory) too, not the same address:port of another directory, not the device's own uhttpd on :80/:1471, not a server whose port is only a stray argument
 # (started from a command substitution: not jobs of this shell, so their end prints no job line)
-STP_O1=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD" -p "172.16.52.1:$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)
-STP_O2=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD" -p "$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)
+STP_O1=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD/www" -p "172.16.52.1:$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)
+STP_O2=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD/www" -p "$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)
+STP_O3=$(sh "$STP_T/bin/httpd-srv" httpd -f -h "$STP_PD" -p "172.16.52.1:$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)   # the build before: the whole directory
 STP_D5=$(sh "$STP_T/decoy/httpd" uhttpd -f -p "172.16.52.1:$STP_PORT" -h /www </dev/null >/dev/null 2>&1 & echo $!)
 STP_D6=$(sh "$STP_T/decoy/httpd" uhttpd -f -p 172.16.52.1:1471 -p 80 -h /www </dev/null >/dev/null 2>&1 & echo $!)
 STP_D7=$(sh "$STP_T/decoy/httpd" uhttpd -f -p 80 -h "$STP_PD" "$STP_PORT" </dev/null >/dev/null 2>&1 & echo $!)
 sleep 1
 rm -f "$STP_PD/httpd.pid"; stp_root_stop
-stp_gone "$STP_O1" "$STP_O2" || STP_BAD="$STP_BAD ours-left"
+stp_gone "$STP_O1" "$STP_O2" "$STP_O3" || STP_BAD="$STP_BAD ours-left"
 for stp_p in "$STP_D5" "$STP_D6" "$STP_D7"; do stp_alive "$stp_p" || STP_BAD="$STP_BAD decoy-killed:$stp_p"; done
-kill "$STP_O1" "$STP_O2" "$STP_D5" "$STP_D6" "$STP_D7" 2>/dev/null
+kill "$STP_O1" "$STP_O2" "$STP_O3" "$STP_D5" "$STP_D6" "$STP_D7" 2>/dev/null
 rowif "stop scope: bind: root payload -p br-lan:PORT by default, explicit, all, 0.0.0.0 -> auto, 172.16.52.1 / 127.0.0.1 fallbacks; stop takes -p ADDR:PORT and -p PORT of our dir only (bad:${STP_BAD:- none})" [ -z "$STP_BAD" ]
 
 # ---- bind · static: no server start line in the three scripts listens on every interface by default. Every uhttpd/busybox

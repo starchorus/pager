@@ -28,7 +28,13 @@
 #                 reading with jq) after one has come, so that a second press finds no wait open for the rest of the draw; one that
 #                 leaves its waiter or its temp directory behind when it ends; an Overview that holds the payload's stdout open while it waits
 #                 for a key (a killed payload would then hang the payload runner for as long as nobody presses one); three instant
-#                 empty answers that do not end it.
+#                 empty answers that do not end it; a route-A page server (uhttpd, python3) given the whole of STARCHORUS_DIR, which holds
+#                 settings.conf, the pid files, the logs, homing.target and, when /tmp has no room, cap/recon_copy.db (a copy of the recon
+#                 database, every address and name in it), instead of $STARCHORUS_DIR/www with its two links and nothing else; a www that
+#                 is not ours (a file, a symbolic link, another entry, a link to a directory) used all the same, or written through; a link
+#                 that does not follow the capture the collector renames into place; a server of the build before (given the whole directory,
+#                 a uhttpd outlives a payload update) that a Start or a Stop leaves running; a docroot read by a prefix match, which
+#                 passes the whole directory as well.
 # NEGATIVE PROBE: pl_own reduced to `kill -0` => "pid reuse" red; pl_kill_sleeps emptied => "Stop is quick" red; the marker write
 #                 removed from pl_start => "Start" red (since=); PL_ARMED never set => "debounce" red; the locked case removed
 #                 from pl_settings => "locked" red; pl_apply without its comparison => "apply" red (flip-back spinner); pl_port_busy
@@ -51,6 +57,12 @@
 #                 it (the stand-in is that subshell's child) => "nopending:term" red; a TERM that no trap turns into an exit =>
 #                 "nopending:term:dash" red (bash runs an EXIT trap for a signal, dash does not); the temp directory not removed =>
 #                 "tmpdir" red.
+# Served directory (section 28). NEGATIVE PROBES: the -h of the uhttpd line put back to "$STARCHORUS_DIR" => served-root red (notwhole, exact), the
+#                 same in pl_serve for --directory => the python3 row red; pl_web_prepare without its test of a symbolic link => served-foreign red
+#                 (symlink:kept: a link made behind www); without its test of a foreign entry => served-foreign red (regular, extra, dotfile); its
+#                 test of a link to a directory taken out => dirlink red; the fall to the nc mini-server removed => nc:ran red; pl_pids reduced to
+#                 the www form => served-old red (the old server is left); the rows read the docroot with the match anchored at the end of the line,
+#                 so a server given "$PUI_D/www/x" or the whole directory is not counted as ours.
 # The Traffic and Bluetooth rows (radio pair): sections 5, 15, 16 and 18 carry the two new rows in every list of the Settings (and the
 #                 CLI keys), section 15b flips, locks and applies them, section 21 walks the eight screens of the Overview. NEGATIVE PROBES: the 'Traffic' row left out of pl_settings
 #                 => the Settings rows, 15b and the web-page row red (rows, locked, staysoff ...), nothing else; pl_applykeys without 'traffic bluetooth' =>
@@ -67,7 +79,9 @@
 #                 mutants of i: (a recursive remove and a glob remove of the directory and of its renamed twin, a second path).
 # NOT PROVEN:     nothing on the device: the real UI commands, PROMPT_QR's argument order and exit status, the visible line width, BusyBox ash
 #                 (dash, if present, as a second POSIX shell for the headless start), /proc (the stand-ins answer through `ps`, a
-#                 fake uptime and a fake net/tcp). docs/device-notes.md §7 records what the device itself settled (M1 to M7, measured
+#                 fake uptime and a fake net/tcp); that the Pager's uhttpd follows the two links of www or lists the directory, and that its
+#                 BusyBox `ln -s` makes them (the servers are stand-ins that keep their command line, `ln` is the runner's: section 28 reads
+#                 what a browser could have been given, not what a server does with it). docs/device-notes.md §7 records what the device itself settled (M1 to M7, measured
 #                 on 16 October 2026) and what is still open.
 # Stand-ins, all under $PUI_T: one UI script linked as LIST_PICKER, NUMBER_PICKER, CONFIRMATION_DIALOG, ERROR_DIALOG, LOG, PROMPT,
 # PROMPT_QR, START_SPINNER, STOP_SPINNER, WAIT_FOR_INPUT. It appends "NAME<TAB>ARG<TAB>ARG..." to $PUI_LOG; the pickers, the
@@ -100,7 +114,8 @@
 # its duration and the command word in $PUI_T/timeout.log, so a row can see what was put under it.
 # STARCHORUS_PROC is $PUI_T/proc (an uptime file, and net/tcp when a case takes a port), STARCHORUS_MARKER
 # $PUI_T/started. Every run is under a 20 s limit (python3, killpg) with a clean environment and a PATH of symlinks to a few
-# basic tools: no uhttpd, no python3, no nc, so no server starts unless a case puts the stand-in uhttpd on the PATH. setsid and
+# basic tools: no uhttpd, no python3, no nc, so no server starts unless a case puts the stand-in uhttpd on the PATH (the runs that start one
+# have $PUI_T/lnb, the directory of ln, as well: the page directory is made of links; section 28 takes it away once). setsid and
 # timeout are stand-ins (exec), ip prints $PUI_T/ip.out, ps is BusyBox `ps w` over the processes under $PUI_T only (pid first;
 # `-o` queries go to the real ps). The stand-in collector keeps the real one's protocol: starchorus-loop.pid, "loop RUNNING
 # (pid N)" on stderr, a --stop that signals the pidfile's pid only while it runs a collector, a TERM trap and a foreground
@@ -125,11 +140,14 @@ PUI_TAB=$(printf '\t')
 PUI_VER=$(sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$PUI_PL" | head -n 1)
 pui_hc() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$R/$1" | head -n 1; }   # pui_hc FILE -> its "# Contract:" number
 PUI_CON=$(sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$PUI_PL" | head -n 1)
-mkdir -p "$PUI_T/sys" "$PUI_T/bin" "$PUI_T/ui" "$PUI_T/srv" "$PUI_T/decoy" "$PUI_T/tpl" "$PUI_T/jq" "$PUI_T/proc" "$PUI_T/qrm" "$PUI_T/qru" "$PUI_T/qra" "$PUI_T/qrb" "$PUI_T/uino" "$PUI_T/ovx" "$PUI_T/jqs" "$PUI_T/tmp"
+mkdir -p "$PUI_T/sys" "$PUI_T/bin" "$PUI_T/ui" "$PUI_T/srv" "$PUI_T/decoy" "$PUI_T/tpl" "$PUI_T/jq" "$PUI_T/lnb" "$PUI_T/proc" "$PUI_T/qrm" "$PUI_T/qru" "$PUI_T/qra" "$PUI_T/qrb" "$PUI_T/uino" "$PUI_T/ovx" "$PUI_T/jqs" "$PUI_T/tmp"
 for pui_t in sh dash cat grep awk mv rm sleep sed wc tr env sort dirname basename touch mkdir head cp chmod date cut nice; do
   pui_p=$(command -v "$pui_t" 2>/dev/null) && case $pui_p in /*) ln -s "$pui_p" "$PUI_T/sys/$pui_t" ;; esac
 done
 pui_p=$(command -v jq 2>/dev/null) && case $pui_p in /*) ln -s "$pui_p" "$PUI_T/jq/jq" ;; esac
+# ln has a directory of its own: the runs that start a page server have it (the payload makes the two links of its page directory with it),
+# and section 28 takes it away once (PUI_PGN)
+pui_p=$(command -v ln 2>/dev/null) && case $pui_p in /*) ln -s "$pui_p" "$PUI_T/lnb/ln" ;; esac
 # what the Overview adds to the basic tools: the fingerprint of the capture (stat where it takes -c, else ls) that its cache
 # is keyed on; without either, nothing would ever be cached and every redraw would run jq again
 for pui_t in stat ls mktemp tail rmdir; do
@@ -308,8 +326,9 @@ chmod +x "$PUI_T/bin/"* "$PUI_T/ui/pui-ui" "$PUI_T/srv/"* "$PUI_T/decoy/"* "$PUI
 PUI_HL="$PUI_T/bin:$PUI_T/sys"                          # headless: no UI command
 PUI_UIP="$PUI_T/ui:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys"     # the device UI stand-ins first, jq present
 PUI_NJQ="$PUI_T/ui:$PUI_T/bin:$PUI_T/sys"               # the same without jq
-PUI_PGP="$PUI_T/srv:$PUI_T/bin:$PUI_T/sys"              # headless with the stand-in uhttpd
-PUI_PGU="$PUI_T/ui:$PUI_T/srv:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys"   # the device with the stand-in uhttpd
+PUI_PGP="$PUI_T/srv:$PUI_T/lnb:$PUI_T/bin:$PUI_T/sys"              # headless with the stand-in uhttpd (and ln: the page directory is made of links)
+PUI_PGU="$PUI_T/ui:$PUI_T/srv:$PUI_T/lnb:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys"   # the device with the stand-in uhttpd
+PUI_PGN="$PUI_T/srv:$PUI_T/bin:$PUI_T/sys"                          # the stand-in uhttpd and no ln (section 28: www cannot be made, so no route A)
 : > "$PUI_ALL"
 # the 20 s limit: its own session, killed as a group on timeout (exit 124); the payload's output lands in $PUI_T/out
 PUI_TO='import os, signal, subprocess, sys
@@ -444,7 +463,16 @@ pui_get() { pui_run "$PUI_HL" sh "$PUI_PL" get "$1"; sed -n "s/^$1=\([^ ]*\) (\(
 pui_bg() {    # pui_bg FILE ARG... -> a detached process (not a child of this shell); its pid in PUI_BGP
   ( sh "$@" </dev/null >/dev/null 2>&1 & echo $! > "$PUI_T/bg.pid" ); PUI_BGP=$(cat "$PUI_T/bg.pid")
 }
-pui_srv() { "$PUI_PS" -A -ww -o args= | awk -v t="uhttpd-srv -p 172.16.52.1:$1 -h $PUI_D" 'index($0, t) && !/awk/ { n++ } END { print n + 0 }'; }   # pui_srv PORT -> our stand-in servers on PORT
+pui_srv() { pui_wsrv "172.16.52.1:$1" | wc -l | tr -d ' '; }   # pui_srv PORT -> our stand-in servers on PORT, given $PUI_D/www and nothing else
+pui_asrv() {   # pui_asrv PORT -> our stand-in servers on PORT given $PUI_D or any directory below it (www among them): for the "none left" checks, which must count a server given the whole directory too
+  "$PUI_PS" -A -ww -o args= | awk -v t="uhttpd-srv -p 172.16.52.1:$1 -h $PUI_D" 'index($0, t) && !/awk/ { r = substr($0, index($0, t) + length(t)); if (r == "" || r ~ /^\//) n++ } END { print n + 0 }'
+}
+pui_wsrv() {   # pui_wsrv ADDR:PORT -> the pids of our stand-in uhttpd on ADDR:PORT whose directory is exactly $PUI_D/www: the match ends the line, so $PUI_D/www/x or $PUI_D/wwwx is not it, and neither is $PUI_D alone
+  "$PUI_PS" -A -ww -o pid= -o args= | awk -v t="uhttpd-srv -p $1 -h $PUI_D/www" '{ n = length($0) - length(t) + 1 } n >= 1 && substr($0, n) == t && !/awk/ { print $1 }'
+}
+pui_nsrv() {   # pui_nsrv -> "ALL/WWW": the stand-in uhttpd started from this directory (any -h that holds $PUI_D) / those given exactly $PUI_D/www (line-end anchored)
+  "$PUI_PS" -A -ww -o args= | awk -v d="$PUI_D" -v t=" -h $PUI_D/www" '/uhttpd-srv -p / && index($0, d) && !/awk/ { a++; n = length($0) - length(t) + 1; if (n >= 1 && substr($0, n) == t) w++ } END { print a + 0 "/" w + 0 }'
+}
 pui_no() { for pui_f; do [ ! -e "$pui_f" ] || return 1; done; }      # pui_no FILE... -> none of them exists
 pui_tcp() {   # pui_tcp PORT... -> a fake /proc/net/tcp with a listener on every address at each PORT
   mkdir -p "$PUI_T/proc/net"
@@ -1182,7 +1210,7 @@ pui_ans "=Settings" "=Web Page: ON" "=Web Page: OFF" "!2" "!2"; pui_run_ui "$PUI
 pui_is e4 [ "$(pui_x ERROR_DIALOG "$PUI_E4")" = 1 ]
 pui_is staysoff [ "$(pui_x LIST_PICKER Settings 'Web Page: OFF' 'Refresh: 30 s' 'Show Last: 1 h' 'Vendor Names: ON' 'Channel Load: OFF' 'Traffic: OFF' 'Bluetooth: OFF' 'Alerts: OFF' 'Port: 18601' 'Reset to Defaults' 'Web Page: OFF')" = 2 ]
 pui_is filef [ "$(sed -n 's/^page=//p' "$PUI_D/settings.conf")" = off ]
-pui_is srvoff [ "$(pui_srv 18601)" = 0 ]
+pui_is srvoff [ "$(pui_asrv 18601)" = 0 ]
 # Start with the port still taken: E4 after Start (collecting goes on), RUNNING offers "Start Web Page", which fails the same way
 pui_run "$PUI_HL" sh "$PUI_PL" set page on
 pui_ans "=Stop" "=Start" "=Start Web Page" "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
@@ -1194,7 +1222,7 @@ rm -f "$PUI_T/proc/net/tcp"
 pui_ans "=Start Web Page" "=Settings" "=Port: 18601" "=18602" "!2" "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
 pui_is qr [ "$(pui_x PROMPT_QR 'http://172.16.52.1:18601/')/$(pui_x LOG blue 'Web page: 172.16.52.1:18601')" = 1/1 ]
 pui_is qrcursor [ "$(pui_x "$PUI_RUN" Overview 'Open on Phone' Stop Settings 'Open on Phone')" = 1 ]
-pui_is moved [ "$(pui_x LOG blue 'Settings applied.')/$(pui_srv 18602)/$(pui_srv 18601)" = 1/1/0 ]
+pui_is moved [ "$(pui_x LOG blue 'Settings applied.')/$(pui_srv 18602)/$(pui_asrv 18601)" = 1/1/0 ]
 # a new port that is taken: the old one is restored and served again, E8 -- also when the old server is slow to let go of its
 # port (its listener stays in the fake net/tcp for 2 s after the stop): the restore waits for the port instead of finding it taken
 pui_tcp 18602 18603; ( sleep 2; pui_tcp 18603 ) & PUI_BGJ=$!
@@ -1204,7 +1232,7 @@ pui_is e8 [ "$(pui_x ERROR_DIALOG 'Port 18603 is in use.\nKept 18602.')/$(pui_lo
 pui_is kept [ "$(pui_get port)/$(pui_srv 18602)" = "18602 file/1" ]
 rm -f "$PUI_T/proc/net/tcp"
 pui_run "$PUI_PGP" sh "$PUI_PL" stop
-pui_is stopall [ "$(pui_srv 18601)$(pui_srv 18602)$(pui_srv 18603)" = 000 ]
+pui_is stopall [ "$(pui_asrv 18601)$(pui_asrv 18602)$(pui_asrv 18603)" = 000 ]
 # `start` over a page server of ours with no collector (STARCHORUS_COLLECTOR=0): the old server is stopped and the new one binds
 # the same port, even when the old listener is still in the fake net/tcp for 2 s (the stop returns when the port is free)
 pui_new "port=18631"
@@ -1215,7 +1243,7 @@ pui_run "$PUI_PGP" STARCHORUS_COLLECTOR=0 sh "$PUI_PL" start
 wait "$PUI_BGJ"
 pui_is again [ "$PUI_RC/$(pui_srv 18631)/$(grep -c 'is in use' "$PUI_T/out")" = 0/1/0 ]
 pui_run "$PUI_PGP" sh "$PUI_PL" stop
-pui_is stopagain [ "$(pui_srv 18631)" = 0 ]
+pui_is stopagain [ "$(pui_asrv 18631)" = 0 ]
 rowif "payload ui: web page: L2, Open on Phone, OFF/ON at once, taken port E4 (row stays OFF), Start Web Page, port moves, E8 keeps the old one (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 19 · Open on Phone: PROMPT_QR with the page's address and the three-line message; the argument order read from the
@@ -1247,7 +1275,7 @@ pui_ans "=Open on Phone" "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
 pui_is dismissed [ "$(pui_x PROMPT_QR 'http://172.16.52.1:18611/')/$(pui_logc '^PROMPT	')/$(pui_x "$PUI_RUN" Overview 'Open on Phone' Stop Settings 'Open on Phone')" = 1/0/1 ]
 rm -f "$PUI_T/qr.b"
 # no PROMPT_QR on the device at all: PROMPT with the same text
-pui_ans "=Open on Phone" "!2"; pui_run_ui "$PUI_T/uino:$PUI_T/srv:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys" sh "$PUI_PL"
+pui_ans "=Open on Phone" "!2"; pui_run_ui "$PUI_T/uino:$PUI_T/srv:$PUI_T/lnb:$PUI_T/bin:$PUI_T/jq:$PUI_T/sys" sh "$PUI_PL"
 pui_is absent [ "$(pui_x PROMPT "$PUI_QM")/$(pui_logc '^PROMPT_QR')" = 1/0 ]
 pui_run "$PUI_PGP" sh "$PUI_PL" stop
 printf '%s\n' "1: lo    inet 127.0.0.1/8 scope host lo" "9: wlan0cli    inet 192.168.77.50/24 scope global wlan0cli" > "$PUI_T/ip.out"
@@ -1265,7 +1293,7 @@ pui_is e11 [ "$(pui_x ERROR_DIALOG 'Overview needs jq.')/$(pui_x "$PUI_RUN" Stop
 pui_is noov [ ! -e "$PUI_D/display.calls" ]
 pui_run "$PUI_HL" sh "$PUI_PL" stop
 pui_new "port=18621"
-pui_bg "$PUI_T/srv/uhttpd-srv" -p 172.16.52.1:18621 -h "$PUI_D"; PUI_SRV=$PUI_BGP
+pui_bg "$PUI_T/srv/uhttpd-srv" -p 172.16.52.1:18621 -h "$PUI_D/www"; PUI_SRV=$PUI_BGP
 pui_ans "!2"; pui_run_ui "$PUI_PGU" sh "$PUI_PL"
 pui_is l9 [ "$(pui_x LOG 'Stopped a leftover web page.')/$(pui_x "$PUI_STOP" Start)" = 1/1 ]
 pui_is srvgone pui_gone "$PUI_SRV"
@@ -1512,7 +1540,7 @@ PUI_BAD=""; pui_new "port=18299"
 pui_bg "$PUI_T/decoy/uhttpd" -p 80 -h /www; PUI_DEC=$PUI_BGP
 pui_run "$PUI_PGP" sh "$PUI_PL"
 pui_is started pui_col
-PUI_SRV=$("$PUI_PS" -A -ww -o pid= -o args= | awk -v t="uhttpd-srv -p 172.16.52.1:18299 -h $PUI_D" 'index($0, t) && !/awk/ { print $1 }' | tr '\n' ' ' | sed 's/ $//')
+PUI_SRV=$(pui_wsrv 172.16.52.1:18299 | tr '\n' ' ' | sed 's/ $//')
 pui_is srv [ -n "$PUI_SRV" ]
 pui_run "$PUI_PGP" sh "$PUI_PL" status
 pui_is status [ "$(grep -c '^Page: 172.16.52.1:18299 running$' "$PUI_T/out")/$(grep -c '^loop RUNNING (pid [0-9]*)$' "$PUI_T/out")/$(grep -c 'starchorus\]' "$PUI_T/out")" = 1/1/0 ]
@@ -1534,7 +1562,8 @@ rowif "payload ui: page on its port: status, a port change keeps the old server 
 
 # ---- 24 · stop matches only OUR own -p [ADDR:]PORT -h our-dir server: a server on the same port (bare or with the same
 #           address) with a different -h directory (the device's own uhttpd), and the port sitting in a non-listening
-#           argument, all survive; an older server of ours on the bare -p PORT form is stopped too
+#           argument, all survive; an older server of ours on the bare -p PORT form is stopped too, and O1 (-h of the whole
+#           directory) is a server of the build before, which stop ends as well (the new ones are given <dir>/www)
 PUI_BAD=""; pui_new "port=18401"
 pui_bg "$PUI_T/decoy/uhttpd" -p 18401 -h /www; PUI_D1=$PUI_BGP
 pui_bg "$PUI_T/decoy/uhttpd" -p 80 -h /www 18401; PUI_D2=$PUI_BGP
@@ -1542,7 +1571,7 @@ pui_bg "$PUI_T/decoy/uhttpd" -p 172.16.52.1:18401 -h /www; PUI_D3=$PUI_BGP
 pui_bg "$PUI_T/srv/uhttpd-srv" -p 18401 -h "$PUI_D"; PUI_O1=$PUI_BGP
 pui_run "$PUI_PGP" sh "$PUI_PL"
 pui_is started pui_col
-PUI_SRV=$("$PUI_PS" -A -ww -o pid= -o args= | awk -v t="uhttpd-srv -p 172.16.52.1:18401 -h $PUI_D" 'index($0, t) && !/awk/ { print $1 }' | tr '\n' ' ' | sed 's/ $//')
+PUI_SRV=$(pui_wsrv 172.16.52.1:18401 | tr '\n' ' ' | sed 's/ $//')
 pui_is srv [ -n "$PUI_SRV" ]
 pui_run "$PUI_PGP" sh "$PUI_PL" stop
 for pui_p in $PUI_SRV "$PUI_O1"; do pui_is "gone:$pui_p" pui_gone "$pui_p"; done
@@ -1562,9 +1591,9 @@ pui_bindcase() {   # pui_bindcase LABEL EXPECTED-ADDR [settings line] -> start, 
   [ "${4:-}" = lo ] && printf '%s\n' "1: lo    inet 127.0.0.1/8 scope host lo" "9: wlan0cli    inet 192.168.77.50/24 scope global wlan0cli" > "$PUI_T/ip.out"
   pui_run "$PUI_PGP" sh "$PUI_PL"
   pui_is "$1:started" pui_col
-  pui_bs=$("$PUI_PS" -A -ww -o pid= -o args= | awk -v t="uhttpd-srv -p $2:18501 -h $PUI_D" 'index($0, t) && !/awk/ { print $1 }' | tr '\n' ' ')
+  pui_bs=$(pui_wsrv "$2:18501" | tr '\n' ' ')
   pui_is "$1:args" [ -n "$pui_bs" ]
-  pui_is "$1:any" [ "$("$PUI_PS" -A -ww -o args= | grep -F "$PUI_D" | grep -c 'uhttpd-srv -p ')" = 1 ]
+  pui_is "$1:any" [ "$(pui_nsrv)" = 1/1 ]
   pui_is "$1:addrfile" [ "$(cat "$PUI_D/page.addr" 2>/dev/null)" = "$2" ]
   if [ "$2" = 0.0.0.0 ]; then pui_is "$1:hint" grep -q 'http://<device-ip>:18501/ (all interfaces)' "$PUI_T/out"
   else pui_is "$1:hint" grep -q "http://$2:18501/" "$PUI_T/out"; fi
@@ -1671,6 +1700,196 @@ done
 grep -q "^NUMBER_PICKER	Port	" "$PUI_ALL" || PUI_MISS="$PUI_MISS num:Port"
 pui_is seen [ -z "$PUI_MISS" ]
 rowif "payload ui: static (no active path, never sourced, no exec, POSIX) + $PUI_LN picker calls within 28 chars, ASCII, one-word spinners (bad:${PUI_BAD:- none}${PUI_MISS:+, unseen:$PUI_MISS})" [ -z "$PUI_BAD" ]
+
+# ---- 28 · served directory (route A): uhttpd and python3 are given $STARCHORUS_DIR/www, a directory of their own that holds two symbolic
+#            links, index.html -> ../index.html and starchorus.json -> ../starchorus.json, and nothing else; never STARCHORUS_DIR itself, which
+#            holds settings.conf, the pid files, collect.log, alerts.log, homing.target and, when /tmp has no room, cap/recon_copy.db (a copy of
+#            the recon database, every address and name in it). The stand-in uhttpd keeps the -h of its command line, so the rows read what a
+#            browser could have been given: the docroot, end-anchored (a prefix match would pass the whole directory as well). The stand-in
+#            collector renames its capture into place, as the real one does, and the link reads whatever is there. A www that is not ours (a plain
+#            file, a symbolic link, a directory that holds another entry or a file where a link should be) or that cannot be made (no ln) means no
+#            route A: no server, the collector goes on, one note names www, nothing in or behind www is touched; with the bundled nc mini-server
+#            there it takes over. A server of the build before (-h STARCHORUS_DIR, a uhttpd outlives a payload update) is still found and stopped.
+#            The planted-copy CONTROL runs the same names check against the OLD docroot, where the settings, the pid files and the copy of the
+#            recon database are planted: it must fail, so the check can tell a directory that holds more than the two links.
+pui_whole() { "$PUI_PS" -A -ww -o args= | awk -v d="$PUI_D" '/uhttpd-srv -p / && !/awk/ { for (i = 1; i < NF; i++) if ($i == "-h" && $(i + 1) == d) { n++; break } } END { print n + 0 }'; }   # -> our stand-in uhttpd given the whole directory (-h followed by exactly it)
+pui_names() {   # pui_names DIR -> 0 iff DIR is a plain directory that holds exactly index.html and starchorus.json, both symbolic links with the targets ../index.html and ../starchorus.json, and nothing else (dot files included)
+  [ -d "$1" ] && [ ! -L "$1" ] || return 1
+  [ "$(pui_ls "$1")" = "index.html starchorus.json " ] || return 1
+  [ -L "$1/index.html" ] && [ -L "$1/starchorus.json" ] || return 1
+  [ "$(readlink "$1/index.html")" = ../index.html ] && [ "$(readlink "$1/starchorus.json")" = ../starchorus.json ]
+}
+pui_ls() { find "$1" -mindepth 1 -maxdepth 1 | sed 's|.*/||' | LC_ALL=C sort | tr '\n' ' '; }   # pui_ls DIR -> the names in it (dot files too), sorted, each followed by a blank
+pui_has() { for pui_f; do [ -e "$pui_f" ] || return 1; done; }      # pui_has PATH... -> all of them exist
+pui_alive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
+pui_dangles() { [ -L "$1" ] && [ ! -e "$1" ]; }                      # pui_dangles PATH -> a symbolic link whose target is not there (yet)
+pui_absent() { for pui_f; do [ ! -e "$pui_f" ] && [ ! -L "$pui_f" ] || return 1; done; }   # pui_absent PATH... -> none of them exists, not even as a dangling link
+pui_foreign() {   # pui_foreign LABEL [PATH] -> a Start while www is not ours (set up by the caller): no route-A server, no page files, the collector runs, one note names www
+  pui_run "${2:-$PUI_PGP}" sh "$PUI_PL"
+  pui_is "$1:collector" pui_col
+  pui_is "$1:rc" [ "$PUI_RC" = 0 ]
+  pui_is "$1:noserver" [ "$(pui_nsrv)/$(pui_whole)" = 0/0/0 ]
+  pui_is "$1:note" [ "$(grep -c '/www' "$PUI_T/out")" = 1 ]
+  pui_is "$1:nopage" pui_absent "$PUI_D/page.port" "$PUI_D/page.addr" "$PUI_D/httpd.pid"
+  pui_run "${2:-$PUI_PGP}" sh "$PUI_PL" stop
+}
+# served-root: the stand-in uhttpd is given $PUI_D/www, end of line, and never $PUI_D followed by a blank or the end
+PUI_BAD=""; pui_new "port=18281"; printf '<!doctype html>\n' > "$PUI_D/index.html"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is started pui_col
+pui_is rc [ "$PUI_RC" = 0 ]
+pui_is exact [ "$(pui_wsrv 172.16.52.1:18281 | wc -l | tr -d ' ')" = 1 ]
+pui_is only [ "$(pui_nsrv)" = 1/1 ]
+pui_is notwhole [ "$(pui_whole)" = 0 ]
+pui_is page [ "$(cat "$PUI_D/page.port" 2>/dev/null)/$(cat "$PUI_D/page.addr" 2>/dev/null)" = 18281/172.16.52.1 ]
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+pui_is stopped [ "$(pui_nsrv)" = 0/0 ]
+rowif "payload ui: served root (route A): the stand-in uhttpd is given <dir>/www, line-end anchored, and never the whole directory; stop ends it (served-root; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# served-names: <dir>/www holds exactly the two links (relative targets) and nothing else, also after a second Start and after Stop
+PUI_BAD=""; pui_new "port=18281"; printf '<!doctype html>\n' > "$PUI_D/index.html"
+pui_is before pui_absent "$PUI_D/www"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is started pui_col
+pui_is names pui_names "$PUI_D/www"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is again pui_names "$PUI_D/www"
+pui_is oneserver [ "$(pui_nsrv)" = 1/1 ]
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+pui_is stopnames pui_names "$PUI_D/www"
+rm -f "$PUI_D/www/starchorus.json"; ln -s ../elsewhere.json "$PUI_D/www/starchorus.json"       # a link of ours that points elsewhere is made again, not kept
+pui_is skewed pui_not pui_names "$PUI_D/www"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is repaired pui_names "$PUI_D/www"
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+rowif "payload ui: served names: <dir>/www holds exactly index.html and starchorus.json, links to ../index.html and ../starchorus.json, nothing else; a link that points elsewhere is made again (served-names; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# served-live: the link reads the capture the collector renames into place; before the first capture it dangles
+PUI_BAD=""; pui_new "port=18282"; : > "$PUI_D/col.nojson"; printf 'page one\n' > "$PUI_D/index.html"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is started pui_col
+pui_is dangles pui_dangles "$PUI_D/www/starchorus.json"
+pui_is pageok [ "$(cat "$PUI_D/www/index.html")" = "page one" ]
+printf '{"generated":111}\n' > "$PUI_D/starchorus.json.tmp" && mv "$PUI_D/starchorus.json.tmp" "$PUI_D/starchorus.json"
+pui_is first [ "$(cat "$PUI_D/www/starchorus.json" 2>/dev/null)" = '{"generated":111}' ]
+printf '{"generated":222,"aps":[]}\n' > "$PUI_D/starchorus.json.tmp" && mv "$PUI_D/starchorus.json.tmp" "$PUI_D/starchorus.json"
+pui_is second [ "$(cat "$PUI_D/www/starchorus.json" 2>/dev/null)" = '{"generated":222,"aps":[]}' ]
+pui_is stilllinks pui_names "$PUI_D/www"
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+rowif "payload ui: served live: before the first capture the starchorus.json link dangles (-L, not -e); after the collector's rename it reads the new bytes, again after the next (served-live; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# served-foreign: a www that is not ours means no route A, whatever it is; nothing in or behind it is touched
+PUI_BAD=""
+pui_new "port=18283"; printf 'foreign\n' > "$PUI_D/www"
+pui_foreign file
+pui_is file:kept [ "$([ -f "$PUI_D/www" ] && [ ! -L "$PUI_D/www" ] && cat "$PUI_D/www")" = foreign ]
+pui_new "port=18283"; mkdir "$PUI_T/behind"; ln -s "$PUI_T/behind" "$PUI_D/www"
+pui_foreign symlink
+pui_is symlink:kept [ -L "$PUI_D/www" ]
+pui_is symlink:behind [ "$(pui_ls "$PUI_T/behind")" = "" ]
+rm -rf "$PUI_T/behind"
+pui_new "port=18283"; mkdir "$PUI_D/www"; printf 'mine\n' > "$PUI_D/www/index.html"
+pui_foreign regular
+pui_is regular:kept [ "$([ -f "$PUI_D/www/index.html" ] && [ ! -L "$PUI_D/www/index.html" ] && cat "$PUI_D/www/index.html")" = mine ]
+pui_is regular:nolink pui_absent "$PUI_D/www/starchorus.json"
+pui_new "port=18283"; mkdir "$PUI_D/www"; printf 'x\n' > "$PUI_D/www/notes.txt"
+pui_foreign extra
+pui_is extra:kept [ "$(pui_ls "$PUI_D/www")" = "notes.txt " ]
+pui_new "port=18283"; mkdir "$PUI_D/www"; : > "$PUI_D/www/.hidden"
+pui_foreign dotfile
+pui_is dotfile:kept [ "$(pui_ls "$PUI_D/www")" = ".hidden " ]
+pui_new "port=18283"; mkdir "$PUI_D/www" "$PUI_T/behind"; ln -s "$PUI_T/behind" "$PUI_D/www/index.html"       # a link to a directory: ln -sf would put its link INTO that directory
+pui_foreign dirlink
+pui_is dirlink:kept [ "$(pui_ls "$PUI_T/behind")" = "" ]
+rm -rf "$PUI_T/behind"
+pui_new "port=18283"
+pui_foreign noln "$PUI_PGN"
+printf '#!/bin/sh\necho ran > "%s/serve.ran"\nexit 0\n' "$PUI_D" > "$PUI_T/serve-standin.sh"
+mkdir -p "$PUI_T/ncb"; printf '#!/bin/sh\nexit 0\n' > "$PUI_T/ncb/nc"; chmod +x "$PUI_T/ncb/nc"
+pui_new "port=18283"; printf 'foreign\n' > "$PUI_D/www"; cp "$PUI_T/serve-standin.sh" "$PUI_D/starchorus-serve.sh"; chmod +x "$PUI_D/starchorus-serve.sh"
+pui_run "$PUI_T/ncb:$PUI_PGP" sh "$PUI_PL"                                                         # the nc mini-server takes over: it is no route A and serves only the page and the capture by name
+pui_is nc:collector pui_col
+pui_is nc:noroutea [ "$(pui_nsrv)/$(pui_whole)" = 0/0/0 ]
+sleep 1
+pui_is nc:ran [ "$(cat "$PUI_D/serve.ran" 2>/dev/null)" = ran ]
+pui_is nc:said grep -q '(nc mini-server)' "$PUI_T/out"
+pui_is nc:kept [ "$([ -f "$PUI_D/www" ] && cat "$PUI_D/www")" = foreign ]
+pui_run "$PUI_T/ncb:$PUI_PGP" sh "$PUI_PL" stop
+rowif "payload ui: served foreign: a www that is a file, a symbolic link, holds another entry, a dot file, a file or a link to a directory where a link should be, or cannot be made (no ln): no route A, the collector runs, one note names www, nothing in or behind it touched; the nc mini-server takes over (served-foreign; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# the python3 branch: a stand-in python3 keeps "-m http.server PORT --bind ADDR --directory DIR" in its argv and loops
+mkdir -p "$PUI_T/py"; printf '#!/bin/sh\n# stand-in python3: its argv keeps -m http.server PORT --bind ADDR --directory DIR; it serves nothing\nwhile :; do sleep 1; done\n' > "$PUI_T/py/python3"; chmod +x "$PUI_T/py/python3"
+PUI_PY="$PUI_T/py:$PUI_T/lnb:$PUI_T/bin:$PUI_T/sys"
+PUI_BAD=""; pui_new "port=18284"; printf '<!doctype html>\n' > "$PUI_D/index.html"
+pui_run "$PUI_PY" sh "$PUI_PL"
+pui_is started pui_col
+PUI_HPID=$(cat "$PUI_D/httpd.pid" 2>/dev/null)
+pui_is pid pui_alive "$PUI_HPID"
+PUI_HARGS=$("$PUI_PS" -o args= -p "${PUI_HPID:-0}" 2>/dev/null)
+case $PUI_HARGS in *" -m http.server 18284 --bind 172.16.52.1 --directory $PUI_D/www") ;; *) PUI_BAD="$PUI_BAD argv" ;; esac
+case "$PUI_HARGS " in *"--directory $PUI_D "*|*"--directory=$PUI_D "*) PUI_BAD="$PUI_BAD whole" ;; esac
+pui_is names pui_names "$PUI_D/www"
+pui_is noroutea [ "$(pui_nsrv)" = 0/0 ]
+pui_run "$PUI_PY" sh "$PUI_PL" status
+pui_is status [ "$(grep -c '^Page: 172.16.52.1:18284 running$' "$PUI_T/out")" = 1 ]
+pui_run "$PUI_PY" sh "$PUI_PL" stop
+pui_is gone pui_gone "${PUI_HPID:-0}"
+pui_is pidfile pui_absent "$PUI_D/httpd.pid" "$PUI_D/page.port"
+pui_new "port=18284"; printf '<!doctype html>\n' > "$PUI_D/index.html"
+mkdir "$PUI_D/www"; printf 'foreign\n' > "$PUI_D/www/notes.txt"                                       # python3 alone, www not ours: nothing starts
+pui_foreign py "$PUI_PY"
+rowif "payload ui: served python3: --directory <dir>/www exactly (end of line, never the whole directory), httpd.pid holds the server, status sees it, stop ends it; a www that is not ours starts nothing (served-python; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# old-docroot sweep: a server of the build before (-h STARCHORUS_DIR, a uhttpd daemonises and outlives a payload update) is found by its port and directory
+# and stopped, beside the new one; the python3 spellings too; a server of another directory on that port is not
+PUI_BAD=""; pui_new "port=18285"
+pui_bg "$PUI_T/decoy/uhttpd" -p 172.16.52.1:18285 -h /www; PUI_DEC=$PUI_BGP
+pui_bg "$PUI_T/srv/uhttpd-srv" -p 172.16.52.1:18285 -h "$PUI_D"; PUI_OLD1=$PUI_BGP
+pui_bg "$PUI_T/py/python3" -m http.server 18285 --bind 172.16.52.1 --directory "$PUI_D"; PUI_OLD2=$PUI_BGP
+pui_bg "$PUI_T/py/python3" -m http.server 18285 --bind 172.16.52.1 "--directory=$PUI_D"; PUI_OLD3=$PUI_BGP
+pui_bg "$PUI_T/py/python3" -m http.server 18285 --bind 172.16.52.1 "--directory=$PUI_D/www"; PUI_NEW3=$PUI_BGP
+pui_run "$PUI_PGP" sh "$PUI_PL" status
+pui_is oldseen [ "$(grep -c '^Page: 172.16.52.1:18285 running$' "$PUI_T/out")" = 1 ]
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+for pui_p in "$PUI_OLD1" "$PUI_OLD2" "$PUI_OLD3" "$PUI_NEW3"; do pui_is "gone:$pui_p" pui_gone "$pui_p"; done
+pui_is decoy kill -0 "$PUI_DEC"
+kill "$PUI_DEC" 2>/dev/null
+pui_new "port=18285"
+pui_bg "$PUI_T/srv/uhttpd-srv" -p 172.16.52.1:18285 -h "$PUI_D"; PUI_OLD1=$PUI_BGP
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is started pui_col
+pui_is swept pui_gone "$PUI_OLD1"                                                                   # a Start stops a server of the build before first (page_up sees it by its directory), then starts the new one
+PUI_NEW1=$(pui_wsrv 172.16.52.1:18285 | tr '\n' ' ' | sed 's/ $//')
+pui_is newone [ -n "$PUI_NEW1" ]
+pui_is onlynew [ "$(pui_nsrv)" = 1/1 ]
+pui_bg "$PUI_T/srv/uhttpd-srv" -p 172.16.52.1:18285 -h "$PUI_D"; PUI_OLD1=$PUI_BGP               # one of the old build again, beside the new one
+pui_is beside pui_alive "$PUI_OLD1"
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+for pui_p in $PUI_NEW1 "$PUI_OLD1"; do pui_is "gone2:$pui_p" pui_gone "$pui_p"; done
+rowif "payload ui: served old docroot: a server of the build before (-h <dir>, uhttpd or python3 in both spellings) is seen by status and stopped by stop beside the new one; a server of another directory stays (served-old; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# planted-copy CONTROL: everything a browser must not reach is planted in the OLD docroot, <dir> itself; the names check run against it must fail,
+# and so must it against a www that holds one thing too many, a regular file, a wrong target or a link where a directory should be. Each pui_is below passes
+# ONLY because the check returned non-zero.
+PUI_BAD=""; pui_new "port=18286"
+printf '<!doctype html>\n' > "$PUI_D/index.html"; printf '{"generated":1}\n' > "$PUI_D/starchorus.json"
+printf 'window=600\n' > "$PUI_D/settings.conf"; printf '4242\n' > "$PUI_D/starchorus-loop.pid"; mkdir -p "$PUI_D/cap"; printf 'SQLite format 3\n' > "$PUI_D/cap/recon_copy.db"
+printf '172.16.52.1\n' > "$PUI_D/homing.target"; printf 'x\n' > "$PUI_D/collect.log"; printf 'x\n' > "$PUI_D/alerts.log"
+pui_is plant:old pui_not pui_names "$PUI_D"
+pui_is plant:files pui_has "$PUI_D/settings.conf" "$PUI_D/starchorus-loop.pid" "$PUI_D/cap/recon_copy.db" "$PUI_D/homing.target" "$PUI_D/collect.log" "$PUI_D/alerts.log"
+pui_run "$PUI_PGP" sh "$PUI_PL"
+pui_is started pui_col
+pui_is plant:new pui_names "$PUI_D/www"
+pui_is plant:oldstill pui_not pui_names "$PUI_D"
+pui_is plant:nocopy pui_absent "$PUI_D/www/settings.conf" "$PUI_D/www/cap" "$PUI_D/www/starchorus-loop.pid" "$PUI_D/www/homing.target" "$PUI_D/www/collect.log" "$PUI_D/www/alerts.log"
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+PUI_C="$PUI_T/ctl"; rm -rf "$PUI_C"; mkdir -p "$PUI_C"; ln -s ../index.html "$PUI_C/index.html"; ln -s ../starchorus.json "$PUI_C/starchorus.json"
+pui_is ctl:good pui_names "$PUI_C"
+: > "$PUI_C/.hidden";           pui_is ctl:dotfile pui_not pui_names "$PUI_C"; rm -f "$PUI_C/.hidden"
+printf 'x\n' > "$PUI_C/settings.conf"; pui_is ctl:extra pui_not pui_names "$PUI_C"; rm -f "$PUI_C/settings.conf"
+rm -f "$PUI_C/index.html"; printf 'x\n' > "$PUI_C/index.html"; pui_is ctl:regular pui_not pui_names "$PUI_C"; rm -f "$PUI_C/index.html"; ln -s ../index.html "$PUI_C/index.html"
+rm -f "$PUI_C/starchorus.json"; ln -s starchorus.json "$PUI_C/starchorus.json"; pui_is ctl:target pui_not pui_names "$PUI_C"; rm -f "$PUI_C/starchorus.json"; ln -s ../starchorus.json "$PUI_C/starchorus.json"
+rm -f "$PUI_C/starchorus.json"; pui_is ctl:missing pui_not pui_names "$PUI_C"; ln -s ../starchorus.json "$PUI_C/starchorus.json"
+pui_is ctl:good2 pui_names "$PUI_C"
+mv "$PUI_C" "$PUI_C.real"; ln -s "$PUI_C.real" "$PUI_C"; pui_is ctl:symlinkdir pui_not pui_names "$PUI_C"; rm -f "$PUI_C"; mv "$PUI_C.real" "$PUI_C"
+rm -rf "$PUI_C"
+rowif "payload ui: served planted-copy control: the names check fails against the old docroot (settings, pid file, cap/recon_copy.db, homing.target, logs planted) and against a directory with one thing too many, a regular file, a wrong target, a missing link or a symbolic link; the new www passes (served-control; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+
+pui_kd "--directory $PUI_D"; pui_kd "--directory=$PUI_D"      # the python3 stand-ins of the old docroot, if a red case left one
 
 pui_kd "$PUI_D/"
 # whatever a red case left behind (every stand-in runs from $PUI_T)
