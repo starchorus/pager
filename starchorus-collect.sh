@@ -46,14 +46,15 @@
 #
 # USAGE:
 #   ./starchorus-collect.sh            # run forever, rewrite the JSON every INTERVAL seconds
-#   ./starchorus-collect.sh --once     # do a single scan/parse cycle, then exit  (good for crond)
+#   ./starchorus-collect.sh --once     # do a single scan/parse cycle, then exit  (good for crond); exit 0 = the document was published,
+#                                        1 = it was not (the directory cannot be made or written, the pass failed and the last document stays)
 #   ./starchorus-collect.sh --stop     # stop a previously started background instance (loop+airodump)
 #   ./starchorus-collect.sh --status   # report whether a loop / airodump is running
 #   ./starchorus-collect.sh --selftest # run offline self-tests with embedded sample data (no HW)
 #   ./starchorus-collect.sh --help     # short help
 #
 # CONFIG (override via environment, e.g. `STARCHORUS_IFACE=wlan1mon ./starchorus-collect.sh`):
-#   STARCHORUS_INTERVAL       Seconds between JSON rewrites.                 (default 5)
+#   STARCHORUS_INTERVAL       Seconds between JSON rewrites, 1 to 3600; anything else is 5, with one log line.  (default 5)
 #   STARCHORUS_OUTDIR         Directory for starchorus.json.                      (default /tmp/starchorus)
 #   STARCHORUS_IFACE          Monitor interface to use, or "auto" to detect. (default auto)
 #   STARCHORUS_SOURCE         auto|capture|recondb|pineap|iwscan  data source. pineap = the AP service's
@@ -241,6 +242,12 @@ PN_FELL=0           # pineap source: 1 while it has fallen back to recon.db (log
 PSEC_T=0            # pineap source: when the security cache was last refreshed from recon.db
 PSEC_FAIL=0         # pineap source: 1 while the last security lookup failed (logged once per episode)
 RQ_BAIL=""          # "-bail" while the pineap source's security lookup runs its query (see recondb_query)
+RQ_ERRF=""          # the file that takes the error output and the exit status of the batch while build_from_recondb runs it ("" = dropped); RQ_WHY = why recondb_failed said so
+RQ_WHY=""
+RQ_HOLD=""          # set by build_from_recondb when the pass failed on a damaged or torn copy: run_cycle then keeps the last document (see there)
+RQ_TORN=""          # set by recon_copy_settle when the file moved during both copies of this cycle: run_cycle says so, once per episode
+ST_RAW=""           # recon_stamp's answer, ST_LS = 1 when it is in the `ls` form
+ST_LS=1
 RS_CFG=""           # the settings the document depends on, then (rs_cfg)
 RS_SKIPS=0          # cycles skipped since the last full pass
 SKIP_MAX=20         # skip at most this many cycles in a row, then rebuild anyway (belt and braces)
@@ -303,6 +310,20 @@ alert_window() {
     esac
 }
 alert_window "${STARCHORUS_ALERT_WINDOW:-600}"
+# The cycle length: whole seconds from 1 to 3600, anything else is 5, said once at start (the main section). Digits only, leading zeros dropped (never octal);
+# 0 would run the loop back to back and a word that `sleep` rejects would fail it at once, a log line each time. Sets INTERVAL, and INTERVAL_BAD to the rejected
+# text (empty = fine). A function for the same reason as alert_window.
+interval_value() {
+    INTERVAL_BAD=""; INTERVAL=5
+    case $1 in
+        '') ;;
+        *[!0-9]*) INTERVAL_BAD=$1 ;;
+        *) IV_N=$1
+           while [ "${#IV_N}" -gt 1 ] && [ "${IV_N#0}" != "$IV_N" ]; do IV_N=${IV_N#0}; done
+           if [ "${#IV_N}" -le 4 ] && [ "$IV_N" -ge 1 ] && [ "$IV_N" -le 3600 ]; then INTERVAL=$IV_N; else INTERVAL_BAD=$1; fi ;;
+    esac
+}
+interval_value "${STARCHORUS_INTERVAL:-5}"
 
 # --------------------------------------------------------------------------- small helpers
 log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf, not echo: see find_oui_file
@@ -675,7 +696,7 @@ cleanup() {
     if [ -n "$TR_PID" ]; then is_own_child "$TR_PID" && kill "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" 2>/dev/null
-    rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" 2>/dev/null
+    rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" "$TMPDIR_RAM/starchorus-recon-$$.db-err" 2>/dev/null
     [ -n "$VENDOR_NEWF" ] && rm -f "$VENDOR_NEWF" 2>/dev/null
     [ "${CACHE_LOCKED:-0}" -gt 0 ] 2>/dev/null && CACHE_LOCKED=1  # release fully, whatever the depth
     cache_unlock
@@ -2358,9 +2379,36 @@ parse_tcpdump_text() {
 # CLI carries on after an error, which is how the schema-family alternatives below can sit in one batch.
 # RQ_BAIL=-bail (the security lookup of the pineap source) stops at the first error, so that a batch which ends in a marker row of its own
 # proves that the statements before it ran.
+# RQ_ERRF, when set (build_from_recondb), is a file of ours that receives the batch's stderr and, after it, one line "#starchorus-exit N" with sqlite3's exit
+# status: a torn or damaged copy says so there ("database disk image is malformed", "disk I/O error", "file is not a database") and recondb_failed reads it.
+# Empty (the pineap security lookup, which has its closing marker row for the purpose): stderr is dropped, as before. The status of the function is sqlite3's.
 recondb_query() {
     # shellcheck disable=SC2086  # RQ_BAIL is one option or nothing
-    sqlite3 -readonly -noheader $RQ_BAIL -separator "$RECON_TAB" "$1" 2>/dev/null
+    sqlite3 -readonly -noheader $RQ_BAIL -separator "$RECON_TAB" "$1" 2>"${RQ_ERRF:-/dev/null}"
+    rq_rc=$?
+    if [ -n "$RQ_ERRF" ]; then printf '#starchorus-exit %s\n' "$rq_rc" >> "$RQ_ERRF" 2>/dev/null; fi
+    return "$rq_rc"
+}
+# After a batch: 0 iff the file RQ_ERRF says the pass failed, and RQ_WHY is then the reason in a few words. Failed: sqlite3 named a damaged or unreadable database
+# (malformed, disk I/O, not a database), or it ended by a signal or a crash (an exit status of 2 or more). NOT failed: an exit status of 1 on its own. The CLI
+# gives 1 after ANY statement that did not prepare, and the schema-family alternatives of the batch fail on purpose ("no such table", "no such column"): a healthy
+# database ends with 1 as a matter of course. A batch that found no access point at all stays "no data this cycle", as before.
+recondb_failed() {
+    RQ_WHY=""
+    [ -n "$RQ_ERRF" ] && [ -s "$RQ_ERRF" ] || return 1
+    RQ_WHY=$(awk '
+        /[Mm]alformed/ { m = 1 }
+        /disk I\/O/ { d = 1 }
+        /not a database/ { n = 1 }
+        /^#starchorus-exit [0-9]+$/ { x = $2 + 0 }
+        END { if (m) print "malformed"; else if (d) print "diskio"; else if (n) print "notdb"; else if (x >= 2) print "status " x }' "$RQ_ERRF" 2>/dev/null)
+    case $RQ_WHY in
+        malformed) RQ_WHY="the copy is malformed" ;;
+        diskio) RQ_WHY="disk I/O error" ;;
+        notdb) RQ_WHY="the copy is not a database" ;;
+        status*) RQ_WHY="the database reader ended with $RQ_WHY" ;;
+    esac
+    [ -n "$RQ_WHY" ]
 }
 # Add one alternative to the batch RQ: a marker row naming it, then the statement. The marker is `#STARCHORUS_<GROUP><n>#`; recondb_pick
 # keeps, per GROUP, the first alternative that produced rows.
@@ -2410,9 +2458,28 @@ file_size() {   # $1 = file
     case $FSZ in ''|*[!0-9]*) FSZ="" ;; esac
 }
 
+# The stamp of recon.db: what recon_sample takes before the copy and recon_copy_settle takes again after it.
+recon_stamp() {   # $1 = recon.db. Sets ST_RAW (the stamp: one line each for the file and a -journal / -wal beside it, "" = unknown) and ST_LS (1 = the `ls` form)
+    st_db=$1
+    file_ls "$st_db" "$st_db-journal" "$st_db-wal"
+    st_f=$FL; ST_LS=1
+    if [ -z "$st_f" ]; then
+        ST_LS=0
+        st_f=$(stat -L -c '%s %Y %n' "$st_db" "$st_db-journal" "$st_db-wal" 2>/dev/null)
+        [ -n "$st_f" ] || st_f=$(stat -L -f '%z %m %N' "$st_db" "$st_db-journal" "$st_db-wal" 2>/dev/null)
+        if [ -z "$st_f" ]; then
+            for st_x in "$st_db" "$st_db-journal" "$st_db-wal"; do
+                [ -e "$st_x" ] || continue
+                st_f="$st_f${st_f:+$NL}$(wc -c < "$st_x" 2>/dev/null | tr -d ' ') $(file_mtime "$st_x") $st_x"
+            done
+        fi
+    fi
+    ST_RAW=$st_f
+}
 # What recon.db looks like now: size and modification time of the file and of a -journal / -wal beside it, one line each. The device's journal_mode is
 # `delete`: a -journal beside the database means a write is in flight. Taken ONCE per cycle (run_cycle; build_from_recondb takes it itself when the
-# pineap source falls back to it), BEFORE the copy, so that any later write shows in the next sample. Two samples are equal iff size and mtime of all
+# pineap source falls back to it), BEFORE the copy, so that any later write shows in the next sample. The copy looks at the same files once more when it is
+# done (recon_stamp, recon_copy_settle): that look is not a sample, it decides only whether the copy is made again. Two samples are equal iff size and mtime of all
 # three files are. Sets RS_RAW (the sample, "" = unknown), RS_SZ (size of recon.db, for the copy's room test) and RS_NEW (RS_RAW if the next cycle
 # may skip on it: not with a -journal there, and not when the file changed less than 2 s ago, as the next write inside the same mtime second
 # would go unseen). Fallbacks where `ls` has no --full-time: stat (GNU, BSD), then wc + date.
@@ -2420,17 +2487,9 @@ recon_sample() {   # $1 = now (Unix seconds)
     rs_now=$1; RS_RAW=""; RS_SZ=0; RS_NEW=""
     recon_db_path || return 1
     rs_db=$RDB_PATH
-    file_ls "$rs_db" "$rs_db-journal" "$rs_db-wal"
-    rs_f=$FL
-    if [ -z "$rs_f" ]; then
-        rs_f=$(stat -L -c '%s %Y %n' "$rs_db" "$rs_db-journal" "$rs_db-wal" 2>/dev/null)
-        [ -n "$rs_f" ] || rs_f=$(stat -L -f '%z %m %N' "$rs_db" "$rs_db-journal" "$rs_db-wal" 2>/dev/null)
-        if [ -z "$rs_f" ]; then
-            for rs_x in "$rs_db" "$rs_db-journal" "$rs_db-wal"; do
-                [ -e "$rs_x" ] || continue
-                rs_f="$rs_f${rs_f:+$NL}$(wc -c < "$rs_x" 2>/dev/null | tr -d ' ') $(file_mtime "$rs_x") $rs_x"
-            done
-        fi
+    recon_stamp "$rs_db"
+    rs_f=$ST_RAW
+    if [ "$ST_LS" = 0 ]; then
         rs_l=${rs_f%%"$NL"*}; RS_SZ=${rs_l%% *}
     else
         rs_l=${rs_f%%"$NL"*}; set -f
@@ -2464,35 +2523,63 @@ ram_room() {
 # 3.5 MB write every cycle is flash wear and IO wait), named for this process so a crond `--once` and the loop never share one. No room
 # there, or the copy failed: the flash fallback, CAPDIR; and when that fails too, the live file, read-only. The -journal is NOT copied: a hot
 # journal beside a read-only copy cannot be rolled back, and the sig test keeps a half-written moment out of the skip logic.
-# $1 = recon.db, $2 = its size in bytes. Sets QDB (what to query) and QDB_RAM (1 = recon_workdone removes it).
+# A plain `cp` of a file that is being written can hold old and new pages together (a torn copy: the engine rewrites pages in place while it commits, and
+# a read of the copy then finds an index that does not match its table, or no database at all). The stamp taken before the copy (recon_sample's RS_RAW) is taken
+# once more when the copy is done, with the same single `ls`: size, modification time and the presence of a -journal / -wal; if anything differs, a write ran
+# alongside the copy, and the copy is made once more (recon_copy_settle). The copy stays a plain read-only copy of the file: nothing is locked or written on it.
+# $1 = recon.db, $2 = its size in bytes, $3 = the stamp from before the copy (RS_RAW; empty = none to compare with). Sets QDB (what to query) and QDB_RAM
+# (1 = recon_workdone removes it).
 recon_workcopy() {
     QDB_RAM=0; QDB=$1
     cw_sz=${2:-0}; case $cw_sz in *[!0-9]*) cw_sz=0 ;; esac
     cw_dst="$TMPDIR_RAM/starchorus-recon-$$.db"
-    if [ -d "$TMPDIR_RAM" ] && [ -w "$TMPDIR_RAM" ] && ram_room "$TMPDIR_RAM" "$cw_sz" && cp "$1" "$cw_dst" 2>/dev/null; then
+    if [ -d "$TMPDIR_RAM" ] && [ -w "$TMPDIR_RAM" ] && ram_room "$TMPDIR_RAM" "$cw_sz" && recon_copy_to "$1" "$cw_dst" && recon_copy_settle "$1" "$cw_dst" "$3"; then
         QDB=$cw_dst; QDB_RAM=1
-        if [ -r "$1-wal" ]; then cp "$1-wal" "$cw_dst-wal" 2>/dev/null; fi
-        if [ -r "$1-shm" ]; then cp "$1-shm" "$cw_dst-shm" 2>/dev/null; fi
         # a flash copy under CAPDIR is stale once the RAM copy is in use: remove it (3.5 MB of eMMC)
         rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm" 2>/dev/null
         return 0
     fi
     rm -f "$cw_dst" "$cw_dst-wal" "$cw_dst-shm" 2>/dev/null     # a copy cut short by a full tmpfs
     mkdir -p "$CAPDIR" 2>/dev/null
-    if cp "$1" "$CAPDIR/recon_copy.db" 2>/dev/null; then
+    if recon_copy_to "$1" "$CAPDIR/recon_copy.db" && recon_copy_settle "$1" "$CAPDIR/recon_copy.db" "$3"; then
         QDB="$CAPDIR/recon_copy.db"
-        if [ -r "$1-wal" ]; then cp "$1-wal" "$QDB-wal" 2>/dev/null; fi
-        if [ -r "$1-shm" ]; then cp "$1-shm" "$QDB-shm" 2>/dev/null; fi
-    fi   # else QDB stays the live file
+    else   # QDB stays the live file
+        rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm" 2>/dev/null
+    fi
+}
+# $1 = recon.db, $2 = the file to make: the copy of it and of a -wal / -shm beside it, if they are there. 0 iff the database itself was copied.
+recon_copy_to() {
+    cp "$1" "$2" 2>/dev/null || return 1
+    if [ -r "$1-wal" ]; then cp "$1-wal" "$2-wal" 2>/dev/null; fi
+    if [ -r "$1-shm" ]; then cp "$1-shm" "$2-shm" 2>/dev/null; fi
+    return 0
+}
+# $1 = recon.db, $2 = its copy, $3 = the stamp from before the copy. 0 = the copy stands (stable, or the best that could be had); 1 = the second copy failed
+# (the caller drops the copy). The stamp is taken again; unchanged = no write ran alongside the copy and nothing more is done (one `ls`). Changed: after 0.2 s
+# the file is copied once more against a stamp of its own (before and after that copy). Still moving: the second copy is read all the same and the episode is
+# said once by run_cycle (a busy night: the next cycle's own sample then differs from this one's, so a copy of a moving file never lets a later cycle skip).
+recon_copy_settle() {
+    [ -n "$3" ] || return 0
+    recon_stamp "$1"
+    [ "$ST_RAW" != "$3" ] || return 0
+    sleep 0.2 2>/dev/null || sleep 1
+    recon_stamp "$1"; cs_b=$ST_RAW
+    rm -f "$2-wal" "$2-shm" 2>/dev/null   # a -wal / -shm of the first copy must not stay beside the second one if the source has lost its own
+    recon_copy_to "$1" "$2" || return 1
+    recon_stamp "$1"
+    [ -n "$cs_b" ] && [ "$ST_RAW" = "$cs_b" ] && return 0
+    RQ_TORN=1   # run_cycle says so (this runs inside the builder, whose stderr is dropped)
+    return 0
 }
 recon_workdone() {   # the RAM copy is not needed between cycles: free it
     if [ "$QDB_RAM" = 1 ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" 2>/dev/null; fi
     QDB_RAM=0
+    if [ -n "$RQ_ERRF" ]; then rm -f "$RQ_ERRF" 2>/dev/null; RQ_ERRF=""; fi
 }
 # The RAM copies of recon.db (rule: see sweep_stale_cache_files), and the files of a Bluetooth window or a RECON CHANNELS call of a collector that is
 # gone (starchorus-bt-<pid>.*, starchorus-traffic-<pid>.json; the .pid files are bt_sweep's: they say which tool to stop, and go with it).
 sweep_stale_workcopies() {
-    for f in "$TMPDIR_RAM"/starchorus-recon-*.db "$TMPDIR_RAM"/starchorus-recon-*.db-wal "$TMPDIR_RAM"/starchorus-recon-*.db-shm; do
+    for f in "$TMPDIR_RAM"/starchorus-recon-*.db "$TMPDIR_RAM"/starchorus-recon-*.db-wal "$TMPDIR_RAM"/starchorus-recon-*.db-shm "$TMPDIR_RAM"/starchorus-recon-*.db-err; do
         [ -e "$f" ] || continue
         p=${f##*/starchorus-recon-}; p=${p%%.*}
         holder_alive "$p" || rm -f "$f" 2>/dev/null
@@ -2673,8 +2760,11 @@ build_from_recondb() {
     # The sample (RS_RAW / RS_NEW / RS_SZ): see recon_sample (RS_TAKEN: run_cycle has already taken it, else it is taken here).
     if [ "$RS_TAKEN" = 1 ]; then RS_TAKEN=0; else recon_sample "$1"; fi
 
-    recon_workcopy "$db" "$RS_SZ"
+    recon_workcopy "$db" "$RS_SZ" "$RS_RAW"
     qdb=$QDB
+    # the batch's stderr and exit status go to a file of ours beside the copy (none when the RAM directory cannot take it: then they are dropped, as before)
+    RQ_ERRF="$TMPDIR_RAM/starchorus-recon-$$.db-err"
+    { printf '' > "$RQ_ERRF"; } 2>/dev/null || RQ_ERRF=""
 
     recon_enc_sql
     # SSID as text with any tab/newline replaced by a space, so no SSID can break the TAB field split.
@@ -2757,7 +2847,12 @@ build_from_recondb() {
 
     # --- the one sqlite3 process of this cycle
     pick=$(printf '%s\n' "$RQ" | recondb_query "$qdb" | clean_ctrl | recondb_pick)
+    # A damaged or torn copy is a failed pass, not "the database holds no access point": run_cycle keeps the last document for it (RQ_HOLD) instead of
+    # publishing an empty one over a good one, and says so once per episode (this runs inside the builder, whose stderr is dropped).
+    RQ_HOLD=""
+    if recondb_failed; then RQ_HOLD=$RQ_WHY; fi
     recon_workdone
+    if [ -n "$RQ_HOLD" ]; then HAS_TIME=""; return 1; fi      # nothing to publish from this copy; the schema is learnt afresh next cycle
     if [ -n "$AGE" ]; then
         RS_WMIN=$(printf '%s\n' "$pick" | recondb_section WMIN)
         case $RS_WMIN in ''|*[!0-9]*) RS_WMIN="" ;; esac
@@ -3248,6 +3343,13 @@ apply_homing() {
     post_keep "$1" h $?
 }
 
+# 0 iff the file $1 has the shape every builder gives its document: "{" as the first line, "}" as the last, and one `  "aps": [` line (the explicit empty document's
+# `"aps": [],` counts). The check of what is about to be published: an awk that is cut short (a full /tmp, a kill) can still exit 0, and a half document with a
+# status of 0 must not replace a whole one.
+doc_whole() {
+    awk 'NR == 1 { f = $0 } /^  "aps": \[/ { n++ } { l = $0 } END { exit !(f == "{" && l == "}" && n == 1) }' "$1" 2>/dev/null
+}
+
 # --------------------------------------------------------------------------- empty document
 write_empty() {
     ts=$1; reason=$2
@@ -3314,7 +3416,7 @@ refresh_generated() {   # $1 = now, $2 = where the document goes
 run_cycle() {
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
     tmp="$OUTFILE.tmp.$$"
-    ok=1; CENTER_DONE=0; rc_skip=0
+    ok=1; CENTER_DONE=0; rc_skip=0; RQ_HOLD=""; RQ_TORN=""
     BT_CUR=" "; BT_RC=3; TR_PID=""
     if [ "$BLUETOOTH" = 1 ]; then bt_begin; BT_RC=$?; fi
     # RECON CHANNELS is called on the first cycle and then every second one: the AP service's command-line client is about 48 ticks a call on the device, and its own
@@ -3326,9 +3428,9 @@ run_cycle() {
     case "$RESOLVED" in
         capture)
             if [ "$CAP_METHOD" = "airodump" ]; then
-                build_from_csv "$ts" > "$tmp" 2>/dev/null || ok=0
+                build_from_csv "$ts" 2>/dev/null > "$tmp" || ok=0
             else
-                build_from_tcpdump "$ts" > "$tmp" 2>/dev/null || ok=0
+                build_from_tcpdump "$ts" 2>/dev/null > "$tmp" || ok=0
             fi
             ;;
         recondb)
@@ -3337,20 +3439,23 @@ run_cycle() {
                 RS_SKIPS=$((RS_SKIPS + 1)); RS_TAKEN=0; rc_skip=1
             else
                 RS_SIG=""
-                CX_EMBED=1; build_from_recondb "$ts" > "$tmp" 2>/dev/null || ok=0; CX_EMBED=0
+                CX_EMBED=1; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0
             fi ;;
         pineap)
-            build_from_apcli "$ts" > "$tmp" 2>/dev/null; prc=$?
+            build_from_apcli "$ts" 2>/dev/null > "$tmp"; prc=$?
             if [ "$prc" = 0 ]; then PN_FELL=0
             else
                 # no usable answer (failed, hung past the timeout, or no AP at all): recon.db for THIS cycle, said once per episode
                 [ "$PN_FELL" = 1 ] || log "pineap: no usable answer from the AP service (rc $prc); using recon.db until it answers again"
                 PN_FELL=1
-                CX_EMBED=1; build_from_recondb "$ts" > "$tmp" 2>/dev/null || ok=0; CX_EMBED=0
+                CX_EMBED=1; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0
             fi ;;
-        iwscan)  build_from_iwscan  "$ts" > "$tmp" 2>/dev/null || ok=0 ;;
+        iwscan)  build_from_iwscan  "$ts" 2>/dev/null > "$tmp" || ok=0 ;;
         *)       ok=0 ;;
     esac
+    # What the recon.db copy had to say (build_from_recondb ran with its stderr dropped): said once per episode, like the Bluetooth messages
+    [ "$RQ_TORN" != 1 ] || bt_issue torn "recon.db was written to while it was copied, twice in a row; the second copy is read all the same (a busy night)"
+    [ -z "$RQ_HOLD" ] || bt_issue recondb "recon.db: the pass failed ($RQ_HOLD); the last document stays until a read succeeds"
     # Post-passes on a good, freshly built document, none of which can fail the cycle: the center extras (max_age,
     # interval, own_*), the homing reading of the ONE chosen AP, and the optional passive vendor /
     # randomized enrichment (skipped entirely with STARCHORUS_VENDOR=0; "defer": its new cache lines are
@@ -3362,11 +3467,28 @@ run_cycle() {
             add_vendor defer < "$tmp" > "$tmp.v" 2>/dev/null; post_keep "$tmp" v $? || vendor_merge discard
         fi
     fi
-    # Guard: never publish an empty/failed temp over a good file; publish an explicit
-    # empty document instead so the front-end always has valid JSON.
-    rs_good=0; if [ "$ok" = 1 ] && [ -s "$tmp" ]; then rs_good=1; fi
-    if [ "$rs_good" != 1 ]; then
-        write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"
+    # Guard: never publish an empty, failed or cut-off temp over a good file. The base document must have the shape every builder gives it (doc_whole: "{"
+    # first, "}" last, one "aps" line): a build that was cut short and still said 0 (a full /tmp, an awk that lost its output) fails it, and so does a pass whose
+    # copy of recon.db could not be read (RQ_HOLD). Neither is an answer about the air: rc_hold says why, the document published last stays, and the cycle is
+    # reported as failed. A pass that merely found nothing still publishes the explicit empty document, so that the front-end always has valid JSON.
+    rs_good=0; rc_hold=""; rc_keep=0; rc_pub=0
+    if [ "$ok" = 1 ] && [ -s "$tmp" ]; then rs_good=1; fi
+    if [ "$rs_good" = 1 ] && ! doc_whole "$tmp"; then
+        rs_good=0; rc_hold="cut short"
+        bt_issue shape "the document of this cycle came out incomplete (a full disk, or a build that was cut short); the last document stays"
+    fi
+    if [ -n "$RQ_HOLD" ]; then rs_good=0; rc_hold=$RQ_HOLD; fi      # said where it was found (build_from_recondb)
+    if [ "$rs_good" != 1 ] && [ -z "$rc_hold" ]; then
+        { write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"; } 2>/dev/null
+        if ! doc_whole "$tmp"; then
+            rc_hold="cannot write"
+            bt_issue publish "cannot write $tmp (the directory is read-only, full or gone); the last document stays"
+        fi
+    fi
+    if [ -n "$rc_hold" ]; then
+        rc_pub=1; vendor_merge discard      # the lines gathered for a document that is not published are not merged either
+        # the last document stays; with none to keep, the explicit empty document is the better answer than a missing file
+        if [ -s "$OUTFILE" ]; then rc_keep=1; else { write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"; } 2>/dev/null; fi
     fi
     # remember this pass for the skip test of the next cycle: its document (a skipped cycle publishes that one) and the state it stands on. A full build
     # only, and before any layer. Not with a homing reading, the survey or the own-device fields (the rule above recon_unchanged).
@@ -3376,12 +3498,17 @@ run_cycle() {
     # the layers of this cycle, on the document that is published (never on the base kept above)
     alerts_look
     if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ]; then run_layers "$tmp"; fi
+    if [ "$rc_keep" = 1 ]; then rm -f "$tmp" 2>/dev/null
+    elif ! mv -f "$tmp" "$OUTFILE" 2>/dev/null; then    # atomic replace
+        rc_pub=1; rm -f "$tmp" 2>/dev/null
+        bt_issue publish "cannot write $OUTFILE (the directory is read-only, full or gone); the last document stays"
+    fi
     BT_LOGGED=$BT_CUR
-    mv -f "$tmp" "$OUTFILE"    # atomic replace
     if [ "$rs_kept" = 1 ]; then
         rs_cfg; RS_SIG=$RS_NEW; RS_TS=$ts; RS_SKIPS=0; RS_CFG=$RS_CFGNOW; RS_MIN=$RS_WMIN
     fi
     vendor_merge               # cache write AFTER publication: a lock wait costs the cache, not the view
+    return "$rc_pub"           # 0 = the document of this cycle (or the explicit empty one) is published; 1 = it is not (--once exits 1)
 }
 
 # --------------------------------------------------------------------------- selftest support for the Bluetooth window (stubs only: nothing here can reach a controller)
@@ -4114,6 +4241,26 @@ lay_selftest() {
     STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW='' sh "$0" --once > /dev/null 2> "$LAY/w.log"
     grep -q 'Alerts' "$LAY/w.log" && lal_ok=0
     if [ "$lal_ok" = 1 ]; then st_pass "STARCHORUS_ALERT_WINDOW: the log line: a bad value is named once at start, a good one, an empty one and a bad one with STARCHORUS_ALERTS=0 say nothing"; else st_fail "STARCHORUS_ALERT_WINDOW: the log line ($(grep Alerts "$LAY/w.log" | head -n 2))"; fi
+
+    # STARCHORUS_INTERVAL: whole seconds from 1 to 3600, anything else is 5 and named once at start. The loop sleeps this long (0 would run it back to back, a word
+    # `sleep` rejects would fail it at once and fill the log), and the document prints the same number.
+    ivs_keep=$INTERVAL; ivs_keepb=$INTERVAL_BAD; ivs_ok=1
+    ivs_t() { interval_value "$1"; [ "$INTERVAL/$INTERVAL_BAD" = "$2/$3" ] || { ivs_ok=0; echo "    interval_value '$1' -> $INTERVAL/$INTERVAL_BAD, want $2/$3" >&2; }; }
+    ivs_t 1 1 ""; ivs_t 5 5 ""; ivs_t 30 30 ""; ivs_t 3600 3600 ""; ivs_t 0030 30 ""; ivs_t 007 7 ""; ivs_t 00001 1 ""; ivs_t "" 5 ""
+    ivs_t 0 5 0; ivs_t 0000 5 0000; ivs_t 3601 5 3601; ivs_t 99999 5 99999; ivs_t 99999999999999999999 5 99999999999999999999
+    ivs_t abc 5 abc; ivs_t 5s 5 5s; ivs_t -5 5 -5; ivs_t +5 5 +5; ivs_t 1.5 5 1.5; ivs_t " 5" 5 " 5"; ivs_t 0x10 5 0x10
+    INTERVAL=$ivs_keep; INTERVAL_BAD=$ivs_keepb
+    if [ "$ivs_ok" = 1 ]; then st_pass "STARCHORUS_INTERVAL: values: 1, 3600, 30, 0030 and 007 are taken (a leading zero is no octal), 0, 3601, letters, a unit, a sign, a decimal, a blank, hex and a huge number are 5 and named, an empty one is 5 and quiet"; else st_fail "STARCHORUS_INTERVAL: values"; fi
+    ivs_o="$LAY/ivo"; mkdir -p "$ivs_o"; ivs_ok=1
+    for ivs_c in 0:1:5 abc:1:5 5s:1:5 3601:1:5 -5:1:5 1.5:1:5 5:0:5 30:0:30 3600:0:3600 0030:0:30 007:0:7; do
+        ivs_v=${ivs_c%%:*}; ivs_r=${ivs_c#*:}; ivs_x=${ivs_r%%:*}; ivs_d=${ivs_r#*:}
+        rm -f "$ivs_o/starchorus.json"
+        STARCHORUS_OUTDIR="$ivs_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_INTERVAL=$ivs_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
+        ivs_m=$(grep -c "STARCHORUS_INTERVAL must be whole seconds from 1 to 3600 (got '$ivs_v'); using 5" "$LAY/w.log")
+        ivs_j=$(grep -o '"interval": [0-9]*' "$ivs_o/starchorus.json" 2>/dev/null)
+        [ "$ivs_m" = "$ivs_x" ] && [ "$(grep -c 'STARCHORUS_INTERVAL' "$LAY/w.log")" = "$ivs_x" ] && [ "$ivs_j" = "\"interval\": $ivs_d" ] || { ivs_ok=0; echo "    interval '$ivs_v': $ivs_m message(s), document $ivs_j, want $ivs_x and $ivs_d" >&2; }
+    done
+    if [ "$ivs_ok" = 1 ]; then st_pass "STARCHORUS_INTERVAL: the log line: 0, abc, 5s, 3601, -5 and 1.5 are named once at start and the document says 5 (the number the loop sleeps), 5, 30, 3600, 0030 and 007 say nothing and the document agrees"; else st_fail "STARCHORUS_INTERVAL: the log line"; fi
 
     # the window works: a line 5 minutes old and one 2 hours old
     { lal_l 1789299700 $lal_p1; lal_l 1789292800 $lal_p2; } > "$lal_ad/alerts.log"
@@ -5077,15 +5224,18 @@ SQL
         RS_SIG=""; TMPDIR_RAM="$rpt/no-such-dir"; cyc $((n0 + 480)); cyc $((n0 + 510)); w6=$(calls); TMPDIR_RAM="$rpt/ram"
         if [ "$w6" = 1 ] && [ -z "$(ls "$rpt/ram")" ]; then st_pass "skip: the kept document needs no file (a missing RAM directory changes nothing, nothing is left in the RAM directory)"; else st_fail "skip: no RAM directory (calls $w6, [$(ls "$rpt/ram")])"; fi
         RECON_DB="$kdb"; HAS_TIME=""; RDB_PATH=""; RS_SIG=""; MAX_AGE=0
-        # The sample reads nothing and is taken once per cycle. A counting `ls` in front of PATH (it logs, then runs the real one) sees one
-        # --full-time call in a full pass and one in a skipped cycle; nothing else in the cycle runs `ls`.
+        # The sample reads nothing and is taken once per cycle. A counting `ls` in front of PATH (it logs, then runs the real one) sees two
+        # --full-time calls in a full pass (the sample before the copy, and the same look once more after it: recon_copy_settle) and one in a
+        # skipped cycle, which makes no copy; nothing else in the cycle runs `ls`. (This expectation was one call in a full pass until the look
+        # after the copy came in; it was moved to two on purpose, because that second look is the production
+        # behaviour. It is an update to the behaviour, not a weaker check: the skipped cycle's one look and its zero reads are unchanged.)
         SHIM_REAL_LS=$(command -v ls); SHIM_LS="$rpt/lscalls"; export SHIM_REAL_LS SHIM_LS
         # shellcheck disable=SC2016  # the stand-in script text is written out literally
         printf '#!/bin/sh\necho x >> "$SHIM_LS"\nexec "$SHIM_REAL_LS" "$@"\n' > "$rpt/bin/ls"; chmod +x "$rpt/bin/ls"
         RS_SIG=""; : > "$SHIM_LS"; cyc $((n0 + 600)); l1=$(wc -l < "$SHIM_LS" | tr -d ' '); c18=$(calls)
         : > "$SHIM_LS"; cyc $((n0 + 630)); l2=$(wc -l < "$SHIM_LS" | tr -d ' '); c19=$(calls)
         rm -f "$rpt/bin/ls"
-        if [ "$l1/$c18" = 1/1 ] && [ "$l2/$c19" = 1/0 ]; then st_pass "skip: recon.db's files are looked at once per cycle (one ls, in a full pass and in a skipped cycle alike), nothing is read"; else st_fail "skip: sample per cycle (ls $l1/$l2, sqlite3 $c18/$c19, want 1/1 and 1/0)"; fi
+        if [ "$l1/$c18" = 2/1 ] && [ "$l2/$c19" = 1/0 ]; then st_pass "skip: recon.db's files are looked at twice in a full pass (one ls before the copy, one after it) and once in a skipped cycle, in which nothing is read"; else st_fail "skip: sample per cycle (ls $l1/$l2, sqlite3 $c18/$c19, want 2/1 and 1/0)"; fi
         # Without `ls --full-time` and without `stat` (the device has neither stat nor, on other systems, the long option): wc + date, the same decisions,
         # the -journal included. (A failing stand-in for each, in front of PATH.)
         printf '#!/bin/sh\nexit 1\n' > "$rpt/bin/ls"; cp "$rpt/bin/ls" "$rpt/bin/stat"; chmod +x "$rpt/bin/ls" "$rpt/bin/stat"
@@ -5097,6 +5247,66 @@ SQL
         # file_size: the byte count of wc -c, from ls; a name with blanks and a glob character is one name
         printf 'abcdefg' > "$rpt/a b*c"; file_size "$rpt/a b*c"; fs1=$FSZ; file_size "$rpt/no such file"; fs2=$FSZ
         if [ "$fs1" = 7 ] && [ -z "$fs2" ]; then st_pass "file_size: bytes from ls (a name with a blank and a star), nothing for a missing file"; else st_fail "file_size: [$fs1] [$fs2]"; fi
+        # ---- 3b2) the copy is stamped again when it is made (recon_copy_settle), and a pass whose copy cannot be read keeps the last document.
+        #      Stand-ins first in PATH: `ls` that counts, `cp` that copies and then plays the engine (cut1 = the FIRST copy comes out cut short and the source moves
+        #      during it; move = the source moves during every copy), `sqlite3` that says what a damaged copy says. Each case is a full pass (RS_SIG empty).
+        #   a) the look at the files: two in a full pass (the sample before the copy, the stamp after it), one in a skipped cycle, nothing is read in that one
+        SHIM_REAL_LS=$(command -v ls); SHIM_LS="$rpt/lscalls"; export SHIM_REAL_LS SHIM_LS
+        # shellcheck disable=SC2016  # the stand-in script text is written out literally
+        printf '#!/bin/sh\necho x >> "$SHIM_LS"\n"$SHIM_REAL_LS" "$@"\n' > "$rpt/bin/ls"; chmod +x "$rpt/bin/ls"
+        RS_SIG=""; : > "$SHIM_LS"; cyc $((n0 + 900)); l3=$(wc -l < "$SHIM_LS" | tr -d ' '); c20=$(calls)
+        : > "$SHIM_LS"; cyc $((n0 + 930)); l4=$(wc -l < "$SHIM_LS" | tr -d ' '); c21=$(calls)
+        rm -f "$rpt/bin/ls"
+        if [ "$l3/$c20" = 2/1 ] && [ "$l4/$c21" = 1/0 ]; then st_pass "recon copy: the files are looked at twice in a full pass (the sample, and once more after the copy) and once in a skipped cycle"; else st_fail "recon copy: looks at the files (ls $l3/$l4, sqlite3 $c20/$c21, want 2/1 and 1/0)"; fi
+        #   b) cp stand-in
+        # shellcheck disable=SC2016  # the stand-in script text is written out literally
+        printf '#!/bin/sh\necho "$*" >> "$CP_LOG"\necho x >> "$CP_LOG.seq"\nn=$(wc -l < "$CP_LOG" | tr -d " ")\nq=$(wc -l < "$CP_LOG.seq" | tr -d " ")\n"$CP_REAL" "$@" || exit 1\ncase $CP_MODE:$n in\n    cut1:1) head -c 1500 "$1" > "$2"; touch -t "2020010100$(printf %%02d "$q")" "$1" ;;\n    move:*) touch -t "2020010100$(printf %%02d "$q")" "$1" ;;\nesac\nexit 0\n' > "$rpt/bin/cp"
+        CP_REAL=$(command -v cp); chmod +x "$rpt/bin/cp"; hash -r 2>/dev/null   # (the shell remembers where it found `cp` before the stand-in was there)
+        CP_LOG="$rpt/cpcalls"; CP_MODE=""; : > "$CP_LOG.seq"; export CP_REAL CP_LOG CP_MODE
+        cycl() { FAKE_NOW=$1; : > "$SHIM_LOG"; RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; }
+        : > "$rpt/cplog"; : > "$CP_LOG"; cycl $((n0 + 1000)); cp1=$(wc -l < "$CP_LOG" | tr -d ' ')
+        if [ "$cp1" = 1 ] && json_ok < "$OUTFILE" && grep -q '"ssid": "OldAP"' "$OUTFILE" && [ ! -s "$rpt/cplog" ]; then st_pass "recon copy: a copy of a file that did not move is the only copy (one cp, nothing logged)"; else st_fail "recon copy: stable copy (cp calls $cp1, log: $(head -n 1 "$rpt/cplog"))"; fi
+        CP_MODE=cut1; export CP_MODE; : > "$CP_LOG"; cycl $((n0 + 1030)); cp2=$(wc -l < "$CP_LOG" | tr -d ' ')
+        if [ "$cp2" = 2 ] && json_ok < "$OUTFILE" && grep -q '"ssid": "OldAP"' "$OUTFILE" && [ ! -s "$rpt/cplog" ]; then st_pass "recon copy: a source that moved during the copy gives a second copy, and that one is read (a cut first copy is not), nothing logged"; else st_fail "recon copy: torn copy (cp calls $cp2, log: $(head -n 1 "$rpt/cplog"))"; fi
+        CP_MODE=move; export CP_MODE; : > "$CP_LOG"; cycl $((n0 + 1060)); cp3=$(wc -l < "$CP_LOG" | tr -d ' '); tl1=$(grep -c 'written to while it was copied' "$rpt/cplog")
+        : > "$CP_LOG"; cycl $((n0 + 1090)); tl2=$(grep -c 'written to while it was copied' "$rpt/cplog")
+        CP_MODE=""; export CP_MODE; cycl $((n0 + 1120)); tl3=$(grep -c 'written to while it was copied' "$rpt/cplog")
+        CP_MODE=move; export CP_MODE; cycl $((n0 + 1150)); tl4=$(grep -c 'written to while it was copied' "$rpt/cplog")
+        if [ "$cp3" = 2 ] && [ "$tl1/$tl2/$tl3/$tl4" = 1/1/1/2 ] && json_ok < "$OUTFILE" && grep -q '"ssid": "OldAP"' "$OUTFILE"; then st_pass "recon copy: a source that moves during both copies is read all the same and said once per episode (twice cp, then 1, 1, 1, 2 lines over four cycles)"; else st_fail "recon copy: moving source (cp calls $cp3, lines $tl1/$tl2/$tl3/$tl4)"; fi
+        CP_MODE=""; export CP_MODE
+        # a copy that cannot be made twice (the second cp fails) falls back to the next place, not to a cut file
+        # shellcheck disable=SC2016  # the stand-in script text is written out literally
+        printf '#!/bin/sh\necho "$*" >> "$CP_LOG"\nn=$(wc -l < "$CP_LOG" | tr -d " ")\nif [ "$n" = 2 ]; then exit 1; fi\n"$CP_REAL" "$@" || exit 1\ntouch -t "2020010100$(printf %%02d "$n")" "$1"\nexit 0\n' > "$rpt/bin/cp"
+        : > "$CP_LOG"; cycl $((n0 + 1180))
+        if json_ok < "$OUTFILE" && grep -q '"ssid": "OldAP"' "$OUTFILE" && [ -z "$(ls "$rpt/ram")" ]; then st_pass "recon copy: a second copy that fails is dropped, the next place answers, nothing is left in the RAM directory"; else st_fail "recon copy: failing second copy ($(ls "$rpt/ram"))"; fi
+        rm -f "$rpt/bin/cp"; hash -r 2>/dev/null; unset CP_REAL CP_LOG CP_MODE
+        #   c) sqlite3 stand-ins (a directory of their own, first in PATH while one is wanted): a damaged copy, a status of 3, and the exit 1 of a schema that lacks a
+        #      table (a healthy file says that all the time)
+        sq_path=$PATH; mkdir -p "$rpt/fake"
+        sqf_on() {   # sqf_on STDERR_COMMAND STATUS
+            printf '#!/bin/sh\ncat > /dev/null\n%s\nexit %s\n' "$1" "$2" > "$rpt/fake/sqlite3"; chmod +x "$rpt/fake/sqlite3"; PATH="$rpt/fake:$sq_path"; hash -r 2>/dev/null
+        }
+        sqf_off() { PATH=$sq_path; hash -r 2>/dev/null; }
+        cycl $((n0 + 1210)); cp "$OUTFILE" "$rpt/good.json"
+        sqf_on 'echo "Parse error near line 1: database disk image is malformed" >&2' 1
+        : > "$rpt/cplog"; FAKE_NOW=$((n0 + 1240)); RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; sg_rc1=$?
+        FAKE_NOW=$((n0 + 1270)); RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; sg_rc2=$?
+        if [ "$sg_rc1/$sg_rc2" = 1/1 ] && cmp -s "$OUTFILE" "$rpt/good.json" && [ "$(grep -c 'recon.db: the pass failed (the copy is malformed)' "$rpt/cplog")" = 1 ]; then
+            st_pass "recon pass: sqlite3 saying the copy is malformed -> the last document stays, the cycle is reported as failed, one log line over two cycles"
+        else st_fail "recon pass: malformed copy (rc $sg_rc1/$sg_rc2, same file: $(cmp -s "$OUTFILE" "$rpt/good.json" && echo yes || echo no), lines: $(grep -c 'pass failed' "$rpt/cplog"))"; fi
+        if [ -z "$(ls "$rpt/ram")" ]; then st_pass "recon pass: the copy and the error file are removed after a failed pass"; else st_fail "recon pass: left in the RAM directory: $(ls "$rpt/ram")"; fi
+        sqf_off; cycl $((n0 + 1300)); cp "$OUTFILE" "$rpt/good.json"
+        sqf_on '' 3
+        : > "$rpt/cplog"; FAKE_NOW=$((n0 + 1330)); RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; sg_rc3=$?
+        if [ "$sg_rc3" = 1 ] && cmp -s "$OUTFILE" "$rpt/good.json" && grep -q 'recon.db: the pass failed (the database reader ended with status 3)' "$rpt/cplog"; then st_pass "recon pass: sqlite3 ending with a status of 2 or more (here 3) is a failed pass too"; else st_fail "recon pass: status 3 (rc $sg_rc3, $(head -n 2 "$rpt/cplog"))"; fi
+        sqf_on 'echo "Parse error near line 3: no such table: ssid" >&2' 1
+        : > "$rpt/cplog"; FAKE_NOW=$((n0 + 1360)); RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; sg_rc4=$?
+        if [ "$sg_rc4" = 0 ] && grep -q '"source": "none"' "$OUTFILE" && ! grep -q 'pass failed' "$rpt/cplog"; then st_pass "recon pass: exit 1 on a missing table is no failed pass (the batch's own alternatives do that): no access point -> the explicit empty document, as before"; else st_fail "recon pass: missing table (rc $sg_rc4, $(head -n 2 "$rpt/cplog"))"; fi
+        sqf_on 'echo "Error: file is not a database" >&2' 1
+        rm -f "$OUTFILE"; : > "$rpt/cplog"; FAKE_NOW=$((n0 + 1390)); RS_SIG=""; run_cycle >/dev/null 2>>"$rpt/cplog"; sg_rc5=$?
+        if [ "$sg_rc5" = 1 ] && json_ok < "$OUTFILE" && grep -q '"source": "none"' "$OUTFILE" && grep -q 'the copy is not a database' "$rpt/cplog"; then st_pass "recon pass: a failed pass with no document yet publishes the explicit empty one (and still reports failure)"; else st_fail "recon pass: nothing to keep (rc $sg_rc5)"; fi
+        sqf_off; cycl $((n0 + 1420))
+        if json_ok < "$OUTFILE" && grep -q '"ssid": "OldAP"' "$OUTFILE"; then st_pass "recon pass: the next good read publishes again"; else st_fail "recon pass: no recovery"; fi
         unset SHIM_REAL_LS SHIM_LS
 
         # ---- 3c2) the layers on the recon.db path: the frame counter of stations (STARCHORUS_TRAFFIC), hidden networks, and a skipped
@@ -6091,6 +6301,57 @@ SQL
         kill "$fake_ad" 2>/dev/null; wait "$fake_ad" 2>/dev/null; rm -f "$AIRODUMP_PIDFILE" "$LOOP_PIDFILE"
         set -- "$tdir"/starchorus.json.tmp.*
         if [ ! -e "$1" ]; then st_pass "once: no temp file left by either instance"; else st_fail "once: temp files left: $*"; fi
+
+        # ---- 6k2) a document that is cut short, a directory that cannot be written, and what --once says about it. The base document is the one above
+        #          (AcmeNet). Cycles run in subshells with a builder of their own (build_from_csv replaced); their stderr is the log.
+        b3="$tdir/b3"; mkdir -p "$b3/ram" "$b3/bin"
+        if doc_whole "$tdir/base.json" && ! head -c 200 "$tdir/base.json" | doc_whole - && ! sed '$d' "$tdir/base.json" | doc_whole - \
+           && ! cat "$tdir/base.json" "$tdir/base.json" | doc_whole - && ! { echo x; cat "$tdir/base.json"; } | doc_whole - \
+           && write_empty 1710000000 "no data" | doc_whole - && ! : | doc_whole -; then st_pass "doc_whole: a whole document and the explicit empty one pass; cut short, no closing line, two aps lines, a stray first line and nothing fail"
+        else st_fail "doc_whole: shapes"; fi
+        b3_run() {   # b3_run KIND: two cycles in a subshell (so that the once-per-episode flags carry over), with the builder (and what else) KIND names; prints "exit status/exit status"
+            ( RESOLVED=capture; CAP_METHOD=airodump; VENDOR=0; OUTFILE="$b3/starchorus.json"; TMPDIR_RAM="$b3/ram"
+              case $1 in
+                  good)   build_from_csv() { cat "$tdir/base.json"; } ;;
+                  cut)    build_from_csv() { head -c 300 "$tdir/base.json"; } ;;
+                  noclose) build_from_csv() { sed '$d' "$tdir/base.json"; } ;;
+                  double) build_from_csv() { cat "$tdir/base.json" "$tdir/base.json"; } ;;
+                  tmpdir) build_from_csv() { cat "$tdir/base.json"; }; mkdir "$OUTFILE.tmp.$$" 2>/dev/null ;;
+                  mvfail) build_from_csv() { cat "$tdir/base.json"; }; mv() { case "$*" in *starchorus.json) return 1 ;; esac; command mv "$@"; } ;;
+              esac
+              run_cycle >/dev/null 2>>"$b3/log"; b3_x=$?; run_cycle >/dev/null 2>>"$b3/log"; echo "$b3_x/$?" )
+        }
+        rm -f "$b3/starchorus.json" "$b3/log"; : > "$b3/log"
+        b3_r0=$(b3_run good); cp "$b3/starchorus.json" "$b3/good.json" 2>/dev/null
+        if [ "$b3_r0" = 0/0 ] && json_ok < "$b3/starchorus.json" && grep -q '"ssid": "AcmeNet"' "$b3/starchorus.json" && [ ! -s "$b3/log" ]; then st_pass "publish: a whole document is published (exit 0, nothing logged)"; else st_fail "publish: good cycle (rc $b3_r0, $(head -n 1 "$b3/log"))"; fi
+        : > "$b3/log"; b3_r1=$(b3_run cut)
+        if [ "$b3_r1" = 1/1 ] && cmp -s "$b3/starchorus.json" "$b3/good.json" && [ "$(grep -c 'came out incomplete' "$b3/log")" = 1 ]; then st_pass "publish: a document cut short by an awk that still exits 0 is not published (the last one stays, exit 1, one log line over two cycles)"; else st_fail "publish: cut-off document (rc $b3_r1, same: $(cmp -s "$b3/starchorus.json" "$b3/good.json" && echo yes || echo no), lines $(grep -c 'incomplete' "$b3/log"))"; fi
+        b3_r3=$(b3_run noclose)
+        b3_r4=$(b3_run double)
+        if [ "$b3_r3/$b3_r4" = 1/1/1/1 ] && cmp -s "$b3/starchorus.json" "$b3/good.json"; then st_pass "publish: whole lines without the closing brace, and two documents in one, are not published either"; else st_fail "publish: wrong shapes (rc $b3_r3 $b3_r4)"; fi
+        : > "$b3/log"; b3_r5=$(b3_run tmpdir); rmdir "$b3"/starchorus.json.tmp.* 2>/dev/null
+        if [ "$b3_r5" = 1/1 ] && cmp -s "$b3/starchorus.json" "$b3/good.json" && [ "$(grep -c 'cannot write' "$b3/log")" = 1 ] && ! grep -q 'cannot create' "$b3/log"; then st_pass "publish: a temp file that cannot be written (here: a directory in its place) -> the last document stays, exit 1, one line over two cycles, no shell error"; else st_fail "publish: unwritable temp file (rc $b3_r5, log: $(head -n 2 "$b3/log"))"; fi
+        : > "$b3/log"; b3_r7=$(b3_run mvfail)
+        if [ "$b3_r7" = 1/1 ] && cmp -s "$b3/starchorus.json" "$b3/good.json" && [ "$(grep -c "cannot write $b3/starchorus.json" "$b3/log")" = 1 ] && { set -- "$b3"/starchorus.json.tmp.*; [ ! -e "$1" ]; }; then st_pass "publish: a rename that fails -> the last document stays, exit 1, one log line over two cycles, no temp file left"; else st_fail "publish: failing rename (rc $b3_r7, log: $(head -n 2 "$b3/log"))"; fi
+        rm -f "$b3/starchorus.json"; : > "$b3/log"; b3_r9=$(b3_run cut)
+        if [ "$b3_r9" = 1/1 ] && json_ok < "$b3/starchorus.json" && grep -q '"source": "none"' "$b3/starchorus.json"; then st_pass "publish: a cut-off document with no earlier document to keep -> the explicit empty one is published (exit 1)"; else st_fail "publish: nothing to keep (rc $b3_r9)"; fi
+        # the same in real processes: --once
+        b3_o="$b3/once"; mkdir -p "$b3_o"; rm -f "$b3_o"/*
+        b3_once() { STARCHORUS_OUTDIR="$b3_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$odb" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_TMPDIR="$b3/ram" sh "$0" --once; }
+        b3_once >/dev/null 2>"$b3/once.log"; b3_c0=$?; cp "$b3_o/starchorus.json" "$b3/once-good.json" 2>/dev/null
+        AWK_REAL=$(command -v awk); export AWK_REAL
+        # shellcheck disable=SC2016  # the stand-in script text is written out literally
+        printf '#!/bin/sh\nfor a in "$@"; do case $a in *doc_head*unassociated*) "$AWK_REAL" "$@" | head -c 300; exit 0 ;; esac; done\n"$AWK_REAL" "$@"\n' > "$b3/bin/awk"; chmod +x "$b3/bin/awk"
+        b3_path=$PATH; PATH="$b3/bin:$PATH"; b3_once >/dev/null 2>"$b3/once2.log"; b3_c1=$?; PATH=$b3_path
+        if [ "$b3_c0" = 0 ] && [ "$b3_c1" = 1 ] && cmp -s "$b3_o/starchorus.json" "$b3/once-good.json" && grep -q 'came out incomplete' "$b3/once2.log" && grep -q 'single cycle failed' "$b3/once2.log" && ! grep -q 'single cycle complete' "$b3/once2.log"; then
+            st_pass "once: an awk that cuts the document short and exits 0 -> nothing is published, the previous file stays, exit 1, no \"single cycle complete\""
+        else st_fail "once: cut-off document (rc $b3_c0/$b3_c1, $(tail -n 2 "$b3/once2.log" | tr '\n' '|'))"; fi
+        rm -f "$b3/bin/awk"; unset AWK_REAL
+        : > "$b3/afile"
+        STARCHORUS_OUTDIR="$b3/afile/sub" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$odb" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_TMPDIR="$b3/ram" sh "$0" --once >/dev/null 2>"$b3/once3.log"; b3_c2=$?
+        if [ "$b3_c2" = 1 ] && grep -q 'cannot create or write the output directory' "$b3/once3.log" && ! grep -q 'single cycle' "$b3/once3.log" && [ "$(grep -c . "$b3/once3.log")" = 1 ]; then
+            st_pass "once: an output directory that cannot be made -> exit 1 with one message, no cycle, no \"single cycle complete\""
+        else st_fail "once: unwritable OUTDIR (rc $b3_c2, $(tr '\n' '|' < "$b3/once3.log"))"; fi
     else
         log "  SKIP: once: overlap test needs sqlite3"
     fi
@@ -6248,10 +6509,17 @@ case "$1" in
 esac
 
 mkdir -p "$OUTDIR" "$CAPDIR" "$PIDDIR" 2>/dev/null
+# The output directory must exist and take a file: without it nothing can be published. --once has nothing else to do and says so (exit 1); the daemon
+# says so once and carries on (the directory may come back, e.g. a mount: every cycle that cannot publish says so once per episode as well).
+if [ ! -d "$OUTDIR" ] || [ ! -w "$OUTDIR" ]; then
+    if [ "$1" = "--once" ]; then log "cannot create or write the output directory $OUTDIR (STARCHORUS_OUTDIR); nothing is published"; exit 1; fi
+    log "cannot create or write the output directory $OUTDIR (STARCHORUS_OUTDIR); no document is published until it can be written"
+fi
 
 # Locate the local OUI file + cache once (logs once if none; never fatal).
 setup_vendor
 
+[ -z "$INTERVAL_BAD" ] || log "STARCHORUS_INTERVAL must be whole seconds from 1 to 3600 (got '$INTERVAL_BAD'); using 5"
 resolve_source
 log "resolved data source: $RESOLVED  (interface: ${MONIF:-n/a}, created_mon=$CREATED_MON)"
 if [ "$BLUETOOTH" = 1 ]; then
@@ -6288,9 +6556,12 @@ trap cleanup EXIT
 if [ "$1" = "--once" ]; then
     # For a single cycle with airodump, give it a moment to populate the CSV.
     [ "$CAP_METHOD" = "airodump" ] && sleep "$INTERVAL"
-    run_cycle
-    log "single cycle complete -> $OUTFILE"
-    exit 0
+    if run_cycle; then
+        log "single cycle complete -> $OUTFILE"
+        exit 0
+    fi
+    log "single cycle failed: this cycle's document was not published to $OUTFILE (see above)"
+    exit 1
 fi
 
 # Daemon loop. Idempotent start: stop ANY collector loop already running for this script first

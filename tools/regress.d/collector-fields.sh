@@ -195,6 +195,50 @@ else
   notcov "collector selftest: the Bluetooth, layer, traffic, hidden-network and skip cases (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
 fi
 
+# ---- the cycle length (STARCHORUS_INTERVAL): whole seconds from 1 to 3600, anything else is 5 with one log line, so that the loop and the document agree.
+# Before this check the collector took 0 or a word `sleep` rejects as it came: the loop ran back to back (about 240 cycles in 4 s, measured), a rejected word wrote
+# its error to collect.log every cycle (about 88 lines a second), and the document said 5 all the while (center_extra). Real collector processes against a
+# database that is not there (a start that finds no source ends after its first lines), a directory of their own.
+CFL_IVD="out/$P-cfl-interval"; rm -rf "$CFL_IVD"; mkdir -p "$CFL_IVD"; CFL_IVB=""
+for CFL_IVC in 0:1:5 abc:1:5 5s:1:5 3601:1:5 -5:1:5 1.5:1:5 5:0:5 30:0:30 3600:0:3600 0030:0:30; do
+  CFL_IVV=${CFL_IVC%%:*}; CFL_IVR=${CFL_IVC#*:}; CFL_IVX=${CFL_IVR%%:*}; CFL_IVW=${CFL_IVR#*:}
+  rm -f "$CFL_IVD/starchorus.json"
+  STARCHORUS_OUTDIR="$CFL_IVD" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$CFL_IVD/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_INTERVAL=$CFL_IVV \
+    sh starchorus-collect.sh --once > /dev/null 2> "$CFL_IVD/log"
+  CFL_IVM=$(grep -c "STARCHORUS_INTERVAL must be whole seconds from 1 to 3600 (got '$CFL_IVV'); using 5" "$CFL_IVD/log")
+  CFL_IVJ=$(grep -o '"interval": [0-9]*' "$CFL_IVD/starchorus.json" 2>/dev/null)
+  [ "$CFL_IVM/$CFL_IVJ" = "$CFL_IVX/\"interval\": $CFL_IVW" ] || CFL_IVB="$CFL_IVB ${CFL_IVV}[$CFL_IVM,$CFL_IVJ]"
+done
+rowif "collector fields: STARCHORUS_INTERVAL 0, abc, 5s, 3601, -5 and 1.5 give one log line and 5 (in the document too), 5, 30, 3600 and 0030 are kept (bad:${CFL_IVB:- none})" [ -z "$CFL_IVB" ]
+# the root launcher passes the same number on: its own line is pinned in stop-scope.sh (run against a stand-in collector); here the collector's side is pinned as text:
+# one validation at the top, and the loop and the pause before --once read INTERVAL, which that call has set
+# shellcheck disable=SC2016  # the literal ${...} and $INTERVAL of the collector's text are what the pins ask for
+CFL_IVP="$(grep -cF 'interval_value "${STARCHORUS_INTERVAL:-5}"' starchorus-collect.sh)/$(grep -cF 'sleep "$INTERVAL"' starchorus-collect.sh)"
+rowif "collector fields: the validation is one call (interval_value pinned 1) and the loop and the pause before --once sleep INTERVAL (2): $CFL_IVP" [ "$CFL_IVP" = 1/2 ]
+
+# The families of the cases for the recon.db copy, the publish and the interval (their lines in the self-test output, as above).
+cfl_fam2() {   # FILE -> the families that have no PASS line in the self-test output FILE
+  _cf_m=""
+  for _cf_p in 'recon copy: the files are looked at twice' 'recon copy: a copy of a file that did not move' 'recon copy: a source that moved during the copy' \
+               'recon copy: a source that moves during both copies' 'recon copy: a second copy that fails' 'recon pass: sqlite3 saying the copy is malformed' \
+               'recon pass: the copy and the error file' 'recon pass: sqlite3 ending with a status' 'recon pass: exit 1 on a missing table' \
+               'recon pass: a failed pass with no document' 'recon pass: the next good read' 'doc_whole:' 'publish: a whole document' 'publish: a document cut short' \
+               'publish: whole lines' 'publish: a temp file that cannot be written' 'publish: a rename that fails' 'publish: a cut-off document with no earlier' \
+               'once: an awk that cuts' 'once: an output directory that cannot be made' 'STARCHORUS_INTERVAL: values' 'STARCHORUS_INTERVAL: the log line'; do
+    grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
+  done
+  printf '%s' "$_cf_m"
+}
+if [ -s "out/$P-selftest.txt" ]; then
+  CFL_FM2=$(cfl_fam2 "out/$P-selftest.txt")
+  rowif "collector selftest: the cases for the recon.db copy, the failed pass, the publish checks and the interval all ran (missing:${CFL_FM2:- none})" [ -z "$CFL_FM2" ]
+  CFL_FB2=$(grep -v 'PASS: publish:\|PASS: doc_whole:' "out/$P-selftest.txt" > "out/$P-cfl-st2.txt"; cfl_fam2 "out/$P-cfl-st2.txt")
+  case $CFL_FB2 in *'[doc_whole:]'*'[publish: a whole document]'*) CFL_FBO2=1 ;; *) CFL_FBO2=0 ;; esac
+  rowif "collector selftest: that family row bites (an output without the publish and doc_whole cases names them)" [ "$CFL_FBO2" = 1 ]
+else
+  notcov "collector selftest: the cases for the recon.db copy, the publish checks and the interval (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
+fi
+
 # ---- the self-test reaches no radio and no controller, whatever the environment holds (spec 2.11, preamble; tools/install.sh and the README call it "offline,
 # embedded sample data, no radio"). Both switches are set in the environment, hci0 stands in a sysfs of its own, and trap programs named hcitool, btmon, _pineap
 # and timeout come first in PATH: the first three record any call, the timeout trap records a call whose command is one of them (not a stand-in of the same name that

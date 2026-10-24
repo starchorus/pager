@@ -24,7 +24,13 @@ STARCHORUS_PORT=${STARCHORUS_PORT:-8199}                # NOT 1471 (mgmt UI) and
 # interface -- the page and starchorus.json (every captured MAC and SSID) then reach every network the device is on.
 STARCHORUS_BIND=${STARCHORUS_BIND:-auto}
 export STARCHORUS_OUTDIR="$STARCHORUS_DIR"
-export STARCHORUS_INTERVAL="${STARCHORUS_INTERVAL:-5}"
+# Seconds between two cycles: whole seconds from 1 to 3600 (the collector holds to the same range), anything else is 5 with one note. 0 would run the
+# collector back to back, and a word that sleep rejects would fail it at once.
+iv=${STARCHORUS_INTERVAL:-5}; ivn=$iv
+case $iv in *[!0-9]*) ivn= ;; *) while [ "${#ivn}" -gt 1 ] && [ "${ivn#0}" != "$ivn" ]; do ivn=${ivn#0}; done ;; esac
+if [ -n "$ivn" ] && [ "${#ivn}" -le 4 ] && [ "$ivn" -ge 1 ] && [ "$ivn" -le 3600 ]; then STARCHORUS_INTERVAL=$ivn
+else echo "STARCHORUS_INTERVAL=$iv ignored (whole seconds from 1 to 3600); using 5" >&2; STARCHORUS_INTERVAL=5; fi
+export STARCHORUS_INTERVAL
 
 cd "$STARCHORUS_DIR" 2>/dev/null || { echo "no $STARCHORUS_DIR" >&2; exit 1; }
 

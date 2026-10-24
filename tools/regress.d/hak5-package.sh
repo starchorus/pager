@@ -8,10 +8,12 @@
 #                 anything but one line of times and addresses (a message, an upper-case address, a text that is no address),
 #                 keeps more than 2,000 lines, or fails; personal data (an e-mail address, a home directory, a key) in any packaged file; a
 #                 missing or altered LICENSE; a generator that leaves a stale file behind or writes despite differing
-#                 Overview copies; a packaged payload that cannot install itself from its own directory.
+#                 Overview copies, or that removes the repo's own payload sources when told to build into the repo root (also when the root, the payload directory or a path
+#                 inside it is written in other letter case on a case-insensitive file system, which a string comparison misses); a packaged payload that cannot install itself from its own directory.
 # NEGATIVE PROBE: a file added to the generator's map, or the page packaged under its repo name => "file list" red; README.md
 #                 source edited after the build => "byte-identical" red; the Category line changed => "header" red; the
-#                 cmp guard removed from the generator => "refuses" red; pl_install removed from the payload => "installs" red.
+#                 cmp guard removed from the generator => "refuses" red; the root-or-source guard removed => "OUTDIR = the repo root" red; the identity
+#                 test (test -ef) removed => "in other letter case" red (tried on a copy; NOT COVERED where the file system is case-sensitive); pl_install removed from the payload => "installs" red.
 #                 The companion alert: out of the map, not executable in the repo, an Author line or the licence line removed, another
 #                 Version or shebang => "file list" / "header" red; its lower-casing, address test, message-free line, cap (a limit of
 #                 2,001 or a tail of 1,999), umask, flock call or exit status changed => "companion alert" red (each tried on a copy).
@@ -115,6 +117,100 @@ rm -f "$HKP_C/$HKP_REL/payload.sh"
 (cd / && sh "$HKP_C/tools/hak5-package.sh" "$HKP_T/neg2" >/dev/null 2>&1); HKP_NR=$?
 [ "$HKP_NR" = 2 ] || HKP_BAD="$HKP_BAD missing:rc$HKP_NR"
 rowif "hak5 package: rebuild drops a stale file, differing Overview copies and a missing source refused (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+
+# ---- 5b · an OUTDIR that would make the target the repo's own copy of the payload is refused before anything is removed (scratch copy of the tree, never the real one):
+#            OUTDIR = the repo root written as ".", absolutely, with a trailing slash, as library/.. and through a symbolic link, OUTDIR = the payload directory itself,
+#            "./nosuch/.." and an OUTDIR whose library, library/user or target is a symbolic link into the copy (nothing is made either):
+#            exit 2, the message names the cause, every source still there byte for byte; a sibling OUTDIR inside the copy still builds, and the copy's sources are untouched
+HKP_BAD=""
+HKP_Q="$HKP_T/qcopy"; mkdir -p "$HKP_Q/tools" "$HKP_Q/$HKP_REL" "$HKP_Q/packaging/hak5"
+for HKP_f in tools/hak5-package.sh starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh LICENSE \
+  packaging/hak5/README.md "$HKP_REL/payload.sh" "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh"; do cp "$HKP_f" "$HKP_Q/$HKP_f"; done
+ln -s "$HKP_Q" "$HKP_T/qlink"
+: > "$HKP_Q/$HKP_REL/planted.txt"   # a file of the copy's payload directory that no build makes: a target swapped in over that directory loses it
+hkp_same() {   # hkp_same: every file of the copy is still the repo's bytes
+  for _hf in starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh LICENSE packaging/hak5/README.md \
+    "$HKP_REL/payload.sh" "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh"; do
+    cmp -s "$_hf" "$HKP_Q/$_hf" || return 1
+  done
+}
+hkp_refuse() {   # hkp_refuse LABEL OUTDIR: run from inside the copy; exit 2 with a message, the sources untouched
+  _hl=$1; _ho=$2
+  _hm=$(cd "$HKP_Q" && sh tools/hak5-package.sh "$_ho" 2>&1); _hr=$?
+  [ "$_hr" = 2 ] || HKP_BAD="$HKP_BAD $_hl:rc$_hr"
+  case $_hm in *"hak5-package: "*"choose another output directory"*|*"hak5-package: the output directory is the repo root"*) ;; *) HKP_BAD="$HKP_BAD $_hl:message" ;; esac
+  hkp_same || HKP_BAD="$HKP_BAD $_hl:source-lost"
+  [ -e "$HKP_Q/$HKP_REL/planted.txt" ] || HKP_BAD="$HKP_BAD $_hl:planted-lost"
+  [ ! -e "$HKP_Q/$HKP_REL.tmp" ] && [ ! -e "$HKP_Q/$HKP_REL.old" ] || HKP_BAD="$HKP_BAD $_hl:leftover"
+  set -- "$HKP_Q/$HKP_REL".old.*; [ ! -e "$1" ] || HKP_BAD="$HKP_BAD $_hl:leftover-old-pid"
+  [ ! -e "$HKP_Q/nosuch" ] || HKP_BAD="$HKP_BAD $_hl:made-nosuch"
+}
+hkp_refuse dot .
+hkp_refuse abs "$HKP_Q"
+hkp_refuse slash "$HKP_Q/"
+hkp_refuse updown "$HKP_Q/library/.."
+hkp_refuse link "$HKP_T/qlink/"
+hkp_refuse linkdot "$HKP_T/qlink/tools/.."
+# a link to the payload directory, followed by .., beside a decoy directory of the same name: as text the path names the decoy, on the file system it is
+# the parent of the real payload directory, so the target would sit inside the sources (the tool resolves with cd -P)
+mkdir -p "$HKP_T/xd/starchorus"; ln -s "$HKP_Q/$HKP_REL" "$HKP_T/xd/plink"
+hkp_refuse linkdecoy "$HKP_T/xd/plink/../starchorus"
+[ ! -e "$HKP_Q/$HKP_REL/library" ] || HKP_BAD="$HKP_BAD linkdecoy:nested"
+hkp_refuse payloaddir "$HKP_REL"
+# the target is resolved, not only OUTDIR: a ".." after a directory that does not exist yet, and a link anywhere along OUTDIR/library/user/reconnaissance
+hkp_refuse nosuchdots ./nosuch/..
+hkp_refuse nosuchabs "$HKP_Q/nosuch/.."
+mkdir -p "$HKP_T/xl1" "$HKP_T/xl2/library" "$HKP_T/xl3/library/user/reconnaissance"
+ln -s "$HKP_Q/library" "$HKP_T/xl1/library"                       # OUTDIR/library is a link to the copy's library
+ln -s "$HKP_Q/library/user" "$HKP_T/xl2/library/user"             # OUTDIR/library/user is a link to the copy's library/user
+ln -s "$HKP_Q/$HKP_REL" "$HKP_T/xl3/$HKP_REL"                     # the target itself is a link to the copy's payload directory
+hkp_refuse linklib "$HKP_T/xl1"
+hkp_refuse linkuser "$HKP_T/xl2"
+hkp_refuse linktarget "$HKP_T/xl3"
+# the same from another working directory, the copy's generator called by its absolute path
+(cd "$HKP_Q/library" && sh "$HKP_Q/tools/hak5-package.sh" .. >/dev/null 2>&1); HKP_NR=$?
+{ [ "$HKP_NR" = 2 ] && hkp_same; } || HKP_BAD="$HKP_BAD updir:rc$HKP_NR"
+# a directory of its own inside the copy builds, and the payload's sources stay
+(cd "$HKP_Q" && sh tools/hak5-package.sh out/pkg >/dev/null 2>&1) || HKP_BAD="$HKP_BAD sibling"
+{ hkp_same && cmp -s starchorus-collect.sh "$HKP_Q/out/pkg/$HKP_REL/starchorus-collect.sh"; } || HKP_BAD="$HKP_BAD sibling-bytes"
+rowif "hak5 package: OUTDIR = the repo root (., absolute, trailing slash, library/.., through a link), the payload directory, ./nosuch/.. or a link along OUTDIR/library/user/reconnaissance is refused with exit 2 before anything is removed or made, the sources stay; a directory beside them still builds (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+
+# ---- 5c · the same by identity, not only by string: on a case-insensitive file system (macOS by default) the copy's root, its last component, a link to the
+#            copy's library/user/reconnaissance and a link to its payload directory, each written in other letter case, name the same directories and are refused
+#            likewise (exit 2, every source still there, nothing left beside it); on a case-sensitive file system these paths name nothing, so the row is NOT COVERED
+HKP_BAD=""
+HKP_QU=$(printf '%s\n' "$HKP_Q" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+if [ "$HKP_QU" != "$HKP_Q" ] && [ -d "$HKP_QU" ] && [ "$HKP_QU" -ef "$HKP_Q" ]; then
+  mkdir -p "$HKP_T/xc1/library/user" "$HKP_T/xc2/library/user/reconnaissance"
+  ln -s "$HKP_QU/library/user/reconnaissance" "$HKP_T/xc1/library/user/reconnaissance"   # OUTDIR's library/user/reconnaissance is the copy's, in upper case
+  ln -s "$HKP_QU/$HKP_REL" "$HKP_T/xc2/$HKP_REL"                                       # the target is a link to the copy's payload directory, in upper case
+  hkp_refuse case "$HKP_QU"
+  hkp_refuse caselast "${HKP_Q%/*}/QCOPY"
+  hkp_refuse caseslash "$HKP_QU/"
+  hkp_refuse caselib "$HKP_T/xc1"
+  hkp_refuse casetarget "$HKP_T/xc2"
+  (cd "${HKP_Q%/*}" && sh "$HKP_Q/tools/hak5-package.sh" QCOPY >/dev/null 2>&1); HKP_NR=$?
+  { [ "$HKP_NR" = 2 ] && hkp_same; } || HKP_BAD="$HKP_BAD caserel:rc$HKP_NR"
+  rowif "hak5 package: OUTDIR = the repo root in other letter case (whole path, last component, trailing slash, relative), or a link in other case to its library/user/reconnaissance or payload directory, is refused with exit 2 on this case-insensitive file system, the sources stay (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+else
+  notcov "hak5 package: OUTDIR = the repo root in other letter case (the file system here is case-sensitive, so the case-variant paths name nothing)"
+fi
+
+# ---- 5d · the payload directory itself, and a path inside it, written in other letter case (from inside the copy): refused like their exact spelling in 5b
+#            (exit 2, every source still there, nothing left beside it), and no package is built inside the copy's payload directory (no library/ appears there);
+#            NOT COVERED on a case-sensitive file system, where these paths name nothing
+HKP_BAD=""
+HKP_RU=$(printf %s "$HKP_REL" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+if [ -d "$HKP_Q/$HKP_RU" ] && [ "$HKP_Q/$HKP_RU" -ef "$HKP_Q/$HKP_REL" ]; then
+  hkp_refuse casepayload "$HKP_RU"
+  [ ! -e "$HKP_Q/$HKP_REL/library" ] || HKP_BAD="$HKP_BAD casepayload:built-inside"
+  hkp_refuse casesub "$HKP_RU/sub"
+  [ ! -e "$HKP_Q/$HKP_REL/library" ] || HKP_BAD="$HKP_BAD casesub:built-inside"
+  [ ! -e "$HKP_Q/$HKP_REL/sub" ] || HKP_BAD="$HKP_BAD casesub:made-sub"
+  rowif "hak5 package: OUTDIR = the payload directory in other letter case, or a path inside it, is refused with exit 2 on this case-insensitive file system, the sources stay and nothing is built inside them (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+else
+  notcov "hak5 package: OUTDIR = the payload directory in other letter case (the file system here is case-sensitive, so the case-variant paths name nothing)"
+fi
 
 # ---- 6 · the packaged payload installs itself from its own directory: `get` and `set` (they start nothing) against an
 #           empty data directory leave the four run-time files there, byte-identical and executable, and settings.conf beside them

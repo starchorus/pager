@@ -204,6 +204,35 @@ for stp_p in "$STP_D5" "$STP_D6" "$STP_D7"; do stp_alive "$stp_p" || STP_BAD="$S
 kill "$STP_O1" "$STP_O2" "$STP_O3" "$STP_D5" "$STP_D6" "$STP_D7" 2>/dev/null
 rowif "stop scope: bind: root payload -p br-lan:PORT by default, explicit, all, 0.0.0.0 -> auto, 172.16.52.1 / 127.0.0.1 fallbacks; stop takes -p ADDR:PORT and -p PORT of our dir only (bad:${STP_BAD:- none})" [ -z "$STP_BAD" ]
 
+# ---- interval · root payload.sh: STARCHORUS_INTERVAL reaches the collector as whole seconds from 1 to 3600; anything else is 5 with one note on stderr (before this,
+# 0 or a word that sleep rejects went through as typed). A stand-in collector in the same directory writes the value it was given and ends.
+cat > "$STP_PD/starchorus-collect.sh" <<'STP_COL2'
+#!/bin/sh
+if [ "$1" = --stop ]; then exit 0; fi
+printf '%s\n' "${STARCHORUS_INTERVAL-unset}" > "$STARCHORUS_OUTDIR/col.interval"
+STP_COL2
+chmod +x "$STP_PD/starchorus-collect.sh"
+stp_iv() {   # stp_iv VALUE -> STP_IVV (the value the collector got), STP_IVE (the launcher's stderr); VALUE - = not set at all
+  rm -f "$STP_PD/httpd.pid" "$STP_PD/col.interval"
+  (cd "$STP_PD" && if [ "$1" = - ]; then unset STARCHORUS_INTERVAL; else STARCHORUS_INTERVAL=$1; export STARCHORUS_INTERVAL; fi
+   STARCHORUS_DIR="$STP_PD" STARCHORUS_PORT=$STP_PORT PATH="$STP_PATH" sh ./payload.sh </dev/null >/dev/null 2>"$STP_T/root.err")
+  stp_j=0; while [ ! -s "$STP_PD/col.interval" ] && [ "$stp_j" -lt 30 ]; do sleep 0.2 2>/dev/null || sleep 1; stp_j=$((stp_j + 1)); done
+  STP_IVV=$(sed -n 1p "$STP_PD/col.interval" 2>/dev/null); STP_IVE=$(cat "$STP_T/root.err" 2>/dev/null)
+  stp_root_stop
+}
+STP_BAD=""
+for STP_C in -:5:0 5:5:0 30:30:0 3600:3600:0 0030:30:0 0:5:1 abc:5:1 5s:5:1 3601:5:1 -5:5:1 1.5:5:1; do
+  STP_V=${STP_C%%:*}; STP_R=${STP_C#*:}; STP_W=${STP_R%%:*}; STP_N=${STP_R#*:}
+  stp_iv "$STP_V"
+  case $STP_IVE in *"STARCHORUS_INTERVAL=$STP_V ignored (whole seconds from 1 to 3600); using 5"*) STP_G=1 ;; *) STP_G=0 ;; esac
+  [ "$(printf '%s\n' "$STP_IVE" | grep -c STARCHORUS_INTERVAL)" = 1 ] || STP_G=0   # exactly one note, not several
+  if [ "$STP_V" = - ]; then   # not set at all: the launcher says nothing about it
+    case $STP_IVE in *STARCHORUS_INTERVAL*) STP_G=1 ;; *) STP_G=0 ;; esac
+  fi
+  [ "$STP_IVV/$STP_G" = "$STP_W/$STP_N" ] || STP_BAD="$STP_BAD ${STP_V}[$STP_IVV,note $STP_G]"
+done
+rowif "stop scope: interval: root payload hands the collector whole seconds 1-3600 (unset 5, 5, 30, 3600, 0030 -> 30 quiet), 0, abc, 5s, 3601, -5 and 1.5 -> 5 with one note (bad:${STP_BAD:- none})" [ -z "$STP_BAD" ]
+
 # ---- bind · static: no server start line in the three scripts listens on every interface by default. Every uhttpd/busybox
 # httpd start carries -p "$ADDR:" / -p "$PL_ADDR:", every python http.server --bind, the nc's arguments are the two `set --`
 # lines of starchorus-serve.sh (one with -s "$ADDR", the other only under ADDR = 0.0.0.0), and 0.0.0.0 is produced only in an

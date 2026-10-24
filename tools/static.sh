@@ -162,7 +162,7 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # (anchor + comment strip: neither a trailing `// dtgString(` nor `/* dtgString( */` can launder a Date.now line)
 # ---- floors of the check sets: a row must not turn green because the set it checks got empty or shrank.
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
-MIN_SELFTEST=482          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (482 checks), 19 October 2026: the alert log's eleven cases are in)
+MIN_SELFTEST=504          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (504 checks), 24 October 2026: the cases for the recon.db copy, the failed pass, the publish checks and the interval are in; 482 on 19 October 2026 with the alert log's eleven cases)
 MIN_SECTIONS=42           # grep -c '==== [0-9][0-9] ' starchorus.html                        (measured: 00..41; a bare '==== [0-9]' also counts the 17b marker)
 MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four frame parts and one fragment for each of 00..41; about 80 %)
 MIN_FIXTURES=15           # ls tests/fixtures/*.json | wc -l   (measured: 15)
