@@ -1,18 +1,27 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# .githooks/pre-commit -- runs the fast, Chrome-free checks (tools/quick.sh, tier T1) on what is about to be committed.
+# .githooks/pre-commit -- runs the fast checks (tools/quick.sh, tier T1, Chrome-free; for documents its documents mode, below) on what is about to be committed.
 # Activate (per clone, local git config):  sh tools/install-hooks.sh        Diagnose:  sh tools/install-hooks.sh --check
 #   and  git config --show-origin --get core.hooksPath   (a worktree-local value beats the repo value).
 # It checks the INDEX, not the working tree: `git checkout-index` exports exactly what would be committed into a temp
 # directory and tools/quick.sh runs there (no .git in the export). An unstaged edit neither hides a staged violation nor
 # raises a false alarm. `git commit <paths>` and `-a` are covered the same way (git points the hook at the right index).
-# Path filter: the hook only runs when a staged path is the page (also index.html), the collector, a display script, payload*,
+# Code filter: T1 runs when a staged path is the page (also index.html), the collector, a display script, payload*,
 # starchorus-serve.sh, or below src/ (the page's fragments), tests/, tools/ (tools/build-page.sh among them), library/, packaging/,
 # .githooks/ or .github/. Deletions count as staged. A commit that stages a fragment under src/ without the rebuilt page runs T1
 # and goes red on the row "page = build of src/"; rebuild with `sh tools/build-page.sh` and stage the page with the fragment.
 # The hook only checks; it never rebuilds (that would change the index behind the committer's back).
-#   Blind spot, on purpose named: a commit that stages only OTHER files (docs/, README, ...) skips the hook, so
-#   the documentation-drift rows (tools/regress.d/doc-drift.sh) are not seen until the next code commit or tools/regress.sh.
+# Documents: a commit that stages a DOCUMENT (README.md, SECURITY.md, CHANGELOG.md, INSTALL.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, LICENSE,
+# OFL.txt, anything below docs/, a README.md below library/, packaging/hak5/README.md, tools/README.md) runs the documents mode, `sh tools/quick.sh docs`
+# (about 15 s), on the same export: doc-drift, doc-binding (the spec's tables, the page's functions, hotkeys and query parameters) and
+# doc-truth (hand-typed lists and numbers against their sources). T1 alone never ran the last two and skipped a documents-only commit.
+#   - documents only: the documents mode alone;  code only: T1 alone, as before;  both (a mixed commit, or a README below library/ or
+#     packaging/, which the code filter names too): T1 first, then the documents mode if T1 was green. T1 stays Chrome-free; the
+#     documents mode is not, it needs Chrome for doc-binding, and without it the hook says so ("MISSING: chrome", exit 2 of quick.sh)
+#     and refuses the commit as it does for a missing jq. tools/README.md is both: below tools/ (code filter) and a document, because
+#     doc-truth binds its fixture table (a commit of it alone used to land without that check); it runs T1 and then the documents mode.
+#   Still outside both: a commit that stages only files that match neither filter (a stray file in the top directory). T1 has nothing
+#   to say about those.
 # When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too.
 # On red: only the red rows are shown, exit 1, nothing is committed. If quick.sh cannot run at all (exit 2: a tool such as jq is
 # missing, "MISSING: <tool>") the hook says so instead of "red" and refuses the commit as well.
@@ -24,8 +33,11 @@ set -u
 top=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
 cd "$top" || exit 1
 staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames) || { echo "pre-commit: cannot list the index" >&2; exit 1; }
-if ! printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|src/|tests/|tools/|\.githooks/|\.github/)'; then
-  exit 0   # only files outside the filter: T1 has nothing to say about them (see the blind spot above)
+need_t1=0; need_docs=0
+printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|src/|tests/|tools/|\.githooks/|\.github/)' && need_t1=1
+printf '%s\n' "$staged" | grep -Eq '^((README|SECURITY|CHANGELOG|INSTALL|CONTRIBUTING|CODE_OF_CONDUCT)\.md|LICENSE|OFL\.txt|docs/.*|library/.*README\.md|packaging/hak5/README\.md|tools/README\.md)$' && need_docs=1
+if [ "$need_t1" = 0 ] && [ "$need_docs" = 0 ]; then
+  exit 0   # only files outside both filters: neither tier has anything to say about them (see the paragraphs above)
 fi
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-hook.XXXXXX") || { echo "pre-commit: mktemp failed" >&2; exit 1; }
 trap 'rm -rf "$tmp"' EXIT
@@ -33,21 +45,31 @@ trap 'exit 130' INT TERM HUP
 git checkout-index -a -f --prefix="$tmp/" || { echo "pre-commit: checkout-index of the index failed" >&2; exit 1; }
 [ -f "$tmp/tools/quick.sh" ] || { echo "pre-commit: tools/quick.sh is not in the index, nothing to run (--no-verify to bypass)" >&2; exit 1; }
 unset STARCHORUS_ROOT   # harness.sh would prefer it over the exported tree
+verdict() {   # verdict OUTFILE RC LABEL: rc 0 prints the summary line and returns; anything else says why and ends the hook with exit 1
+  if [ "$2" = 0 ]; then
+    tail -n 1 "$1" | sed 's/^/pre-commit: /'
+    return 0
+  fi
+  if [ "$2" = 2 ]; then   # a setup problem (a tool is missing: "MISSING: <tool>"), not a finding about the staged tree
+    echo "pre-commit: $3 could not run (exit 2: a tool is missing or the setup is broken); nothing was committed:" >&2
+    tail -n 15 "$1" | cut -c1-200 >&2
+    echo "pre-commit: fix the setup and commit again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
+    exit 1
+  fi
+  echo "pre-commit: $3 is red on the staged tree; nothing was committed. Red rows:" >&2
+  awk '/^note: quick drop-ins/ { print; next } / FAIL$/ { print; show = 1; next } /^    / && show { print; next } { show = 0 }' "$1" | cut -c1-200 >&2
+  if ! grep -q ' FAIL$' "$1"; then echo "(no FAIL row: the run itself broke, last lines follow)" >&2; tail -n 15 "$1" >&2; fi
+  tail -n 1 "$1" >&2
+  echo "pre-commit: fix and stage again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
+  exit 1
+}
+run_docs() {   # the documents mode on the same export
+  ( cd "$tmp" && sh tools/quick.sh docs hook ) > "$tmp/quick-docs.out" 2>&1; rc=$?
+  verdict "$tmp/quick-docs.out" "$rc" "the documents mode (tools/quick.sh docs)"
+}
+if [ "$need_t1" = 0 ]; then run_docs; exit 0; fi   # documents only
 if printf '%s\n' "$staged" | grep -Eq '^tools/passivity-(check|mutate)\.sh$'; then QUICK_MUTATE=1; export QUICK_MUTATE; fi
 ( cd "$tmp" && sh tools/quick.sh hook ) > "$tmp/quick.out" 2>&1; rc=$?
-if [ "$rc" = 0 ]; then
-  tail -n 1 "$tmp/quick.out" | sed 's/^/pre-commit: /'
-  exit 0
-fi
-if [ "$rc" = 2 ]; then   # a setup problem (a tool is missing: "MISSING: <tool>"), not a finding about the staged tree
-  echo "pre-commit: tools/quick.sh could not run (exit 2: a tool is missing or the setup is broken); nothing was committed:" >&2
-  tail -n 15 "$tmp/quick.out" | cut -c1-200 >&2
-  echo "pre-commit: fix the setup and commit again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
-  exit 1
-fi
-echo "pre-commit: tier T1 (tools/quick.sh) is red on the staged tree; nothing was committed. Red rows:" >&2
-awk '/^note: quick drop-ins/ { print; next } / FAIL$/ { print; show = 1; next } /^    / && show { print; next } { show = 0 }' "$tmp/quick.out" | cut -c1-200 >&2
-if ! grep -q ' FAIL$' "$tmp/quick.out"; then echo "(no FAIL row: the run itself broke, last lines follow)" >&2; tail -n 15 "$tmp/quick.out" >&2; fi
-tail -n 1 "$tmp/quick.out" >&2
-echo "pre-commit: fix and stage again. git commit --no-verify skips this (say why, and name the substitute proof, in the commit text)." >&2
-exit 1
+verdict "$tmp/quick.out" "$rc" "tier T1 (tools/quick.sh)"
+if [ "$need_docs" = 1 ]; then run_docs; fi   # a mixed commit: T1 was green, the documents come next
+exit 0
