@@ -285,6 +285,8 @@ data.
   advertised name and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column.
 - It contains none of the device's own transmitters, no probable phone hotspots (not even as a
   station's link; only their number) and no note texts.
+- A CSV cell that is text and starts with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading apostrophe, so that a spreadsheet
+  does not run a network name or a probed name as a formula; a number stays a number.
 - Every format carries the footer 'Starchorus · passive observation · not a government system · no
   official marking'.
 

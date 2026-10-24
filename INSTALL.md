@@ -342,7 +342,7 @@ While Starchorus runs, the menu offers 'Overview', 'Open on Phone' (a QR code of
 for a phone on the Pager's Wi-Fi, with firmware 1.1.1 or later; on an older firmware the address is
 shown as text, and without a network address the payload says 'No network address.'; 'Start Web Page'
 takes its place while the page server is not up), 'Stop' and 'Settings' (web page, refresh interval,
-time window, vendor names, channel load, traffic, Bluetooth, port, and a reset to the defaults). 'Traffic'
+time window, vendor names, channel load, traffic, Bluetooth, alerts, port, and a reset to the defaults). 'Traffic'
 (channel activity and frame rates) and 'Bluetooth' (a passive Bluetooth LE scan, 5 seconds per refresh) are
 off by default; switch them on only if you want those layers. A change in Settings is
 applied when you leave it, except 'Web Page', which takes effect at once. Key B on the menu leaves the
