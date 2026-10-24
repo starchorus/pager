@@ -12,8 +12,9 @@ Usage:
                           [--eval "expr" ...] [--click X,Y] [--key Key]
                           [--step KIND:ARG ...] [--eval-timeout 30]
                           [--width 1440 --height 900] [--mobile] [--virtual-time] [--json]
+                          [--ready [EXPR]]
 
-Order: navigate -> --wait -> --click/--key (+ --after-wait) -> fps over --fps s -> --eval list
+Order: navigate -> --wait (or --ready, below) -> --click/--key (+ --after-wait) -> fps over --fps s -> --eval list
 -> --step list (eval:EXPR | click:X,Y | clickat:EXPR returning [x,y] | key:KEY | wait:S | size:WxH
    | drag:X1,Y1,X2,Y2,MS (mouse) | touch:X1,Y1,X2,Y2,MS (one finger; equal points = a tap) | vtime:MS)
 -> screenshot. A promise result is awaited; an expression with a top-level `await` is retried in
@@ -22,6 +23,12 @@ REPL mode. Chrome picks a free DevTools port itself, so concurrent runs never sh
 --virtual-time: the page's clock is held from before the navigation and moves only in vtime:MS steps, by MS virtual
 milliseconds each (timers fire in order, a pending fetch holds the clock; no frames are drawn). Evals between the
 steps run while the clock stands, so they must not wait on a timer (STARCHORUS.wait would never return).
+--ready [EXPR]: go on as soon as EXPR (JavaScript, polled every 0.1 s; a returned promise is awaited) is truthy, instead of
+sleeping the whole --wait; --wait stays the ceiling. An exception, a rejected promise or a context destroyed by the
+navigation count as "not yet". Bare --ready stands for: the embedded fonts are loaded, window.STARCHORUS is there and a
+frame has been painted after both. The report says under "ready" what was asked, whether it was met, after how many seconds
+and in how many probes. Not with --virtual-time (no frame is ever drawn). A site that depends on time passing (an animation,
+a poll count, the fps pass) keeps the plain --wait.
 
 Exit code 0 on success (even if the page logged errors -- check the report),
 1 on driver failure. The report (JSON) lists console entries, exceptions,
@@ -32,6 +39,9 @@ a WebSocket as {method: "WEBSOCKET"}. That is the run-time evidence the passivit
 lack (they read the source text); tools/harness.sh net_verdict judges it. Additive: no consumer reads it strictly.
 """
 import argparse, base64, json, os, socket, struct, subprocess, sys, tempfile, time, urllib.request
+
+# bare --ready: the embedded fonts are loaded, the page's script has run (window.STARCHORUS) and a frame was painted after both
+READY_DEFAULT = "document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS))))"
 
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_BIN", ""),
@@ -197,6 +207,9 @@ def main():
     ap.add_argument("url")
     ap.add_argument("--shot", help="write PNG screenshot here")
     ap.add_argument("--wait", type=float, default=4.0, help="seconds to let the page run before measuring")
+    ap.add_argument("--ready", nargs="?", const=READY_DEFAULT, default=None, metavar="EXPR",
+                    help="go on as soon as EXPR (JS, polled every 0.1 s, a promise awaited) is truthy instead of sleeping the whole "
+                         "--wait, which stays the ceiling; bare: fonts loaded, STARCHORUS present, a frame painted")
     ap.add_argument("--fps", type=float, default=2.0, help="seconds over which to count animation frames (0 = skip)")
     ap.add_argument("--eval", action="append", default=[], help="JS expression to evaluate after wait (repeatable)")
     ap.add_argument("--click", action="append", default=[], help="X,Y css px to click after wait (repeatable)")
@@ -215,6 +228,8 @@ def main():
                          "eval:EXPR | click:X,Y | clickat:EXPR (EXPR -> [x,y]) | key:KEY | wait:SECONDS | size:WxH | "
                          "drag:X1,Y1,X2,Y2,MS | touch:X1,Y1,X2,Y2,MS | vtime:MS")
     args = ap.parse_args()
+    if args.ready is not None and args.virtual_time:
+        sys.exit("--ready needs a running clock (frames, timers): not with --virtual-time")
 
     chrome = find_chrome()
     profile = tempfile.mkdtemp(prefix="starchorus-cdp-")
@@ -265,7 +280,26 @@ def main():
         cdp.call("Network.enable")   # the requests the page really makes (see "requests" in the report)
         cdp.call("Page.enable")
         cdp.call("Page.navigate", {"url": args.url})
-        cdp.pump(args.wait)
+        if args.ready is None:
+            cdp.pump(args.wait)
+        else:
+            # --ready: poll the expression instead of sleeping the whole --wait; the ceiling stays. An exception, a rejected
+            # promise or a context destroyed by the navigation (about:blank is still there at first) all mean "not yet".
+            t0 = time.time(); met = False; probes = 0
+            while True:
+                left = args.wait - (time.time() - t0)
+                if left <= 0:
+                    break
+                probes += 1
+                try:
+                    v = cdp.evaluate(args.ready, timeout=max(0.2, min(left, 5.0)))
+                except RuntimeError:
+                    v = None
+                if v and not (isinstance(v, dict) and "error" in v):
+                    met = True
+                    break
+                cdp.pump(0.1)
+            report["ready"] = {"expr": args.ready, "met": met, "after": round(time.time() - t0, 3), "probes": probes}
         for c in args.click:
             x, y = [float(v) for v in c.split(",")]
             for t in ("mousePressed", "mouseReleased"):

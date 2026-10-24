@@ -8,6 +8,9 @@
 # own f/q/p/i/rc/T/PORT/SRV across a call (regress.sh has a row for it).
 #   runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp args]  one headless run with URL query -> PREFIX.json (and PREFIX.png when RUNQ_SHOT=1;
 #                                                 no row reads a screenshot, so by default none is taken: RUNQ_SHOT unset or 0)
+#                                                 --ready [EXPR] among the cdp args: the run goes on as soon as the page is ready (bare: fonts
+#                                                 loaded, STARCHORUS there, a frame painted) and --wait becomes the ceiling; for sites that need
+#                                                 the page booted, not time passed (an animation, a poll count, fps keep the plain wait)
 #   runseq FIXTURE|demo PREFIX [cdp args]         runq with QS_SEQ (?poll=0&spin=0&intro=0&fixed=…), no fps pass
 #   chk PREFIX.json [demo]                        exceptions / real console errors -> exit 1
 #   secof LINE                                    section number (==== NN ====) of a line of the page

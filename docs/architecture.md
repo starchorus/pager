@@ -2344,7 +2344,8 @@ This section defines how browser runs address the page and which criteria every 
 `tools/cdp.py` with `--wait 6 --fps 3 --json`, filters the expected 404s for `favicon.ico` and – in demo mode only –
 `starchorus.json`; exit 0 = no exceptions, no real console errors, fps ≥ 30.
 
-**Sequence of `tools/cdp.py`:** load page → pump for `--wait` s → `--click`/`--key` (then `--after-wait`) →
+**Sequence of `tools/cdp.py`:** load page → pump for `--wait` s (or, with `--ready [EXPR]`, only until the expression is truthy, `--wait` as the ceiling;
+bare `--ready` = fonts loaded, `STARCHORUS` there, a frame painted; not with `--virtual-time`) → `--click`/`--key` (then `--after-wait`) →
 **fps measurement over `--fps` s** → `--eval` expressions (one after another; a returned Promise is awaited, timeout
 `--eval-timeout` = 30 s; an expression with top-level `await` runs in REPL mode) → `--step` list (`eval:EXPR` · `click:X,Y` ·
 `clickat:EXPR` → `[x,y]` · `key:KEY` · `wait:S` · `size:WxH`) → screenshot → report. Chrome picks its own DevTools port;
