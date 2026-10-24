@@ -2366,7 +2366,7 @@ sh tools/fresh-check.sh worktree|clone   # the regression runs from a fresh clon
 # (a) standard run without query parameters (verify.sh sets --wait 6 --fps 3 --json, PASS verdict, 404 filter):
 sh "$R/tools/verify.sh" "$H" "$F/many-clients.json" "$R/out/many" \
    --eval "STARCHORUS.errors().length" --eval "JSON.stringify(STARCHORUS.stats())"
-# (b) run with query parameters: runq FIXTURE|demo "QUERY" PREFIX [cdp-Args…] → PREFIX.png + PREFIX.json; chk PREFIX.json [demo]
+# (b) run with query parameters: runq FIXTURE|demo "QUERY" PREFIX [cdp-Args…] → PREFIX.json (and PREFIX.png with RUNQ_SHOT=1); chk PREFIX.json [demo]
 runq "$F/field-scale.json" "?theme=wargames&view=3d&intro=0" "$R/out/scale-3d" \
    --eval "STARCHORUS.errors().length" --eval "JSON.stringify(STARCHORUS.camera())" ; chk "$R/out/scale-3d.json"
 # (c) sequence run (data/event logic): runseq = runq with ?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED, without fps measurement

@@ -46,6 +46,113 @@ env_report() {   # env_report OUTFILE  -> writes "key value" lines, prints them 
 }
 env_report "out/$P-env.txt"
 
+# ---- shellcheck: the longest rows of T1, started here in the background and judged at their rows ---------------------------------
+# Three runs are heavy (the collector about 15 s, the shell files of the payload tree, tools/*.sh + regress.d about 12 s); nothing between here and
+# their rows needs the result, so they run now, into out/$P-sc-*, and each row waits for its job and judges the exit status. The rows, their texts and
+# the per-file evidence lines are what they were. The collector is analysed once: row "shellcheck collector" (-s sh) and its entry in the file list below
+# (no -s) are the same analysis when nothing but the shebang can name its dialect: its first line is `#!/bin/sh` (the dialect that -s names), no `# shellcheck`
+# directive in the file sets `shell=`, no .shellcheckrc or shellcheckrc (shellcheck reads both spellings) in this directory or any parent (nor
+# ~/.shellcheckrc nor the XDG one) sets `shell=`, and SHELLCHECK_OPTS is empty;
+# otherwise the list runs its own pass over it, as it always did.
+# A result is cached by CONTENT in "${TMPDIR:-/tmp}/starchorus-shellcheck-cache/": the key is the SHA-256 over the shellcheck version, its exact arguments,
+# SHELLCHECK_OPTS, every .shellcheckrc and shellcheckrc on the way up (from here and from each file's directory), ~/.shellcheckrc, the XDG one, and the name and bytes of every file named in the arguments (a changed byte, a renamed file or a
+# different version of the tool is another key); the entry holds the exit status (0 or 1 only) and the output, and is written to a temporary name and
+# moved into place. Only what was proven is stored: the key is worked out again after the run, and the entry is written only when it is the key of before
+# (a file edited while shellcheck read it is not stored under either state; the one window left open is a file changed and changed back to the same
+# bytes within the seconds of one run, which would store the result of the passing state under the key of the first). A hit prints the stored output and returns the stored status. The nested runs
+# (regress.sh runs quick.sh again, hook-behavior.sh runs it in copies) hit it.
+# STARCHORUS_SHELLCHECK_CACHE=0 switches it off: every run is then a real one. Without python3 or a private cache directory (one that is a symbolic link,
+# or not ours) it runs for real as well.
+SC_CACHE_DIR="${TMPDIR:-/tmp}/starchorus-shellcheck-cache"
+SC_VER=$(shellcheck --version 2>&1)
+SC_CACHE_ON=0
+if [ "${STARCHORUS_SHELLCHECK_CACHE:-1}" != 0 ] && mkdir -p "$SC_CACHE_DIR" 2>/dev/null && [ ! -L "$SC_CACHE_DIR" ] && [ -d "$SC_CACHE_DIR" ] && [ -n "$(find "$SC_CACHE_DIR" -prune -user "$(id -u)" 2>/dev/null)" ] \
+   && chmod 700 "$SC_CACHE_DIR" 2>/dev/null; then SC_CACHE_ON=1; fi   # not a link planted by someone else, and ours, before anything is stored in it
+sc_key() {   # sc_key ARG... -> the cache key of `shellcheck ARG...` on stdout (64 hex digits)
+  python3 -I -B -c '
+import hashlib, os, sys
+h = hashlib.sha256()
+def put(b):
+    h.update(str(len(b)).encode() + b":" + b)
+put(sys.argv[1].encode())
+put(os.environ.get("SHELLCHECK_OPTS", "").encode())
+files = [a for a in sys.argv[2:] if os.path.isfile(a)]
+rcs = set([os.path.expanduser("~/.shellcheckrc"),
+           os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "shellcheckrc")])
+for d in [os.getcwd()] + [os.path.dirname(os.path.abspath(a)) for a in files]:
+    while True:
+        rcs.add(os.path.join(d, ".shellcheckrc"))
+        rcs.add(os.path.join(d, "shellcheckrc"))
+        p = os.path.dirname(d)
+        if p == d:
+            break
+        d = p
+for r in sorted(rcs):
+    if os.path.isfile(r):
+        put(r.encode()); put(open(r, "rb").read())
+for a in sys.argv[2:]:
+    put(a.encode())
+    if os.path.isfile(a):
+        put(open(a, "rb").read())
+print(h.hexdigest())
+' "$SC_VER" "$@"
+}
+sc_cached() {   # sc_cached ARG... : `shellcheck ARG...` (output and exit status as it would give them), from the cache when the content is the same
+  if [ "$SC_CACHE_ON" != 1 ]; then shellcheck "$@" 2>&1; return $?; fi
+  _sck=$(sc_key "$@" 2>/dev/null)
+  case $_sck in *[!0-9a-f]*|"") shellcheck "$@" 2>&1; return $? ;; esac
+  [ "${#_sck}" = 64 ] || { shellcheck "$@" 2>&1; return $?; }
+  _sce="$SC_CACHE_DIR/$_sck"
+  if [ -f "$_sce" ]; then
+    _scr=$(sed -n '1s/^rc=\([01]\)$/\1/p' "$_sce" 2>/dev/null)
+    if [ -n "$_scr" ]; then sed 1d "$_sce"; return "$_scr"; fi
+  fi
+  _sct=$(mktemp "$SC_CACHE_DIR/.tmp.XXXXXX" 2>/dev/null) || { shellcheck "$@" 2>&1; return $?; }
+  shellcheck "$@" > "$_sct" 2>&1; _scr=$?
+  cat "$_sct"
+  _sck2=$(sc_key "$@" 2>/dev/null)   # the bytes may have changed while shellcheck read them: then the result belongs to no key, and nothing is stored
+  if [ "$_sck2" = "$_sck" ]; then
+    case $_scr in 0|1) { printf 'rc=%s\n' "$_scr"; cat "$_sct"; } > "$_sct.e" && mv -f "$_sct.e" "$_sce" ;; esac 2>/dev/null
+  fi
+  rm -f "$_sct" "$_sct.e"
+  return "$_scr"
+}
+sc_join() {   # sc_join coll|tools : wait for that background run, print what it printed, return its exit status (a job that is gone is red)
+  case $1 in coll) _scj=$SC_PID_COLL ;; tools) _scj=$SC_PID_TOOLS ;; *) return 2 ;; esac
+  [ -n "$_scj" ] || return 2
+  wait "$_scj"; _scj_rc=$?
+  cat "out/$P-sc-$1.txt" 2>/dev/null
+  [ "$1" != coll ] || SC_RC_COLL=$_scj_rc
+  return "$_scj_rc"
+}
+# the list of the shell files of the payload tree (also read by tools/regress.d/doc-truth.sh); the loop over it is further down
+{ printf '%s\n' starchorus-collect.sh starchorus-display.sh payload.sh starchorus-serve.sh; find library -type f -name '*.sh' | LC_ALL=C sort; } > "out/$P-shfiles.txt"
+sc_share_ok() {   # 0 when only the shebang can name the dialect of the collector (see above), so that `-s sh` and no -s are the same analysis
+  [ "$(head -n 1 starchorus-collect.sh 2>/dev/null)" = '#!/bin/sh' ] || return 1
+  [ -z "${SHELLCHECK_OPTS:-}" ] || return 1
+  ! grep -Eq '^[[:space:]]*#[[:space:]]*shellcheck[[:space:]].*shell=' starchorus-collect.sh || return 1
+  _scd=$PWD
+  while :; do
+    ! grep -Eq '^[[:space:]]*shell[[:space:]]*=' "$_scd/.shellcheckrc" "$_scd/shellcheckrc" 2>/dev/null || return 1
+    [ "$_scd" != / ] || break
+    _scd=$(dirname "$_scd")
+  done
+  ! grep -Eq '^[[:space:]]*shell[[:space:]]*=' "${HOME:-/nonexistent}/.shellcheckrc" "${XDG_CONFIG_HOME:-${HOME:-/nonexistent}/.config}/shellcheckrc" 2>/dev/null || return 1
+  return 0
+}
+SC_SHARE=0; sc_share_ok && SC_SHARE=1
+SC_RC_COLL=""
+rm -f "out/$P-sc-files.txt"
+( sc_cached -s sh starchorus-collect.sh > "out/$P-sc-coll.txt" 2>&1 ) & SC_PID_COLL=$!
+( _scn=0
+  while IFS= read -r _scf; do
+    _scn=$((_scn + 1))
+    if [ "$_scf" = starchorus-collect.sh ] && [ "$SC_SHARE" = 1 ]; then continue; fi
+    sc_cached "$_scf" > /dev/null 2>&1; printf '%s %s\n' "$_scn" "$?" >> "out/$P-sc-files.txt"
+  done < "out/$P-shfiles.txt" ) & SC_PID_FILES=$!
+( set -- tools/*.sh; for _scx in tools/regress.d/*.sh; do [ -f "$_scx" ] && set -- "$@" "$_scx"; done
+  sc_cached -x -P SCRIPTDIR "$@" > "out/$P-sc-tools.txt" 2>&1 ) & SC_PID_TOOLS=$!
+
 # ---- stored baselines: rule "current <= baseline"; lower them when possible, never raise silently
 BASE_DATA_THEME=0         # "[data-theme=" occurrences in the page (structure runs over token attributes instead)
 BASE_TOKREAD_22_30=0      # token reads in §22–30 (the core radius lives in LAYOUT)
@@ -214,7 +321,7 @@ tmc 1 "" "a-b"
 rm -f "out/$P-tm.txt"
 tm_check "out/$P-no-such-timing.txt" a-b > /dev/null 2>&1 && tmbad=$((tmbad + 1)) && echo "    timing case: a missing file must be refused"
 rowif "timing judge on dummies ($((tmn + 1 - tmbad))/$((tmn + 1)) as expected)" [ "$tmbad" = 0 ]
-rowif "shellcheck collector" shellcheck -s sh starchorus-collect.sh
+rowif "shellcheck collector" sc_join coll
 # sec_slice must refuse a broken range: dummy pages with each defect, expected rc 2, and the intact one rc 0
 ssn=0; ssbad=0
 ss() {   # ss EXPECTED_RC MIN 'PAGE TEXT' (markers 10 and 20 asked for)
@@ -380,13 +487,18 @@ cat "out/$P-passivity.txt"
 rowif "passivity-check.sh (exit $pc)" [ "$pc" = 0 ]
 # starchorus-serve.sh (the nc listener) is on this list too. tools/regress.d/doc-truth.sh compares the
 # two lists written here with the shell files the repository really has, both ways, with reasoned exceptions.
-{ printf '%s\n' starchorus-collect.sh starchorus-display.sh payload.sh starchorus-serve.sh; find library -type f -name '*.sh' | LC_ALL=C sort; } > "out/$P-shfiles.txt"
+# (the list was written, and the runs started, above; the collector's entry takes the result of the first row when that run is the same analysis)
 scn=0; scbad=0
-while IFS= read -r sf; do scn=$((scn + 1)); shellcheck "$sf" > /dev/null 2>&1 || { scbad=$((scbad + 1)); echo "    shellcheck: $sf"; }; done < "out/$P-shfiles.txt"
+wait "$SC_PID_FILES"
+while IFS= read -r sf; do
+  scn=$((scn + 1))
+  if [ "$sf" = starchorus-collect.sh ] && [ "$SC_SHARE" = 1 ]; then scr=$SC_RC_COLL; else scr=$(sed -n "s/^$scn //p" "out/$P-sc-files.txt" 2>/dev/null); fi
+  [ "$scr" = 0 ] || { scbad=$((scbad + 1)); echo "    shellcheck: $sf"; }
+done < "out/$P-shfiles.txt"
 rowif "shellcheck collector/display/payload ($scn files)" [ "$scbad" = 0 ]
 set -- tools/*.sh; for x in tools/regress.d/*.sh; do [ -f "$x" ] && set -- "$@" "$x"; done
 printf '%s\n' "$@" > "out/$P-shfiles-tools.txt"   # the list as checked (read by tools/regress.d/doc-truth.sh)
-rowif "shellcheck tools/*.sh + regress.d ($# files)" shellcheck -x -P SCRIPTDIR "$@"
+rowif "shellcheck tools/*.sh + regress.d ($# files)" sc_join tools
 rowif "starchorus-display.sh copies identical" cmp -s starchorus-display.sh library/user/reconnaissance/starchorus/starchorus-display.sh
 vn=0; vbad=0
 for fj in "$F"/*.json; do

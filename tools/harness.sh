@@ -6,7 +6,8 @@
 # below. Apart from those names nothing in a caller's shell is touched: every function-internal variable
 # uses the reserved prefixes _rq_* (runq) / _rs_* (runseq) / _sc_* (root probe) / _pf_* (preflight) / _tm_* (timing), so a drop-in may keep its
 # own f/q/p/i/rc/T/PORT/SRV across a call (regress.sh has a row for it).
-#   runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp args]  one headless run with URL query -> PREFIX.json/.png
+#   runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp args]  one headless run with URL query -> PREFIX.json (and PREFIX.png when RUNQ_SHOT=1;
+#                                                 no row reads a screenshot, so by default none is taken: RUNQ_SHOT unset or 0)
 #   runseq FIXTURE|demo PREFIX [cdp args]         runq with QS_SEQ (?poll=0&spin=0&intro=0&fixed=…), no fps pass
 #   chk PREFIX.json [demo]                        exceptions / real console errors -> exit 1
 #   secof LINE                                    section number (==== NN ====) of a line of the page
@@ -77,9 +78,11 @@ STARCHORUS_FIXED=${STARCHORUS_FIXED:-1789300000}
 QS_SEQ="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED"
 mkdir -p "$R/out"
 
-runq() {   # runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp-Args…] → PREFIX.png + PREFIX.json; Exit = cdp.py
+runq() {   # runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp-Args…] → PREFIX.json, and PREFIX.png with RUNQ_SHOT=1; Exit = cdp.py
   # --delay S (must come first, default 0) holds every starchorus.json response back S seconds -- the only way
   # to observe code that runs before the first poll answers (D13 logon gate). S=0 keeps the plain server.
+  # RUNQ_SHOT=1 also writes the screenshot PREFIX.png (evidence for the eye; no row reads it, and taking it costs 0.2 to 0.4 s and some 700 kB a run;
+  # without it a run also ends that much sooner after its last step, so late console messages and requests have a window shorter by about as much).
   _rq_f=$1; _rq_q=$2; _rq_p=$3; shift 3
   _rq_d=0
   if [ "${1:-}" = --delay ]; then _rq_d=$2; shift 2; fi
@@ -87,7 +90,7 @@ runq() {   # runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp-Args…] → PREF
   # INT/TERM while runq runs: without a trap the server (python3 -m http.server, then PPID 1) and the
   # starchorus-runq.* directory stayed behind. The trap runs after the foreground cdp.py returns (that is how sh handles a signal
   # during a foreground command; Ctrl-C reaches cdp.py directly, as before), cleans up and re-raises the signal, so the
-  # caller ends exactly as it did. No caller sets an INT/TERM trap of its own (grep -n 'trap ' tools/*.sh tools/regress.d/*.sh).
+  # caller ends exactly as it did. No caller holds an INT/TERM trap across a call (grep -n 'trap ' tools/*.sh tools/regress.d/*.sh: mutation-probe.sh sets one only while it waits for its two halves, and clears it before it returns).
   _rq_srv=""; trap '_rq_abort INT' INT; trap '_rq_abort TERM' TERM
   cp "$H" "$_rq_t/index.html" || { _rq_end; return 2; }
   [ "$_rq_f" = demo ] || cp "$_rq_f" "$_rq_t/starchorus.json" || { _rq_end; return 2; }
@@ -112,7 +115,8 @@ PY
   fi
   _rq_i=0; until python3 -c 'import sys,urllib.request;urllib.request.urlopen(sys.argv[1],timeout=1)' "http://127.0.0.1:$_rq_port/" >/dev/null 2>&1; do
     _rq_i=$((_rq_i+1)); [ "$_rq_i" -ge 25 ] && break; sleep 0.2; done
-  python3 "$R/tools/cdp.py" "http://127.0.0.1:$_rq_port/$_rq_q" --wait 6 --fps 3 --json --shot "$_rq_p.png" "$@" > "$_rq_p.json"; _rq_rc=$?
+  if [ "${RUNQ_SHOT:-0}" = 1 ]; then set -- --shot "$_rq_p.png" "$@"; fi
+  python3 "$R/tools/cdp.py" "http://127.0.0.1:$_rq_port/$_rq_q" --wait 6 --fps 3 --json "$@" > "$_rq_p.json"; _rq_rc=$?
   _rq_end; return $_rq_rc
 }
 _rq_end() {   # runq's cleanup on every path: server down, directory gone, no trap left behind

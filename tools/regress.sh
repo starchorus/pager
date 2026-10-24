@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # tools/regress.sh — full non-regression per docs/architecture.md §11.0 (global criteria)
 # and the harness rows. Dev machine only. This is tier T2 (tools/README.md).
-# usage: sh tools/regress.sh [PREFIX]    (any cwd; writes out/PREFIX-*.json/png, prints a table)
+# usage: sh tools/regress.sh [PREFIX]    (any cwd; writes out/PREFIX-*.json, and *.png only for RUNQ_SHOT=1 and verify.sh; prints a table)
 # exit 0 = every row PASS, 1 = at least one FAIL, 2 = setup problem.
 # Preflight first (harness.sh PF_TOOLS_FULL: exit 2 + "MISSING: tool"); wall time per phase and drop-in: out/PREFIX-timing.txt.
 # The Chrome-free rows (page/collector/display/fixture/harness rules, baselines and floors BASE_*/MIN_*) live in tools/static.sh,
@@ -90,7 +90,7 @@ f=SENTF; q=SENTQ; p=SENTP; i=SENTI; rc=SENTR
 runq demo "?intro=0&poll=0&spin=0" "out/$P-hyg" --wait 1 --fps 0 >/dev/null 2>&1
 rowif "runq leaks no caller globals ($f/$q/$p/$i/$rc)" [ "$f/$q/$p/$i/$rc" = SENTF/SENTQ/SENTP/SENTI/SENTR ]
 # tier T1 runs the same static rules on the index (the pre-commit hook): the tool itself must work, from here too.
-# Its rows are the ones above, so this is a deliberate double run (about 11 s, no selftest); the row counts its own output.
+# Its rows are the ones above, so this is a deliberate double run (no selftest; the shellcheck runs of its static rows are hits in the content cache, see tools/static.sh); the row counts its own output.
 sh tools/quick.sh "$P-q" > "out/$P-quick.txt" 2>&1; qkrc=$?
 qkp=$(grep -c ' PASS$' "out/$P-quick.txt"); qkf=$(grep -c ' FAIL$' "out/$P-quick.txt")
 # Exit 0 and 0 FAIL are not enough: a quick.sh that no longer runs its drop-ins or the denylist rows still exits 0. So the
@@ -115,7 +115,7 @@ for rd in tools/regress.d/*.sh; do
 done
 tm_total
 # The timing file has to name EVERY drop-in that exists (derived from the directory, not typed here) and the total: a lap that
-# went missing shows here. It measures only; nothing is parallelised (the drop-ins share out/).
+# went missing shows here. It measures only; the drop-ins run one after the other (they share out/), while static.sh and mutation-probe.sh run some of their own work side by side.
 tmnames=$(for x in tools/regress.d/*.sh; do [ -f "$x" ] && basename "$x" .sh; done | tr '\n' ' ')
 # shellcheck disable=SC2086   # a word list on purpose
 tml=$(tm_check "out/$P-timing.txt" $tmnames); tmrc=$?
