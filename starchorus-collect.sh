@@ -226,6 +226,21 @@ QDB_RAM=0           # 1 while QDB is a RAM copy this process made (recon_workdon
 RDB_PATH=""         # find_recon_db result kept for the daemon's lifetime (RDB_KEY = the setting it was found for)
 RDB_KEY=""
 HAS_TIME=""         # ssid has a `time` column: 1 yes, 0 no, "" not known yet (read from the first batch)
+RQ_WIN=""           # the alternatives that won in the first batch, " APS1 CLI1 PRB1 " (build_from_recondb; "" = not known: the full batch); dropped with HAS_TIME
+RQ_WINT=""          # the TRAFFIC setting they were learnt under (another one: the full batch again)
+RQ_STEADY=0         # 1 = this cycle issues the reduced batch (rq_add)
+RQ_T=""; RQ_TA=""   # the reduced batch's tail: the numbered alternatives of the groups that have no winner yet, and their names
+RQ_SRC=""; RQ_SECT=""   # sq_section: the batch output as one text, and the rows of the section asked for
+RW_OFF=0            # passes still to go without the temporary table of the window (rwin): it was refused by the database reader (no marker row after its CREATE), the groups read ssid; 0 = use it
+RDB_SCH=""          # the shape of the tables the batch reads (the CREATE texts of ssid, wifi_device and aps), as the pass that learnt RQ_WIN saw it: another one = the file changed shape
+RW_USED=0           # 1 = this cycle's batch read rwin
+CYC_NOW=""          # the cycle's clock (Unix seconds) while run_cycle has the recon.db document built: build_from_recondb cuts the window from it instead of asking `date` again
+RR_N=0; RR_DIR=""; RR_CLS=""; RR_OK=""   # ram_room: cycles since `df` was asked, for which directory and size class, and 1 = the last answer was yes
+FLASH_COPY=1        # 1 = a copy under CAPDIR may exist (one made by this process, or by an earlier collector until the first RAM cycle has looked): the next RAM cycle removes it
+PACE_T0=""; PACE_NOW=""; PACE_MORE=0   # the loop's pace: when this cycle began and the clock (hundredths of a second since boot, "" = not readable), and the seconds slept beyond INTERVAL after the last cycle
+PACE_BT=0           # hundredths of a second this cycle spent in bt_end (bt_end_timed): the Bluetooth window's waiting, which is no load and is taken off the cycle's wall time
+TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0   # the hourly line: when the hour began, the full and the skipped cycles in it, the wall time (hundredths) of the cycles that were timed and their number
+DOC_N=""            # doc_whole: the line count of the document it judged whole (rs_keepdoc keeps it for refresh_generated instead of counting again)
 RS_SIG=""           # recon.db files (size, mtime, journal) at the last full pass; "" = none, so the next cycle rebuilds
 RS_RAW=""           # the same for this cycle, taken once by recon_sample ("" = unknown); the skip test compares it with RS_SIG
 RS_NEW=""           # RS_RAW if the next cycle may skip on it (no journal, not changed in the last 2 s), else ""
@@ -689,7 +704,7 @@ cleanup() {
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
     # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal, an OUI index
     # build, the pineap side files, the RAM copy of recon.db.
-    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" 2>/dev/null
+    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" "${OUI_CACHE:-$CAPDIR/oui-cache.txt}.gat.$$" 2>/dev/null
     # the Bluetooth window's files of this process (the pid file only when no tool is left, bt_end abort decides), the RECON CHANNELS call and its file
     rm -f "$TMPDIR_RAM/starchorus-bt-$$.txt.out" "$TMPDIR_RAM/starchorus-bt-$$.held" "$TMPDIR_RAM/starchorus-bt-$$.new" "$TMPDIR_RAM/starchorus-bt-$$.stat" \
           "$TMPDIR_RAM/starchorus-bt-$$.alog" "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
@@ -821,7 +836,7 @@ bt_kid() {
         bt_nap
     done
 }
-# PID (the monitor's own; may be empty): 0 once it holds a socket (a link of /proc/PID/fd that starts with socket:), or has written a line other
+# PID (the monitor's own; may be empty): 0 once it holds a socket (an entry of /proc/PID/fd that is a socket, `test -S`), or has written a line other
 # than its banner to the window file (the index and note lines come with the socket; the banner "Bluetooth monitor ver 5.72" comes before it: on
 # the device 0.1 s after the start against 0.5 s for the socket, five runs on 18 October 2026, so the banner alone would start the scan with the
 # monitor not yet attached and the scan's parameters unrecorded); polled by the clock for up to BT_T_READY. No socket, no scan: the window is
@@ -831,8 +846,10 @@ bt_ready() {
     while :; do
         if [ -s "$BT_F" ] && grep -q -v '^Bluetooth monitor ver' "$BT_F" 2>/dev/null; then return 0; fi
         if [ -n "$1" ]; then
+            # `test -S` is the shell's own (a builtin): the kernel resolves a /proc descriptor link to the object it names, a socket here. It was a readlink
+            # process per descriptor, three or four descriptors a poll, a poll every 0.2 s
             for br_f in "$BT_PROC/$1"/fd/*; do
-                case $(readlink "$br_f" 2>/dev/null) in socket:*) return 0 ;; esac
+                [ -S "$br_f" ] && return 0
             done
         fi
         bt_tick; [ $((BT_NOW - br_t)) -lt $((BT_T_READY + BT_SLK)) ] || return 1
@@ -1278,8 +1295,25 @@ bt_parse() {
 # $1 = the output of bt_parse. 0 = the window counts (what is odd about it is logged, once per episode); 1 = it is void, BT_VOID says why.
 bt_judge() {
     BT_VOID=""
-    bj_w=$(sed -n '/^W/p' "$1" 2>/dev/null | head -n 1)
-    bj_f=$(sed -n '/^F/p' "$1" 2>/dev/null | head -n 1)
+    # The first W line and the first F line of the output (the B lines come first, W after them, F after W), read with builtins: it was two sed | head pipelines,
+    # four processes. A shell reads about 0.2 ms a line, so it reads at most 64 lines for them (a quiet window has some dozens of addresses); an output longer than
+    # that, a crowded hall, has them found by the two pipelines as before, which cost the same however long the output is.
+    bj_w=""; bj_f=""; bj_n=0
+    {
+        while IFS= read -r bj_l || [ -n "$bj_l" ]; do
+            case $bj_l in
+                W*) [ -n "$bj_w" ] || bj_w=$bj_l ;;
+                F*) [ -n "$bj_f" ] || bj_f=$bj_l ;;
+            esac
+            bj_n=$((bj_n + 1))
+            [ -z "$bj_w" ] || [ -z "$bj_f" ] || break
+            [ "$bj_n" -le 64 ] || [ -n "$bj_w" ] || break
+        done < "$1"
+    } 2>/dev/null
+    if [ -z "$bj_w" ] && [ "$bj_n" -gt 64 ]; then
+        bj_w=$(sed -n '/^W/p' "$1" 2>/dev/null | head -n 1)
+        bj_f=$(sed -n '/^F/p' "$1" 2>/dev/null | head -n 1)
+    fi
     IFS=$RECON_TAB read -r _ bj_pa bj_ac bj_en bj_di bj_sr bj_su bj_bd <<EOF
 $bj_w
 EOF
@@ -1514,10 +1548,10 @@ run_layers() {
     rl_m=0
     if [ "$BLUETOOTH" = 1 ]; then
         case $BT_RC in
-            0) bt_end
+            0) bt_end_timed
                if [ -z "$BT_VOID" ]; then rl_m=1; else rl_m=2; fi ;;
             5) bt_issue overlap "Bluetooth: another collector's window is running; this one skipped"; rl_m=2 ;;
-            6) bt_end; bt_issue monitor "Bluetooth: the monitor did not start in time; no scan this cycle"; rl_m=2 ;;
+            6) bt_end_timed; bt_issue monitor "Bluetooth: the monitor did not start in time; no scan this cycle"; rl_m=2 ;;
             *) bt_issue nocontroller "Bluetooth: no controller (hci0), or a scan tool or timeout is missing; Bluetooth stays off"; BT_HELD="" ;;
         esac
     fi
@@ -2078,13 +2112,13 @@ cache_append() {
 # sweep_stale_workcopies) remove what a previous collector left behind when it died hard (kill -9, power loss), ONLY where the owner
 # pid embedded in the name is not a live collector (holder_alive): a crond `--once` may be running right now, and kill_loops leaves
 # it alone on purpose. Not for --once.
-# This one sweeps the cache's temp files (.new.<pid>.XXXXXX / .fix.<pid>), an index build and the lock. The lock goes when its pid is
+# This one sweeps the cache's temp files (.new.<pid>.XXXXXX / .fix.<pid> / .gat.<pid>, the last being the gathering file of run_cycle's pass: add_vendor), an index build and the lock. The lock goes when its pid is
 # no live collector either (holder_alive decides, see above): left in place it would cost every cycle the whole lock budget and the
 # cache would never be written again. A pid-less lock is left to cache_lock's 3-s grace.
 sweep_stale_cache_files() {
-    for f in "$CAPDIR"/oui-cache.txt.new.* "$CAPDIR"/oui-cache.txt.fix.*; do
+    for f in "$CAPDIR"/oui-cache.txt.new.* "$CAPDIR"/oui-cache.txt.fix.* "$CAPDIR"/oui-cache.txt.gat.*; do
         [ -e "$f" ] || continue
-        p=${f##*.new.}; p=${p##*.fix.}; p=${p%%.*}
+        p=${f##*.new.}; p=${p##*.fix.}; p=${p##*.gat.}; p=${p%%.*}
         holder_alive "$p" || rm -f "$f" 2>/dev/null
     done
     for f in "$CAPDIR"/oui-index.new.*; do       # an index build that died with its collector
@@ -2123,10 +2157,17 @@ sweep_stale_tmp() {
 # merging them here -- run_cycle publishes the JSON FIRST and merges afterwards, so a contended
 # cache lock (up to LOCK_BUDGET) delays the cache, never the visualisation.
 add_vendor() {
-    newf=""; VENDOR_NEWF=""; term=0
+    newf=""; VENDOR_NEWF=""; term=0; newf_fix=0
     if [ -n "$OUI_CACHE" ]; then
         # the temp name carries OUR pid: the daemon's start-up sweep removes only files of dead pids
-        newf=$(mktemp "$OUI_CACHE.new.$$.XXXXXX" 2>/dev/null) || newf="$OUI_CACHE.new.$$.0"
+        if [ "$1" = "defer" ] && [ ! -s "$OUI_CACHE.gat.$$" ]; then
+            # run_cycle's pass (one at a time in this shell): a name that stays, emptied by the redirect below each cycle and removed by cleanup, in place of a mktemp
+            # and a rm for the file that nearly always stays empty (a new prefix is the exception). A pass that has left lines there unmerged is not touched: this one takes
+            # a mktemp name, as every pass without "defer" does (two instances played in one shell by the self-test, a second add_vendor in the background).
+            newf="$OUI_CACHE.gat.$$"; newf_fix=1
+        else
+            newf=$(mktemp "$OUI_CACHE.new.$$.XXXXXX" 2>/dev/null) || newf="$OUI_CACHE.new.$$.0"
+        fi
         if printf '' > "$newf" 2>/dev/null; then VENDOR_NEWF=$newf; else newf=""; fi
         if cache_terminated; then term=1      # tells the loader whether the cache's last line is whole
         else cache_repair; cache_terminated && term=1; fi
@@ -2136,7 +2177,10 @@ add_vendor() {
     # Merge only after a clean pass: with rc != 0 (ENOSPC on /tmp, awk killed) the temp file may
     # hold a cut-off line -- and run_cycle discards that JSON anyway.
     if [ "$arc" != "0" ] || [ ! -s "$newf" ]; then
-        [ -n "$newf" ] && rm -f "$newf" 2>/dev/null
+        if [ -z "$newf" ]; then :
+        elif [ "$newf_fix" != 1 ]; then rm -f "$newf" 2>/dev/null
+        elif [ "$arc" != "0" ]; then { : > "$newf"; } 2>/dev/null      # (the name stays; what a failed pass left in it must not be merged by anybody)
+        fi
         VENDOR_NEWF=""
     elif [ "$1" != "defer" ]; then
         vendor_merge
@@ -2396,50 +2440,136 @@ recondb_query() {
 recondb_failed() {
     RQ_WHY=""
     [ -n "$RQ_ERRF" ] && [ -s "$RQ_ERRF" ] || return 1
-    RQ_WHY=$(awk '
-        /[Mm]alformed/ { m = 1 }
-        /disk I\/O/ { d = 1 }
-        /not a database/ { n = 1 }
-        /^#starchorus-exit [0-9]+$/ { x = $2 + 0 }
-        END { if (m) print "malformed"; else if (d) print "diskio"; else if (n) print "notdb"; else if (x >= 2) print "status " x }' "$RQ_ERRF" 2>/dev/null)
-    case $RQ_WHY in
-        malformed) RQ_WHY="the copy is malformed" ;;
-        diskio) RQ_WHY="disk I/O error" ;;
-        notdb) RQ_WHY="the copy is not a database" ;;
-        status*) RQ_WHY="the database reader ended with $RQ_WHY" ;;
-    esac
+    # Read with builtins, no process (it was an awk): the same words as before, the last "#starchorus-exit N" line wins.
+    rf_m=0; rf_d=0; rf_n=0; rf_x=0
+    {
+        while IFS= read -r rf_l || [ -n "$rf_l" ]; do
+            case $rf_l in
+                '#starchorus-exit '*)
+                    rf_v=${rf_l#'#starchorus-exit '}
+                    case $rf_v in
+                        ''|*[!0-9]*) ;;
+                        *) while [ "${#rf_v}" -gt 1 ] && [ "${rf_v#0}" != "$rf_v" ]; do rf_v=${rf_v#0}; done
+                           if [ "${#rf_v}" -gt 6 ]; then rf_x=999999; else rf_x=$rf_v; fi ;;
+                    esac ;;
+            esac
+            case $rf_l in *[Mm]alformed*) rf_m=1 ;; esac
+            case $rf_l in *'disk I/O'*) rf_d=1 ;; esac
+            case $rf_l in *'not a database'*) rf_n=1 ;; esac
+        done < "$RQ_ERRF"
+    } 2>/dev/null
+    if [ "$rf_m" = 1 ]; then RQ_WHY="the copy is malformed"
+    elif [ "$rf_d" = 1 ]; then RQ_WHY="disk I/O error"
+    elif [ "$rf_n" = 1 ]; then RQ_WHY="the copy is not a database"
+    elif [ "$rf_x" -ge 2 ] 2>/dev/null; then RQ_WHY="the database reader ended with status $rf_x"
+    fi
     [ -n "$RQ_WHY" ]
 }
 # Add one alternative to the batch RQ: a marker row naming it, then the statement. The marker is `#STARCHORUS_<GROUP><n>#`; recondb_pick
 # keeps, per GROUP, the first alternative that produced rows.
+# Once the schema is known (RQ_STEADY=1, see build_from_recondb) the batch is the reduced one: HASTIME is not asked again; of a group with alternatives
+# (APS, CLI, PRB, RESP) the one that won is issued under the marker the final awk reads (no recondb_pick pass); a group that has no winner yet (it
+# gave no row so far: no station heard, no responder) keeps all its alternatives, numbered, in a tail (RQ_T) that sits at the START of the batch (behind the sections the shell
+# reads, before the groups: see sq_section for why), between #STARCHORUS_TAIL# and #STARCHORUS_TAILEND#. A tail with no row in it, the usual state, is cut out and
+# forgotten (rq_tail); one with a row means that the first non-empty alternative of a group may be another one now, and the pass is asked again as a first batch, which
+# is the rule of recondb_pick. The other alternatives of a group WITH a winner stay in the tail as well, as questions of one row at most, so that the rule holds for them too:
+# one that comes before the winner, "has it rows?" (it would win); one that comes after it, "has it rows while the winner has none?" (it would win then). A later one that
+# reads the same rows by the same clauses as the winner (CLI1 behind CLI0: only the columns differ) has rows exactly when the winner has, and is left out. On the device's
+# schema the others name a table or a column that is not there and fail when they are prepared, before anything is read; on a file where they are valid they cost a read each.
 rq_add() {   # $1 = GROUP+n, $2 = the statement without its `;`
+    if [ "$RQ_STEADY" = 1 ]; then
+        case $1 in
+            HASTIME) return 0 ;;
+            APS[0-9]|CLI[0-9]|PRB[0-9]|RESP[0-9])
+                rq_g=${1%[0-9]}
+                case $RQ_WIN in
+                    *" $1 "*)
+                        case $rq_g in CLI) rq_f=CLIENTS; RQ_WCLI=$2 ;; PRB) rq_f=PROBES; RQ_WPRB=$2 ;; APS) rq_f=APS; RQ_WAPS=$2 ;; *) rq_f=$rq_g; RQ_WRESP=$2 ;; esac
+                        RQ="$RQ
+SELECT '#STARCHORUS_$rq_f#';
+$2;"
+                        return 0 ;;
+                    *" $rq_g"[0-9]" "*)        # another alternative of the group won: asked in the tail whether it would win now
+                        case $rq_g in CLI) rq_w=$RQ_WCLI ;; PRB) rq_w=$RQ_WPRB ;; APS) rq_w=$RQ_WAPS ;; *) rq_w=$RQ_WRESP ;; esac
+                        if [ -z "$rq_w" ]; then rq_q="SELECT 1 WHERE EXISTS ($2)"      # before the winner
+                        elif [ "${2#* FROM }" = "${rq_w#* FROM }" ]; then return 0      # behind it, with the winner's rows
+                        else rq_q="SELECT 1 WHERE EXISTS ($2) AND NOT EXISTS ($rq_w)"; fi
+                        RQ_T="$RQ_T
+SELECT '#STARCHORUS_$1#';
+$rq_q;"
+                        RQ_TA="$RQ_TA$1 "
+                        return 0 ;;
+                esac
+                RQ_T="$RQ_T
+SELECT '#STARCHORUS_$1#';
+$2;"
+                RQ_TA="$RQ_TA$1 "
+                return 0 ;;
+        esac
+    fi
     RQ="$RQ
 SELECT '#STARCHORUS_$1#';
 $2;"
 }
 # stdin = the batch output (control bytes already removed); stdout = per GROUP the rows of its first non-empty alternative, under the
-# marker the final awk reads: APS -> #STARCHORUS_APS#, CLI -> CLIENTS, PRB -> PROBES, RESP, plus HOP, HASTIME and WMIN for the shell. Streams: the
+# marker the final awk reads: APS -> #STARCHORUS_APS#, CLI -> CLIENTS, PRB -> PROBES, RESP, plus HOP, HASTIME, WMIN and SCHEMA for the shell. Streams: the
 # first row of an alternative claims its group, rows of the other alternatives of that group are dropped. A marker is a whole line of its own;
 # no row can start like one (the first column of every query is a MAC, a frequency or a number).
+# With $1 = own the output ends with a section #STARCHORUS_OWN# whose one row names the alternative that won per group (APS1 CLI1 PRB1 ...): build_from_recondb
+# keeps it, and asks only for those alternatives from the next cycle on.
 recondb_pick() {
-    awk '
-        BEGIN { OUT["APS"]="APS"; OUT["CLI"]="CLIENTS"; OUT["PRB"]="PROBES"; OUT["RESP"]="RESP"; OUT["HOP"]="HOP"; OUT["HASTIME"]="HASTIME"; OUT["WMIN"]="WMIN" }
+    awk -v own="$1" '
+        BEGIN { OUT["APS"]="APS"; OUT["CLI"]="CLIENTS"; OUT["PRB"]="PROBES"; OUT["RESP"]="RESP"; OUT["HOP"]="HOP"; OUT["HASTIME"]="HASTIME"; OUT["WMIN"]="WMIN"; OUT["SCHEMA"]="SCHEMA" }
+        $0 == "#STARCHORUS_RWOK#" { print; next }      # the marker row of the window table (a row of its own, nothing under it): passed on as it is
         /^#STARCHORUS_[A-Z]+[0-9]*#$/ { sec=substr($0, 13, length($0) - 13); grp=sec; sub(/[0-9]+$/, "", grp); next }
         /^[ \t]*$/ { next }
         grp == "" || !(grp in OUT) { next }
         { if (!(grp in owner)) { owner[grp]=sec; printf "#STARCHORUS_%s#\n", OUT[grp] }
-          if (owner[grp] == sec) print }'
+          if (owner[grp] == sec) print }
+        END { if (own == "own") { n = split("APS CLI PRB RESP", gl, " "); w = ""
+                for (i = 1; i <= n; i++) if (gl[i] in owner) w = w (w == "" ? "" : " ") owner[gl[i]]
+                if (w != "") printf "#STARCHORUS_OWN#\n%s\n", w } }'
 }
-# stdin = recondb_pick output; stdout = the rows of section $1 (HOP, HASTIME, WMIN)
-recondb_section() {
-    awk -v s="#STARCHORUS_$1#" '$0 == s { m=1; next } /^#STARCHORUS_[A-Z]+#$/ { m=0 } m'
+# The rows of the section NAME of $RQ_SRC (the batch output as one text that starts and ends with a newline): the lines after the marker line
+# #STARCHORUS_NAME# up to the next marker line. Sets RQ_SECT; returns 1 when the section is not there. Builtins only (parameter expansion).
+# A marker is a whole line: no field of any row holds a line feed (the SQL turns them into spaces) or starts a line with #STARCHORUS_.
+# $2 = end: the marker is the last one of the text (OWN, which recondb_pick writes behind everything), else it is near the start (SCHEMA, HASTIME, WMIN, HOP, APS: the batch asks for
+# them first, ahead of the long groups). The shell finds a marker by trying the lengths of prefix one after the other, each try costing the length it tries, so a marker that is far from the
+# end it is searched from takes the square of the distance (a 34 KB text: seconds in dash on a fast machine, more in BusyBox ash; the 2 MB of STARCHORUS_MAX_AGE=0: for ever): `#*` counts from the
+# start, `##*` from the end. Whatever the shell reads therefore sits within a few hundred bytes of the start (HOP: a row per frequency), and OWN, read once on the first pass, at the end.
+sq_section() {
+    RQ_SECT=""; sq_m="$NL#STARCHORUS_$1#$NL"
+    case $RQ_SRC in *"$sq_m"*) ;; *) return 1 ;; esac
+    if [ "$2" = end ]; then sq_r=$NL${RQ_SRC##*"$sq_m"}; else sq_r=$NL${RQ_SRC#*"$sq_m"}; fi
+    case $sq_r in
+        *"$NL#STARCHORUS_"*) sq_r=${sq_r%%"$NL#STARCHORUS_"*} ;;
+        *) sq_r=${sq_r%"$NL"} ;;
+    esac
+    RQ_SECT=${sq_r#"$NL"}
+    return 0
+}
+# The tail of the reduced batch (the numbered alternatives of the groups that have no winner yet, see rq_add): cut out of $pick, behind the sections the shell reads and before the
+# groups. Status 0: nothing in it (the usual state, a few marker lines) or no tail to look at; 1: a row came out of it, so the first non-empty alternative of a group may have
+# changed and the pass has to be asked again as a first batch, which learns the winner by recondb_pick's rule (the first non-empty alternative). Every cut is a `%%` that begins with
+# a literal (linear) or a `#*` over the start of the text (the sections before the tail, a few hundred bytes), never a search in the text of the groups: with STARCHORUS_MAX_AGE=0 that
+# text is 2 MB. The row test comes before the one `#*` that reaches past the tail: a tail WITH rows (a thousand stations heard at once while CLI has no winner) returns at once.
+rq_tail() {
+    [ -n "$RQ_TA" ] || return 0
+    sq_t=${pick%%"$NL#STARCHORUS_TAILEND#"*}
+    [ "$sq_t" != "$pick" ] || return 0      # (the pass ended before the tail's end: nothing to take)
+    case $sq_t in *"#STARCHORUS_TAIL#"*) ;; *) return 0 ;; esac
+    sq_h=${sq_t%%"#STARCHORUS_TAIL#"*}; sq_h=${sq_h%"$NL"}
+    sq_t=${sq_t#*"#STARCHORUS_TAIL#"}
+    case $sq_t in *"$NL"[!#]*) return 1 ;; esac      # a row: tested BEFORE the cut below, which counts from the start and would cost the square of the tail's rows
+    pick="$sq_h${pick#*"$NL#STARCHORUS_TAILEND#"}"
+    return 0
 }
 
 # recon.db is found once and remembered (the bounded `find` for a non-standard place is not repeated every cycle). Sets RDB_PATH.
 recon_db_path() {
     if [ -n "$RDB_PATH" ] && [ "$RDB_KEY" = "$RECON_DB" ] && [ -r "$RDB_PATH" ]; then return 0; fi
     RDB_PATH=$(find_recon_db) || { RDB_PATH=""; return 1; }
-    RDB_KEY=$RECON_DB; HAS_TIME=""      # another file: its schema is learnt afresh
+    RDB_KEY=$RECON_DB; HAS_TIME=""; RQ_WIN=""; RDB_SCH=""; RW_OFF=0; RR_OK=""      # another file: its schema is learnt afresh, and the room for its copy is looked at again
 }
 
 # Size and modification time of files WITHOUT reading them: one `ls -lnL --full-time` (BusyBox and GNU; the device has no `stat`). The line carries
@@ -2510,12 +2640,20 @@ recon_sample() {   # $1 = now (Unix seconds)
 
 # Is there room in directory $1 for a copy of $2 bytes? Needs the copy, half as much again for the temporary files sqlite makes for
 # GROUP BY, and 2 MB over. Unknown (no df, odd output) counts as yes: the cp itself is then the test.
+# `df` is a process and a sub-shell, and the need follows only the size of the database, so a yes is kept: it stands for the next 19 cycles of the same directory
+# and size class (the need in whole MiB), and is asked again at once when the directory or the class changes, after a no (so that the return to RAM is not
+# delayed), when the database file changes (recon_db_path) and after a RAM copy that failed (recon_workcopy). A yes that has gone stale costs one cp that
+# fails on a full tmpfs, which recon_workcopy answers with the flash copy and removes the cut one: the pre-check only spares the tmpfs the attempt.
 ram_room() {
     rr_need=$(( ($2 + 1023) / 1024 ))
     rr_need=$(( rr_need + rr_need / 2 + 2048 ))
+    rr_cls=$(( rr_need / 1024 ))
+    if [ "$RR_OK" = 1 ] && [ "$RR_DIR" = "$1" ] && [ "$RR_CLS" = "$rr_cls" ] && [ "$RR_N" -lt 19 ]; then RR_N=$((RR_N + 1)); return 0; fi
+    RR_OK=""; RR_N=0; RR_DIR=$1; RR_CLS=$rr_cls
     rr_av=$(df -Pk "$1" 2>/dev/null | { read -r _; read -r _ _ _ rr_a _; printf '%s' "$rr_a"; })
     case $rr_av in ''|*[!0-9]*) return 0 ;; esac
-    [ "$rr_av" -ge "$rr_need" ]
+    [ "$rr_av" -ge "$rr_need" ] || return 1
+    RR_OK=1
 }
 
 # Copy-before-query: never lock the live DB the recon engine writes to (its journal_mode is `delete`, so a long read would hold a
@@ -2535,11 +2673,16 @@ recon_workcopy() {
     cw_dst="$TMPDIR_RAM/starchorus-recon-$$.db"
     if [ -d "$TMPDIR_RAM" ] && [ -w "$TMPDIR_RAM" ] && ram_room "$TMPDIR_RAM" "$cw_sz" && recon_copy_to "$1" "$cw_dst" && recon_copy_settle "$1" "$cw_dst" "$3"; then
         QDB=$cw_dst; QDB_RAM=1
-        # a flash copy under CAPDIR is stale once the RAM copy is in use: remove it (3.5 MB of eMMC)
-        rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm" 2>/dev/null
+        # a flash copy under CAPDIR is stale once the RAM copy is in use: remove it (3.5 MB of eMMC), once: a cycle that may have made one (FLASH_COPY)
+        # asks, and so does one that finds a copy another collector left (the test is a builtin, no process; the rm runs only when there is one)
+        if [ "$FLASH_COPY" = 1 ] || [ -e "$CAPDIR/recon_copy.db" ]; then
+            rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm" 2>/dev/null
+            FLASH_COPY=0
+        fi
         return 0
     fi
     rm -f "$cw_dst" "$cw_dst-wal" "$cw_dst-shm" 2>/dev/null     # a copy cut short by a full tmpfs
+    RR_OK=""; FLASH_COPY=1      # the room is looked at again next cycle; a copy under CAPDIR may be made now
     mkdir -p "$CAPDIR" 2>/dev/null
     if recon_copy_to "$1" "$CAPDIR/recon_copy.db" && recon_copy_settle "$1" "$CAPDIR/recon_copy.db" "$3"; then
         QDB="$CAPDIR/recon_copy.db"
@@ -2571,10 +2714,11 @@ recon_copy_settle() {
     RQ_TORN=1   # run_cycle says so (this runs inside the builder, whose stderr is dropped)
     return 0
 }
-recon_workdone() {   # the RAM copy is not needed between cycles: free it
-    if [ "$QDB_RAM" = 1 ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" 2>/dev/null; fi
-    QDB_RAM=0
-    if [ -n "$RQ_ERRF" ]; then rm -f "$RQ_ERRF" 2>/dev/null; RQ_ERRF=""; fi
+recon_workdone() {   # the RAM copy is not needed between cycles: free it (and the file of the batch's errors), with one rm
+    if [ "$QDB_RAM" = 1 ] && [ -n "$RQ_ERRF" ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" "$RQ_ERRF" 2>/dev/null
+    elif [ "$QDB_RAM" = 1 ]; then rm -f "$QDB" "$QDB-wal" "$QDB-shm" 2>/dev/null
+    elif [ -n "$RQ_ERRF" ]; then rm -f "$RQ_ERRF" 2>/dev/null; fi
+    QDB_RAM=0; RQ_ERRF=""
 }
 # The RAM copies of recon.db (rule: see sweep_stale_cache_files), and the files of a Bluetooth window or a RECON CHANNELS call of a collector that is
 # gone (starchorus-bt-<pid>.*, starchorus-traffic-<pid>.json; the .pid files are bt_sweep's: they say which tool to stop, and go with it).
@@ -2687,13 +2831,14 @@ recon_enc_sql() {
     ENC5="($ENC_GRP), ($ENC_PW), ($ENC_AKM), ($ENC_AUTH)"
 }
 
-# awk body of the recon.db document: stdin = recondb_pick output (APS, CLIENTS, PROBES, RESP sections), SC_CH = the channels[] text or "". Needs
+# awk body of the recon.db document: stdin = recondb_pick output or the reduced batch's output (APS, CLIENTS, PROBES, RESP sections), SC_CH = the channels[] text or "". Needs
 # AWK_JSON_HELPERS and AWK_SEC prepended.
 # shellcheck disable=SC2016  # awk program text, deliberately not expanded
 AWK_RECONDB='
         BEGIN{ FS=FSU; mode=""; nap=0; nun=0; sec_init()
             MK["#STARCHORUS_APS#"]="ap"; MK["#STARCHORUS_CLIENTS#"]="cli"; MK["#STARCHORUS_PROBES#"]="prb"; MK["#STARCHORUS_RESP#"]="resp"
-            MK["#STARCHORUS_HOP#"]="skip"; MK["#STARCHORUS_HASTIME#"]="skip" }      # skip: rows the shell read itself (recondb_section)
+            MK["#STARCHORUS_HOP#"]="skip"; MK["#STARCHORUS_HASTIME#"]="skip"; MK["#STARCHORUS_WMIN#"]="skip"; MK["#STARCHORUS_OWN#"]="skip"
+            MK["#STARCHORUS_SCHEMA#"]="skip"; MK["#STARCHORUS_RWOK#"]="skip"; MK["#STARCHORUS_TAIL#"]="skip"; MK["#STARCHORUS_TAILEND#"]="skip" }      # skip: rows the shell read itself (sq_section)
         ($0 in MK)          { mode=MK[$0]; next }
         /^[ \t]*$/          { next }
         mode=="prb" {
@@ -2777,7 +2922,7 @@ build_from_recondb() {
     # filter) when the window is off or unusable.
     AGE=""; AGE_S=""
     if [ "$MAX_AGE" -gt 0 ] 2>/dev/null; then
-        now=$(date +%s 2>/dev/null)
+        now=$CYC_NOW; case $now in ''|*[!0-9]*|0) now=$(date +%s 2>/dev/null) ;; esac      # run_cycle's clock where it ran this (no process), else the clock
         if [ -n "$now" ] && [ "$now" -gt "$MAX_AGE" ] 2>/dev/null; then
             cut=$((now - MAX_AGE))
             AGE="AND time > $cut"
@@ -2796,15 +2941,54 @@ build_from_recondb() {
     # Everything below goes into ONE batch (RQ) for ONE sqlite3 process; recondb_pick keeps the first non-empty alternative per group. On a
     # firmware whose ssid table has a `time` column (HAS_TIME=1, learned from the first batch) the no-`time` alternatives are left out: they
     # would run the same scan a second time.
-    RQ="PRAGMA mmap_size=134217728;"      # (its one output row, before the first marker, is dropped by recondb_pick; no mmap support: nothing happens)
+    # The first batch (HAS_TIME not known) asks everything, in the order below, and learns three things: HAS_TIME, the alternative that won per group (RQ_WIN,
+    # from recondb_pick) and, below, whether the window can be cut out once. From the second cycle on the batch is the reduced one (rq_add): HASTIME is not asked,
+    # a group with a winner asks that alternative under the final marker, and no recondb_pick pass runs. A group that has no winner yet keeps all its alternatives, and the other
+    # alternatives of a group with a winner are asked whether they would win now (rq_add, rq_tail: in a tail at the start of the batch; a row there asks the pass again as a first batch). The winners are dropped with HAS_TIME: another file (recon_db_path), a failed pass, a pass that found no access point (the schema may have changed).
+    RQ="PRAGMA mmap_size=134217728;"      # (its one output row, before the first marker, is dropped by recondb_pick and ignored by the final awk, which has no section yet; no mmap support: nothing happens)
+    RQ_T=""; RQ_TA=""; RQ_H=""; RQ_STEADY=0; RW_USED=0; SST=ssid; RQ_WAPS=""; RQ_WCLI=""; RQ_WPRB=""; RQ_WRESP=""
+    case $RQ_WIN in *" APS"[0-9]" "*) [ -z "$HAS_TIME" ] || [ "$RQ_WINT" != "$TRAFFIC" ] || RQ_STEADY=1 ;; esac
+    [ -n "$HAS_TIME" ] || RQ_WIN=""
+    # The window, cut out ONCE: with a window and a `time` column every group below reads the rows of the window (type 4, 5 and 8, about a thousand of the 22,000 on
+    # the device) from a temporary table instead of scanning ssid (no index on `time`) six times. The table lives in the connection's temporary store, not in the
+    # file: the copy stays a read-only copy (sqlite3 -readonly). The rows are copied in the order the scan meets them, which is what the groups' bare columns
+    # (beside MAX(signal)) are decided by. The first batch, a schema without `time` and STARCHORUS_MAX_AGE=0 keep the statements on ssid. HOP stays on ssid (it asks for the
+    # history of a frequency, with no window).
+    # The table is judged by its own CREATE: the row that follows it (#STARCHORUS_RWOK#, written only where the table is in the connection's temporary schema) is
+    # there or it is not; no other error of the pass says anything about it (a tail alternative that fails prints the statement it ran, rwin and all). Refused: RW_OFF
+    # passes without it, and this pass is asked again at once on ssid (below).
+    if [ "$HAS_TIME" = 1 ] && [ -n "$AGE" ]; then
+        if [ "$RW_OFF" -gt 0 ] 2>/dev/null; then RW_OFF=$((RW_OFF - 1))
+        else
+            SST=rwin; RW_USED=1
+            RQ="$RQ
+PRAGMA temp_store=MEMORY;
+CREATE TEMP TABLE rwin AS SELECT * FROM ssid WHERE time > $cut AND type IN (4,5,8);
+SELECT '#STARCHORUS_RWOK#' FROM sqlite_temp_master WHERE name='rwin';"
+        fi
+    fi
+    # The shape of the tables this batch reads, in every pass: the winners are valid for the shape they were learnt under (RDB_SCH); a pass that sees another one asks again, as a first batch.
+    rq_add SCHEMA "SELECT group_concat(s, ' ; ') FROM (SELECT replace(replace(replace(sql,char(10),' '),char(13),' '),char(9),' ') AS s FROM sqlite_master WHERE name IN ('ssid','wifi_device','aps') ORDER BY name)"
     rq_add HASTIME "SELECT COUNT(*) FROM pragma_table_info('ssid') WHERE name='time'"
+    # --- the oldest row the window counts (STARCHORUS_MAX_AGE): the clock of the skip test. Rows leave the window one at a time, long before the
+    # entry they belong to does (an AP's strong old beacon, a station's old probe), and the document changes when they do. Nothing to ask without a
+    # window, and none where `time` does not exist (the statement then fails and the skip test never skips). It comes FIRST, so that the shell finds its
+    # section at the start of the output (sq_section).
+    RS_WMIN=""
+    [ -z "$AGE" ] || rq_add WMIN "SELECT MIN(time) FROM $SST WHERE type IN (4,5,8) $AGE"
+    # --- hop awareness (HOPINFO): the last time anything was heard per frequency, from ssid whatever the window. Next to WMIN, at the start of the output, because the shell
+    # reads it from there (sq_section: a section far from the start it is searched from costs the square of the distance, and the stations behind it are 2 MB at MAX_AGE=0).
+    if [ "$HOPINFO" = "1" ]; then
+        rq_add HOP "SELECT freq, MAX(time) FROM ssid WHERE freq IS NOT NULL AND freq>0 AND time IS NOT NULL AND time>0 GROUP BY freq ORDER BY freq"
+    fi
+    RQ_H=$RQ; RQ=""      # what the shell reads from the start of the output (and the table of the window) ends here; the tail, if any, comes next
     # "hidden" is decided per BSSID by its NEWEST beacon row, not by the strongest row of either kind: h8 = time*2 + hidden of the newest type-8 row (the low bit is
     # the flag), so a hidden network that also answers probes does not flip to named when a probe response is the strongest row, and a network that stops hiding
     # reaches the document as soon as its newest beacon says so. It is the second aggregate of the derived table that already carries MAX(time): no further scan, no
     # bare column. No type-8 row at all (h8 NULL): the row's own flag, as in 0.1. The older schemas below keep the per-row rule.
-    rq_add APS1 "SELECT s.bssid, $SSD, IFNULL(s.freq,''), '', IFNULL(s.channel,''), MAX(s.signal), ($ENC), CASE WHEN t.h8 IS NULL THEN IFNULL(s.hidden,0) ELSE t.h8 % 2 END, IFNULL(t.last,''), $ENC5 FROM ssid s JOIN (SELECT bssid, MAX(time) AS last, MAX(CASE WHEN type=8 THEN time*2 + (IFNULL(hidden,0)=1) END) AS h8 FROM ssid WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid) t ON t.bssid=s.bssid WHERE s.type IN (5,8) $AGE_S GROUP BY s.bssid"
+    rq_add APS1 "SELECT s.bssid, $SSD, IFNULL(s.freq,''), '', IFNULL(s.channel,''), MAX(s.signal), ($ENC), CASE WHEN t.h8 IS NULL THEN IFNULL(s.hidden,0) ELSE t.h8 % 2 END, IFNULL(t.last,''), $ENC5 FROM $SST s JOIN (SELECT bssid, MAX(time) AS last, MAX(CASE WHEN type=8 THEN time*2 + (IFNULL(hidden,0)=1) END) AS h8 FROM $SST WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid) t ON t.bssid=s.bssid WHERE s.type IN (5,8) $AGE_S GROUP BY s.bssid"
     [ "$HAS_TIME" = 1 ] || rq_add APS2 "SELECT bssid, $SSD, IFNULL(freq,''), '', IFNULL(channel,''), MAX(signal), ($ENC), IFNULL(hidden,0), '', $ENC5 FROM ssid WHERE bssid IS NOT NULL AND bssid<>'' AND type IN (5,8) $AGE GROUP BY bssid"
-    rq_add APS3 "SELECT apmac, $SSD, IFNULL(freq,''), IFNULL(band,''), '', MAX(signal), ($ENC), IFNULL(hidden,0), '', $ENC5 FROM ssid WHERE apmac IS NOT NULL AND apmac<>'' AND type IN (5,8) $AGE GROUP BY apmac"
+    rq_add APS3 "SELECT apmac, $SSD, IFNULL(freq,''), IFNULL(band,''), '', MAX(signal), ($ENC), IFNULL(hidden,0), '', $ENC5 FROM $SST WHERE apmac IS NOT NULL AND apmac<>'' AND type IN (5,8) $AGE GROUP BY apmac"
     rq_add APS4 "SELECT bssid, $APSSD, '', '', IFNULL(channel,''), signal, encryption, 0, '', '', '', '', '' FROM aps"
     rq_add APS5 "SELECT bssid, $APSSD, '', '', IFNULL(channel,''), signal, privacy, 0, '', '', '', '', '' FROM aps"
     rq_add APS6 "SELECT bssid, $APSSD, '', '', IFNULL(channel,''), rssi, encryption, 0, '', '', '', '', '' FROM aps"
@@ -2818,51 +3002,73 @@ build_from_recondb() {
     # aggregate is safe.
     if [ "$TRAFFIC" = "1" ]; then
         pk_now=$1; case $pk_now in ''|*[!0-9]*) pk_now=0 ;; esac
-        rq_add CLI0 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),''), IFNULL(MAX(CASE WHEN w.time > $((pk_now - 300)) THEN w.packets END),'') FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
+        rq_add CLI0 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),''), IFNULL(MAX(CASE WHEN w.time > $((pk_now - 300)) THEN w.packets END),'') FROM $SST s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
     fi
-    rq_add CLI1 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),'') FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
+    rq_add CLI1 "SELECT w.mac, MAX(s.signal), IFNULL(MAX(s.time),'') FROM $SST s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
     [ "$HAS_TIME" = 1 ] || rq_add CLI2 "SELECT w.mac, MAX(s.signal), '' FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' $AGE_S GROUP BY w.mac"
-    rq_add CLI3 "SELECT stamac, MAX(signal), '' FROM ssid WHERE type=4 AND stamac IS NOT NULL AND stamac<>'' $AGE GROUP BY stamac"
+    rq_add CLI3 "SELECT stamac, MAX(signal), '' FROM $SST WHERE type=4 AND stamac IS NOT NULL AND stamac<>'' $AGE GROUP BY stamac"
 
     # --- probed SSIDs (optional "probes"): the network a station's probe request names -- received,
     # never sent. 2 cols: mac, ssid; one row per distinct pair, sorted (deterministic output).
     # Wildcard probes (empty SSID) skipped.
-    rq_add PRB1 "SELECT w.mac, $SSD FROM ssid s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' AND s.ssid IS NOT NULL AND CAST(s.ssid AS TEXT)<>'' $AGE_S GROUP BY w.mac, 2 ORDER BY w.mac, 2"
-    rq_add PRB2 "SELECT stamac, $SSD FROM ssid WHERE type=4 AND stamac IS NOT NULL AND stamac<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY stamac, 2 ORDER BY stamac, 2"
-
-    if [ "$HOPINFO" = "1" ]; then
-        rq_add HOP "SELECT freq, MAX(time) FROM ssid WHERE freq IS NOT NULL AND freq>0 AND time IS NOT NULL AND time>0 GROUP BY freq ORDER BY freq"
-    fi
+    rq_add PRB1 "SELECT w.mac, $SSD FROM $SST s JOIN wifi_device w ON s.wifi_device=w.hash WHERE s.type=4 AND w.mac IS NOT NULL AND w.mac<>'' AND s.ssid IS NOT NULL AND CAST(s.ssid AS TEXT)<>'' $AGE_S GROUP BY w.mac, 2 ORDER BY w.mac, 2"
+    rq_add PRB2 "SELECT stamac, $SSD FROM $SST WHERE type=4 AND stamac IS NOT NULL AND stamac<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY stamac, 2 ORDER BY stamac, 2"
 
     # --- multi-SSID responders: how many DIFFERENT SSIDs one BSSID answered probes with (type=5). A
     # count only, no SSID list; emitted as ap.responded_ssids when >= 2. Both column families.
-    rq_add RESP1 "SELECT bssid, COUNT(DISTINCT CAST(ssid AS TEXT)) FROM ssid WHERE type=5 AND bssid IS NOT NULL AND bssid<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY bssid HAVING COUNT(DISTINCT CAST(ssid AS TEXT))>1"
-    rq_add RESP2 "SELECT apmac, COUNT(DISTINCT CAST(ssid AS TEXT)) FROM ssid WHERE type=5 AND apmac IS NOT NULL AND apmac<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY apmac HAVING COUNT(DISTINCT CAST(ssid AS TEXT))>1"
-
-    # --- the oldest row the window counts (STARCHORUS_MAX_AGE): the clock of the skip test. Rows leave the window one at a time, long before the
-    # entry they belong to does (an AP's strong old beacon, a station's old probe), and the document changes when they do. Nothing to ask without a
-    # window, and none where `time` does not exist (the statement then fails and the skip test never skips).
-    RS_WMIN=""
-    [ -z "$AGE" ] || rq_add WMIN "SELECT MIN(time) FROM ssid WHERE type IN (4,5,8) $AGE"
+    rq_add RESP1 "SELECT bssid, COUNT(DISTINCT CAST(ssid AS TEXT)) FROM $SST WHERE type=5 AND bssid IS NOT NULL AND bssid<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY bssid HAVING COUNT(DISTINCT CAST(ssid AS TEXT))>1"
+    rq_add RESP2 "SELECT apmac, COUNT(DISTINCT CAST(ssid AS TEXT)) FROM $SST WHERE type=5 AND apmac IS NOT NULL AND apmac<>'' AND ssid IS NOT NULL AND CAST(ssid AS TEXT)<>'' $AGE GROUP BY apmac HAVING COUNT(DISTINCT CAST(ssid AS TEXT))>1"
 
     # --- the one sqlite3 process of this cycle
-    pick=$(printf '%s\n' "$RQ" | recondb_query "$qdb" | clean_ctrl | recondb_pick)
+    if [ -n "$RQ_T" ]; then RQ="$RQ_H
+SELECT '#STARCHORUS_TAIL#';$RQ_T
+SELECT '#STARCHORUS_TAILEND#';$RQ"
+    else RQ="$RQ_H$RQ"; fi
+    if [ "$RQ_STEADY" = 1 ]; then
+        pick=$(printf '%s\n' "$RQ" | recondb_query "$qdb" | clean_ctrl)
+    else
+        pick=$(printf '%s\n' "$RQ" | recondb_query "$qdb" | clean_ctrl | recondb_pick own)
+    fi
     # A damaged or torn copy is a failed pass, not "the database holds no access point": run_cycle keeps the last document for it (RQ_HOLD) instead of
     # publishing an empty one over a good one, and says so once per episode (this runs inside the builder, whose stderr is dropped).
     RQ_HOLD=""
     if recondb_failed; then RQ_HOLD=$RQ_WHY; fi
     recon_workdone
-    if [ -n "$RQ_HOLD" ]; then HAS_TIME=""; return 1; fi      # nothing to publish from this copy; the schema is learnt afresh next cycle
+    if [ -n "$RQ_HOLD" ]; then HAS_TIME=""; RQ_WIN=""; return 1; fi      # nothing to publish from this copy; the schema is learnt afresh next cycle
+    # the sections the shell reads itself come out of the text with parameter expansion (sq_section), no process
+    if ! rq_tail; then      # a group without a winner has rows: the first batch learns which alternative it is
+        HAS_TIME=""; RQ_WIN=""; RDB_SCH=""; RS_TAKEN=1; build_from_recondb "$1"; return $?
+    fi
+    RQ_SRC="$NL$pick$NL"
+    # The table of the window was refused (no marker row after its CREATE), or the file has another shape than the one the winners were learnt under: this pass asked the wrong
+    # question. Ask again at once, as the batch of this state is (without the table; as a first batch): the copy of the sample is made again, which a rare case can afford.
+    if [ "$RW_USED" = 1 ]; then
+        case $RQ_SRC in
+            *"$NL#STARCHORUS_RWOK#$NL"*) ;;
+            *) RW_OFF=60; RS_TAKEN=1; build_from_recondb "$1"; return $? ;;
+        esac
+    fi
+    if [ "$RQ_STEADY" = 1 ] && [ -n "$RDB_SCH" ] && sq_section SCHEMA && [ "$RQ_SECT" != "$RDB_SCH" ]; then
+        HAS_TIME=""; RQ_WIN=""; RDB_SCH=""; RW_OFF=0; RS_TAKEN=1; build_from_recondb "$1"; return $?
+    fi
     if [ -n "$AGE" ]; then
-        RS_WMIN=$(printf '%s\n' "$pick" | recondb_section WMIN)
+        sq_section WMIN; RS_WMIN=${RQ_SECT%%"$NL"*}
         case $RS_WMIN in ''|*[!0-9]*) RS_WMIN="" ;; esac
     fi
     if [ -z "$HAS_TIME" ]; then
-        case $(printf '%s\n' "$pick" | recondb_section HASTIME) in 0) HAS_TIME=0 ;; [1-9]*) HAS_TIME=1 ;; esac
+        sq_section HASTIME
+        case ${RQ_SECT%%"$NL"*} in 0) HAS_TIME=0 ;; [1-9]*) HAS_TIME=1 ;; esac
     fi
-    case $pick in
-        "#STARCHORUS_APS#"*|*"$NL#STARCHORUS_APS#"*) ;;
-        *) HAS_TIME=""; return 1 ;;      # no access point: nothing to publish; learn the schema afresh next cycle
+    if [ "$RQ_STEADY" != 1 ] && [ -n "$HAS_TIME" ] && sq_section OWN end; then
+        RQ_WIN=" $RQ_SECT "; RQ_WINT=$TRAFFIC; RDB_SCH=""
+        if sq_section SCHEMA; then RDB_SCH=$RQ_SECT; fi
+    fi
+    # an access point: rows under the APS marker (the reduced batch always has the marker, the first one only when a row claimed it)
+    if sq_section APS; then :; else RQ_SECT=""; fi
+    case $RQ_SECT in
+        *[![:space:]]*) ;;
+        *) HAS_TIME=""; RQ_WIN=""      # no access point: nothing to publish; learn the schema afresh next cycle
+           return 1 ;;
     esac
 
     # --- hop awareness (STARCHORUS_HOPINFO / STARCHORUS_SURVEY, default off): channels[] = per frequency the last
@@ -2874,7 +3080,7 @@ build_from_recondb() {
     if [ "$HOPINFO" = "1" ] || [ "$SURVEY" = "1" ]; then
         chrows=""
         if [ "$HOPINFO" = "1" ]; then
-            hop=$(printf '%s\n' "$pick" | recondb_section HOP)
+            sq_section HOP; hop=$RQ_SECT
             [ -z "$hop" ] || chrows=$(printf '%s\n' "$hop" | awk -F"$RECON_TAB" '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {printf "H\t%s\t%s\n", $1, $2}')
         fi
         if [ "$SURVEY" = "1" ]; then
@@ -3280,6 +3486,7 @@ own_ssids() {
 center_extra() {
     ma=$MAX_AGE; case $ma in ''|*[!0-9]*) ma=0 ;; esac
     iv=$INTERVAL; case $iv in ''|*[!0-9]*) iv=5 ;; esac
+    [ "$PACE_MORE" -gt 0 ] 2>/dev/null && iv=$((iv + PACE_MORE))      # the value the loop sleeps (pace_end): a loaded device announces its longer cadence
     x=", \"max_age\": $ma, \"interval\": $iv"
     if [ "$OWN" = "1" ]; then
         ob=$(own_bssids | awk '{printf "%s\"%s\"", (NR>1?", ":""), $0}')
@@ -3347,7 +3554,8 @@ apply_homing() {
 # `"aps": [],` counts). The check of what is about to be published: an awk that is cut short (a full /tmp, a kill) can still exit 0, and a half document with a
 # status of 0 must not replace a whole one.
 doc_whole() {
-    awk 'NR == 1 { f = $0 } /^  "aps": \[/ { n++ } { l = $0 } END { exit !(f == "{" && l == "}" && n == 1) }' "$1" 2>/dev/null
+    DOC_N=$(awk 'NR == 1 { f = $0 } /^  "aps": \[/ { n++ } { l = $0 } END { if (f == "{" && l == "}" && n == 1) print NR }' "$1" 2>/dev/null)
+    [ -n "$DOC_N" ]      # (and DOC_N is the line count of a whole document: rs_keepdoc keeps it)
 }
 
 # --------------------------------------------------------------------------- empty document
@@ -3387,8 +3595,9 @@ recon_unchanged() {   # $1 = now, RS_RAW = this cycle's sample. 0 = the document
 }
 # Keep the document $1 of a full pass for refresh_generated. In a variable, not in a file: a file in /tmp would outlive a collector that is killed
 # (the loop only hears a TERM after its sleep). 0 = kept; 1 = not (unreadable): the next cycle is a full pass.
-rs_keepdoc() {
-    RS_DOCV=$(cat "$1" 2>/dev/null); RS_DOCN=$(wc -l < "$1" 2>/dev/null)
+rs_keepdoc() {   # $1 = the document, $2 = its line count when the caller has it (doc_whole's DOC_N); else it is counted
+    RS_DOCV=$(cat "$1" 2>/dev/null); RS_DOCN=$2
+    case $RS_DOCN in ''|*[!0-9]*) RS_DOCN=$(wc -l < "$1" 2>/dev/null) ;; esac
     [ -n "$RS_DOCV" ] && [ -n "$RS_DOCN" ] && return 0
     RS_DOCV=""; return 1
 }
@@ -3396,7 +3605,10 @@ rs_keepdoc() {
 # on before anything is published). Same line count and closing brace or it is dropped (return 1).
 refresh_generated() {   # $1 = now, $2 = where the document goes
     rg_t="$OUTFILE.gen$$"
-    printf '%s\n' "$RS_DOCV" | sed "s/^  \"generated\": [0-9][0-9]*,\$/  \"generated\": $1,/" > "$rg_t" 2>/dev/null
+    # the new "generated" and, on the center line, the interval as the loop announces it now (what center_extra would write: INTERVAL, or more after a slow cycle)
+    rg_iv=$INTERVAL; case $rg_iv in ''|*[!0-9]*) rg_iv=5 ;; esac
+    [ "$PACE_MORE" -gt 0 ] 2>/dev/null && rg_iv=$((rg_iv + PACE_MORE))
+    printf '%s\n' "$RS_DOCV" | sed -e "s/^  \"generated\": [0-9][0-9]*,\$/  \"generated\": $1,/" -e "/^  \"center\": [{]/s/\"interval\": [0-9][0-9]*/\"interval\": $rg_iv/" > "$rg_t" 2>/dev/null
     # The line counts as in post_keep (compared as numbers, unquoted).
     # shellcheck disable=SC2046,SC2086
     if grep -q "^  \"generated\": $1,\$" "$rg_t" 2>/dev/null \
@@ -3439,7 +3651,7 @@ run_cycle() {
                 RS_SKIPS=$((RS_SKIPS + 1)); RS_TAKEN=0; rc_skip=1
             else
                 RS_SIG=""
-                CX_EMBED=1; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0
+                CX_EMBED=1; CYC_NOW=$ts; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0; CYC_NOW=""
             fi ;;
         pineap)
             build_from_apcli "$ts" 2>/dev/null > "$tmp"; prc=$?
@@ -3448,7 +3660,7 @@ run_cycle() {
                 # no usable answer (failed, hung past the timeout, or no AP at all): recon.db for THIS cycle, said once per episode
                 [ "$PN_FELL" = 1 ] || log "pineap: no usable answer from the AP service (rc $prc); using recon.db until it answers again"
                 PN_FELL=1
-                CX_EMBED=1; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0
+                CX_EMBED=1; CYC_NOW=$ts; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0; CYC_NOW=""
             fi ;;
         iwscan)  build_from_iwscan  "$ts" 2>/dev/null > "$tmp" || ok=0 ;;
         *)       ok=0 ;;
@@ -3494,7 +3706,7 @@ run_cycle() {
     # only, and before any layer. Not with a homing reading, the survey or the own-device fields (the rule above recon_unchanged).
     rs_kept=0
     if [ "$rc_skip" = 0 ] && [ "$rs_good" = 1 ] && [ "$RESOLVED" = recondb ] && [ -n "$RS_NEW" ] && [ "$SKIP_UNCHANGED" = 1 ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] \
-       && homing_off && rs_keepdoc "$tmp"; then rs_kept=1; fi
+       && homing_off && rs_keepdoc "$tmp" "$DOC_N"; then rs_kept=1; fi
     # the layers of this cycle, on the document that is published (never on the base kept above)
     alerts_look
     if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ]; then run_layers "$tmp"; fi
@@ -3510,6 +3722,62 @@ run_cycle() {
     vendor_merge               # cache write AFTER publication: a lock wait costs the cache, not the view
     return "$rc_pub"           # 0 = the document of this cycle (or the explicit empty one) is published; 1 = it is not (--once exits 1)
 }
+
+# --------------------------------------------------------------------------- the loop's pace, and the hourly line
+# The loop sleeps INTERVAL after a cycle; on a loaded device a cycle takes much longer than on an idle one (12.4 s wall for a pass that is 3.0 s of CPU, 14 October 2026: docs/device-notes.md section 6a), and
+# the collector is then the load it is waiting for. So the sleep is the longer of INTERVAL and three times the wall time of the cycle just ended: nothing on an idle
+# device, a backoff exactly when the device is busy. The wall time is read by the shell itself from /proc/uptime (builtins, no process; BT_PROC is the stand-in
+# directory of the tests); where that cannot be read there is no backoff and no mean wall time. pace_end leaves PACE_MORE = the seconds to sleep beyond INTERVAL
+# (the loop sleeps INTERVAL as before, then PACE_MORE), and center_extra announces INTERVAL + PACE_MORE as center.interval: the value the loop sleeps after the cycle before (the
+# document of a cycle is written before pace_end has judged that cycle, so a slow cycle shows in the document of the next one). The wait for a Bluetooth window is no load and does not count (bt_end_timed).
+pace_now() {   # PACE_NOW = hundredths of a second since boot; "" and status 1 where /proc/uptime cannot be read
+    PACE_NOW=""; pc_u=""
+    { read -r pc_u _ < "$BT_PROC/uptime"; } 2>/dev/null
+    case $pc_u in
+        ''|*[!0-9.]*|.*|*.*.*) return 1 ;;
+        *.*) pc_f="${pc_u#*.}00"; pc_f=${pc_f%"${pc_f#??}"}; PACE_NOW=$((${pc_u%%.*} * 100 + ${pc_f#0})) ;;
+        *) PACE_NOW=$((pc_u * 100)) ;;
+    esac
+}
+pace_begin() { PACE_BT=0; if pace_now; then PACE_T0=$PACE_NOW; else PACE_T0=""; fi; }
+# bt_end with the time it takes measured: a Bluetooth cycle waits for its window (5 to 15 s) whatever the load, so that wait is no sign of a busy device. pace_end takes it off
+# the wall time it judges (the hourly line still reports the whole wall time).
+bt_end_timed() {
+    if pace_now; then bw_a=$PACE_NOW; else bw_a=""; fi
+    bt_end; bw_r=$?
+    if [ -n "$bw_a" ] && pace_now && [ "$PACE_NOW" -ge "$bw_a" ]; then PACE_BT=$((PACE_BT + PACE_NOW - bw_a)); fi
+    return "$bw_r"
+}
+# After a cycle: PACE_MORE, and the counters of the hourly line (rc_skip = run_cycle's own: 1 for a cycle that published the kept document).
+pace_end() {
+    PACE_MORE=0; pc_w=""
+    if [ -n "$PACE_T0" ] && pace_now && [ "$PACE_NOW" -ge "$PACE_T0" ]; then pc_w=$((PACE_NOW - PACE_T0)); fi
+    if [ -n "$pc_w" ]; then
+        pc_n=$((pc_w - PACE_BT)); [ "$pc_n" -ge 0 ] || pc_n=0      # what the cycle took bar the window's waiting
+        pc_need=$(( (pc_n * 3 + 99) / 100 ))
+        [ "$pc_need" -le 3600 ] || pc_need=3600
+        [ "$pc_need" -le "$INTERVAL" ] || PACE_MORE=$((pc_need - INTERVAL))
+        TEL_WALL=$((TEL_WALL + pc_w)); TEL_NW=$((TEL_NW + 1))
+    fi
+    if [ "$rc_skip" = 1 ]; then TEL_SKIP=$((TEL_SKIP + 1)); else TEL_FULL=$((TEL_FULL + 1)); fi
+    tel_hour
+}
+# One log line an hour (by the cycle's own clock, ts): how many cycles were full passes and how many were skipped because recon.db had not changed, and the mean wall
+# time of a cycle. It tells how often the skip fires in a real night (docs/device-notes.md §6a had no count). No process: counters and one log call.
+tel_hour() {
+    case $ts in ''|*[!0-9]*|0) return 0 ;; esac
+    if [ "$TEL_T0" -le 0 ] || [ "$ts" -lt "$TEL_T0" ]; then TEL_T0=$ts; return 0; fi      # the first cycle, or a clock that was set back: the hour begins here
+    [ $((ts - TEL_T0)) -ge 3600 ] || return 0
+    tl_m="not measured here"
+    if [ "$TEL_NW" -gt 0 ]; then
+        tl_a=$((TEL_WALL / TEL_NW)); tl_f=$((tl_a % 100)); [ "$tl_f" -ge 10 ] || tl_f=0$tl_f
+        tl_m="$((tl_a / 100)).$tl_f s"
+    fi
+    log "last hour, cycles: $TEL_FULL full, $TEL_SKIP skipped (recon.db unchanged), mean wall time $tl_m"
+    TEL_T0=$ts; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0
+}
+# One turn of the loop without its sleep (the self-test plays it with a stand-in clock).
+cycle_step() { pace_begin; run_cycle; pace_end; }
 
 # --------------------------------------------------------------------------- selftest support for the Bluetooth window (stubs only: nothing here can reach a controller)
 # A stand-in tree under $1 (bin/ cfg/ log/ sig/ proc/ ram/ sys/ in/): `timeout`, and the two scan tools as shell scripts that do nothing but
@@ -3585,7 +3853,7 @@ grep '^SigIgn' "/proc/$$/status" > "$BTS/log/sigign.$ROLE" 2>/dev/null
 if [ "$ROLE" = S ] && [ "$mode" = fail ]; then echo 'Set scan parameters failed: Input/output error' >&2; exit 1; fi
 if [ "$ROLE" = M ] && [ "$mode" = banner ]; then echo 'Bluetooth monitor ver 5.72'; fi
 if [ "$ROLE" = M ] && [ "$mode" != silent ] && [ "$mode" != banner ]; then
-    ln -s 'socket:[1]' "$BTS/proc/$$/fd/3"
+    if [ -S "$BTS/sock" ]; then ln -s "$BTS/sock" "$BTS/proc/$$/fd/3"; else ln -s 'socket:[1]' "$BTS/proc/$$/fd/3"; fi
     cat "$BTS/cfg/M.text" 2>/dev/null
 fi
 while :; do
@@ -4322,6 +4590,10 @@ bts_gone() { ! kill -0 "$1" 2>/dev/null; }
 bt_selftest() {
     BTS="$1/bts"; rm -rf "$BTS"; mkdir -p "$BTS/bin" "$BTS/cfg" "$BTS/log" "$BTS/sig" "$BTS/proc" "$BTS/ram" "$BTS/sys/hci0" "$BTS/in"
     bt_stub "$BTS"; bt_tmo "$BTS"
+    # A real socket file for the monitor stand-in's descriptor: bt_ready asks `test -S`, which a link to the text socket:[1] does not satisfy. python3 binds one (from inside the
+    # directory: a socket path is short, 104 bytes on a Mac); where it cannot, the stand-in keeps the text link and the checks that need the socket say SKIP.
+    bts_sock=0
+    if have python3 && (cd "$BTS" && python3 -I -c 'import socket; s = socket.socket(socket.AF_UNIX); s.bind("sock")') 2>/dev/null && [ -S "$BTS/sock" ]; then bts_sock=1; fi
     bts_q() { grep -c "^$2 $1\$" "$BTS/log/sig.log" 2>/dev/null; }   # the signals SIG sent to PID by the window code: bts_q PID SIG
     bts_win() {   # one whole window as run_cycle runs it: bt_begin, and bt_end unless nothing was started; the log goes to log/err
         : > "$BTS/log/err"
@@ -4767,6 +5039,64 @@ BTWIN
     bts_other_end; bts_idle "iwscan cycle"
     RESOLVED=$bts_rs; CAP_METHOD=$bts_cm; OUTFILE=$bts_of; VENDOR=$bts_ve; OUTDIR=$bts_od; BT_HELD=$bts_hd
     bts_reap
+    # ---- the readiness poll and the verdict without processes (0.2.6): bt_ready asks `test -S` of each descriptor (it was a readlink process per descriptor, three or four
+    #      polls of three or four descriptors), bt_judge reads its two lines with builtins (it was two sed | head pipelines). Each check is also run against the
+    #      planted old form, which must fail it: a check that the old text passes would prove nothing. A logging stand-in for readlink, sed and head counts the processes.
+    gc_proc=$BT_PROC; gc_fake=$BT_FAKE; gc_bf=$BT_F; gc_tr=$BT_T_READY; gc_path=$PATH
+    gc_cur=$BT_CUR; gc_logged=$BT_LOGGED; gc_notes=$BT_NOTES; gc_big=$BT_BIG
+    mkdir -p "$BTS/gccnt" "$BTS/gcproc/777/fd" "$BTS/gcproc/778/fd" "$BTS/gcproc/779/fd"
+    for gc_n in readlink sed head; do
+        gc_real=$(command -v "$gc_n"); printf '#!/bin/sh\nprintf "%%s\\n" "%s" >> "%s/gc.log"\nexec %s "$@"\n' "$gc_n" "$BTS" "$gc_real" > "$BTS/gccnt/$gc_n"; chmod +x "$BTS/gccnt/$gc_n"
+    done
+    : > "$BTS/gc.txt"; BT_F="$BTS/gc.txt"; BT_T_READY=300; BT_PROC="$BTS/gcproc"
+    ln -s /dev/null "$BTS/gcproc/777/fd/0"; ln -s /dev/null "$BTS/gcproc/777/fd/1"; [ "$bts_sock" = 0 ] || ln -s "$BTS/sock" "$BTS/gcproc/777/fd/3"
+    ln -s /dev/null "$BTS/gcproc/778/fd/0"; ln -s 'socket:[1]' "$BTS/gcproc/778/fd/3"
+    ln -s /dev/null "$BTS/gcproc/779/fd/0"; ln -s /dev/null "$BTS/gcproc/779/fd/1"
+    # the planted old form of bt_ready (one readlink per descriptor), run through gc_rdy
+    # shellcheck disable=SC2329  # called by name from gc_rdy
+    bt_ready_old() {
+        bt_tick; br_t=$BT_NOW
+        while :; do
+            if [ -s "$BT_F" ] && grep -q -v '^Bluetooth monitor ver' "$BT_F" 2>/dev/null; then return 0; fi
+            if [ -n "$1" ]; then
+                for br_f in "$BT_PROC/$1"/fd/*; do
+                    case $(readlink "$br_f" 2>/dev/null) in socket:*) return 0 ;; esac
+                done
+            fi
+            bt_tick; [ $((BT_NOW - br_t)) -lt $((BT_T_READY + BT_SLK)) ] || return 1
+            bt_nap
+        done
+    }
+    # gc_rdy new|old PID: prints "RC/readlink-calls"; the clock is a fake one the naps move on, so that nothing sleeps
+    gc_rdy() { : > "$BTS/gc.log"; BT_FAKE=1000; PATH="$BTS/gccnt:$gc_path"; case $1 in new) bt_ready "$2" ;; *) bt_ready_old "$2" ;; esac >/dev/null 2>&1; gc_r=$?; PATH=$gc_path; BT_FAKE=$gc_fake; printf '%s/%s' "$gc_r" "$(grep -c readlink "$BTS/gc.log")"; }
+    if [ "$bts_sock" = 1 ]; then
+        gc_a=$(gc_rdy new 777); gc_b=$(gc_rdy new 778); gc_c=$(gc_rdy new 779); gc_d=$(gc_rdy old 777); gc_e=$(gc_rdy old 779)
+        # new: a descriptor that is a socket is ready, a text link to socket:[1] and plain devices are not, and no readlink process is started; the old form starts one per
+        # descriptor and does not see the stand-in's socket (a link to a path, not to text), so the same check turns red on it
+        if [ "${gc_a%%/*}/${gc_b%%/*}/${gc_c%%/*}" = 0/1/1 ] && [ "${gc_a#*/}${gc_b#*/}${gc_c#*/}" = 000 ] && [ "${gc_d%%/*}" = 1 ] && [ "${gc_d#*/}" -ge 1 ] && [ "${gc_e#*/}" -ge 2 ]; then
+            st_pass "bt_ready: a monitor that holds a socket (a real one in the stand-in /proc) is ready by test -S with no process, a text link and plain descriptors are not; the old readlink form starts $((${gc_d#*/} + ${gc_e#*/})) processes in the same polls and does not see the socket (fails the same check)"
+        else st_fail "bt_ready: test -S (rc/readlink calls $gc_a $gc_b $gc_c, want 0 1 1 with no readlink; old form $gc_d $gc_e)"; fi
+    else log "  SKIP: bt_ready on a real socket (python3 could not bind a socket file here; the stand-in keeps the text link socket:[1], which test -S does not accept; device appointment D7)"; fi
+    # bt_judge: the same verdicts as before on four outputs (W only, W and F, a long output whose W comes after 64 lines, no output), and no sed or head process for a short one
+    printf 'B\t02:00:00:00:00:02\tpublic\t-60\t2\t\t\t\t1\nB\t02:00:00:00:00:03\tpublic\t-70\t1\t\t\t\t1\nW\t1\t0\t1\t1\t0\t0\t0\n' > "$BTS/gcj.1"
+    printf 'B\t02:00:00:00:00:02\tpublic\t-60\t2\t\t\t\t1\nW\t1\t0\t1\t1\t0\t0\t1\nF\t1\t0\n' > "$BTS/gcj.2"
+    { gc_i=0; while [ "$gc_i" -lt 100 ]; do printf 'B\t02:00:00:00:%02x:%02x\tpublic\t-60\t1\t\t\t\t1\n' $((gc_i / 256)) $((gc_i % 256)); gc_i=$((gc_i + 1)); done
+      printf 'W\t1\t0\t1\t1\t0\t0\t1\nF\t0\t1\n'; } > "$BTS/gcj.3"
+    : > "$BTS/gcj.4"
+    gc_j=""
+    for gc_k in 1 2 3 4; do
+        BT_CUR=" "; BT_LOGGED=" "; BT_NOTES=""; BT_BIG=0
+        : > "$BTS/gc.log"; PATH="$BTS/gccnt:$gc_path"; bt_judge "$BTS/gcj.$gc_k" 2>/dev/null; gc_r=$?; PATH=$gc_path
+        gc_j="$gc_j $gc_r:${BT_VOID:-ok}:$(grep -c . "$BTS/gc.log")"
+    done
+    # the planted old form: the two pipelines, counted by the same stand-ins
+    : > "$BTS/gc.log"; PATH="$BTS/gccnt:$gc_path"; sed -n '/^W/p' "$BTS/gcj.1" 2>/dev/null | head -n 1 > /dev/null; sed -n '/^F/p' "$BTS/gcj.1" 2>/dev/null | head -n 1 > /dev/null; PATH=$gc_path
+    gc_old=$(grep -c . "$BTS/gc.log")
+    if [ "$gc_j" = " 0:ok:0 1:other:0 1:order:4 1:nopassive:0" ] && [ "$gc_old" = 4 ]; then
+        st_pass "bt_judge: the verdicts are the old ones (W only counts; an F line voids it as another scan; a long output is judged from its end; no output is no passive block), a short output starts no sed or head process (the old two pipelines start $gc_old), a long one falls back to them"
+    else st_fail "bt_judge: by builtins ($gc_j, want 0:ok:0 1:other:0 1:order:4 1:nopassive:0; old form $gc_old processes)"; fi
+    BT_PROC=$gc_proc; BT_FAKE=$gc_fake; BT_F=$gc_bf; BT_T_READY=$gc_tr; PATH=$gc_path; BT_CUR=$gc_cur; BT_LOGGED=$gc_logged; BT_NOTES=$gc_notes; BT_BIG=$gc_big
+    unset -f bt_ready_old gc_rdy
     bt_env off
     unset -f bts_q bts_win
 }
@@ -5141,6 +5471,384 @@ p1	#STARCHORUS_APS#
         sweep_stale_workcopies
         if [ ! -e "$rpt/ram/starchorus-recon-999999.db" ] && [ -e "$rpt/ram/starchorus-recon-$$.db" ]; then st_pass "sweep: a dead collector's RAM copy removed, a live one's kept"; else st_fail "sweep: RAM copies ($(ls "$rpt/ram"))"; fi
         rm -f "$rpt/ram"/starchorus-recon-*
+        # ---- 3b3) the cheaper cycle (0.2.6): one scan of the window, the reduced batch, and the small savings of the full pass, each against stand-ins that count the
+        #      processes (the sqlite3 stand-in keeps the SQL it is given; awk, wc, rm, df and cp log their calls; date is a function that logs). Every check that counts a
+        #      process or compares a text also runs the form without the change (the batch of the first cycle is the old text; a planted old function where the old text is
+        #      a function) and says what that form comes to: a check that the old form passes would prove nothing. Everything this block changes is put back.
+        cg="$tdir/cyc"; rm -rf "$cg"; mkdir -p "$cg/bin" "$cg/ram" "$cg/ram2" "$cg/out" "$cg/proc" "$cg/cap"
+        cg_t=$RECON_TAB
+        cg_path=$PATH; cg_ram=$TMPDIR_RAM; cg_db=$RECON_DB; cg_age=$MAX_AGE; cg_hop=$HOPINFO; cg_res=$RESOLVED; cg_of=$OUTFILE; cg_od=$OUTDIR; cg_ven=$VENDOR; cg_iv=$INTERVAL
+        cg_su=$SKIP_UNCHANGED; cg_tr=$TRAFFIC; cg_proc=$BT_PROC; cg_cap=$CAPDIR; cg_sm=$SKIP_MAX; cg_hb=$HOMING_BSSID; cg_own=$OWN
+        # the stand-ins: sqlite3 keeps the SQL (and moves a stand-in clock when asked to), the others log their name and run the real program
+        # (SHIM_REAL: the real sqlite3 when the logging shim of the recon.db block is still first in PATH)
+        CYC_LOG="$cg/calls"; CYC_SQL="$cg/sql"; CYC_REAL=${SHIM_REAL:-$(command -v sqlite3)}; CYC_STUB="$cg/stub.log"; CYC_UP=""; CYC_UPV=""; CYC_DFFULL=""; CYC_CPFAIL=""; CYC_NOCREATE=""
+        export CYC_LOG CYC_SQL CYC_REAL CYC_STUB CYC_UP CYC_UPV CYC_DFFULL CYC_CPFAIL CYC_NOCREATE
+        # shellcheck disable=SC2016  # the stand-ins' text: the variables are theirs
+        printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "$CYC_LOG"\n[ -z "$CYC_UP" ] || printf "%%s 1.00\\n" "$CYC_UPV" > "$CYC_UP"\nif [ -n "$CYC_NOCREATE" ]; then tee -a "$CYC_SQL" | sed "/^CREATE TEMP TABLE rwin /d" | "$CYC_REAL" "$@"; else tee -a "$CYC_SQL" | "$CYC_REAL" "$@"; fi\n' > "$cg/bin/sqlite3"
+        for cg_n in awk wc rm; do
+            # shellcheck disable=SC2016
+            printf '#!/bin/sh\nprintf "%%s %%s\\n" "%s" "$*" >> "$CYC_STUB"\nexec %s "$@"\n' "$cg_n" "$(command -v "$cg_n")" > "$cg/bin/$cg_n"
+        done
+        # shellcheck disable=SC2016
+        printf '#!/bin/sh\nprintf "df\\n" >> "$CYC_STUB"\nif [ -n "$CYC_DFFULL" ]; then printf "Filesystem 1024-blocks Used Available Capacity Mounted on\\ntmpfs 1000 999 1 99%%%% /tmp\\n"; exit 0; fi\nexec %s "$@"\n' "$(command -v df)" > "$cg/bin/df"
+        # shellcheck disable=SC2016
+        printf '#!/bin/sh\nprintf "cp\\n" >> "$CYC_STUB"\nif [ -n "$CYC_CPFAIL" ]; then for a; do last=$a; done; case $last in */ram/*) exit 1 ;; esac; fi\nexec %s "$@"\n' "$(command -v cp)" > "$cg/bin/cp"
+        chmod +x "$cg/bin"/*
+        PATH="$cg/bin:$PATH"; TMPDIR_RAM="$cg/ram"; MAX_AGE=3600; HOPINFO=0; TRAFFIC=0; RESOLVED=recondb; OUTFILE="$cg/out/starchorus.json"; OUTDIR="$cg/out"; CAPDIR="$cg/cap"; VENDOR=0
+        SKIP_UNCHANGED=0; SKIP_MAX=20; HOMING_BSSID=""; OWN=0; INTERVAL=30
+        cg_now=$(command date +%s)
+        gdb="$cg/gc.db"
+        sqlite3 "$gdb" >/dev/null 2>&1 <<SQL
+CREATE TABLE ssid(hash INT PRIMARY KEY, wifi_device INT, scan INT, type INT, bssid TEXT, ssid BLOB, hidden INT, time INT, signal INT, freq INT, channel INT, encryption INT);
+CREATE TABLE wifi_device(hash INT PRIMARY KEY, scan INT, mac TEXT, time INT, signal INT, freq INT, packets INT);
+INSERT INTO ssid VALUES (1,0,1,8,'020000D10001','GcAP-One',0,$((cg_now - 30)),-50,2437,6,8);
+INSERT INTO ssid VALUES (2,0,1,8,'020000D10002','GcAP-Two',0,$((cg_now - 20)),-60,2412,1,0);
+INSERT INTO ssid VALUES (3,0,1,5,'020000D10001','GcAP-One',0,$((cg_now - 25)),-45,2437,6,8);
+INSERT INTO ssid VALUES (4,0,1,5,'020000D10002','GcOnlyAnswer',0,$((cg_now - 22)),-61,2412,1,0);
+INSERT INTO ssid VALUES (11,0,1,8,'020000E00001','TieAP-A',0,$((cg_now - 10)),-50,2412,1,8);
+INSERT INTO ssid VALUES (12,0,1,8,'020000E00001','TieAP-B',0,$((cg_now - 20)),-50,2437,6,0);
+INSERT INTO ssid VALUES (21,701,1,4,'FFFFFFFFFFFF','GcProbed',0,$((cg_now - 15)),-70,0,0,0);
+INSERT INTO ssid VALUES (22,702,1,4,'FFFFFFFFFFFF','GcAlso',0,$((cg_now - 14)),-72,0,0,0);
+INSERT INTO ssid VALUES (90,0,1,8,'020000D10009','GcOldAP',0,$((cg_now - 100000)),-40,2437,6,8);
+INSERT INTO ssid VALUES (91,703,1,4,'FFFFFFFFFFFF','GcOldProbe',0,$((cg_now - 100000)),-40,0,0,0);
+INSERT INTO wifi_device VALUES (701,1,'020000D20001',$((cg_now - 15)),-70,0,5);
+INSERT INTO wifi_device VALUES (702,1,'020000D20002',$((cg_now - 14)),-72,0,6);
+INSERT INTO wifi_device VALUES (703,1,'020000D20009',$((cg_now - 100000)),-40,0,7);
+SQL
+        cg_calls() { grep -c . "$CYC_LOG"; }
+        cg_stubs() { grep -c "^$1" "$CYC_STUB"; }                                 # how many times the stand-in NAME ran since the stub log was last emptied
+        cg_n() { printf '%s\n' "$1" | grep -c -- "$2"; }                          # lines of the text $1 that match $2
+        cg_b() { : > "$CYC_LOG"; : > "$CYC_SQL"; : > "$CYC_STUB"; build_from_recondb 1710000000 > "$1" 2>/dev/null; cg_rc=$?; }   # one build: the document in $1; this build's calls, SQL and processes alone
+        cg_fresh() { RECON_DB="$1"; RDB_PATH=""; HAS_TIME=""; RQ_WIN=""; RR_OK=""; }
+        cg_m() { cg_n "$1" "SELECT '#STARCHORUS_"; }                              # the groups in a batch text
+        cg_e() { printf '%s\n' "$1" | grep -cE -- "$2"; }                         # lines of the text $1 that match the extended expression $2
+
+        # ---- 1) one scan of the window: the temporary table, in the second batch and the later ones
+        cg_fresh "$gdb"
+        cg_b "$cg/o1.json"; cg_s1=$(cat "$CYC_SQL"); cg_c1=$(cg_calls); cg_a1=$(cg_stubs awk); cg_w1=$RQ_WIN; cg_wm1=$RS_WMIN
+        cg_b "$cg/o2.json"; cg_s2=$(cat "$CYC_SQL"); cg_c2=$(cg_calls); cg_l2=$(cat "$CYC_LOG"); cg_a2=$(cg_stubs awk); cg_w2=$RQ_WIN; cg_wm2=$RS_WMIN
+        cg_b "$cg/o3.json"; cg_s3=$(cat "$CYC_SQL")
+        MAX_AGE=0; cg_b "$cg/o0.json"; cg_s0=$(cat "$CYC_SQL"); cg_c0=$(cg_calls); MAX_AGE=3600
+        # the temporary table once, and no group reads ssid any more (the only FROM ssid is the one that fills the table)
+        cg_rw() { [ "$(cg_n "$1" 'CREATE TEMP TABLE rwin AS SELECT \* FROM ssid WHERE time > [0-9]* AND type IN (4,5,8);')" = 1 ] && [ "$(cg_n "$1" 'FROM ssid')" = 1 ] && [ "$(cg_n "$1" 'FROM rwin')" -ge 4 ]; }
+        if ! cg_rw "$cg_s1" && cg_rw "$cg_s2" && cg_rw "$cg_s3" && ! cg_rw "$cg_s0" && [ "$(cg_n "$cg_s1$NL$cg_s0" rwin)" = 0 ] \
+           && [ "$cg_c1/$cg_c2/$cg_c0" = 1/1/1 ] && [ "$(cg_n "$cg_l2" '-readonly')" = 1 ]; then
+            st_pass "recon batch: the window is cut out once (CREATE TEMP TABLE rwin) in a batch with HAS_TIME=1 and a window, and every group reads it; the first batch and MAX_AGE=0 keep ssid (the old text); one sqlite3 process, -readonly"
+        else st_fail "recon batch: the temporary table (rwin lines $(cg_n "$cg_s1" rwin)/$(cg_n "$cg_s2" rwin)/$(cg_n "$cg_s3" rwin)/$(cg_n "$cg_s0" rwin), calls $cg_c1/$cg_c2/$cg_c0)"; fi
+        # the same bytes from every form; the temporary table does not touch the file (the copy stays a read-only copy)
+        cp "$gdb" "$cg/ro.db"; cg_x=$(sqlite3 -readonly "$cg/ro.db" "CREATE TEMP TABLE t AS SELECT * FROM ssid WHERE type = 8; SELECT COUNT(*) FROM t;" </dev/null 2>&1)
+        if cmp -s "$cg/o1.json" "$cg/o2.json" && cmp -s "$cg/o2.json" "$cg/o3.json" && [ "$cg_x" = 5 ] && cmp -s "$gdb" "$cg/ro.db" && [ "$(grep -c '"bssid"' "$cg/o1.json")" = 3 ]; then
+            st_pass "recon batch: the document is the same bytes from the first batch (ssid), the second (rwin) and the third; sqlite3 -readonly accepts a temporary table and leaves the file as it was"
+        else st_fail "recon batch: the forms differ ($(cmp "$cg/o1.json" "$cg/o2.json" 2>&1 | head -n 1), temp table [$cg_x])"; fi
+        # The tie: two beacons of one BSSID, the same signal, other columns different. The bare columns beside MAX(signal) come from the row the scan meets first, the first of the table,
+        # in both forms (the temporary table is filled in that order). A table filled in another order would flip it: shown with the same query on a table ordered by time.
+        cg_ord=$(sqlite3 -readonly -noheader -separator "$cg_t" "$gdb" "CREATE TEMP TABLE rwin AS SELECT * FROM ssid WHERE type IN (5,8) ORDER BY time; SELECT ssid, MAX(signal) FROM rwin WHERE bssid='020000E00001' GROUP BY bssid;" </dev/null)
+        cg_tie='"bssid": "02:00:00:e0:00:01", "ssid": "TieAP-A", "channel": 1, "band": "2.4GHz", "freq": 2412'
+        if grep -qF "$cg_tie" "$cg/o1.json" && grep -qF "$cg_tie" "$cg/o2.json" && ! grep -q TieAP-B "$cg/o1.json" "$cg/o2.json" && [ "$cg_ord" = "TieAP-B${cg_t}-50" ]; then
+            st_pass "recon batch: a tie (one BSSID, equal signal) is decided by the first row of the table in both forms (TieAP-A, channel 1, 2412 MHz); a table filled in the order of time gives TieAP-B"
+        else st_fail "recon batch: tie ($(grep -F 02:00:00:e0:00:01 "$cg/o2.json" | cut -c1-130), ordered table [$cg_ord])"; fi
+
+        # ---- 2) the reduced batch: from the second cycle on only the winners are asked, under their final names, and no recondb_pick pass runs
+        # (RESP has no row in this database: its two alternatives stay, numbered, after the rest of the batch, and the first non-empty one is taken with builtins)
+        # the tail of the second batch (TAIL to TAILEND): RESP's two alternatives as they are, and the other alternatives of the groups with a winner as questions of one row
+        # (APS3 to APS7, CLI3, PRB2: behind their winner, so "has it rows while the winner has none?"); none of them outside the tail
+        cg_tl=$(printf '%s\n' "$cg_s2" | sed -n "/^SELECT '#STARCHORUS_TAIL#';$/,/^SELECT '#STARCHORUS_TAILEND#';$/p")
+        if [ "$(cg_m "$cg_s1")" = 17 ] && [ "$cg_w1" = " APS1 CLI1 PRB1 " ] && [ "$(cg_m "$cg_s2")" = 17 ] && [ "$cg_w2" = " APS1 CLI1 PRB1 " ] \
+           && [ "$(cg_n "$cg_s2" "STARCHORUS_HASTIME#")" = 0 ] && [ "$(cg_e "$cg_s2" "STARCHORUS_(APS|CLI|PRB)[0-9]#")" = 7 ] && [ "$(cg_e "$cg_tl" "STARCHORUS_(APS|CLI|PRB|RESP)[0-9]#")" = 9 ] \
+           && [ "$(cg_e "$cg_tl" "^SELECT 1 WHERE EXISTS \(.* AND NOT EXISTS \(SELECT ")" = 7 ] && [ "$(cg_n "$cg_s2" "^SELECT 1 WHERE")" = 7 ] \
+           && [ "$(cg_n "$cg_s2" "STARCHORUS_APS#")" = 1 ] && [ "$(cg_n "$cg_s2" "STARCHORUS_CLIENTS#")" = 1 ] && [ "$(cg_n "$cg_s2" "STARCHORUS_PROBES#")" = 1 ] \
+           && [ "$(cg_n "$cg_s2" "STARCHORUS_RESP[12]#")" = 2 ] && [ "$(cg_n "$cg_s2" "STARCHORUS_TAIL#")" = 1 ] && [ "$cg_a1/$cg_a2" = 2/1 ] \
+       && [ "$cg_wm1/$cg_wm2" = "$((cg_now - 30))/$((cg_now - 30))" ]; then
+            st_pass "recon batch: the first batch asks 17 groups (pick and the document: 2 awk), the second 17 (APS, CLIENTS, PROBES, WMIN under their final names, the shape of the tables and the marker of the window's table; between TAIL and TAILEND at the start RESP's two alternatives and the other alternatives of APS, CLI and PRB as seven questions of one row each, none outside), no HASTIME, no pick pass (1 awk); the winners were APS1 CLI1 PRB1; the oldest row of the window (WMIN, taken from the text by parameter expansion) is the same in both"
+        else st_fail "recon batch: reduced batch (groups $(cg_m "$cg_s1")/$(cg_m "$cg_s2"), tail $(cg_e "$cg_tl" "STARCHORUS_(APS|CLI|PRB|RESP)[0-9]#"), winners [$cg_w1][$cg_w2], awk $cg_a1/$cg_a2, WMIN $cg_wm1/$cg_wm2)"; fi
+        # a responder appears: the tail's first non-empty alternative (RESP1) joins the document, the winner is kept, the next batch has RESP under its final name only; every form of the same database gives the same bytes
+        sqlite3 "$gdb" "INSERT INTO ssid VALUES (31,0,1,5,'020000D10002','GcSecond',0,$((cg_now - 21)),-62,2412,1,0);" </dev/null
+        cg_b "$cg/r1.json"; cg_wr1=$RQ_WIN
+        cg_b "$cg/r2.json"; cg_sr2=$(cat "$CYC_SQL"); cg_wr2=$RQ_WIN
+        cg_fresh "$gdb"; cg_b "$cg/r3.json"
+        if grep -qF '"responded_ssids": 2' "$cg/r1.json" && [ "$cg_wr1" = " APS1 CLI1 PRB1 RESP1 " ] && [ "$cg_wr2" = "$cg_wr1" ] && [ "$(cg_m "$cg_sr2")" = 17 ] && [ "$(cg_n "$cg_sr2" "STARCHORUS_RESP#")" = 1 ] \
+           && [ "$(cg_n "$cg_sr2" "STARCHORUS_TAIL#")" = 1 ] && [ "$(cg_n "$cg_sr2" "^SELECT 1 WHERE EXISTS (SELECT apmac, COUNT(DISTINCT .* AND NOT EXISTS (SELECT bssid, COUNT(DISTINCT ")" = 1 ] \
+           && cmp -s "$cg/r1.json" "$cg/r2.json" && cmp -s "$cg/r2.json" "$cg/r3.json"; then
+            st_pass "recon batch: a group that had no winner (RESP) with a row in the tail is asked again as a first batch, which takes the first non-empty alternative, is asked under its final name from then on (7 groups, and RESP2 becomes a question of the tail like the others: 17), and the document is the same bytes as a first batch of the same database"
+        else st_fail "recon batch: late winner (win [$cg_wr1][$cg_wr2], groups $(cg_m "$cg_sr2"), $(cmp "$cg/r1.json" "$cg/r3.json" 2>&1 | head -n 1))"; fi
+        # the pick keeps its own rule (existing check above) and, asked with `own`, adds who won
+        cg_pk=$(printf '%s\n' '#STARCHORUS_APS1#' '#STARCHORUS_APS2#' 'a1	one' '#STARCHORUS_APS3#' 'a3	three' '#STARCHORUS_CLI1#' 'c1	-50	77' '#STARCHORUS_PRB1#' '#STARCHORUS_RESP2#' 'r	3' | recondb_pick own)
+        cg_pn=$(printf '%s\n' '#STARCHORUS_APS1#' '#STARCHORUS_APS2#' 'a1	one' '#STARCHORUS_APS3#' 'a3	three' '#STARCHORUS_CLI1#' 'c1	-50	77' '#STARCHORUS_PRB1#' '#STARCHORUS_RESP2#' 'r	3' | recondb_pick)
+        RQ_SRC="$NL#STARCHORUS_A#$NL#STARCHORUS_B#${NL}r1${NL}r2$NL#STARCHORUS_C#$NL#STARCHORUS_D#${NL}last$NL"
+        sq_section B; cg_sb=$RQ_SECT; sq_section A; cg_sa=$RQ_SECT; sq_section D; cg_sd=$RQ_SECT; sq_section C; cg_sc=$RQ_SECT; sq_section Z; cg_sz=$?; sq_section B end; cg_sbe=$RQ_SECT; sq_section D end; cg_sde=$RQ_SECT
+        if [ "${cg_pk#"$cg_pn"}" = "$NL#STARCHORUS_OWN#${NL}APS2 CLI1 RESP2" ] && [ -z "$cg_sa" ] && [ "$cg_sb" = "r1${NL}r2" ] && [ -z "$cg_sc" ] && [ "$cg_sd" = last ] && [ "$cg_sz" = 1 ] && [ "$cg_sbe" = "$cg_sb" ] && [ "$cg_sde" = last ]; then
+            st_pass "recondb_pick own: the same output as without, and a section naming the winners (APS2 CLI1 RESP2); sq_section: the rows of a section by parameter expansion (empty, two rows, last, missing; counted from the start or, for the sections behind the long ones, from the end)"
+        else st_fail "recondb_pick own / sq_section ([${cg_pk#"$cg_pn"}] [$cg_sa|$cg_sb|$cg_sc|$cg_sd|$cg_sz])"; fi
+
+        # ---- 3) the winners are dropped when the schema check fails or the file changes shape (and the pass found no access point, or the copy was torn)
+        sqlite3 "$cg/legacy.db" >/dev/null 2>&1 <<'SQL'
+CREATE TABLE aps (bssid TEXT, ssid TEXT, channel INTEGER, signal INTEGER, privacy TEXT);
+INSERT INTO aps VALUES ('02:00:00:aa:00:01','LegacyGc', 11, -48, 'WPA2');
+SQL
+        cp "$gdb" "$cg/sw.db"; cg_fresh "$cg/sw.db"; cg_b "$cg/w1.json"; cg_b "$cg/w2.json"; cg_ws=$RQ_WIN
+        cp "$cg/legacy.db" "$cg/sw.db"; cg_b "$cg/w3.json"; cg_r3=$cg_rc; cg_h3="$HAS_TIME|$RQ_WIN"
+        cg_b "$cg/w4.json"; cg_r4=$cg_rc; cg_h4="$HAS_TIME|$RQ_WIN"
+        printf 'this is not a database\n' > "$cg/sw.db"; cg_b "$cg/w5.json"; cg_r5=$cg_rc; cg_h5="$HAS_TIME|$RQ_WIN|$RQ_HOLD"
+        cp "$gdb" "$cg/sw.db"; cg_b "$cg/w6.json"; cg_r6=$cg_rc; cg_b "$cg/w7.json"; cg_h7=$RQ_WIN
+        if [ "$cg_ws" = " APS1 CLI1 PRB1 RESP1 " ] && [ "$cg_r3" = 0 ] && [ "$cg_h3" = "0| APS5 " ] && grep -q '"ssid": "LegacyGc"' "$cg/w3.json" && [ "$cg_r4" = 0 ] && grep -q '"ssid": "LegacyGc"' "$cg/w4.json" && [ "$cg_h4" = "0| APS5 " ] \
+           && [ "$cg_r5" = 1 ] && [ "$cg_h5" = "||the copy is not a database" ] && [ "$cg_r6" = 0 ] && [ "$cg_h7" = "$cg_ws" ] && cmp -s "$cg/w2.json" "$cg/w7.json"; then
+            st_pass "recon batch: the winners are dropped with HAS_TIME: the file changes shape (the pass sees another shape of the tables and asks again at once as a first batch: the legacy table is learnt in the same cycle, APS5), a torn copy, and back; a new learning pass gives the old document"
+        else st_fail "recon batch: schema reset (win [$cg_ws], legacy $cg_r3 [$cg_h3] $cg_r4 [$cg_h4], torn $cg_r5 [$cg_h5], back $cg_r6 [$cg_h7])"; fi
+
+        # ---- 3b) the table of the window is judged by its own CREATE, not by what a failing alternative of the tail prints (the statement it ran, rwin and all); a refusal costs no pass
+        cg_fresh "$gdb"; cg_b "$cg/x1.json"; cg_b "$cg/x2.json"; cg_x2="$RW_USED|$RW_OFF"
+        CYC_NOW=$((cg_now + 200000)); cg_b "$cg/x3.json"; cg_x3="$cg_rc|$HAS_TIME|$RQ_WIN|$RW_OFF|$RW_USED"; CYC_NOW=""
+        cg_b "$cg/x4.json"; cg_b "$cg/x5.json"; cg_s5=$(cat "$CYC_SQL"); cg_x5="$RW_USED|$RW_OFF"
+        # the old rule (a line of the error text names rwin, and ssid is there) on the text sqlite3 prints for the tail's RESP2 on this schema: it latched the table off for good
+        printf 'Parse error near line 12: no such column: apmac\n  SELECT apmac, COUNT(DISTINCT CAST(ssid AS TEXT)) FROM rwin WHERE type=5 AND apmac IS NOT NULL\n                 error here ---^\n#starchorus-exit 1\n' > "$cg/old-err.txt"
+        cg_old=0; grep -q rwin "$cg/old-err.txt" && ! grep -q 'no such table: ssid' "$cg/old-err.txt" && cg_old=1
+        # a database reader that refuses the table (the stand-in drops the CREATE): the marker row is missing, this pass is asked again at once without the table, the next ones too, until the count runs out
+        CYC_NOCREATE=1; cg_b "$cg/x6.json"; cg_x6="$cg_rc|$RW_OFF|$(cg_calls)"; cg_sx6=$(cat "$CYC_SQL"); CYC_NOCREATE=""
+        RW_OFF=1; cg_b "$cg/x7.json"; cg_s7=$(cat "$CYC_SQL"); cg_x7="$RW_OFF"; cg_b "$cg/x8.json"; cg_s8=$(cat "$CYC_SQL"); cg_x8="$RW_USED|$RW_OFF"
+        if [ "$cg_x2" = "1|0" ] && [ "$cg_x3" = "1|||0|1" ] && [ "$cg_x5" = "1|0" ] && [ "$(cg_n "$cg_s5" 'FROM rwin')" -ge 4 ] && cmp -s "$cg/x2.json" "$cg/x5.json" && [ "$cg_old" = 1 ] \
+           && [ "$cg_x6" = "0|59|2" ] && [ "$(cg_n "$cg_sx6" 'CREATE TEMP TABLE rwin')" = 1 ] && [ "$(cg_n "$cg_sx6" 'FROM ssid')" -ge 6 ] && cmp -s "$cg/x2.json" "$cg/x6.json" \
+           && [ "$(cg_n "$cg_s7" rwin)" = 0 ] && [ "$cg_x7" = 0 ] && cmp -s "$cg/x2.json" "$cg/x7.json" && [ "$(cg_n "$cg_s8" 'CREATE TEMP TABLE rwin')" = 1 ] && [ "$cg_x8" = "1|0" ] && cmp -s "$cg/x2.json" "$cg/x8.json"; then
+            st_pass "recon batch: a pass with no access point in the window (one empty hour, a tail whose alternatives fail and print rwin) leaves the table on (the old rule, rwin in an error line, switched it off for good); a reader that refuses it is asked again in the same cycle on ssid (2 sqlite3 starts, the same document), the table is left alone for 59 passes and then tried again"
+        else st_fail "recon batch: the window's table ($cg_x2 / empty window [$cg_x3] / again $cg_x5, old rule $cg_old, refused [$cg_x6] [$cg_x7] [$cg_x8])"; fi
+
+        # ---- 3c) the file changes shape under the winners and the access points still come back: the reduced batch alone would publish no station at all (CLI1 and PRB1 name a table that is gone)
+        cp "$gdb" "$cg/sw2.db"; cg_fresh "$cg/sw2.db"; cg_b "$cg/y1.json"; cg_b "$cg/y2.json"; cg_ys=$(cat "$CYC_SQL"); cg_yw=$RQ_WIN
+        sqlite3 "$cg/sw2.db" >/dev/null 2>&1 <<'SQL'
+ALTER TABLE wifi_device RENAME TO wifi_dev_old;
+ALTER TABLE ssid ADD COLUMN stamac TEXT;
+UPDATE ssid SET stamac = (SELECT mac FROM wifi_dev_old WHERE wifi_dev_old.hash = ssid.wifi_device) WHERE type = 4;
+SQL
+        cg_yo=$(printf '%s\n' "$cg_ys" | sqlite3 -readonly -noheader -separator "$cg_t" "$cg/sw2.db" 2>/dev/null)
+        RQ_SRC="$NL$cg_yo$NL"; sq_section CLIENTS; cg_yc=$RQ_SECT; sq_section APS; cg_ya=$RQ_SECT
+        cg_b "$cg/y3.json"; cg_y3="$cg_rc|$RQ_WIN"
+        cg_fresh "$cg/sw2.db"; cg_b "$cg/y4.json"
+        if [ "$cg_yw" = " APS1 CLI1 PRB1 RESP1 " ] && [ -z "$cg_yc" ] && [ -n "$cg_ya" ] && [ "$cg_y3" = "0| APS1 CLI3 PRB2 RESP1 " ] && cmp -s "$cg/y3.json" "$cg/y4.json" \
+           && [ "$(grep -c '02:00:00:d2:00:0[12]' "$cg/y3.json")" = 2 ] && [ "$(grep -c '02:00:00:d2:00:0[12]' "$cg/y2.json")" = 2 ]; then
+            st_pass "recon batch: a file that changes shape under the winners with its access points intact (wifi_device gone, stamac in ssid) gives the clients in the same cycle, the winners are learnt again (CLI3, PRB2; APS1 and RESP1 stay) and the document is the first batch's; the winners' own batch on that file finds no station"
+        else st_fail "recon batch: shape change with access points (win [$cg_yw], old batch clients [$cg_yc] aps [$(printf '%s' "$cg_ya" | cut -c1-30)], after [$cg_y3], $(cmp "$cg/y3.json" "$cg/y4.json" 2>&1 | head -n 1))"; fi
+
+        # ---- 3d) the first non-empty alternative holds for a group WITH a winner too: a file with the legacy table beside ssid, both valid. The window empties: the legacy table
+        # is the first non-empty alternative and is published in the same cycle (the tail's question "APS5 has rows while APS1 has none" gave a row); the window fills again: APS1
+        # comes before the winner APS5, its question gives a row, and ssid's access points are back in the same cycle. The oracle is a first batch of the same state (recondb_pick).
+        cp "$gdb" "$cg/hy.db"; sqlite3 "$cg/hy.db" >/dev/null 2>&1 <<'SQL'
+CREATE TABLE aps (bssid TEXT, ssid TEXT, channel INTEGER, signal INTEGER, privacy TEXT);
+INSERT INTO aps VALUES ('02:00:00:aa:00:02','LegacyHy', 11, -48, 'WPA2');
+SQL
+        cg_fresh "$cg/hy.db"; cg_b "$cg/k1.json"; cg_b "$cg/k2.json"; cg_k2="$RQ_WIN|$(cg_calls)"; cg_sk2=$(cat "$CYC_SQL")
+        CYC_NOW=$((cg_now + 200000)); cg_b "$cg/k3.json"; cg_k3="$cg_rc|$RQ_WIN|$(cg_calls)"; cg_b "$cg/k4.json"; cg_k4="$cg_rc|$RQ_WIN|$(cg_calls)"; cg_sk4=$(cat "$CYC_SQL")
+        CYC_NOW=""; cg_b "$cg/k5.json"; cg_k5="$cg_rc|$RQ_WIN|$(cg_calls)"; cg_b "$cg/k6.json"; cg_k6="$cg_rc|$RQ_WIN|$(cg_calls)"
+        CYC_NOW=$((cg_now + 200000)); cg_fresh "$cg/hy.db"; cg_b "$cg/kE.json"; CYC_NOW=""; cg_fresh "$cg/hy.db"; cg_b "$cg/kF.json"
+        cg_kq() { cg_e "$1" "^SELECT 1 WHERE EXISTS \\(SELECT bssid, .* FROM aps\\) AND NOT EXISTS \\(SELECT s\\.bssid, "; }      # APS4 to APS7 asked behind APS1
+        if [ "$cg_k2" = " APS1 CLI1 PRB1 RESP1 |1" ] && [ "$(cg_kq "$cg_sk2")" = 4 ] && [ "$cg_k3" = "0| APS5 |2" ] && [ "$cg_k4" = "0| APS5 |1" ] \
+           && [ "$(cg_e "$cg_sk4" "^SELECT 1 WHERE EXISTS \\(SELECT s\\.bssid, .*\\);$")" = 1 ] && [ "$cg_k5" = "0| APS1 CLI1 PRB1 RESP1 |2" ] && [ "$cg_k6" = "0| APS1 CLI1 PRB1 RESP1 |1" ] \
+           && grep -q '"ssid": "LegacyHy"' "$cg/kE.json" && ! grep -q '"ssid": "LegacyHy"' "$cg/kF.json" && grep -q '"ssid": "GcAP-One"' "$cg/kF.json" \
+           && cmp -s "$cg/k1.json" "$cg/kF.json" && cmp -s "$cg/k2.json" "$cg/kF.json" && cmp -s "$cg/k3.json" "$cg/kE.json" && cmp -s "$cg/k4.json" "$cg/kE.json" \
+           && cmp -s "$cg/k5.json" "$cg/kF.json" && cmp -s "$cg/k6.json" "$cg/kF.json"; then
+            st_pass "recon batch: a file with the legacy table beside ssid: the window empties and the legacy table is published in the same cycle (APS5 learnt), the window fills and ssid's access points are back in the same cycle (APS1 learnt again); every document is the first batch's of the same state (the winner alone kept the legacy table)"
+        else st_fail "recon batch: winner that comes back empty ([$cg_k2] q $(cg_kq "$cg_sk2") [$cg_k3] [$cg_k4] [$cg_k5] [$cg_k6], $(cmp "$cg/k5.json" "$cg/kF.json" 2>&1 | head -n 1))"; fi
+
+        # ---- 3e) a batch with the window's table that goes through recondb_pick (HAS_TIME known, the winners learnt under another STARCHORUS_TRAFFIC) keeps the table's marker
+        # row and the table (one sqlite3 start); the next batch is the reduced one, and CLI1, which reads CLI0's rows by CLI0's clauses, is not asked behind it
+        cg_fresh "$gdb"; cg_b "$cg/t1.json"; cg_b "$cg/t2.json"
+        TRAFFIC=1; cg_b "$cg/t3.json"; cg_t3="$cg_rc|$RW_USED|$RW_OFF|$(cg_calls)|$(cg_stubs awk)|$RQ_WIN"; cg_st3=$(cat "$CYC_SQL")
+        cg_b "$cg/t4.json"; cg_t4="$RW_USED|$(cg_calls)|$(cg_stubs awk)"; cg_st4=$(cat "$CYC_SQL")
+        cg_fresh "$gdb"; cg_b "$cg/tF.json"; TRAFFIC=0
+        if [ "$cg_t3" = "0|1|0|1|2| APS1 CLI0 PRB1 RESP1 " ] && [ "$(cg_n "$cg_st3" 'CREATE TEMP TABLE rwin')" = 1 ] && [ "$(cg_n "$cg_st3" "STARCHORUS_CLI0#")" = 1 ] && cmp -s "$cg/t3.json" "$cg/tF.json" \
+           && [ "$cg_t4" = "1|1|1" ] && [ "$(cg_n "$cg_st4" "STARCHORUS_CLI1#")" = 0 ] && [ "$(cg_n "$cg_st4" "STARCHORUS_CLI3#")" = 1 ] && [ "$(cg_n "$cg_st4" "STARCHORUS_CLIENTS#")" = 1 ] \
+           && cmp -s "$cg/t4.json" "$cg/tF.json" && grep -q '"packets"' "$cg/tF.json"; then
+            st_pass "recon batch: a batch that goes through the pick keeps the window table's marker (the table stays on, one sqlite3 start, the first batch's document); behind the winner CLI0 its twin CLI1 is not asked, CLI3 is"
+        else st_fail "recon batch: the pick and the window's marker [$cg_t3] [$cg_t4] ($(cmp "$cg/t3.json" "$cg/tF.json" 2>&1 | head -n 1))"; fi
+
+        # ---- 3f) rq_tail: a tail with rows returns before the cut that counts from the start (the text is left as it was); a tail without one is cut out
+        cg_rows=""; cg_i=0; while [ "$cg_i" -lt 50 ]; do cg_rows="$cg_rows${NL}020000F0$cg_i${cg_t}-60"; cg_i=$((cg_i + 1)); done
+        RQ_TA="CLI1 "; pick="#STARCHORUS_WMIN#${NL}5${NL}#STARCHORUS_TAIL#${NL}#STARCHORUS_CLI1#$cg_rows${NL}#STARCHORUS_TAILEND#${NL}#STARCHORUS_APS#${NL}a"; cg_p0=$pick
+        rq_tail; cg_q1=$?; cg_q1p=$pick
+        pick="#STARCHORUS_WMIN#${NL}5${NL}#STARCHORUS_TAIL#${NL}#STARCHORUS_CLI1#${NL}#STARCHORUS_TAILEND#${NL}#STARCHORUS_APS#${NL}a"; rq_tail; cg_q2="$?|$pick"; RQ_TA=""; pick=""
+        if [ "$cg_q1" = 1 ] && [ "$cg_q1p" = "$cg_p0" ] && [ "$cg_q2" = "0|#STARCHORUS_WMIN#${NL}5${NL}#STARCHORUS_APS#${NL}a" ]; then
+            st_pass "rq_tail: a tail with rows says so before anything is cut (the text untouched: no search past the tail's rows), a tail without rows is cut out and the sections around it are kept"
+        else st_fail "rq_tail: rows [$cg_q1, text $( [ "$cg_q1p" = "$cg_p0" ] && echo kept || echo cut)] none [$cg_q2]"; fi
+
+        # ---- 4) HOP and an access point alone: the section by expansion, and no marker row taken for an access point
+        HOPINFO=1; cg_fresh "$gdb"; cg_b "$cg/h1.json"; cg_h1s=$(cat "$CYC_SQL"); cg_b "$cg/h2.json"; cg_hs=$(cat "$CYC_SQL"); HOPINFO=0
+        sqlite3 "$cg/ap.db" >/dev/null 2>&1 <<SQL
+CREATE TABLE ssid(hash INT PRIMARY KEY, wifi_device INT, scan INT, type INT, bssid TEXT, ssid BLOB, hidden INT, time INT, signal INT, freq INT, channel INT, encryption INT);
+CREATE TABLE wifi_device(hash INT PRIMARY KEY, scan INT, mac TEXT, time INT, signal INT, freq INT, packets INT);
+INSERT INTO ssid VALUES (1,0,1,8,'020000D30001','LonelyAP',0,$((cg_now - 5)),-50,2437,6,8);
+SQL
+        cg_fresh "$cg/ap.db"; cg_b "$cg/p1.json"; cg_b "$cg/p2.json"
+        if grep -q '"channels": \[{"freq": 2412' "$cg/h1.json" && cmp -s "$cg/h1.json" "$cg/h2.json" && [ "$(cg_n "$cg_hs" 'FROM ssid')" = 2 ] \
+           && [ "$(grep -c '"bssid"' "$cg/p1.json")" = 1 ] && ! grep -q STARCHORUS "$cg/p1.json" && cmp -s "$cg/p1.json" "$cg/p2.json"; then
+            st_pass "recon batch: HOPINFO asks ssid (its history has no window) in the reduced batch too and gives the same channels[]; a database with one access point, no station and a window publishes that one access point (the WMIN row was once taken for two more)"
+        else st_fail "recon batch: hop / lone AP ($(grep -c '"bssid"' "$cg/p1.json") aps, $(cg_n "$cg_hs" 'FROM ssid') FROM ssid)"; fi
+
+        # ---- 4b) what the shell reads sits at the start of the batch: HOP is asked before every group (the shell finds a section by trying prefix after prefix, so one behind the
+        # 2 MB of stations of STARCHORUS_MAX_AGE=0 costs the square of that: 30 s in dash for a build, the first version of this read it from the end)
+        cg_hp() {
+            cg_hl=$(printf '%s\n' "$1" | grep -n "SELECT '#STARCHORUS_HOP#'" | head -n 1 | cut -d: -f1); [ -n "$cg_hl" ] || return 1
+            cg_gl=$(printf '%s\n' "$1" | grep -n -E "SELECT '#STARCHORUS_(APS|CLI|PRB|RESP|CLIENTS|PROBES)[0-9]*#'" | head -n 1 | cut -d: -f1)
+            [ -n "$cg_gl" ] && [ "$cg_hl" -lt "$cg_gl" ]
+        }
+        cg_hold=$(printf "%s\n" "SELECT '#STARCHORUS_APS1#';" 'SELECT 1;' "SELECT '#STARCHORUS_CLI1#';" 'SELECT 2;' "SELECT '#STARCHORUS_HOP#';" 'SELECT 3;' "SELECT '#STARCHORUS_RESP1#';")
+        if cg_hp "$cg_h1s" && cg_hp "$cg_hs" && ! cg_hp "$cg_hold" && [ "$(cg_n "$cg_hs" "STARCHORUS_HOP#")" = 1 ]; then
+            st_pass "recon batch: HOP is asked right behind WMIN, before every group, in the first batch and the reduced one (read from the start of the output); a batch that asks it behind the groups is told apart"
+        else st_fail "recon batch: HOP position (first $(cg_hp "$cg_h1s" && echo ok || echo late), reduced $(cg_hp "$cg_hs" && echo ok || echo late), old order $(cg_hp "$cg_hold" && echo ok || echo late))"; fi
+
+        # ---- 4c) the rows the shell read itself are skipped by the final awk, marker by marker: an access point, then ONE marker with a row (a number) behind it (a marker that is not
+        # known keeps the mode of the section before it, so each is tried straight behind the access point); the same program with that marker's entry gone takes the marker line, or its row, for a second access point
+        cg_ap="02:00:00:00:00:01${cg_t}Net-A${cg_t}2412${cg_t}${cg_t}1${cg_t}-50${cg_t}0${cg_t}0${cg_t}1700000000${cg_t}0${cg_t}0${cg_t}0${cg_t}0"
+        cg_fa() {   # $1 = the marker, $2 = the awk program: the access points the final awk makes of an APS section followed by that marker and a row
+            { printf '#STARCHORUS_APS#\n%s\n#STARCHORUS_%s#\n' "$cg_ap" "$1"; [ "$1" = RWOK ] || [ "$1" = TAIL ] || [ "$1" = TAILEND ] || printf '1700000000\n'; } \
+              | SC_CH="" SC_CX="" awk -v ts=1 -v center="$CENTER_LABEL" -v src=recon-db -v FSU="$cg_t" "$AWK_JSON_HELPERS$AWK_SEC$2" | grep -c '"bssid"'
+        }
+        cg_fq=""; cg_fn=0
+        for cg_k in WMIN SCHEMA RWOK HASTIME HOP OWN TAIL TAILEND; do
+            cg_fn=$((cg_fn + 1))
+            cg_pl=$(printf '%s' "$AWK_RECONDB" | sed "s|MK\[\"#STARCHORUS_${cg_k}#\"\]|MK[\"#STARCHORUS_${cg_k}_X#\"]|")
+            [ "$cg_pl" != "$AWK_RECONDB" ] && [ "$(cg_fa "$cg_k" "$AWK_RECONDB")" = 1 ] && [ "$(cg_fa "$cg_k" "$cg_pl")" -gt 1 ] || cg_fq="$cg_fq $cg_k"
+        done
+        if [ "$cg_fn" = 8 ] && [ -z "$cg_fq" ]; then
+            st_pass "recon batch: the final awk takes one access point out of an APS section followed by any of the markers the shell reads itself, each with a row behind it (WMIN, SCHEMA, RWOK, HASTIME, HOP, OWN, TAIL, TAILEND); with that marker's entry gone it takes more (the oldest-row marker was once taken for two access points)"
+        else st_fail "recon batch: skipped markers (entries that change nothing:${cg_fq:- none})"; fi
+
+        # ---- 5) the process a cycle no longer starts: date (the cycle's clock reaches the builder), df (every 20th cycle), rm of the flash copy (once), wc of the kept document, the stderr awk
+        CG_FAKE=""; : > "$cg/dates"
+        date() { printf '%s\n' "$*" >> "$cg/dates"; if [ "$1" = "+%s" ] && [ -n "$CG_FAKE" ]; then printf '%s\n' "$CG_FAKE"; else command date "$@"; fi; }
+        cg_fresh "$gdb"; : > "$cg/dates"; run_cycle >/dev/null 2>&1; cg_d1=$(grep -c -x -- '+%s' "$cg/dates")
+        : > "$cg/dates"; build_from_recondb 1710000000 >/dev/null 2>&1; cg_d2=$(grep -c -x -- '+%s' "$cg/dates")
+        if [ "$cg_d1/$cg_d2" = 1/1 ] && json_ok < "$OUTFILE"; then
+            st_pass "run_cycle: the clock is read once (date +%s), the builder cuts the window from the cycle's own value; the builder asked on its own still reads the clock (1), so the count sees it"
+        else st_fail "run_cycle: date +%s calls $cg_d1/$cg_d2 (want 1/1)"; fi
+        # ram_room: df is asked at the first cycle, then every 20th, at once for another size class or directory, after a no, and the old form asked every time
+        ram_room_old() {
+            rr_need=$(( ($2 + 1023) / 1024 )); rr_need=$(( rr_need + rr_need / 2 + 2048 ))
+            rr_av=$(df -Pk "$1" 2>/dev/null | { read -r _; read -r _ _ _ rr_a _; printf '%s' "$rr_a"; })
+            case $rr_av in ''|*[!0-9]*) return 0 ;; esac
+            [ "$rr_av" -ge "$rr_need" ]
+        }
+        RR_OK=""; : > "$CYC_STUB"; cg_i=0; while [ "$cg_i" -lt 25 ]; do ram_room "$cg/ram" 3500000; cg_i=$((cg_i + 1)); done; cg_k1=$(cg_stubs df)
+        : > "$CYC_STUB"; ram_room "$cg/ram" 9000000; cg_k2=$(cg_stubs df)
+        : > "$CYC_STUB"; ram_room "$cg/ram2" 9000000; cg_k3=$(cg_stubs df)
+        RR_OK=""; CYC_DFFULL=1; : > "$CYC_STUB"; ram_room "$cg/ram2" 9000000; cg_f1=$?; ram_room "$cg/ram2" 9000000; cg_f2=$?; ram_room "$cg/ram2" 9000000; cg_f3=$?; cg_k4=$(cg_stubs df); CYC_DFFULL=""
+        : > "$CYC_STUB"; ram_room "$cg/ram2" 9000000; cg_f4=$?; cg_k5=$(cg_stubs df)
+        : > "$CYC_STUB"; cg_i=0; while [ "$cg_i" -lt 25 ]; do ram_room_old "$cg/ram" 3500000; cg_i=$((cg_i + 1)); done; cg_k6=$(cg_stubs df)
+        if [ "$cg_k1/$cg_k2/$cg_k3/$cg_k4/$cg_k5/$cg_k6" = 2/1/1/3/1/25 ] && [ "$cg_f1$cg_f2$cg_f3$cg_f4" = 1110 ]; then
+            st_pass "ram_room: df runs at the first of 25 cycles and the 21st (2), at once for another size class (1) or directory (1), at every cycle after a no (3 of 3, all refused) and when room is back (1); the old form asked 25 times"
+        else st_fail "ram_room: df calls $cg_k1/$cg_k2/$cg_k3/$cg_k4/$cg_k5/$cg_k6 (want 2/1/1/3/1/25), answers $cg_f1$cg_f2$cg_f3$cg_f4 (want 1110)"; fi
+        # a yes that went stale (the tmpfs filled up since): the cp fails, the flash copy is used and removed again when RAM works, and the room is asked again
+        cg_fresh "$gdb"; cg_b "$cg/m1.json"; cg_k1=$(cg_stubs df); cg_o1=$RR_OK
+        CYC_CPFAIL=1; cg_b "$cg/m2.json"; cg_k2=$(cg_stubs df); cg_fl=0; [ -s "$CAPDIR/recon_copy.db" ] && cg_fl=1; cg_o2="$RR_OK|$FLASH_COPY"; CYC_CPFAIL=""
+        CYC_DFFULL=1; cg_b "$cg/m3.json"; cg_k3=$(cg_stubs df); cg_fl3=0; [ -s "$CAPDIR/recon_copy.db" ] && cg_fl3=1; CYC_DFFULL=""
+        cg_b "$cg/m4.json"; cg_k4=$(cg_stubs df); cg_fl4=0; [ -e "$CAPDIR/recon_copy.db" ] && cg_fl4=1
+        if [ "$cg_k1/$cg_o1" = 1/1 ] && [ "$cg_k2/$cg_fl/$cg_o2" = 0/1/"|1" ] && [ "$cg_k3/$cg_fl3" = 1/1 ] && [ "$cg_k4/$cg_fl4/$FLASH_COPY" = 1/0/0 ] \
+           && cmp -s "$cg/m1.json" "$cg/m2.json" && cmp -s "$cg/m2.json" "$cg/m3.json" && cmp -s "$cg/m3.json" "$cg/m4.json"; then
+            st_pass "recon copy: a cached yes whose tmpfs has filled meanwhile falls to the flash copy at the failed cp (df not asked, copy made, room forgotten), df is asked at the next cycle (no room: flash again), then RAM, the flash copy removed; the document is the same bytes each time"
+        else st_fail "recon copy: stale yes (df $cg_k1/$cg_k2/$cg_k3/$cg_k4, flash $cg_fl/$cg_fl3/$cg_fl4, state $cg_o1 [$cg_o2] $FLASH_COPY)"; fi
+        # the flash copy's rm: once (a copy may be there), not on every cycle
+        FLASH_COPY=1; : > "$CAPDIR/recon_copy.db"; RR_OK=""; : > "$CYC_STUB"; cg_i=0; while [ "$cg_i" -lt 5 ]; do build_from_recondb 1710000000 >/dev/null 2>&1; cg_i=$((cg_i + 1)); done
+        cg_r1=$(grep -c '^rm .*recon_copy\.db' "$CYC_STUB"); cg_rf=0; [ -e "$CAPDIR/recon_copy.db" ] && cg_rf=1
+        : > "$CYC_STUB"; cg_i=0; while [ "$cg_i" -lt 5 ]; do rm -f "$CAPDIR/recon_copy.db" "$CAPDIR/recon_copy.db-wal" "$CAPDIR/recon_copy.db-shm"; cg_i=$((cg_i + 1)); done; cg_r2=$(grep -c '^rm .*recon_copy\.db' "$CYC_STUB")
+        if [ "$cg_r1/$cg_rf/$FLASH_COPY/$cg_r2" = 1/0/0/5 ]; then
+            st_pass "recon copy: the stale flash copy is removed by the first RAM cycle (1 rm in 5 cycles, the file gone, the flag clear); the old statement ran 5 times"
+        else st_fail "recon copy: flash rm $cg_r1/$cg_rf/$FLASH_COPY/$cg_r2 (want 1/0/0/5)"; fi
+        # a full pass keeps its document: the line count comes from doc_whole (no wc); the skipped cycle after it announces the interval as it is now
+        SKIP_UNCHANGED=1; MAX_AGE=0; PACE_MORE=0; RS_SIG=""; RS_SKIPS=0; RS_DOCV=""; cg_fresh "$gdb"
+        CG_FAKE=$((cg_now + 1000)); : > "$CYC_STUB"; run_cycle >/dev/null 2>&1; cg_wc1=$(cg_stubs wc); cg_nl=$(grep -c '' "$OUTFILE")
+        cg_dn="$RS_DOCN/$DOC_N"; cg_k1=$RS_SKIPS
+        CG_FAKE=$((cg_now + 1010)); PACE_MORE=8; : > "$CYC_LOG"; : > "$CYC_STUB"; run_cycle >/dev/null 2>&1; cg_s=$(cg_calls); cg_i38=$(grep -c '"interval": 38' "$OUTFILE"); cg_g=$(grep -c "\"generated\": $CG_FAKE," "$OUTFILE")
+        CG_FAKE=$((cg_now + 1020)); PACE_MORE=0; run_cycle >/dev/null 2>&1; cg_i30=$(grep -c '"interval": 30' "$OUTFILE"); cg_i38b=$(grep -c '"interval": 38' "$OUTFILE")
+        : > "$CYC_STUB"; rs_keepdoc "$OUTFILE" >/dev/null 2>&1; cg_wc2=$(cg_stubs wc)
+        printf '{\n  "aps": [\n  ]\n}\n' > "$cg/dw.json"; doc_whole "$cg/dw.json"; cg_dw="$DOC_N"; printf '{\n  "aps": [\n' > "$cg/dw2.json"; doc_whole "$cg/dw2.json"; cg_dw2="$?|$DOC_N"
+        if [ "$cg_wc1" = 0 ] && [ "$cg_dn" = "$cg_nl/$cg_nl" ] && [ "$cg_k1" = 0 ] && [ "$cg_s" = 0 ] && [ "$cg_i38/$cg_g" = 1/1 ] && [ "$cg_i30/$cg_i38b" = 1/0 ] && [ "$cg_wc2" = 1 ] && [ "$cg_dw" = 4 ] && [ "$cg_dw2" = "1|" ]; then
+            st_pass "run_cycle: a full pass keeps its document without a wc (line count from doc_whole: $cg_nl), the cycle after it is skipped (no sqlite3) and says interval 38 while the loop sleeps 8 s more, and 30 when it does not; rs_keepdoc asked without the count still counts (1 wc)"
+        else st_fail "run_cycle: kept document (wc $cg_wc1/$cg_wc2, lines $cg_dn want $cg_nl, calls $cg_s, interval $cg_i38/$cg_g/$cg_i30/$cg_i38b, doc_whole $cg_dw $cg_dw2)"; fi
+        unset -f date; CG_FAKE=""
+
+        # ---- 6) the loop's pace and the hourly line, against a /proc/uptime of our own
+        BT_PROC="$cg/proc"; INTERVAL=30; SKIP_UNCHANGED=0; PACE_MORE=0
+        printf '1000.00 900.00\n' > "$cg/proc/uptime"; cg_fresh "$gdb"; CYC_UP="$cg/proc/uptime"; CYC_UPV=1012.40; export CYC_UP CYC_UPV
+        TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0
+        cycle_step >/dev/null 2>&1; cg_p1=$PACE_MORE; cg_e1=$(center_extra)
+        CYC_UP=""; export CYC_UP
+        printf '1100.00 900.00\n' > "$cg/proc/uptime"; PACE_T0=110000; printf '1100.30 900.00\n' > "$cg/proc/uptime"; pace_end; cg_p2=$PACE_MORE; cg_e2=$(center_extra)
+        PACE_T0=100000; printf '1010.00 9.00\n' > "$cg/proc/uptime"; pace_end; cg_p3=$PACE_MORE
+        PACE_T0=100000; printf '1010.01 9.00\n' > "$cg/proc/uptime"; pace_end; cg_p4=$PACE_MORE
+        PACE_T0=100000; printf '5000.00 9.00\n' > "$cg/proc/uptime"; pace_end; cg_p5=$PACE_MORE
+        BT_PROC="$cg/no-proc"; PACE_T0=100000; pace_end; cg_p6=$PACE_MORE; pace_begin; cg_p7="$PACE_T0"; BT_PROC="$cg/proc"
+        if [ "$cg_p1" = 8 ] && printf '%s' "$cg_e1" | grep -q '"interval": 38' && [ "$cg_p2" = 0 ] && printf '%s' "$cg_e2" | grep -q '"interval": 30' \
+           && [ "$cg_p3/$cg_p4/$cg_p5/$cg_p6/$cg_p7" = 0/1/3570/0/ ]; then
+            st_pass "loop pace: a cycle of 12.4 s through cycle_step sleeps 38 s (INTERVAL 30 + 8) and announces interval 38; 0.3 s sleeps 30; 10.00 s is 30, 10.01 s is 31, a cycle of 4000 s is capped at 3600; without /proc/uptime there is no backoff"
+        else st_fail "loop pace: more $cg_p1/$cg_p2/$cg_p3/$cg_p4/$cg_p5/$cg_p6/[$cg_p7], interval [$cg_e1] [$cg_e2]"; fi
+        # the hourly line: one per hour of the cycles' own clock, with what happened in it; none before the hour is out; a clock set back begins a new hour
+        printf '102.00 9.00\n' > "$cg/proc/uptime"
+        TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0; : > "$cg/tel.log"
+        ts=1000000; rc_skip=0; PACE_T0=10000; pace_end 2>> "$cg/tel.log"
+        ts=1001800; rc_skip=1; PACE_T0=10000; pace_end 2>> "$cg/tel.log"; cg_tl1=$(grep -c . "$cg/tel.log")
+        ts=999000; rc_skip=1; PACE_T0=10000; pace_end 2>> "$cg/tel.log"; cg_tl2=$(grep -c . "$cg/tel.log"); cg_tt="$TEL_T0"
+        ts=1002600; rc_skip=0; PACE_T0=10000; pace_end 2>> "$cg/tel.log"; cg_tl3=$(grep -c . "$cg/tel.log")
+        BT_PROC="$cg/no-proc"; TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0; : > "$cg/tel2.log"
+        ts=2000000; rc_skip=1; PACE_T0=""; pace_end 2>> "$cg/tel2.log"; ts=2003600; rc_skip=1; PACE_T0=""; pace_end 2>> "$cg/tel2.log"; BT_PROC="$cg/proc"
+        if [ "$cg_tl1/$cg_tl2/$cg_tt/$cg_tl3" = 0/0/999000/1 ] && grep -qF '[starchorus] last hour, cycles: 2 full, 2 skipped (recon.db unchanged), mean wall time 2.00 s' "$cg/tel.log" \
+           && grep -qF 'last hour, cycles: 0 full, 2 skipped (recon.db unchanged), mean wall time not measured here' "$cg/tel2.log" && [ "$(grep -c . "$cg/tel2.log")" = 1 ]; then
+            st_pass "hourly line: nothing before the hour is out, a clock set back begins a new hour, then one line with the full and the skipped cycles and the mean wall time (2.00 s; 'not measured here' without /proc/uptime)"
+        else st_fail "hourly line: lines $cg_tl1/$cg_tl2/$cg_tl3, T0 $cg_tt: $(cat "$cg/tel.log" "$cg/tel2.log" | tr '\n' '|')"; fi
+
+        # ---- 6b) the Bluetooth window's waiting is no load: a cycle that computes 0.3 s and waits 5.2 s for the window at INTERVAL 5 sleeps no more (the whole 5.5 s would say 17 s); a cycle
+        # that computes 12 s still backs off; the hourly line keeps the whole wall time. run_layers measures bt_end (stand-ins for it and add_layers, in a sub-shell of their own)
+        cg_pb=$(
+            bt_end() { printf '%s 9.00\n' "$CG_UPE" > "$cg/proc/uptime"; }
+            add_layers() { return 1; }
+            BT_PROC="$cg/proc"; INTERVAL=5; BLUETOOTH=1; BT_RC=0; BT_VOID=""; TRAFFIC=0; AL_ON=0; TR_PID=""; PACE_MORE=0; ts=0; rc_skip=0
+            CG_UPE=1005.50; printf '1000.00 9.00\n' > "$cg/proc/uptime"; pace_begin; printf '1000.30 9.00\n' > "$cg/proc/uptime"
+            run_layers "$cg/pb.json" >/dev/null 2>&1; a=$PACE_BT; pace_end 2>/dev/null; b="$PACE_MORE/$TEL_WALL"
+            PACE_BT=0; pace_end 2>/dev/null; c=$PACE_MORE
+            CG_UPE=1012.60; printf '1000.00 9.00\n' > "$cg/proc/uptime"; pace_begin; printf '1012.00 9.00\n' > "$cg/proc/uptime"
+            run_layers "$cg/pb.json" >/dev/null 2>&1; pace_end 2>/dev/null; d=$PACE_MORE
+            printf '%s|%s|%s|%s' "$a" "$b" "$c" "$d"
+        )
+        if [ "$cg_pb" = "520|0/550|12|31" ]; then
+            st_pass "loop pace: the window's wait is taken off the wall time (0.3 s of work and 5.2 s of window at INTERVAL 5: no backoff, 0 where the whole 5.5 s gave 12; 12 s of work and 0.6 s of window: 31; the hourly line adds 5.50 s)"
+        else st_fail "loop pace: window wait [$cg_pb] (want 520|0/550|12|31)"; fi
+
+        # ---- 7) recondb_failed by builtins says what the awk said, line for line
+        recondb_failed_old() {
+            RQ_WHY=""
+            [ -n "$RQ_ERRF" ] && [ -s "$RQ_ERRF" ] || return 1
+            RQ_WHY=$(awk '
+                /[Mm]alformed/ { m = 1 }
+                /disk I\/O/ { d = 1 }
+                /not a database/ { n = 1 }
+                /^#starchorus-exit [0-9]+$/ { x = $2 + 0 }
+                END { if (m) print "malformed"; else if (d) print "diskio"; else if (n) print "notdb"; else if (x >= 2) print "status " x }' "$RQ_ERRF" 2>/dev/null)
+            case $RQ_WHY in
+                malformed) RQ_WHY="the copy is malformed" ;;
+                diskio) RQ_WHY="disk I/O error" ;;
+                notdb) RQ_WHY="the copy is not a database" ;;
+                status*) RQ_WHY="the database reader ended with $RQ_WHY" ;;
+            esac
+            [ -n "$RQ_WHY" ]
+        }
+        cg_fa=""; cg_i=0; cg_sv=$RQ_ERRF; RQ_ERRF="$cg/err.txt"
+        for cg_c in 'x|#starchorus-exit 0' 'x|#starchorus-exit 1' 'Error: near line 3: no such column: stamac|#starchorus-exit 1' 'Parse error: database disk image is malformed|#starchorus-exit 11' \
+                    'Error: disk I/O error|#starchorus-exit 10' 'Error: file is not a database|#starchorus-exit 26' 'x|#starchorus-exit 2' 'x|#starchorus-exit 139' 'x|#starchorus-exit 007' \
+                    'Error: MALFORMED|#starchorus-exit 1' 'Error: Malformed schema|#starchorus-exit 1' 'Error: something else' 'Error: x|#starchorus-exit abc' 'x|#starchorus-exit 3|#starchorus-exit 0' \
+                    'x|#starchorus-exit 1|#starchorus-exit 2' 'no newline at the end' ''; do
+            cg_i=$((cg_i + 1)); printf '%s\n' "$cg_c" | tr '|' '\n' > "$cg/err.txt"
+            [ "$cg_c" != 'no newline at the end' ] || printf 'Error: file is not a database' > "$cg/err.txt"
+            [ -n "$cg_c" ] || : > "$cg/err.txt"
+            recondb_failed; cg_r1="$?|$RQ_WHY"; recondb_failed_old; cg_r2="$?|$RQ_WHY"
+            [ "$cg_r1" = "$cg_r2" ] || cg_fa="$cg_fa [$cg_i: $cg_r1 / $cg_r2]"
+        done
+        RQ_ERRF=$cg_sv; unset -f recondb_failed_old
+        if [ -z "$cg_fa" ]; then st_pass "recondb_failed: by builtins, the same answer as the awk it replaced on $cg_i error files (damage words, exit statuses 0 to 139 and 007, several exit lines, no exit line, no newline, empty)"; else st_fail "recondb_failed: differs from the awk in$cg_fa"; fi
+
+        # ---- put everything back
+        PATH=$cg_path; TMPDIR_RAM=$cg_ram; RECON_DB=$cg_db; MAX_AGE=$cg_age; HOPINFO=$cg_hop; RESOLVED=$cg_res; OUTFILE=$cg_of; OUTDIR=$cg_od; VENDOR=$cg_ven; INTERVAL=$cg_iv
+        SKIP_UNCHANGED=$cg_su; TRAFFIC=$cg_tr; BT_PROC=$cg_proc; CAPDIR=$cg_cap; SKIP_MAX=$cg_sm; HOMING_BSSID=$cg_hb; OWN=$cg_own
+        HAS_TIME=""; RDB_PATH=""; RQ_WIN=""; RR_OK=""; RS_SIG=""; RS_SKIPS=0; RS_DOCV=""; PACE_MORE=0; PACE_T0=""; FLASH_COPY=1; CYC_UP=""; RW_OFF=0; RDB_SCH=""; PACE_BT=0; CYC_NOW=""
+        TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0
+        unset CYC_LOG CYC_SQL CYC_REAL CYC_STUB CYC_UP CYC_UPV CYC_DFFULL CYC_CPFAIL CYC_NOCREATE
+        unset -f cg_calls cg_stubs cg_n cg_e cg_b cg_fresh cg_m cg_rw ram_room_old cg_hp cg_mk cg_fa
+        # ---- end 3b3
 
         # ---- 3c) a cycle with nothing new: only "generated" moves. A fake clock (FAKE_NOW) drives run_cycle; the database mtime is real and old.
         FAKE_NOW=0
@@ -5701,6 +6409,47 @@ TXT
         check "vendor: a merge that cannot write still says so" "$vlog3" 'merge skipped (nothing was added'
     else rm -f "$VENDOR_NEWF"; VENDOR_NEWF=""; fi      # (root writes through the mode bits: nothing to test)
     chmod u+w "$OUI_CACHE"; vreset; VENDOR_DROP_LOGGED=0
+    # the gathering file of run_cycle's pass (0.2.6): a fixed name (.gat.<pid>) in place of a mktemp and a rm for the pass that finds nothing new, which is nearly every pass.
+    # A pass whose lines nobody has merged yet, and every pass without "defer", keep the mktemp name. Stand-ins for mktemp and rm log what they are asked.
+    gat="$OUI_CACHE.gat.$$"; gx_dir="$tdir/gatbin"; rm -rf "$gx_dir"; mkdir -p "$gx_dir"; : > "$tdir/gat.log"
+    # shellcheck disable=SC2016  # the stand-ins' text: the variables are theirs
+    for gx_n in mktemp rm; do printf '#!/bin/sh\nprintf "%%s %%s\\n" "%s" "$*" >> "%s/gat.log"\nexec %s "$@"\n' "$gx_n" "$tdir" "$(command -v "$gx_n")" > "$gx_dir/$gx_n"; chmod +x "$gx_dir/$gx_n"; done
+    printf '%s\n' "$base" > "$tdir/vdoc"; gx_pth=$PATH; PATH="$gx_dir:$PATH"
+    vreset; VENDOR_DROP_LOGGED=0; : > "$tdir/gat.log"
+    add_vendor defer < "$tdir/vdoc" >/dev/null 2>&1; gx_f1=$VENDOR_NEWF; gx_s1=0; [ -s "$gat" ] && gx_s1=1
+    vendor_merge 2>/dev/null; gx_m1="$(grep -c '^mktemp' "$tdir/gat.log")/$(grep -c '^rm .*\.gat\.' "$tdir/gat.log")"
+    : > "$tdir/gat.log"; add_vendor defer < "$tdir/vdoc" >/dev/null 2>&1; gx_f2=$VENDOR_NEWF; vendor_merge 2>/dev/null
+    gx_m2="$(grep -c '^mktemp' "$tdir/gat.log")/$(grep -c '^rm' "$tdir/gat.log")"
+    vreset; : > "$tdir/gat.log"
+    add_vendor defer < "$tdir/vdoc" >/dev/null 2>&1; gx_a=$VENDOR_NEWF; VENDOR_NEWF=""; add_vendor defer < "$tdir/vdoc" >/dev/null 2>&1; gx_b=$VENDOR_NEWF
+    gx_m3=$(grep -c '^mktemp' "$tdir/gat.log"); VENDOR_NEWF=$gx_a; vendor_merge 2>/dev/null; VENDOR_NEWF=$gx_b; vendor_merge 2>/dev/null
+    vreset; : > "$tdir/gat.log"; add_vendor < "$tdir/vdoc" >/dev/null 2>&1; gx_m4=$(grep -c '^mktemp' "$tdir/gat.log")
+    PATH=$gx_pth
+    if [ "$gx_f1" = "$gat" ] && [ "$gx_s1" = 1 ] && [ "$gx_m1" = 0/1 ] && [ -z "$gx_f2" ] && [ "$gx_m2" = 0/0 ] && [ "$gx_a" = "$gat" ] && [ -n "$gx_b" ] && [ "$gx_b" != "$gat" ] && [ "$gx_m3" = 1 ] && [ "$gx_m4" = 1 ] \
+       && [ ! -e "$gx_b" ] && [ -z "$(ls "$OUI_CACHE".new.* 2>/dev/null)" ]; then
+        st_pass "vendor: run_cycle's pass gathers into a fixed .gat.<pid> file: no mktemp, no rm for a pass that finds nothing new (0/0); a pass with new prefixes needs no mktemp and one rm at the merge; a pass whose lines are unmerged, and a pass without defer, take a mktemp name (the old behaviour)"
+    else st_fail "vendor: gathering file (new $gx_m1 [$gx_f1], nothing new $gx_m2 [$gx_f2], pending $gx_m3 [$gx_a|$gx_b], without defer $gx_m4)"; fi
+    # swept like the other temp files: a dead collector's, never a live one's
+    : > "$CAPDIR/oui-cache.txt.gat.999999"; : > "$CAPDIR/oui-cache.txt.gat.$$"; sweep_stale_cache_files 2>/dev/null
+    gx_sw=0; [ ! -e "$CAPDIR/oui-cache.txt.gat.999999" ] && [ -e "$CAPDIR/oui-cache.txt.gat.$$" ] && gx_sw=1; rm -f "$CAPDIR/oui-cache.txt.gat.$$" "$CAPDIR/oui-cache.txt.gat.999999"
+    if [ "$gx_sw" = 1 ]; then st_pass "vendor: the gathering file is swept when its collector is dead (a live one's is kept)"; else st_fail "vendor: sweep of the gathering file"; fi
+    # and the end of a collector removes its own (cleanup): a real --once with the vendor pass leaves none; with an rm that skips the file it is there, so that the first result
+    # is the cleanup's, not the pass's. (The child reads recon.db: it needs sqlite3.)
+    if have sqlite3; then
+        gx_o="$tdir/gatc"; rm -rf "$gx_o"; mkdir -p "$gx_o"; printf 'A8BBCC Gat Networks\n' > "$gx_o/oui.txt"
+        gx_run() { PATH="$1$PATH" STARCHORUS_OUTDIR="$gx_o" STARCHORUS_CAPDIR="$gx_o/cap" STARCHORUS_TMPDIR="$gx_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$tdir/recon_ssid.db" STARCHORUS_VENDOR=1 \
+            STARCHORUS_OUI_FILE="$gx_o/oui.txt" STARCHORUS_CREATE_MON=0 STARCHORUS_PIDDIR="$gx_o" sh "$0" --once >/dev/null 2>&1; }
+        gx_run ""; gx_c1=""; for gx_x in "$gx_o/cap"/*; do [ -e "$gx_x" ] && gx_c1="$gx_c1 ${gx_x##*/}"; done
+        mkdir -p "$gx_dir/norm"
+        # shellcheck disable=SC2016  # the stand-in's text
+        printf '#!/bin/sh\nfor a; do case $a in -*|*.gat.*) ;; *) %s -rf -- "$a" ;; esac; done\n' "$(command -v rm)" > "$gx_dir/norm/rm"; chmod +x "$gx_dir/norm/rm"
+        rm -rf "$gx_o/cap"; gx_run "$gx_dir/norm:"; gx_c2=""; for gx_x in "$gx_o/cap"/*; do [ -e "$gx_x" ] && gx_c2="$gx_c2 ${gx_x##*/}"; done
+        case $gx_c1 in *oui-cache.txt*) gx_h1=1 ;; *) gx_h1=0 ;; esac; case $gx_c1 in *.gat.*) gx_g1=1 ;; *) gx_g1=0 ;; esac; case $gx_c2 in *.gat.*) gx_g2=1 ;; *) gx_g2=0 ;; esac
+        if [ "$gx_h1/$gx_g1/$gx_g2" = 1/0/1 ]; then
+            st_pass "vendor: a collector removes its own gathering file at its end (a --once with the vendor pass leaves none; with an rm that skips the file the file is there)"
+        else st_fail "vendor: the gathering file's end (run $gx_c1, planted $gx_c2)"; fi
+    else log "  SKIP: vendor: the end of the gathering file (the --once child reads recon.db, and sqlite3 is not installed here)"; fi
+    unset -f gx_run
     # the lock backoff is judged against a clock that may have been set back (the device has no battery clock)
     LOCK_BUSY_UNTIL=$(( $(date +%s) + 30 )); cache_lock; lbr=$?; cache_unlock
     LOCK_BUSY_UNTIL=$(( $(date +%s) + 99999 )); cache_lock; lbr2=$?; cache_unlock; LOCK_BUSY_UNTIL=0
@@ -6577,14 +7326,16 @@ echo $$ > "$LOOP_PIDFILE"
 log "collecting every ${INTERVAL}s -> $OUTFILE (Ctrl-C or --stop to end; loop pid $$)"
 cyc=0
 while :; do
-    run_cycle
+    cycle_step
     # Every 120 cycles (10 min at the default interval) re-check the OUI file: a replaced /
     # rewritten file (firmware update, swapped USB stick) restarts the cache. Cheap: a few stats.
     cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; fi
     # A plain foreground sleep: under busybox ash a caught INT/TERM is handled after the current
-    # sleep returns, so --stop takes effect within at most one INTERVAL. Backgrounding the sleep and
+    # sleep returns, so --stop takes effect within at most the longer of one INTERVAL and the backoff below (3600 s at most). Backgrounding the sleep and
     # `wait`-ing on it does NOT deliver the trap sooner under ash.
     sleep "$INTERVAL"
+    # A slow cycle (pace_end): the rest of three times its wall time. Nothing on an idle device.
+    [ "$PACE_MORE" -le 0 ] || sleep "$PACE_MORE"
 done
 
 # =============================================================================================
