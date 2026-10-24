@@ -62,7 +62,7 @@ local file writes; nothing is sent.
 The recon database is read through a plain copy in RAM (`/tmp`, then `STARCHORUS_CAPDIR`), and the files of the database are looked at (`ls`) before and after
 that copy: when size, modification time or the presence of a journal differ, the copy is made a second time after 0.2 s. On the copy paths nothing is locked or
 written on the live database, and the second copy is the same read-only copy; the last-resort read of the original in place, described above, is unchanged. Beside the copy the collector keeps a small file with the error output of the one query
-(`starchorus-recon-<pid>.db-err`, removed with the copy). What is published: a document only when it is whole (first line `{`, last line `}`, one `aps`
+(`starchorus-recon-<pid>.db-err`, removed with the copy). With a window (`STARCHORUS_MAX_AGE`) the query cuts the rows of the window out once into a temporary table (`rwin`) that lives in the memory of the `sqlite3` process (`PRAGMA temp_store=MEMORY`) and in no file: `-readonly` accepts it and the copy is as it was after the pass (a reader that refuses the table is noticed by a marker row of the batch and asked again without it). What is published: a document only when it is whole (first line `{`, last line `}`, one `aps`
 line); one that is cut short, one built from a copy that `sqlite3` reports as damaged, and one that cannot be written or renamed into place leave the
 document published last as it was, are logged once per episode, and make `--once` exit 1.
 

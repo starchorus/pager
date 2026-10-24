@@ -384,7 +384,12 @@ device as well).
 alternatives (one per schema family) go into **one** `sqlite3` process per cycle, separated by marker
 rows (`SELECT '#STARCHORUS_APS3#'`): sqlite3 carries on after a statement it cannot prepare, so the
 alternatives that do not fit the firmware's columns fail quietly and the first non-empty one per group wins.
-The no-`time` duplicates are asked only until the first batch has shown that `ssid` has a `time` column.
+The no-`time` duplicates are asked only until the first batch has shown that `ssid` has a `time` column. From the second cycle
+on the alternative that won per group is asked under its final marker and the group's other alternatives only as questions of one row, whether they would win now
+(§6a, 0.2.6): one that comes before the winner, whether it has rows; one that comes after it, whether it has rows while the winner has none. A group that has not won yet,
+because it gave no row so far (a quiet room has no responders), keeps all its alternatives. A pass in which such a question or alternative gives a row is asked again at
+once as a first batch, so the first non-empty one per group still wins. The winners are dropped, and everything is asked again, when the file changes (another path), when a pass finds no access point (the schema may have
+changed), when a pass sees the tables in another shape than the one the winners were learnt under (asked again in the same cycle) and when the copy cannot be read.
 
 ### 4a. Schema with `bssid`/`channel` and the `wifi_device` join (confirmed live on the device)
 
@@ -725,7 +730,8 @@ pressed after a long idle is seen up to 1 s late; the Pager UI's own handling of
 What the collector does about it:
 
 - **RAM copy.** The work copy of the database lives in `/tmp` (`STARCHORUS_TMPDIR`), not on eMMC (§4).
-- **One `sqlite3` process per cycle** instead of four to seven (§4).
+- **One `sqlite3` process per cycle** instead of four to seven (§4). Since 0.2.6 that one process cuts the window out once and
+  asks only the alternatives that won (the next but one bullet below, "The cheaper cycle").
 - **Unchanged cycles are skipped** (`STARCHORUS_SKIP_UNCHANGED=1`). The size and mtime of `recon.db` (and of a
   `-journal` or `-wal` beside it) are taken before the copy, once per cycle, with a single `ls -lnL --full-time`
   that reads nothing (about 0.01 s of CPU; the device has no `stat`, and `wc -c` on the 3.5 MB database cost 0.6 s,
@@ -773,6 +779,82 @@ What the collector does about it:
   that the `awk` process costs anyway (up to about 0.25 s in the biggest file), against 3.8 s (7.5 s under `00`) for
   the scan with the first-octet gate and 14 s before. In the daemon a cycle with a new prefix costs what any other
   cycle costs.
+- **The cheaper cycle (0.2.6).** As of 24 October 2026, after a read-only sighting of where the cycle spends the core (whose
+  device figures are estimates built from the numbers above); the figures in this bullet are **development-machine figures** (Apple M4 Pro, macOS,
+  one-true-awk 20200816, a synthetic `recon.db` of the scale above made by a seeded generator, names made up), not the Pager's. Nothing here
+  sends or changes the state of a radio or the controller; the copy stays a read-only copy; the Bluetooth tools and their arguments are as they were.
+  - *The window is cut out once.* With a window (`STARCHORUS_MAX_AGE` above 0) and a `time` column (known after the first batch), the batch begins
+    with `CREATE TEMP TABLE rwin AS SELECT * FROM ssid WHERE time > <cut> AND type IN (4,5,8)` (about a thousand of the 22,900 rows) and the groups
+    of the access points, the stations, their probes, the responders and the oldest row read `rwin` where they scanned `ssid`, which has no index on
+    `time`, once each. The table lives in the temporary store of the `sqlite3` process (`PRAGMA temp_store=MEMORY`), not in the file: `-readonly` accepts it
+    and the file is as it was. The first batch, a schema without `time`, `STARCHORUS_MAX_AGE=0` and the hop query (which wants the history of a
+    frequency) keep `ssid`. The table is filled in the order the scan meets the rows, which is what decides the bare columns beside `MAX(signal)` when two rows
+    of one BSSID tie; the self-test pins the chosen row for both forms, and shows that a table filled in the order of `time` would flip it. Batch CPU
+    on the census drop-in's generated database 8.8 ms against 5.3 ms (median of 10 runs, the process start included), the answer identical byte for byte
+    (35,072 bytes both ways, bar one marker line that only the table's form writes); on a copy of the sighting's own census database the two forms cost the same, 4.97 ms each
+    (median of 30 runs, 34,658 bytes both ways): what the table saves depends on the database (how many rows lie outside the window, how the scan by `time` is made), so D2, on the
+    Pager's own `recon.db`, is the reading that decides it. A `--once` on the synthetic database gives the same `starchorus.json` as before but for `generated`. The table is judged
+    by its own `CREATE`: the batch writes a marker row (`#STARCHORUS_RWOK#`) after it that is there only where the table is in the connection's temporary schema. A pass without
+    that row (a reader that refuses the table) is asked again at once on `ssid`, and the table is left alone for 60 passes before it is tried again. No other error of the pass says
+    anything about the table: an alternative of the tail that fails prints the statement it ran, `rwin` and all, and that is no refusal (the self-test runs an hour without an
+    access point in the window, whose tail fails that way, and the table stays on). A batch that goes through `recondb_pick` (winners learnt under another
+    `STARCHORUS_TRAFFIC`) passes that row on as it is.
+  - *A reduced batch from the second cycle.* The first batch asks every alternative of every group and learns `HAS_TIME`, the winner per group
+    (`recondb_pick` names them), the shape of the tables it read (the `CREATE` texts of `ssid`, `wifi_device` and `aps`, one row of the batch) and, below, the window; from then on
+    `HASTIME` is not asked, a group with a winner asks that alternative under the marker the final `awk` reads, and `recondb_pick`, one `awk` pass over about 1,400 lines
+    (35 KB), does not run. A tail at the start of the batch, between `#STARCHORUS_TAIL#` and `#STARCHORUS_TAILEND#`, holds the numbered alternatives of a group without a
+    winner and, as questions of one row, the other alternatives of a group with one: before the winner "has it rows?", after it "has it rows while the winner has none?" (an
+    alternative after the winner that reads the winner's rows by the winner's clauses, `CLI1` behind `CLI0`, has rows exactly when the winner has and is not asked). On the device's
+    schema those questions name a table or a column that is not there and fail when they are prepared, before anything is read. A tail with no row in it, the usual state, is cut out
+    and forgotten; a row in it means the first non-empty alternative of a group may be another one now, and that pass is asked again at once as a first batch, which takes the first
+    non-empty alternative as before (the self-test has a file with the legacy `aps` table beside `ssid`, whose window empties and fills again, the first batch's document the oracle
+    in every cycle). The row test comes before the one cut of the tail that counts from the start: a thousand new stations in the tail (CLI and PRB without a winner yet: the payload
+    starts recon and the collector together, so the first cycles may see access points and no station) cost one pass asked again, 171 ms of CPU for three builds against 141 ms with
+    the third a first batch (development machine, `dash`), where a cut before the test would cost the square of the tail's rows (16.7 s); the census has a row for the ratio.
+    Every batch, the first one included, now also asks the shape of the tables (one row) and asks the oldest row of the window and the hop section ahead of the groups, so the first
+    batch's text is not that of 0.2.5; its answer is (the document byte for byte, bar the fault below). A pass that finds the tables in another shape than the winners were learnt under (a file replaced at the same path, a
+    table renamed, a column added) is asked again at once as a first batch in the same way, so that the document of that cycle already has its stations; a pass that finds no
+    access point at all forgets the winners and learns afresh in the next cycle.
+    The shell reads what it needs from the text by parameter expansion (the oldest row of the window was a second `awk` pass over the same text for one number) and the batch asks
+    for it first, so that it sits within a few hundred bytes of the start of the output: `${x#*m}` and `${x##*m}` try prefix after prefix, each as long as the prefix, so a marker far
+    from the end it is counted from costs the square of the distance (3.3 s for 34 KB in `dash` on the development machine; with `STARCHORUS_MAX_AGE=0` the text is 2 MB). A section read
+    from the end, behind the stations, would pay that square: with `STARCHORUS_HOPINFO=1` and no window, three builds that read the hop section there cost 30 s of CPU under `dash`
+    against 1.0 s without it (development machine, census-scale database, 24 October 2026); asked first and read from the start they cost 1.0 s either way, and
+    `tools/regress.d/cycle-census.sh` has a row for the ratio. The one
+    marker still read from the end is the winners' list of the first pass (`OWN`, behind everything `recondb_pick` writes): about 0.1 s at that scale, once. `bash` 3.2 on the
+    development machine (the `sh` of macOS) is slower on a 2-MB text than `dash`: 0.45 s a build at `STARCHORUS_MAX_AGE=0` against 0.29 s before the cheaper cycle, where `dash` has 0.31 s against 0.29 s;
+    the Pager's `ash` has not been read (D12).
+    One more reading of that text found a fault of the old path: with a window, one access point and no station or responder in it, the
+    oldest-row marker was read as two further access points (CHANGELOG 0.2.6, "Fixed"); the final `awk` now skips that row and the markers of the other sections the shell reads itself.
+  - *Fewer starts in the small things.* The cycle's clock reaches the builder (it asked `date` again); `df` for the room in `/tmp` is asked at the first
+    cycle and then every twentieth, and at once for another size class (the need in whole MiB), another directory, another database file,
+    after a refusal (so that the return to RAM is not delayed) and after a copy that failed (a full `/tmp` that had room a few cycles ago costs one cut copy,
+    which the flash fallback answers as before); the flash copy is removed by the RAM cycle that finds one (after a fallback, or left by another collector; the test is a builtin), not asked for every cycle; the vendor pass
+    gathers new prefixes in a file of a fixed name (`oui-cache.txt.gat.<pid>`, emptied by a redirect, removed at the end of the collector, swept when
+    its collector is dead) instead of a `mktemp` and a `rm` every cycle, and a pass without `defer`, or one that finds an unmerged file there, still
+    takes a `mktemp` name; the line count of the kept document comes from the shape check's own `awk` (`doc_whole`), not from a `wc`; the batch's error
+    file is read with builtins (it was an `awk`) and removed with the copy by one `rm`.
+  - *Processes started per cycle*, counted with a farm of logging stand-ins around the cycles of `tools/regress.d/cycle-census.sh` (macOS, where
+    `ls -lnL --full-time` is missing and a stamp is an `ls` and two `stat`; GNU `ls` starts four fewer in a full pass and two fewer in a skipped
+    cycle): first pass 33, now 25; a full pass on a busy night 30, now 21; a full pass that keeps its document 32, now 22; a skipped cycle 12, as
+    before. Child CPU of a cycle on the same machine: 49 to 53 ms, now 35 ms (full pass), 13 ms (skipped, unchanged). The device's starts are
+    ten milliseconds each, its compute is, by the estimate of the sighting of 24 October 2026 (an estimate, not a reading), 60 to 300 times this machine's: the saving there is the scan (the estimate made before the change is 40 to 70
+    ticks of 265, and 20 to 45 more for the `awk` passes) and cannot be read from these figures.
+  - *The pace.* The loop sleeps `STARCHORUS_INTERVAL` as before and, after a cycle whose wall time (read by the shell from `/proc/uptime`, no process) was
+    more than a third of it, the rest of three times that wall time: nothing on an idle device, a backoff on a busy one (a pass of 12.4 s is followed by a sleep of 38 s,
+    three times its wall time rounded up, where 30 s was slept). `center.interval` announces the value the loop slept after the cycle before, in a rebuilt document and in a skipped
+    one: the document of a cycle is written before that cycle has been judged, so a slow cycle shows in the next document. The wait for a Bluetooth window (the time `bt_end` takes,
+    5.5 s in all with the 5-s window) is no load and is taken off the wall time that is judged: a Bluetooth cycle that computes 0.3 s and waits 5.2 s sleeps `STARCHORUS_INTERVAL`
+    as it did, one that computes 12 s still backs off. The hourly line reports the whole wall time.
+  - *One log line an hour* (`last hour, cycles: N full, M skipped (recon.db unchanged), mean wall time S s`), counted by the loop with no process,
+    tells how often the skip fires on a real night. Where `/proc/uptime` cannot be read it says the wall time is not measured.
+  - *Still to be read on the Pager* (the device appointment, process list first and the owner told before): D1, the daemon at the payload's
+    defaults for ten minutes, per cycle `utime stime cutime cstime` of the loop and `ns_last_pid` before and after (the spawn count: 26 to 28 expected before 0.2.6 on a device whose `ls` has `--full-time`, about 17 to 18 now); D2, the captured batch with and without the table (`out/PREFIX-cycle-census/sql-real/c3.sql` of the census and its plain form) twenty times each on the
+    same RAM copy, the `sqlite3` version with `-readonly` and a temporary table, and `cmp` of the answers; D3, the `awk` of `recondb_pick` on a saved batch output
+    (the pass the second cycle no longer runs), twenty times; D7, `ns_last_pid` across one Bluetooth window and `[ -S /proc/<pid>/fd/<n> ]` on a descriptor of `btmon`
+    that holds its socket (the self-test makes its socket with `python3`; BusyBox `ash` is not run here); D11, the hourly line for an hour in a quiet room and an
+    hour on a busy night; D12, the CPU of three builds with `STARCHORUS_HOPINFO=1` and `STARCHORUS_MAX_AGE=0` (no window, 2 MB of text) on BusyBox `ash`, against the same without the hop
+    section, and the builds without it before and after 0.2.6 (the drop-in's row reads `dash`). None of these has been taken as of 24 October 2026.
 - **Priority.** The payloads start the collector, the page server and (on-device payload) the Overview with
   `nice -n 19` when `nice` exists, so that the Pager's own services come first; `sqlite3` and `awk` inherit it. A collector started by hand or by `crond` is not reniced.
 - **Source `pineap`** (§5a, V-3), opt-in, and not a cheaper path. The calls are cheap: `RECON APS` 0.33 s wall and
@@ -798,7 +880,7 @@ Still to be checked on the device, with the exact argument sets:
 Also, not yet looked at on the Pager although the tests on the development machine pin each of them (the cycle's CPU
 time itself was measured, above): the number of `sqlite3` processes per cycle (a `sqlite3` shim in `PATH`); that `/tmp` really receives the copy
 (`ls /tmp/starchorus-recon-*` during a cycle, nothing new in `cap/`); that a quiet period gives skipped cycles and a moving `generated`
-(`collect.log` stays silent, the file's mtime moves); the log lines `vendor cache: ...` in
+(`collect.log` says nothing but the hourly line of 0.2.6, the file's mtime moves); the log lines `vendor cache: ...` in
 `collect.log` after a change of scenery (is the cache growing, and if not, which reason is named); and an end-to-end
 `STARCHORUS_SOURCE=pineap sh starchorus-collect.sh --once` by hand (the daemon of the harness has run it under BusyBox `awk`).
 
@@ -836,7 +918,8 @@ second away): at most 21 `sleep` starts fewer for a 6-s window, reached when the
 its own 6 s, and fewer the later `bt_end` starts (for the 5-s window that is now the default, 18 and 15). The end of the scan and the size check of a runaway window are seen up to 0.5 s late, and a TERM that
 reaches the collector alone waits for the nap in progress, up to 0.5 s where it was 0.2 s (the payload's stop ends the `sleep` children by name, and
 its budget is 10 s). Counted from the code, that is about 20 process starts fewer per window, not yet measured on the Pager; the polls of `bt_ready`
-(a `grep` at each, and a `readlink` per open descriptor of the monitor) stay as they were; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
+(a `grep` at each; the `readlink` per open descriptor of the monitor is `test -S` since 0.2.6, a builtin, and the verdict reads its two
+lines with a `while read` loop, four processes fewer: both counted from the code and the self-test, not yet read on the Pager, D7 in the list at the end of §6a above) stay as they were; a window of 5 s (`STARCHORUS_BT_WINDOW=5`, the
 brief's Q2) takes a sixth off the tools and the parse alike (taken for 0.2.0: 5 s is the default, 6 s when the rows above were measured, and the
 5-s window has not run on the device yet); the Traffic read is now taken every second cycle (the AP service's window is 20 to 30 s
 wide, so nothing is lost) for half its cost: the collector calls on the first cycle and then every second one, and the cycle in between publishes the answer

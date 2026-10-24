@@ -1957,7 +1957,8 @@ cannot then be proven) and of every failed or unusable poll (404, network error,
 without an `aps` array); a failed poll adds only its time, it is no extra tick. `S.stalePolls` counts those polls (for the chip's
 title). A new `generated` or a change of source resets both. `captureStale()` = poll-fed ∧ `sourceKind ≠ none` ∧
 `staleMs ≥ staleAfterMs()`, where `staleAfterMs()` = max(30 s, 2 × `center.interval` + 15 s) when the document announces an
-interval (the payload announces 30 s → 75 s; the collector's default 5 s → 30 s; an interval is read as at most
+interval (the payload announces 30 s → 75 s; the collector's default 5 s → 30 s; after a cycle that took more than a third of its interval the collector
+announces and sleeps three times that cycle's wall time instead (the wait for a Bluetooth window not counted; the document that follows the slow cycle carries the value), `docs/device-notes.md` §6a; an interval is read as at most
 `POLL.maxIntervalS`, 600 s, so a broken document cannot switch the limit off), and `STALE_POLLS` × `POLL_MS` = 30 s, as
 always, when it does not. Demo, Recorded and None never become stale; a poll-fed ACTIVE document does. The mode chip and its
 `title`, the masthead dot, the WarGames source badge, the IMSAI lamps (frozen) and the panels pill all read `captureStale()`, so
