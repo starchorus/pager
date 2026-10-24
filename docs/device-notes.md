@@ -708,9 +708,19 @@ tick is 10 ms of CPU): 369 to 376 ticks for 0.1.0 against 265 to 266 for this bu
 against 191 to 192, the vendor part 68 to 69 against 49 to 51), about 28 per cent less. Two earlier pairs, less tightly
 controlled, gave 241 against 205 and 270 against 200 ticks. A new vendor prefix cost about 1,400 ticks (14 s) in 0.1.0
 and about 50 now; building the OUI index, once, about 850. The Overview's summary cost 1.8 s of CPU, and only on a
-press over a capture it had not read yet (a new capture, or another screen), nothing while it waits for a key, against 4.6 s every
-4 s in 0.1.0, whose every pass redrew the summary. The transmit counters of the Pager's wireless interfaces did not
+press over a capture it had not read yet (a new capture, or another screen), no redraw while it waits for a key (the nap of that wait was
+not counted; see the next paragraph), against 4.6 s every 4 s in 0.1.0, whose every pass redrew the summary. The transmit counters of the Pager's wireless interfaces did not
 change.
+
+**The Overview's key wait, counted from the code (as of 24 October 2026; not measured on the Pager).** Up to 0.2.5 the wait for a key started one
+`sleep` process every 0.2 s for as long as the Overview stood on a screen: 5 a second, 300 a minute, 18,000 an hour. At the device's own figure for
+such naps (0.25 to 0.85 ticks a start, the Bluetooth row of the table in this section) that is 75 to 255 ticks a minute, 1.3 to 4.3 per cent of the
+core; it was never counted in the rows above, which count redraws. From 0.2.6 the nap
+widens with the idle time: 0.2 s for the first 3 s after a key or a draw (300 starts a minute), 0.5 s until about 30 s have passed (120 a
+minute), 1 s after that (60 a minute), so an Overview left standing costs a fifth of what it did (0.25 to 0.85 per cent by the same figure). What is
+counted from the code is the number of starts; what is not measured on the device is the cost of a start for this loop and the saving on the Pager
+(to do: the pid counter over 60 s, then the ticks of the Overview's process tree over five minutes, before and after). The price is that a key
+pressed after a long idle is seen up to 1 s late; the Pager UI's own handling of the press is not slowed. A TERM or HUP that reaches the Overview alone during a nap is handled when that nap ends (up to 1 s after a long idle, 0.5 s after 3 s; it was 0.2 s); the wait for the reader at the exit keeps the short nap.
 
 What the collector does about it:
 
@@ -944,9 +954,9 @@ still without a wait, and a press that falls in one is lost (M1) and, for B, may
 first line of code to the reader's first wait (the traps are set, the temporary directory is made, the reader is forked); the time from an
 answer to the next wait being registered with the UI (the reader writes the line, renames the new counts onto their file, which is a process start, and
 starts `WAIT_FOR_INPUT` again, which is another, and the UI takes the request in its own time); the time after a B until the list is up, because the reader ends itself on a B (nothing measured
-says how the UI shares a key between a picker and a wait) and the shell, which looks at the queue every 0.2 s, has to see the B, end the draw
+says how the UI shares a key between a picker and a wait) and the shell, which looks at the queue every 0.2 s while a draw runs (and at the pace of its nap between draws), has to see the B, end the draw
 and start the picker; and the list, which is a wait of its own. None of them was timed on the device. The first two are a fraction of a second
-at most; the third is up to 0.2 s and a picker's start, and between draws it is longer than it was in 0.1.1, where the shell took the answer the
+at most; the third is up to 0.2 s and a picker's start, and between draws it is longer than it was in 0.1.1 (up to a second after a long idle, see the nap below), where the shell took the answer the
 moment it was written; the document does not claim that B can never leave the payload's view. The queue is an append-only file in a private
 temporary directory (`mktemp -d`, mode 700), read by line number (a FIFO would be read destructively, and a writer to it blocks until somebody
 has the other end open); the device's `/tmp` is RAM, a line is about ten bytes and exists only for a key that was pressed, and the queue starts
@@ -956,7 +966,11 @@ the payload has gone), by the pids the Overview and the reader stored, so none i
 payload's menu. The trap leaves a mark first, which the reader looks for before it opens a wait and before it blocks (a TERM that reaches a forked reader in the instant after its fork can be lost: seen under `dash`, 4 ms after the start); an Overview killed with KILL runs no trap, and its reader ends at the answer of the wait it has open and opens no other, so it takes one key at most. A queue that cannot be written (the file system is full) is reported as 'Overview could not read a key.' and not counted as
 empty answers. Nothing redraws by itself, and no UI command is ever put under `timeout`; only its own `jq` is (`timeout 20`, where `timeout`
 exists: a read that takes longer ends as 'This scan took over 20 s to read.', and 'Try Settings > Show Last: 1 h.' follows). Between draws the
-shell naps 0.2 s at a time and looks at two small files with its own `read`; the one process it starts is the `sleep`. The keys: A draws the
+shell naps and looks at two small files with its own `read`; the one process it starts is the `sleep`. The nap widens with the idle time: 0.2 s for
+the first 3 s after a key or a draw (15 naps), 0.5 s up to about 30 s (54 naps more), then 1 s, counted in naps so that no process reads a clock; a key or a
+draw starts the count again. The watcher of a running `jq` keeps the 0.2 s (the `jq` is under `timeout 20`, and a cut key has to end it), and so does the
+wait for the reader's end at the exit. Counted from the code, that is 300 `sleep` starts a minute at first, 120 after 3 s and 60 after 30 s; not
+measured on the Pager (section 6a). The keys: A draws the
 screen again; B goes up one level (a screen, then the `LIST_PICKER` 'Overview' with its eight rows, then exit 0 to the payload's menu); Left and
 Right step through the screens, round the ends; Up and Down are ignored, during a draw as well (nothing is drawn for them, and they are not left in
 the queue); BACK and Escape count as B and a lower-case a or b as the capital; any other answer is a strike when its wait ended within a second of

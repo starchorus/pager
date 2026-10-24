@@ -243,13 +243,14 @@ is forked; (2) the stretch from an answer to the next wait being registered with
 by renaming a finished file, which is one process start) and starts `WAIT_FOR_INPUT` again, which is one more process start and the UI taking the request in its own time (in 0.1.1 this stretch also held the shell's
 look at the key file, every 0.2 s while a `jq` ran, and the end of the `jq`); (3) after a B: the reader ends itself on a B, so that no wait of
 its own is open while the list shows (nothing measured says how the UI shares a key between a picker and a wait), and the list is not up
-until the shell has looked at the queue, which it does every 0.2 s (while a `jq` runs, through the watcher of that `jq`; between draws, in a
-nap), then ended the draw and started the picker; in 0.1.1 the list opened the moment the answer was written when the shell was waiting for it,
-so this stretch is longer by up to 0.2 s between draws; (4) the list, which is a wait of its own: when it returns the Overview checks the
+until the shell has looked at the queue, which it does every 0.2 s while a `jq` runs (through the watcher of that `jq`) and, between draws, at the pace of
+its nap (0.2 s, then 0.5 s from 3 s of idle and 1 s from 30 s of idle), then ended the draw and started the picker; in 0.1.1 the list opened the moment the answer was written when the shell was waiting for it,
+so this stretch is longer by up to 0.2 s between draws (up to 1 s after a long idle); (4) the list, which is a wait of its own: when it returns the Overview checks the
 payload, starts a new reader, then draws. None of them was timed on the device. (1) and (2) are a fraction of a second at most, (3) is up to
-a fifth of a second and a picker's start, and this document does not claim that B can never leave the payload's view. Nothing redraws by
-itself. Between draws the shell naps (`sleep 0.2`, or a whole second where the applet has no fractions) and reads two small files with its own
-`read`, so the one process it starts is the sleep, five times a second; the reader's wait is idle. No UI command is ever put under `timeout`:
+a fifth of a second and a picker's start (up to a second between draws after 30 s of idle), and this document does not claim that B can never leave the payload's view. Nothing redraws by
+itself. Between draws the shell naps and reads two small files with its own `read`, so the one process it starts is the sleep: five times a second
+(`sleep 0.2`) for the first 3 s after a key or a draw, twice a second (`sleep 0.5`) until about 30 s have passed, then once a second, counted in naps so
+that no process reads a clock (a whole second at each stage where the applet has no fractions; a key or a draw starts the count again); a TERM or HUP sent to the Overview alone during a nap is handled when the nap ends, up to 1 s after a long idle; the reader's wait is idle. No UI command is ever put under `timeout`:
 killing the client of a command might leave its request pending in the UI service, which could then take the next press (M7 saw no such effect,
 on weak evidence, and the Overview has no need to find out). It has no Start, Stop or Exit of its own. The states, and what each key does in them:
 

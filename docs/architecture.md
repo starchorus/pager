@@ -1961,7 +1961,11 @@ interval (the payload announces 30 s → 75 s; the collector's default 5 s → 3
 `POLL.maxIntervalS`, 600 s, so a broken document cannot switch the limit off), and `STALE_POLLS` × `POLL_MS` = 30 s, as
 always, when it does not. Demo, Recorded and None never become stale; a poll-fed ACTIVE document does. The mode chip and its
 `title`, the masthead dot, the WarGames source badge, the IMSAI lamps (frozen) and the panels pill all read `captureStale()`, so
-they flip together.
+they flip together. The live dot's calm pulse (D3) fades in eight steps each way (`steps(8)` on each half of the 2.6 s `pulse`, about six changes a second), not smoothly: a smooth infinite
+animation keeps the compositor producing a frame at the display rate for as long as the page stands, even with the sky at rest, while a stepped
+one wakes it only a few times a second; the dot still reads as a slow, live feed. As of 24 October 2026 the idle page measured about 18 points
+of a core with the smooth pulse and 4 to 7 without it (the stepped fade lies close to the second figure); the figures are noise-bound
+(`tools/bench/README.md`). `tools/regress.d/phone.sh` pins that no infinite CSS animation of the page at rest is smooth.
 
 **Offline.** Stale does not say why. `S.lostPolls` counts the polls that got no answer from the server (network
 error, deadline expired, any status but 200) since the last one that did; any 200, a document or not, sets it to 0 (a 200 with
@@ -2678,7 +2682,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   removes when it ends; an exit trap ends the reader and its wait and waits for the reader (about 2 s at most, about 10 s where `sleep` has no fractions) before it removes the directory; a further TERM, INT or HUP is ignored from the moment the first was taken (by the trap that took it, and again by the cleanup's first line), so that a second one cannot end the shell from inside the cleanup. A reader that has gone without its mark
   (killed, or with no room to write it) is found by its pid and ends the Overview with 'Overview could not read a key.'. It sends a signal only to processes it started itself: the reader, its wait, its `jq` (and what
   `timeout` started for it) and the watcher of that `jq`.
-  Nothing on the display redraws by itself (between draws the shell naps 0.2 s at a time and looks at two small files); no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
+  Nothing on the display redraws by itself (between draws the shell naps and looks at two small files; the nap is 0.2 s for the first 3 s after a key or a draw, 0.5 s until about 30 s have passed and 1 s after that, counted in naps so that no process reads a clock; the watcher of a running `jq` keeps 0.2 s); no UI command is ever put under `timeout` (only the Overview's own `jq` is, where
   `timeout` exists). No upload, no location query.
 - Static check (`tools/passivity-check.sh`, with mutation probe `tools/passivity-mutate.sh`): calls of the AP service CLI
   and of the device's transmitting or upload commands, across the collector, both `starchorus-display.sh`, both `payload.sh`

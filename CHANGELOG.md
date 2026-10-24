@@ -3,6 +3,19 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.6 - unreleased
+
+### Added
+
+- `tools/bench/`: the measurements behind the CPU measurements of 24 October 2026, as scripts that can be run again. A census of the processes one cycle of the collector starts (`census/`: a small C shim, `run-census.py`, `seg.py`), the collector's SQL batch against a variant that scans the table once (`census/bench-sql.py`), the Bluetooth parse step by step with two awk variants (`bt/bench-bt.py`), and, for the page, `page/bench-page.py` (frames drawn and CPU by Chrome process type), `page/ab-pulse.py` (the live dot's pulse smooth against stepped in one run), `page/bench-poll.py`, `page/make-instr.py`, `page/sim-poll.py` and `page/agg.py`. Every script reads copies and synthetic data (addresses in `02:00:00`, names `Fixture-NNN`, seeded), writes only under the directory named on its command line, and needs no device and no network. Counts and output equality are deterministic; seconds and CPU percentages are not, and the README says so. None of it is part of any gate.
+- A row in `tools/regress.d/phone.sh`: at rest, in all three themes, every infinite CSS animation of the page is stepped (`document.getAnimations()`; the timing function of a CSS animation is read from its keyframes), with a control that plants the smooth pulse back and must read red.
+- Checks in the Overview's `--selftest` for the nap of its key wait (nine): six for the nap itself (the three stages, where they meet, the whole-second fallback, the fixed short nap) and three for what starts the count again (a key taken, after a short and after a long idle, and a screen drawn), with a stand-in `sleep` that only writes its argument down; as of 24 October 2026 the self-test has 107 checks, up from 98.
+
+### Changed
+
+- The live dot's pulse fades in eight steps each way (`steps(8)`, about six changes a second) instead of smoothly. A smooth infinite animation keeps the compositor producing a frame at the display rate for as long as the page is open; on the development machine, as of 24 October 2026, an idle page cost about 18 points of a core with it and 4 to 7 without, and the stepped fade lies close to the second figure (same-run ratios only, `tools/bench/README.md`). The dot still pulses slowly while the feed is live. The page is 624,158 bytes (3 fewer).
+- The Overview's wait for a key naps longer the longer nobody presses anything: 0.2 s for the first 3 s after a key or a draw, 0.5 s until about 30 s have passed, then 1 s, counted in naps so that no process reads a clock; a key or a draw starts the count again. Until now it started one `sleep` process every 0.2 s for as long as it stood on a screen: 300 starts a minute, never counted in `docs/device-notes.md`. Counted from the code it is now 300 a minute at first, 120 after 3 s and 60 after 30 s; the saving on the Pager is not measured. The price is that a key pressed after a long idle is seen up to 1 s late, and a TERM or HUP sent to the Overview alone during a nap takes effect when that nap ends (up to 1 s after a long idle). The watcher of a running `jq` and the wait for the reader's end at the exit keep the 0.2 s. `docs/device-notes.md` sections 6a and 7, `docs/display-paths.md` and `docs/architecture.md` say so.
+
 ## 0.2.5 - unreleased
 
 ### Added
