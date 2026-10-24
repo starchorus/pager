@@ -31,6 +31,10 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ### Fixed
 
+- `tools/hak5-package.sh` no longer deletes the payload's own sources when it is told to build into the repository root (`.` from there, or the same path in other letter case on the Mac): it refuses, with exit 2, before anything is removed.
+- A copy of `recon.db` taken while the recon engine was writing to it could give wrong rows, or replace a good document with "no data". The collector now looks at the file again after the copy and copies a second time when it moved, and a copy that `sqlite3` reports as damaged leaves the last document in place (logged once).
+- A document cut short (a full `/tmp`, or an `awk` that stopped early and still reported success) is no longer published, and a directory that cannot be written is reported instead of "single cycle complete". `--once` exits 1 when this cycle's document was not published.
+- `STARCHORUS_INTERVAL` is held to 1 to 3600 seconds in the collector and in the root `payload.sh`: `0`, or a word that `sleep` refuses, ran the loop back to back and filled the log. Both now use 5 and say so once.
 - The middle dot (U+00B7) in the Whitehall theme's texts ('0 free · 0 associated', the masthead tag, the banner and legend lines) sat over the character after it: the embedded 'Starchorus Sans' subset carries a glyph for it with no advance. Both `@font-face` rules now leave U+00B7 out (`unicode-range: U+0-B6, U+B8-10FFFF`), so the next font of the stack sets the dot; the rules drop `font-style: normal`, the default, which pays for most of it (the page grows by 32 bytes to 624,161). `tools/regress.d/theme-whitehall.sh` measures the advance in both weights and keeps the defect of the raw face in view as a control.
 
 ## 0.2.0 - 2026-10-22

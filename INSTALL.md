@@ -542,6 +542,7 @@ place is fixed (`/root/loot/starchorus-alerts`): the companion takes no director
 | Starchorus is not in the payload menu | payload copied to the wrong folder | repeat the manual route, steps 1, 4 and 5 |
 | `Page: 172.16.52.1:8199 not running` | the page server did not start or has ended: the port is taken, or no server program was found | 'Start Web Page' in the menu; another port under Settings; or route B in [docs/display-paths.md](docs/display-paths.md) |
 | the page does not load while another device is loading it | the netcat server answers one request at a time | wait a moment and reload; for several viewers at once install `uhttpd` (route A) or use route B |
+| the installer warns 'collector --once exited 1' | the collector did not publish this cycle's document: there is no usable source, or the data directory cannot be made or written (full, or read-only), or the copy of the recon database could not be read | read the lines the installer prints above the warning; free space on the Pager, then run the installer again |
 | chip stays on 'Sample' | no capture yet | wait half a minute, reload; check `payload.sh status` |
 | chip shows 'Stale' | no new capture for twice the collector's interval plus 15 seconds: the collector has stopped | start it again ([section 5](#5-start-starchorus)) |
 | chip shows 'Offline' | the Pager has answered nothing for as long: the device is off the Pager's Wi-Fi, or the page server has stopped | join the Pager's Wi-Fi again; check `payload.sh status` |

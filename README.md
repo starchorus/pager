@@ -255,7 +255,7 @@ sets the device's address.
 
 ```sh
 ./starchorus-collect.sh            # loop: writes starchorus.json every STARCHORUS_INTERVAL seconds
-./starchorus-collect.sh --once     # a single pass (e.g. for crond)
+./starchorus-collect.sh --once     # a single pass (e.g. for crond); exit 1 when this cycle's document was not published (a failed pass, a document cut short, a directory that cannot be written)
 ./starchorus-collect.sh --status   # is a loop running?
 ./starchorus-collect.sh --stop     # stop the loop (and any airodump-ng it started itself)
 ```
@@ -397,7 +397,7 @@ All variables are optional.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_INTERVAL` | `5` | Seconds between two writes (with tcpdump, also the burst length). With Bluetooth on, the collector's own default of 5 s leaves little between windows: the share of the Pager's CPU that the layer takes grows as the interval falls below the payload's 30 s. |
+| `STARCHORUS_INTERVAL` | `5` | Seconds between two writes, 1 to 3600 (anything else is 5, with one log line; with tcpdump, also the burst length). With Bluetooth on, the collector's own default of 5 s leaves little between windows: the share of the Pager's CPU that the layer takes grows as the interval falls below the payload's 30 s. |
 | `STARCHORUS_OUTDIR` | `/tmp/starchorus` | Directory for `starchorus.json` (volatile; for persistence e.g. `/root/loot/starchorus`). |
 | `STARCHORUS_IFACE` | `auto` | Monitor interface, or `auto` to detect one. |
 | `STARCHORUS_SOURCE` | `auto` | `auto`, `capture`, `recondb`, `pineap` (opt-in: the AP service's own recon lists, read-only commands) or `iwscan` (only with `STARCHORUS_ALLOW_ACTIVE=1`). `auto` never picks `pineap`. |

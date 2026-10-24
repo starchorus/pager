@@ -360,6 +360,25 @@ rolled back). With less free space in `/tmp` than the copy needs (size, half as 
 temporary files, 2 MB), or when the copy fails, the old place `STARCHORUS_CAPDIR/recon_copy.db` is used,
 and as a last resort the original file, likewise `-readonly`.
 
+A plain `cp` of a file that the engine is rewriting in place can hold old and new pages together (a torn copy). The stamp that
+the skip test takes before the copy (size and modification time of the database, and whether a `-journal` or `-wal` stands beside
+it, from one `ls`) is therefore taken once more when the copy is made; if it differs, the copy is thrown away and made again
+after 0.2 s, and if the file moved during that copy as well, the second copy is read all the same and the collector says so once.
+The batch's error output goes to a small file beside the copy (`starchorus-recon-<pid>.db-err`, removed with it): a batch that
+reports `malformed`, `disk I/O` or `not a database`, or whose `sqlite3` ends with a status of 2 or more, is a failed pass, and the
+document published last stays (an exit status of 1 on its own is not read this way: the alternatives of the batch fail on purpose).
+On the development machine (a synthetic 3.2 MB database, a writer committing six-row transactions, a plain file copy; tried on
+24 October 2026 by the hardening review's prototype, not by the collector) a stamp of size, modification time in nanoseconds and
+`-journal` presence, taken before and after the copy, flagged every torn copy in two runs (2 of 2, and 1 of 1) and 18 of 400 and
+2 of 400 copies in all (16 and 1 of them false alarms), so the stamp cost one extra copy in 22 to 200 cycles. The collector's own
+stamp is coarser where `ls` has no `--full-time`: on the development machine it falls back to `stat -f '%m'`, whole seconds only, so a
+write during the copy that keeps the size, ends within the same second and leaves no `-journal` at either look goes unseen there.
+**Not measured on the device (as of 24 October 2026):** the rate of torn copies there (the copy is slower, so the window is wider, and
+the rate is probably higher), how many cycles take the second copy on a busy night, how often a torn copy changes the rows the
+collector's own queries return, and whether BusyBox `ls -lnL --full-time` carries sub-second modification times there (the
+collector's comment says only "down to the nanosecond where the system keeps one"; with whole seconds the gap above applies on the
+device as well).
+
 `build_from_recondb()` serves both schemas below and, in addition, an older `aps` table. All
 alternatives (one per schema family) go into **one** `sqlite3` process per cycle, separated by marker
 rows (`SELECT '#STARCHORUS_APS3#'`): sqlite3 carries on after a statement it cannot prepare, so the

@@ -59,6 +59,13 @@ settings to `settings.conf` in the same directory. Where it starts a page server
 there once, on the first run, and never over a collector that is already installed. These are
 local file writes; nothing is sent.
 
+The recon database is read through a plain copy in RAM (`/tmp`, then `STARCHORUS_CAPDIR`), and the files of the database are looked at (`ls`) before and after
+that copy: when size, modification time or the presence of a journal differ, the copy is made a second time after 0.2 s. On the copy paths nothing is locked or
+written on the live database, and the second copy is the same read-only copy; the last-resort read of the original in place, described above, is unchanged. Beside the copy the collector keeps a small file with the error output of the one query
+(`starchorus-recon-<pid>.db-err`, removed with the copy). What is published: a document only when it is whole (first line `{`, last line `}`, one `aps`
+line); one that is cut short, one built from a copy that `sqlite3` reports as damaged, and one that cannot be written or renamed into place leave the
+document published last as it was, are logged once per episode, and make `--once` exit 1.
+
 ### Never done (none of these functions exists in the code)
 
 | Prohibited action | Status |
