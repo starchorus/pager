@@ -608,7 +608,11 @@ if command -v dash > /dev/null 2>&1; then
   INS_DASH=$(command -v dash); INS_DF="$INS_T/dashbin"; mkdir -p "$INS_DF"
   path_farm "$INS_DF" sh dash
   rm -f "$INS_DF/sh" "$INS_DF/dash"; ln -s "$INS_DASH" "$INS_DF/sh"; ln -s "$INS_DASH" "$INS_DF/dash"
-  INS_dfair=0; [ "$(PATH=$INS_DF command -v sh)" = "$INS_DF/sh" ] && [ "$(PATH=$INS_DF sh -c 'echo ${BASH_VERSION-no}${ZSH_VERSION-}')" = no ] && INS_dfair=1
+  # The fairness probe runs under dash with the farm as its PATH, not in this shell: bash (the /bin/sh of the development machine) answers
+  # `PATH=... command -v sh` from its command hash once it has run `sh` (regress.sh does, before the drop-ins), and said /bin/sh in the full run.
+  # shellcheck disable=SC2016   # the program text is for dash; $1 and the version variables expand there, on purpose
+  INS_fv=$("$INS_DASH" -c 'PATH=$1; export PATH; command -v sh; sh -c '\''echo ${BASH_VERSION-no}${ZSH_VERSION-}'\''' _ "$INS_DF" 2>/dev/null)
+  INS_dfair=0; case $INS_fv in "$INS_DF/sh"?no) INS_dfair=1 ;; esac   # line 1: the farm's sh is found; line 2: it is not bash and not zsh
   ( PATH="$INS_DF"; export PATH; "$INS_DASH" starchorus-collect.sh --selftest ) > "out/$P-selftest-dash.txt" 2>&1
   INS_dl=$(selftest_verdict "out/$P-selftest-dash.txt" "$MIN_SELFTEST"); INS_dc=$?
   if [ "$INS_dc" = 3 ]; then notcov "collector selftest under dash (and its children, sh = dash): $INS_dl"
