@@ -110,3 +110,58 @@ TFD_CLK=$(awk '/^function skyLine\(/,/^function renderAir\(/' starchorus.html | 
 rowif "Foundation: the Compendium and the Vault read no wall clock and no random ($TFD_CLK)" [ "$TFD_CLK" = 0 ]
 TFD_LC=$(grep -c 'Math\.random' starchorus.html)
 rowif "Foundation: the dust stays deterministic (Math.random = $TFD_LC)" [ "$TFD_LC" = 0 ]
+
+# ---- 0.2.5, 24 October 2026: five small behaviours of the page, each with a planted copy that must read red (placeholder names and addresses only)
+#   P2  the Bubbles button keeps its title "... [A]" like every other toggle (the rule "forced above 600 clients or a density of 0.20" is in the KEYS description, and the
+#       class .forced, not the title, says when the bubbles are forced)
+#   P4  the detail sheet closes when the selected network is no longer in the capture (it leaves while it fades: target 0), and stays while the network is still there
+#   P13 one network is "1 AP" (the source line, tests/fixtures/single-ap.json; the Air drawer says "1 AP on 1 channel")
+#   A1/A2 the export text has an accessible name; the mode chip is a status region
+# Run 1 serves single-ap.json (its own document is loaded again through the API under a label, which gives the line "Showing ..."); run 2 serves field-scale.json (forced bubbles).
+TFD_EVS='(async()=>{
+const e=(i)=>document.getElementById(i),w=STARCHORUS.wait,o=[];
+const d=await (await fetch("starchorus.json")).json();STARCHORUS.load(d,"single-ap");await w(300);
+o.push(/ · 1 AP$/.test(e("source-desc").textContent)?1:"0:"+e("source-desc").textContent);
+STARCHORUS.openDrawer("air");await w(300);o.push(/(^|\D)1 AP on 1 channel(\D|$)/.test(e("air-body").textContent)?1:"0:air");STARCHORUS.openDrawer("legend");
+o.push((e("export-ta").getAttribute("aria-label")||"").length>3?1:"0:aria",e("mode-chip").getAttribute("role")==="status"?1:"0:role");
+const t=e("t-agg").title;o.push(/ \[A\]$/.test(t)&&/forced above 600 clients/.test(t)?1:"0:"+t);
+STARCHORUS.setToggles({agg:false});await w(200);o.push(STARCHORUS.stats().forcedAgg===false&&!e("t-agg").classList.contains("forced")?1:"0:forced class on a small capture");STARCHORUS.setToggles({agg:true});
+const ap=(n,s)=>({bssid:"02:00:00:00:0d:0"+n,ssid:s,band:"2.4",channel:6,rssi:-50,security:"WPA2"}),mk=(g,l)=>({source:"recon-db",generated:g,aps:l.map(x=>ap(x[0],x[1])),unassociated:[]});
+STARCHORUS.load(mk(100,[[1,"one"],[2,"two"]]),"a");await w(1200);STARCHORUS.select("02:00:00:00:0d:01");await w(200);const open0=!e("detail").hidden;
+STARCHORUS.load(mk(110,[[1,"one"],[2,"two"]]),"b");await w(300);const stays=!e("detail").hidden;
+STARCHORUS.load(mk(120,[[2,"two"]]),"c");await w(300);const gone=e("detail").hidden;
+o.push(open0&&stays?1:"0:control "+open0+stays,gone?1:"0:sheet stays");
+o.push(STARCHORUS.errors().length);return o.join()})()'
+TFD_EVF='(async()=>{
+const e=(i)=>document.getElementById(i),w=STARCHORUS.wait,o=[];
+const t=e("t-agg").title;o.push(STARCHORUS.stats().forcedAgg===true&&/ \[A\]$/.test(t)?1:"0:"+t);
+STARCHORUS.setToggles({agg:false});await w(200);o.push(e("t-agg").classList.contains("forced")&&/ \[A\]$/.test(e("t-agg").title)?1:"0:forced class");
+o.push(STARCHORUS.errors().length);return o.join()})()'
+runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small" --wait 2 --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
+runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced" --wait 3 --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
+TFD_S=$(evalv "out/$P-tfd-small.json" 1); TFD_FS=$(evalv "out/$P-tfd-forced.json" 1)
+rowif "page: one network reads '1 AP' (source line, Air drawer), the export text has a name, the mode chip is a status region, the Bubbles title ends in [A], and the sheet closes on a network that left but stays on one that is there [$TFD_S]" [ "$TFD_S" = "1,1,1,1,1,1,1,1,0" ]
+rowif "page: the Bubbles button on a forced capture (field-scale.json): title ends in [A], class .forced when the bubbles are off (and none on a small capture, run 1) [$TFD_FS]" [ "$TFD_FS" = "1,1,0" ]
+# the control: one page copy with all five changes undone must read red on every answer that the changes made
+python3 - "$H" "out/$P-tfd-nofix.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+pairs = [
+  ('agg.classList.toggle("forced", forced && !S.ui.agg); }', 'agg.classList.toggle("forced", forced && !S.ui.agg); agg.title = "forced: > 600 clients or density > 0.20"; }'),
+  ('!((S.aps.get(S.locked) || S.clients.get(S.locked) || {}).target === 1 || liveCloud(S.locked)', '!(S.aps.has(S.locked) || S.clients.has(S.locked) || liveCloud(S.locked)'),
+  ("plu(S.sourceApCount, 'AP')", "S.sourceApCount + ' APs'"),
+  ('plu(b.aps, "AP") + " on " + plu(b.channels, "channel") + \'</span>', 'b.aps + " APs on " + b.channels + \' channels</span>'),
+  (' aria-label="Export text" readonly', ' readonly'),
+  (' id="mode-chip" role="status">', ' id="mode-chip">'),
+]
+for new, old in pairs:
+    s = s.replace(new, old) if s.count(new) == 1 else s + "\n<!-- not found exactly once: %s -->\n" % new[:40]
+open(sys.argv[2], "w", encoding="utf-8").write(s)
+PY
+TFD_HK=$H; H="out/$P-tfd-nofix.html"   # runq serves $H: point it at the copy for these calls, then put it back
+runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small-n" --wait 2 --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
+runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced-n" --wait 3 --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
+H=$TFD_HK
+TFD_SN=$(evalv "out/$P-tfd-small-n.json" 1); TFD_FN=$(evalv "out/$P-tfd-forced-n.json" 1)
+TFD_SNB=$(printf '%s' "$TFD_SN" | tr ',' '\n' | grep -c '^0:'); TFD_FNB=$(printf '%s' "$TFD_FN" | tr ',' '\n' | grep -c '^0:')
+rowif "page: the controls bite: a copy with the five changes undone is red on the six answers of run 1 that the changes made (red $TFD_SNB) and on both answers of run 2 (red $TFD_FNB) [$TFD_SN | $TFD_FN]" [ "$TFD_SNB/$TFD_FNB" = 6/2 ]

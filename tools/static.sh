@@ -179,12 +179,12 @@ MIN_SLICE_INTRO=25            # §39..§40, measured 39
 # The radio pair's own share of the page: the page it started from (0.1.1 and the small items) was 595,327 bytes, and the design (spec §3.11) gives the pair 14,000 bytes over that.
 # PHN_MAXB (tools/regress.d/phone.sh) is the cap of the release as a whole; these ceilings hold each feature to its own share, so that room under the cap that other work leaves is
 # not used up by it unseen. Raise or drop a share with the change that moves it; the shares must sum to no more than the cap.
-BASE_PAGE_BYTES=597362    # wc -c starchorus.html before the radio pair (feat-0.2 at 690de58, after the large-text fix)
+BASE_PAGE_BYTES=596745    # wc -c starchorus.html before the radio pair (feat-0.2 at 690de58, after the large-text fix: 597,362), lowered by 617 on 24 October 2026 by the owner, on purpose: the 14 chart tokens that no code read left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), so the pooled room goes from 18 to 62 bytes (445 under MAX_PAGE_BYTES, where it was 401) instead of the Scope growing into the bytes saved elsewhere; those 62 bytes are held for two later items (a longer stripCtl, about 60, and a stepped pulse, about 30), which together need about 90: they do not fit as planned
 MAX_PAIR_BYTES=14000      # what the pair may add to it
 MAX_SCOPE_BYTES=12000     # what the Scope (the phone-mode fan) may add
 MAX_ALERTS_BYTES=1200     # what the alerts' ring and legend may add
 MAX_SCOPE_BT_BYTES=200    # the Scope's fifth lane (Bluetooth marks, radio-pair spec 3.6): counted inside the pair's 14,000, not the Scope's 12,000; scope.sh admits it in its own size row and the total below is unchanged
-MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 624562, under the release cap of 625000
+MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 623945 (624562 until 24 October 2026), under the release cap of 625000
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.

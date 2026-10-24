@@ -80,6 +80,7 @@ function sessionFlag(name, set) {
 }
 const r3 = (v) => (typeof v === "number" && Number.isFinite(v)) ? Math.round(v * 1000) / 1000 : v;
 function stripCtl(x, max) { return x == null ? "" : String(x).replace(/[\x00-\x1f\x7f]/g, "").slice(0, max); }
+const plu = (n, w) => `${n} ${w}${n - 1 ? "s" : ""}`;
 function numOrNull(x) { if (x === null || x === undefined || x === "" || typeof x === "boolean") return null; const v = +x; return Number.isFinite(v) ? v : null; }
 const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 

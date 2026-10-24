@@ -74,7 +74,7 @@ function updateControlsLook() {
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
-  const agg = el("t-agg"); if (agg) { const forced = aggForced(); agg.classList.toggle("forced", forced && !S.ui.agg); agg.title = "forced: > 600 clients or density > 0.20"; }
+  const agg = el("t-agg"); if (agg) { const forced = aggForced(); agg.classList.toggle("forced", forced && !S.ui.agg); }
   legendVisibility();
   layoutEdges();
 }
@@ -171,7 +171,7 @@ function exportModel() {
 function exportText(fmt) {
   const m = exportModel();
   if (fmt === "csv") {
-    const q = (v) => { const t = v == null ? "" : String(v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\t\r-]/.test(s) && !isFinite(s) ? "'" + s : s; return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const head = "kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud";   // one table, a leading kind column, every row the same width
     const apRow = (a) => ["ap", a.bssid, a.ssid, a.band, a.channel, a.security, a.rssi, a.heard, a.alias || "", (a.tags || []).join(" "), "", "", "", ""];
     const stRow = (x) => ["station", x.mac, "", x.band, "", "", x.rssi, x.heard, x.alias || "", (x.tags || []).join(" "), x.association || "", x.randomized ? "1" : "", (x.probes || []).join(" "), x.cloud || ""];
@@ -200,8 +200,8 @@ function exportPng() {   // the canvases as they are, plus the footer; returned 
   x.fillStyle = THEME.ink.secondary; x.font = "12px " + THEME.font.ui; x.textBaseline = "middle"; x.fillText(EXPORT_FOOTER, 10, c.height - 10);
   return c.toDataURL("image/png");
 }
-function openExport() { el("export-wrap").style.display = "flex"; refreshExport(); }
-function closeExport() { el("export-wrap").style.display = "none"; }
+function openExport() { el("export-wrap").style.display = "flex"; refreshExport(); el("export-fmt").focus(); }
+function closeExport() { el("export-wrap").style.display = "none"; document.activeElement.blur(); }
 function refreshExport() { el("export-ta").value = exportText(el("export-fmt").value); el("export-png").hidden = true; el("export-msg").textContent = ""; }
 el("btn-export").addEventListener("click", openExport);
 for (const k of ["air", "time", "rec"]) el("t-" + k).addEventListener("click", () => setDx(k));
@@ -298,7 +298,7 @@ function renderAir() {
   for (const band of ["2.4", "5", "6"]) {
     const b = a.bands[band]; if (!b) continue;
     h += "<h4>" + esc(fmtBand(band)) + "</h4>";
-    h += '<div class="row"><span>' + b.aps + " APs on " + b.channels + ' channels</span><span title="Estimated lower bound: heard access points only">beacons ≥ ' + b.beaconPctSum + " % est.</span></div>";
+    h += '<div class="row"><span>' + plu(b.aps, "AP") + " on " + plu(b.channels, "channel") + '</span><span title="Estimated lower bound: heard access points only">beacons ≥ ' + b.beaconPctSum + " % est.</span></div>";
     for (const t of b.top) h += '<div class="row"><span>ch ' + t.ch + (t.dfs ? " · DFS" : "") + "</span><span>" + t.co + " co · " + t.adjacent + " adjacent · max " + esc(fmtDbm(t.maxDbm)) + "</span></div>";
     if (b.quietest) h += '<div class="row"><span>least occupied of ' + AIR_SETS[band].join("/") + '</span><span>ch ' + b.quietest.ch + " (" + b.quietest.co + " co · " + b.quietest.adjacent + " adjacent)</span></div>";
   }

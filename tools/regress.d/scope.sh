@@ -32,7 +32,7 @@
 # wave, the idle and the reduced-motion rows run on the live clock.
 
 SCP_T="out/$P-scp"; mkdir -p "$SCP_T"
-SCP_BASE=610779   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4)
+SCP_BASE=610162   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4: 610,779), lowered by 617 on 24 October 2026 by the owner, on purpose, with BASE_PAGE_BYTES in tools/static.sh: the 14 unread chart tokens left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), and the pooled ceiling (this base + 13,400 = 623,562) leaves 62 bytes where it left 18 (445 under MAX_PAGE_BYTES in tools/static.sh); they are held for two later items, a longer stripCtl (about 60) and a stepped pulse (about 30), which together need about 90 and do not fit as planned
 SCP_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED&debug=1&scope=1"
 SCP_LQ="?poll=0&spin=0&intro=0&debug=1&scope=1"   # the live clock
 SCP_FNS="scopeGeom scopePlace scopeStep scopeWantsFrame drawScopeBg scopeWave drawScope applyScope renderScope"

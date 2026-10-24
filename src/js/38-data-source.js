@@ -151,7 +151,7 @@ function setSourcePanel() {   // §9.5: fixed templates; label/note only via esc
   else if (k === "none") d = 'No capture source · ' + esc((S.note || "").slice(0, 80));
   else if (S.replay) d = 'Replay <b>' + (S.replay.i + 1) + ' of ' + S.rec.docs.length + '</b> · ' + ts + (S.replay.buffered ? ' · ' + S.replay.buffered + (S.replay.buffered === 1 ? ' newer capture kept' : ' newer captures kept') : '');
   else if (S.liveFeed) d = (ls === "offline" ? 'Last capture from <b>' : 'Live from <b>') + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + ts;
-  else d = 'Showing <b>' + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + S.sourceApCount + ' APs';
+  else d = 'Showing <b>' + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + plu(S.sourceApCount, 'AP');
   sourceDesc.innerHTML = d;
   if (stale) modeChip.title = staleNote(); else modeChip.removeAttribute("title");
   if (mastDot) {   // D3: the masthead dot is the same liveness signal in every theme (chrome only, no band/alarm colour)

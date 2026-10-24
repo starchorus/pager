@@ -58,3 +58,55 @@ const dark=STARCHORUS.contrast([["#2a1020","surface.base",3]],"foundation")[0].p
 runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-bt" --fps 0 --wait 2 --eval "$CTR_EVB" >/dev/null 2>&1
 CTR_B=$(evalv "out/$P-contrast-bt.json" 1)
 rowif "contrast (radio pair): render.btMark on surface.base is a pair of its own, minimum 3, passing in all 3 themes (7.18 / 8.05 / 3.94), and a too-dark mark fails the same API [$CTR_B]" [ "$CTR_B" = "7.18/8.05/3.94|false" ]
+
+# ---- 0.2.5, 24 October 2026: an open Air / Time / Record button is readable (E2, P1). Keys Q, J and H open a drawer; the button is .on (aria-pressed true) and carries the fill of an open toggle.
+# It is a DOM read, not a token pair: the rule was `.btn.toggle.on`, and these three buttons are `.btn` without `.toggle`, so they got the label colour of the fill and no fill (1.1 to 1.2 to 1 against
+# the panel). Per theme and key: the computed label colour against the computed fill (the button's own background and, if that is not opaque, the ones behind it; STARCHORUS.contrast()
+# composites such a stack over surface.base) must reach 4.5. The band buttons must keep their own fills: their background is the border colour of .btn.b*.on and differs from the fill of an
+# open toggle (Labels, which is open in the demo; a closed toggle would show only the plain button, and a band button that took the toggle fill would pass a test against that).
+CTR_EVD='(async()=>{
+const e=(i)=>document.getElementById(i),o=[],clear=(c)=>c==="rgba(0, 0, 0, 0)"||c==="transparent";
+const stack=(x)=>{const l=[];for(let n=x;n&&n.nodeType===1;n=n.parentElement){const c=getComputedStyle(n).backgroundColor;if(clear(c))continue;l.push(c);if(/^rgb\(/.test(c))break}return l};
+const key=(k)=>window.dispatchEvent(new KeyboardEvent("keydown",{key:k}));
+for(const t of ["foundation","wargames","whitehall"]){
+ STARCHORUS.setTheme(t);await STARCHORUS.wait(400);
+ for(const [k,id] of [["q","t-air"],["j","t-time"],["h","t-rec"]]){
+  key(k);await STARCHORUS.wait(500);const b=e(id),cs=getComputedStyle(b),r=STARCHORUS.contrast([[cs.color,stack(b),4.5]],t)[0];
+  o.push(b.getAttribute("aria-pressed")==="true"&&b.classList.contains("on")&&r.pass?"1":"0:"+t+k+":"+(r.ratio||r.error));
+  key(k);await STARCHORUS.wait(500)}
+ const band=[...document.querySelectorAll("[data-band]")].filter(b=>b.classList.contains("on")&&!b.hidden).map(b=>getComputedStyle(b)),tl=e("t-labels"),tog=getComputedStyle(tl);
+ o.push(tl.classList.contains("on")&&band.length>=3&&band.every(c=>c.backgroundColor===c.borderTopColor&&c.backgroundColor!==tog.backgroundColor)?"1":"0:"+t+":bands")}
+return o.join(",")})()'
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+CTR_D=$(evalv "out/$P-contrast-open.json" 1); CTR_DE=$(evalv "out/$P-contrast-open.json" 2)
+rowif "contrast: an open Air / Time / Record button (keys Q, J, H) has label against fill >= 4.5 in all 3 themes, and the band buttons keep their fills [$CTR_D]" [ "$CTR_D/$CTR_DE" = "1,1,1,1,1,1,1,1,1,1,1,1/0" ]
+# the control: a page copy whose rule is the old `.btn.toggle.on` must read red on all nine buttons
+python3 - "$H" "out/$P-contrast-open-nofix.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+new = ".btn.on:not([data-band]) { background"
+s = s.replace(new, ".btn.toggle.on { background") if s.count(new) == 1 else s + "\n<!-- the rule was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(s)
+PY
+CTR_HK=$H; H="out/$P-contrast-open-nofix.html"   # runq serves $H: point it at the copy for this one call, then put it back
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-n" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
+H=$CTR_HK
+CTR_DN=$(evalv "out/$P-contrast-open-n.json" 1)
+CTR_DNR=$(printf '%s' "$CTR_DN" | tr ',' '\n' | grep -c '^0:[a-z]*[qjh]:1\.')
+CTR_DNB=$(printf '%s' "$CTR_DN" | tr ',' '\n' | grep -c '^1$')
+rowif "contrast: the control bites: a page with the old rule .btn.toggle.on reads red on all nine open buttons ($CTR_DNR of 9, each with a ratio near 1) and the band buttons are right in it ($CTR_DNB of 3)" [ "$CTR_DNR/$CTR_DNB" = 9/3 ]
+# the second control: a page copy whose rule lets every open button match (:not([data-band]) made :not([data-x])) gives the band buttons the toggle fill: the nine are right in it, the band answers must read red
+python3 - "$H" "out/$P-contrast-open-allon.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+new = ".btn.on:not([data-band]) { background"
+s = s.replace(new, ".btn.on:not([data-x]) { background") if s.count(new) == 1 else s + "\n<!-- the rule was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(s)
+PY
+CTR_HK=$H; H="out/$P-contrast-open-allon.html"
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-a" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
+H=$CTR_HK
+CTR_DA=$(evalv "out/$P-contrast-open-a.json" 1)
+CTR_DAB=$(printf '%s' "$CTR_DA" | tr ',' '\n' | grep -c '^0:[a-z]*:bands$')
+CTR_DAR=$(printf '%s' "$CTR_DA" | tr ',' '\n' | grep -c '^1$')
+rowif "contrast: the second control bites: a page whose rule also fills the band buttons reads red on the band answers of all 3 themes ($CTR_DAB of 3) while the nine open buttons are right in it ($CTR_DAR of 9)" [ "$CTR_DAB/$CTR_DAR" = 3/9 ]

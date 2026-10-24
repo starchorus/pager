@@ -254,3 +254,78 @@ OPS_G=$(evalv "out/$P-ops-grp.json" 1 | ops_nj); OPS_GE=$(evalv "out/$P-ops-grp.
 OPS_GW=$(printf '%s' '{"g0":"grpnet:3","plain":"grpnet","open":"grpnet !","allWpa3":"grpnet","tkip":"grpnet ~","errors":0}' | ops_nj)
 if [ "$OPS_G" = "$OPS_GW" ] && [ "$OPS_GE" = 0 ]; then row "constellation label carries its weakest member (open -> !, TKIP -> ~, WPA2/WPA3 nothing) [$OPS_G]" PASS
 else row "constellation label carries its weakest member (open -> !, TKIP -> ~, WPA2/WPA3 nothing) [$OPS_G]" FAIL; fi
+
+# ---- 0.2.5, 24 October 2026: the CSV export does not hand a spreadsheet a formula (E1), and the export dialogue takes the focus (E4)
+# A text cell that starts with = + - @ TAB or CR gets a leading apostrophe; a cell that is a number (-50) stays one; the comma and quote cases are as they were, and CR is quoted
+# like LF. The capture is planted (placeholder names and addresses): four network names a spreadsheet would read as a formula, one that is a plain number, one with a comma, one with
+# quotes, an alias and a probed name. Each answer is a 1 or a 0; the page is right when all thirteen are 1. Infinity is no number to a spreadsheet, so "-Infinity" gets its apostrophe too. A leading CR or TAB cannot reach a cell on the real page (stripCtl takes every
+# control character out of a name, a probe and an alias), so those two branches of the cell fix run on a copy of the page whose stripCtl lets TAB and CR through (a second run, below):
+# the TAB name gets its apostrophe, the CR name gets it and is quoted like LF. E4 rides on the same run: after a click on Export, document.activeElement
+# is inside #export-box (the format list), where a keyboard or screen-reader user starts.
+OPS_EVC='(async()=>{
+const b=(n)=>"02:00:00:00:0c:"+String(n).padStart(2,"0"),ap=(n,ssid)=>({bssid:b(n),ssid:ssid,band:"2.4",channel:6,rssi:-50-n,security:"WPA2"});
+STARCHORUS.load({source:"recon-db",generated:900,aps:[ap(1,"=1+1"),ap(2,"@SUM(A1)"),ap(3,"-2+3"),ap(4,"+cmd"),ap(5,"-50"),ap(6,"Cafe, Bar"),ap(7,"say \"hi\""),ap(8,"plain"),ap(9,"-Infinity")],
+ unassociated:[{mac:"3c:22:fb:10:20:41",rssi:-70,probes:["=HYPERLINK(\"http://x\",\"y\")"]}]},"csv");
+await STARCHORUS.wait(800);STARCHORUS.notes(b(8),{alias:"=ALIAS()"});
+const A=String.fromCharCode(39),C=STARCHORUS.exportText("csv").split("\n"),row=(s)=>C.find(l=>l.indexOf(s)===0)||"",cell=(s,i)=>row("ap,"+b(s)+",").split(",")[i];
+const r=[cell(1,2)===A+"=1+1",cell(2,2)===A+"@SUM(A1)",cell(3,2)===A+"-2+3",cell(4,2)===A+"+cmd",cell(5,2)==="-50",
+ row("ap,"+b(6)+",").indexOf(",\"Cafe, Bar\",")>0,row("ap,"+b(7)+",").indexOf(",\"say \"\"hi\"\"\",")>0,
+ /^-5\d$/.test(cell(1,6))&&/^-5\d$/.test(cell(8,6)),row("ap,"+b(8)+",").indexOf(","+A+"=ALIAS(),")>0,
+ row("station,3c:22:fb:10:20:41").indexOf(",\""+A+"=HYPERLINK(\"\"http://x\"\",\"\"y\"\")\",")>0,
+ C.filter(l=>l.indexOf("ap,")===0).length===9,C[0].split(",").length===14,cell(9,2)===A+"-Infinity"].map(x=>x?1:0).join("");
+document.getElementById("btn-export").click();await STARCHORUS.wait(100);
+const foc=document.getElementById("export-box").contains(document.activeElement)?1:0;document.getElementById("export-close").click();
+return r+"|"+foc;})()'
+runq demo "$OPS_Q" "out/$P-ops-csv" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+OPS_C=$(evalv "out/$P-ops-csv.json" 1); OPS_CE=$(evalv "out/$P-ops-csv.json" 2)
+rowif "export CSV: names that start with = + - @ get a leading apostrophe (a probe and an alias too), a number stays a number, comma and quote cases as before [$OPS_C]" [ "$OPS_C/$OPS_CE" = "1111111111111|1/0" ]
+# negative controls: a copy of the page without the fix of the cell (the old q) must read red on the first four, "-Infinity", the alias and the probe, and a copy without the focus call red on the focus
+python3 - "$H" "out/$P-ops-csv-nofix.html" "out/$P-ops-csv-nofocus.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+new_q = 'const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\\t\\r-]/.test(s) && !isFinite(s) ? "\'" + s : s; return /[",\\r\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
+old_q = 'const q = (v) => { const t = v == null ? "" : String(v); return /[",\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
+foc = 'refreshExport(); el("export-fmt").focus(); }'
+a = s.replace(new_q, old_q) if s.count(new_q) == 1 else s + "\n<!-- the cell fix was not found exactly once -->\n"
+b = s.replace(foc, 'refreshExport(); }') if s.count(foc) == 1 else s + "\n<!-- the focus call was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(a)
+open(sys.argv[3], "w", encoding="utf-8").write(b)
+PY
+# the two branches the real page cannot reach: a copy of the page whose stripCtl lets TAB and CR through (a leading TAB or CR in a name), with and without the fix of the cell
+OPS_EVT='(async()=>{
+const b=(n)=>"02:00:00:00:0c:"+String(n).padStart(2,"0"),ap=(n,ssid)=>({bssid:b(n),ssid:ssid,band:"2.4",channel:6,rssi:-50-n,security:"WPA2"});
+const A=String.fromCharCode(39),T=String.fromCharCode(9),R=String.fromCharCode(13);
+STARCHORUS.load({source:"recon-db",generated:900,aps:[ap(1,T+"=1+1"),ap(2,R+"=2"),ap(3,"plain")],unassociated:[]},"csv");
+await STARCHORUS.wait(800);
+const C=STARCHORUS.exportText("csv").split("\n"),row=(s)=>C.find(l=>l.indexOf(s)===0)||"",cell=(s,i)=>row("ap,"+b(s)+",").split(",")[i];
+return [cell(1,2)===A+T+"=1+1",cell(2,2)==="\""+A+R+"=2\"",cell(3,2)==="plain"].map(x=>x?1:0).join("");})()'
+python3 - "$H" "out/$P-ops-csv-loose.html" "out/$P-ops-csv-loose-nofix.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+strip = 'String(x).replace(/[\\x00-\\x1f\\x7f]/g, "")'
+loose = 'String(x).replace(/[\\x00-\\x08\\x0a-\\x0c\\x0e-\\x1f\\x7f]/g, "")'
+new_q = 'const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\\t\\r-]/.test(s) && !isFinite(s) ? "\'" + s : s; return /[",\\r\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
+old_q = 'const q = (v) => { const t = v == null ? "" : String(v); return /[",\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
+if s.count(strip) != 1 or s.count(new_q) != 1:
+    s += "\n<!-- stripCtl or the cell fix was not found exactly once -->\n"
+    a = b = s
+else:
+    a = s.replace(strip, loose)
+    b = a.replace(new_q, old_q)
+open(sys.argv[2], "w", encoding="utf-8").write(a)
+open(sys.argv[3], "w", encoding="utf-8").write(b)
+PY
+OPS_HK=$H; H="out/$P-ops-csv-loose.html"
+runq demo "$OPS_Q" "out/$P-ops-csv-l1" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
+H="out/$P-ops-csv-loose-nofix.html"
+runq demo "$OPS_Q" "out/$P-ops-csv-l2" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
+H=$OPS_HK
+OPS_L1=$(evalv "out/$P-ops-csv-l1.json" 1); OPS_L2=$(evalv "out/$P-ops-csv-l2.json" 1)
+rowif "export CSV: a leading TAB gets its apostrophe and a leading CR gets it and is quoted (on a copy whose stripCtl lets both through) [$OPS_L1], and the copy with the old cell code reads both raw [$OPS_L2]" [ "$OPS_L1/$OPS_L2" = "111/001" ]
+OPS_HK=$H; H="out/$P-ops-csv-nofix.html"   # runq serves $H: point it at a copy for one call, then put it back
+runq demo "$OPS_Q" "out/$P-ops-csv-n1" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
+H="out/$P-ops-csv-nofocus.html"
+runq demo "$OPS_Q" "out/$P-ops-csv-n2" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
+H=$OPS_HK
+OPS_CN1=$(evalv "out/$P-ops-csv-n1.json" 1); OPS_CN2=$(evalv "out/$P-ops-csv-n2.json" 1)
+rowif "export CSV: the controls bite: without the cell fix the formula names, the alias and the probe read raw [$OPS_CN1], without the focus call the focus stays outside the dialogue [$OPS_CN2]" [ "$OPS_CN1/$OPS_CN2" = "0000111100110|1/1111111111111|0" ]

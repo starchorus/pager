@@ -406,7 +406,7 @@ b { font-weight: 600; }
 .btn.b6.on  { background: var(--band-6);  border-color: var(--band-6); }
 .btn.bbt.on { background: var(--bt-mark); border-color: var(--bt-mark); }
 @media (max-width: 374px) { #sheet-row { flex-wrap: wrap; justify-content: flex-end; } }   /* four layer buttons, Legend and the chevron need 338 px: below that the chevron (then Legend) goes to a second line */
-.btn.toggle.on { background: var(--toggle-on); border-color: var(--toggle-border); color: var(--toggle-ink); }
+.btn.on:not([data-band]) { background: var(--toggle-on); border-color: var(--toggle-border); color: var(--toggle-ink); }
 .btn.forced { outline: 1px dashed var(--status-ring-neutral); }
 #cam .cam { min-width: 30px; text-align: center; }
 #t-random[data-state="hide"] { text-decoration: line-through; }
@@ -630,7 +630,7 @@ not range</span><span id="sc-rx"></span><span id="sc-no" hidden>Too little room 
 <!-- ==== 12 SOURCE ==== -->
 <div id="source" class="panel">
   <span class="ph-label ph-only">Source</span>
-  <span class="mode demo" id="mode-chip">Sample</span>
+  <span class="mode demo" id="mode-chip" role="status">Sample</span>
   <span class="desc"><span id="source-desc">Simulated sky. Load a <b>starchorus.json</b> to see your own sky.</span><span id="src-center"></span></span>
   <button class="filebtn" id="btn-load" title="Paste or drop a starchorus.json">Load…</button>
 </div>
@@ -746,7 +746,7 @@ not range</span><span id="sc-rx"></span><span id="sc-no" hidden>Too little room 
     <p style="margin:0 0 10px;color:var(--ink-secondary);line-height:1.5;text-transform:none">Access points and their client stations (received-only, incl. the AP association). Copy the text, print the report, or save the snapshot image. Everything stays on this page.</p>
     <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><label for="export-fmt" style="color:var(--ink-secondary)">Format</label>
       <select id="export-fmt" style="background:var(--surface-raised);color:var(--ink-primary);border:1px solid var(--line-hairline);border-radius:4px;padding:3px 6px"><option value="json">JSON</option><option value="csv">CSV</option><option value="sitrep">SITREP report</option></select></div>
-    <textarea id="export-ta" readonly style="width:100%;height:220px;resize:vertical;background:var(--surface-raised);border:1px solid var(--line-hairline);border-radius:var(--panel-radius);color:var(--ink-primary);font-family:var(--font-mono);font-size:11px;padding:10px;line-height:1.5;text-transform:none"></textarea>
+    <textarea id="export-ta" aria-label="Export text" readonly style="width:100%;height:220px;resize:vertical;background:var(--surface-raised);border:1px solid var(--line-hairline);border-radius:var(--panel-radius);color:var(--ink-primary);font-family:var(--font-mono);font-size:11px;padding:10px;line-height:1.5;text-transform:none"></textarea>
     <img id="export-png" alt="Sky snapshot (right-click or long-press to save)" hidden style="max-width:100%;margin-top:8px;border:1px solid var(--line-hairline)">
     <div id="export-msg" style="min-height:14px;margin-top:6px;color:var(--ink-secondary)"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn" id="export-copy">Copy</button><button class="btn" id="export-print">Print</button><button class="btn" id="export-snap">Snapshot</button><button class="btn" id="export-close">Close</button></div>
@@ -832,7 +832,7 @@ const KEYS = [
   { key: "L", desc: "Labels", btn: "t-labels" },
   { key: "O", desc: "Orbit arcs", btn: "t-orbits" },
   { key: "K", desc: "Client links", btn: "t-links" },
-  { key: "A", desc: "Aggregate dense clients into bubbles", btn: "t-agg" },
+  { key: "A", desc: "Aggregate dense clients into bubbles (forced above 600 clients or density 0.20)", btn: "t-agg" },
   { key: "X", desc: "Randomised addresses: one node per cloud · one by one · hidden (cycles)", btn: "t-random" },
   { key: "E", desc: "Vendor names at labels", btn: "t-vendor" },
   { key: "N", desc: "Channel-overlap nebula (derived)", btn: "t-nebula" },
@@ -962,9 +962,7 @@ THEMES.foundation = {
     cameraEasing: "easeInOutCubic", edgeTravelDotSpeed: 0, edgeTravelDotPx: 0, cursorBlinkMs: 0, introStyle: "coalesce", logonCharMs: [28, 58] },
   depth: { bokeh: { enabled: true, farSoftness: 2.4, nearSoftness: 1.0 },
     lensFlare: { enabled: true, maxStars: 2, lengthFactor: 6, alpha: 0.18 } },
-  chart: { lineWidthPx: 2, lineJoin: "round", markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, gridStyle: "solid", gridWidthPx: 1,
-    barMaxPx: 24, barRadiusPx: 4, barGapPx: 2, labelPolicy: "endpoint", tooltip: true, crosshair: true, legend: "auto", hitTargetPx: 24,
-    textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#6f7c9c", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
+  chart: { lineWidthPx: 2, markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, barMaxPx: 24, barRadiusPx: 4, barGapPx: 2 },
   render: { clientCore: "#dfe7fb", clientRing: "band", clientShape: "disc", bubbleFill: "rgba(210,214,224,0.10)", bubbleStroke: "rgba(210,214,224,0.75)",
     nebula: "rgba(210,214,224,1)", starfield: { density: 5200, color: "#aebbe0", alpha: [0.12, 0.62], twinkleFrac: 0.15 },
     grid: { spokes: 0, dotStepPx: 0 }, shadow: "rgba(0,0,0,0.12)", composite: "source-over", shapeFill: true, probeArc: false, deviceTie: "bezier", changeCue: "glowPulse", clientRandomizedMark: "hollow", bubbleTicks: false, btMark: "#d77fa8",
@@ -1005,9 +1003,7 @@ THEMES.wargames = {
     edgeTravelDotSpeed: 0.35, edgeTravelDotPx: 1.5, cursorBlinkMs: 530, introStyle: "typed", logonCharMs: [28, 58] },
   depth: { bokeh: { enabled: false, farSoftness: 1.0, nearSoftness: 1.0 },
     lensFlare: { enabled: false, maxStars: 0, lengthFactor: 0, alpha: 0 } },
-  chart: { lineWidthPx: 2, lineJoin: "round", markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, gridStyle: "solid", gridWidthPx: 1,
-    barMaxPx: 24, barRadiusPx: 4, barGapPx: 2, labelPolicy: "endpoint", tooltip: true, crosshair: true, legend: "auto", hitTargetPx: 24,
-    textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#808080", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
+  chart: { lineWidthPx: 2, markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, barMaxPx: 24, barRadiusPx: 4, barGapPx: 2 },
   render: { clientCore: "#e6e6dc", clientRing: "band", clientShape: "cross", bubbleFill: "rgba(0,0,0,0.60)", bubbleStroke: "#a7a7a7",
     nebula: "rgba(154,154,144,1)", starfield: { density: 0, color: "#000000", alpha: [0, 0], twinkleFrac: 0 },
     grid: { spokes: 8, dotStepPx: 48 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: true, deviceTie: "bracket", changeCue: "bloomPulse", clientRandomizedMark: "crossX", bubbleTicks: true, btMark: "#e87ac8",
@@ -1059,9 +1055,7 @@ THEMES.whitehall = {
     edgeTravelDotSpeed: 0, edgeTravelDotPx: 0, cursorBlinkMs: 0, introStyle: "typed", logonCharMs: [37.5, 37.5] },   // a teleprinter types at a constant 37.5 ms per character
   depth: { bokeh: { enabled: false, farSoftness: 1.0, nearSoftness: 1.0 },
     lensFlare: { enabled: false, maxStars: 0, lengthFactor: 0, alpha: 0 } },
-  chart: { lineWidthPx: 2, lineJoin: "round", markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, gridStyle: "solid", gridWidthPx: 1,
-    barMaxPx: 24, barRadiusPx: 0, barGapPx: 2, labelPolicy: "endpoint", tooltip: true, crosshair: true, legend: "auto", hitTargetPx: 24,
-    textToken: "ink.secondary", axisTextToken: "ink.muted", axisNumeric: "tabular", deemphasis: "#7d8674", sparklinePoints: 60, refetchHoldAlpha: 0.6 },
+  chart: { lineWidthPx: 2, markerRadiusPx: 4, markerRingPx: 2, areaAlpha: 0.10, barMaxPx: 24, barRadiusPx: 0, barGapPx: 2 },
   render: { clientCore: "#d7dad1", clientRing: "band", clientShape: "cross", bubbleFill: "rgba(10,15,11,0.60)", bubbleStroke: "#7d8674",
     nebula: "rgba(150,160,143,1)", starfield: { density: 0, color: "#000000", alpha: [0, 0], twinkleFrac: 0 },
     grid: { spokes: 12, dotStepPx: 40 }, shadow: "rgba(0,0,0,0)", composite: "source-over", shapeFill: false, probeArc: false, deviceTie: "bracket", changeCue: "tick", clientRandomizedMark: "crossX", bubbleTicks: false, btMark: "#a8509a",
@@ -1374,6 +1368,7 @@ function sessionFlag(name, set) {
 }
 const r3 = (v) => (typeof v === "number" && Number.isFinite(v)) ? Math.round(v * 1000) / 1000 : v;
 function stripCtl(x, max) { return x == null ? "" : String(x).replace(/[\x00-\x1f\x7f]/g, "").slice(0, max); }
+const plu = (n, w) => `${n} ${w}${n - 1 ? "s" : ""}`;
 function numOrNull(x) { if (x === null || x === undefined || x === "" || typeof x === "boolean") return null; const v = +x; return Number.isFinite(v) ? v : null; }
 const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 
@@ -1891,7 +1886,7 @@ function ingest(doc, opts = {}) {
   if (cap || gen == null) obsCompute();
   regulatorStart();
   updateStats();   // ends in layoutEdges() → drawChannelBar() with the fresh S._stats/analyzer counts
-  if (S.locked && !(S.aps.has(S.locked) || S.clients.has(S.locked) || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
+  if (S.locked && !((S.aps.get(S.locked) || S.clients.get(S.locked) || {}).target === 1 || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
   else if (S.locked) openDetail(S.locked);
   S.dirty = true;
   return { aps: seenAp.size, clients: seenCl.size, free, assoc };
@@ -5703,7 +5698,7 @@ function updateControlsLook() {
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
-  const agg = el("t-agg"); if (agg) { const forced = aggForced(); agg.classList.toggle("forced", forced && !S.ui.agg); agg.title = "forced: > 600 clients or density > 0.20"; }
+  const agg = el("t-agg"); if (agg) { const forced = aggForced(); agg.classList.toggle("forced", forced && !S.ui.agg); }
   legendVisibility();
   layoutEdges();
 }
@@ -5800,7 +5795,7 @@ function exportModel() {
 function exportText(fmt) {
   const m = exportModel();
   if (fmt === "csv") {
-    const q = (v) => { const t = v == null ? "" : String(v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\t\r-]/.test(s) && !isFinite(s) ? "'" + s : s; return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const head = "kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud";   // one table, a leading kind column, every row the same width
     const apRow = (a) => ["ap", a.bssid, a.ssid, a.band, a.channel, a.security, a.rssi, a.heard, a.alias || "", (a.tags || []).join(" "), "", "", "", ""];
     const stRow = (x) => ["station", x.mac, "", x.band, "", "", x.rssi, x.heard, x.alias || "", (x.tags || []).join(" "), x.association || "", x.randomized ? "1" : "", (x.probes || []).join(" "), x.cloud || ""];
@@ -5829,8 +5824,8 @@ function exportPng() {   // the canvases as they are, plus the footer; returned 
   x.fillStyle = THEME.ink.secondary; x.font = "12px " + THEME.font.ui; x.textBaseline = "middle"; x.fillText(EXPORT_FOOTER, 10, c.height - 10);
   return c.toDataURL("image/png");
 }
-function openExport() { el("export-wrap").style.display = "flex"; refreshExport(); }
-function closeExport() { el("export-wrap").style.display = "none"; }
+function openExport() { el("export-wrap").style.display = "flex"; refreshExport(); el("export-fmt").focus(); }
+function closeExport() { el("export-wrap").style.display = "none"; document.activeElement.blur(); }
 function refreshExport() { el("export-ta").value = exportText(el("export-fmt").value); el("export-png").hidden = true; el("export-msg").textContent = ""; }
 el("btn-export").addEventListener("click", openExport);
 for (const k of ["air", "time", "rec"]) el("t-" + k).addEventListener("click", () => setDx(k));
@@ -5927,7 +5922,7 @@ function renderAir() {
   for (const band of ["2.4", "5", "6"]) {
     const b = a.bands[band]; if (!b) continue;
     h += "<h4>" + esc(fmtBand(band)) + "</h4>";
-    h += '<div class="row"><span>' + b.aps + " APs on " + b.channels + ' channels</span><span title="Estimated lower bound: heard access points only">beacons ≥ ' + b.beaconPctSum + " % est.</span></div>";
+    h += '<div class="row"><span>' + plu(b.aps, "AP") + " on " + plu(b.channels, "channel") + '</span><span title="Estimated lower bound: heard access points only">beacons ≥ ' + b.beaconPctSum + " % est.</span></div>";
     for (const t of b.top) h += '<div class="row"><span>ch ' + t.ch + (t.dfs ? " · DFS" : "") + "</span><span>" + t.co + " co · " + t.adjacent + " adjacent · max " + esc(fmtDbm(t.maxDbm)) + "</span></div>";
     if (b.quietest) h += '<div class="row"><span>least occupied of ' + AIR_SETS[band].join("/") + '</span><span>ch ' + b.quietest.ch + " (" + b.quietest.co + " co · " + b.quietest.adjacent + " adjacent)</span></div>";
   }
@@ -7095,7 +7090,7 @@ function setSourcePanel() {   // §9.5: fixed templates; label/note only via esc
   else if (k === "none") d = 'No capture source · ' + esc((S.note || "").slice(0, 80));
   else if (S.replay) d = 'Replay <b>' + (S.replay.i + 1) + ' of ' + S.rec.docs.length + '</b> · ' + ts + (S.replay.buffered ? ' · ' + S.replay.buffered + (S.replay.buffered === 1 ? ' newer capture kept' : ' newer captures kept') : '');
   else if (S.liveFeed) d = (ls === "offline" ? 'Last capture from <b>' : 'Live from <b>') + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + ts;
-  else d = 'Showing <b>' + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + S.sourceApCount + ' APs';
+  else d = 'Showing <b>' + esc(S.sourceLabel.slice(0, 80)) + '</b> · ' + plu(S.sourceApCount, 'AP');
   sourceDesc.innerHTML = d;
   if (stale) modeChip.title = staleNote(); else modeChip.removeAttribute("title");
   if (mastDot) {   // D3: the masthead dot is the same liveness signal in every theme (chrome only, no band/alarm colour)
@@ -7318,7 +7313,7 @@ function camObj() {
 // ("ink.muted"), a CSS colour ("#rrggbb", "rgb()/rgba()"), the keyword "ground" (brightest of surface.base and the
 // surface.gradient colour stops = the page behind un-haloed #bg text) or a layer list [top, …, bottom]. Layers
 // composite bottom-up over surface.base (sRGB-space alpha like canvas/CSS, integer channels like the display); the fg
-// composites over the resolved bg; a token whose value is a token path is followed once (chart.textToken).
+// composites over the resolved bg; a token whose value is a token path is followed once (none today).
 // ratio = WCAG 2.x (relative luminance, 0.05 flare), rounded to 0.01; `pass` compares the unrounded ratio with `min`.
 // [fg, bg, min, where]: the text pairs the contrast check covers (4.5) and the ring/mark pairs (3, D9). It is the checked
 // set, not every token combination the page paints. Deliberately not listed (spec §14.4): ink.onFill on band fills

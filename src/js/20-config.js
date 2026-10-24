@@ -58,7 +58,7 @@ const KEYS = [
   { key: "L", desc: "Labels", btn: "t-labels" },
   { key: "O", desc: "Orbit arcs", btn: "t-orbits" },
   { key: "K", desc: "Client links", btn: "t-links" },
-  { key: "A", desc: "Aggregate dense clients into bubbles", btn: "t-agg" },
+  { key: "A", desc: "Aggregate dense clients into bubbles (forced above 600 clients or density 0.20)", btn: "t-agg" },
   { key: "X", desc: "Randomised addresses: one node per cloud · one by one · hidden (cycles)", btn: "t-random" },
   { key: "E", desc: "Vendor names at labels", btn: "t-vendor" },
   { key: "N", desc: "Channel-overlap nebula (derived)", btn: "t-nebula" },

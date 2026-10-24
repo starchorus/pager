@@ -227,7 +227,7 @@ function ingest(doc, opts = {}) {
   if (cap || gen == null) obsCompute();
   regulatorStart();
   updateStats();   // ends in layoutEdges() → drawChannelBar() with the fresh S._stats/analyzer counts
-  if (S.locked && !(S.aps.has(S.locked) || S.clients.has(S.locked) || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
+  if (S.locked && !((S.aps.get(S.locked) || S.clients.get(S.locked) || {}).target === 1 || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
   else if (S.locked) openDetail(S.locked);
   S.dirty = true;
   return { aps: seenAp.size, clients: seenCl.size, free, assoc };

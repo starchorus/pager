@@ -78,7 +78,7 @@ function camObj() {
 // ("ink.muted"), a CSS colour ("#rrggbb", "rgb()/rgba()"), the keyword "ground" (brightest of surface.base and the
 // surface.gradient colour stops = the page behind un-haloed #bg text) or a layer list [top, …, bottom]. Layers
 // composite bottom-up over surface.base (sRGB-space alpha like canvas/CSS, integer channels like the display); the fg
-// composites over the resolved bg; a token whose value is a token path is followed once (chart.textToken).
+// composites over the resolved bg; a token whose value is a token path is followed once (none today).
 // ratio = WCAG 2.x (relative luminance, 0.05 flare), rounded to 0.01; `pass` compares the unrounded ratio with `min`.
 // [fg, bg, min, where]: the text pairs the contrast check covers (4.5) and the ring/mark pairs (3, D9). It is the checked
 // set, not every token combination the page paints. Deliberately not listed (spec §14.4): ink.onFill on band fills
