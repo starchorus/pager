@@ -214,6 +214,31 @@ PHN_OK=0; [ "$PHN_V" = '"on" "off" "off" "on" "off" "on" on off' ] && [ -n "$PHN
 rowif "phone bound: 720 on, 721 off, 812x375 off with a mouse and on with touch, 1000x500 touch off, ?phone=1/0; back to 1440x900 = a fresh desktop load [$PHN_V]" [ "$PHN_OK" = 1 ]
 [ "$PHN_OK" = 1 ] || { [ "$PHN_S1" = "$PHN_S2" ] || { echo "    after resize: $(printf '%s' "$PHN_S1" | cut -c1-400)"; echo "    fresh load:   $(printf '%s' "$PHN_S2" | cut -c1-400)"; }; }
 
+# ---- the page at rest keeps no continuous infinite animation: an infinite CSS animation with a smooth timing function keeps the compositor producing
+# frames at the display rate for as long as the page stands (the live dot's pulse did: as of 24 October 2026 an idle page measured on the development machine cost
+# 18 points of a core with it and 4 to 7 without, measured for the sighting; tools/bench/page/ab-pulse.py repeats the smooth-against-stepped half of it: about -78 % on the
+# paused desktop sky and -74 % on the Scope at rest, same-run ratios). The pulse is stepped (steps(8)); the WarGames cursor blink is steps(1). document.getAnimations()
+# lists every running animation of the page; for a CSS animation the timing function lives on its keyframes (the effect's own easing stays "linear"), so
+# both are read. "steps" = every infinite animation is stepped; "vacuous" = none is running (the row would prove nothing); "continuous:N" = N are smooth.
+# The control is a copy of the page whose pulse is ease-in-out again: it must read "continuous", else the probe cannot see what it is there for.
+PHN_EVA='(async()=>{const W=STARCHORUS.wait;let inf=0,bad=0;document.querySelectorAll(".dot").forEach(d=>{d.dataset.live="live"});
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(400);
+ for(const a of document.getAnimations()){const tm=a.effect.getTiming();if(tm.iterations!==Infinity)continue;inf++;
+  const ks=a.effect.getKeyframes();if(!ks.length||!/^(linear|steps\()/.test(tm.easing)||ks.some(k=>!/^steps\(/.test(k.easing)))bad++;}}
+STARCHORUS.setTheme("foundation");return !inf?"vacuous":bad?"continuous:"+bad:"steps"})()'
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-anim" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 60 --eval "$PHN_EVA" >/dev/null 2>&1
+PHN_V=$(evalv "out/$P-phn-anim.json" 1)
+rowif "page at rest, three themes: every infinite CSS animation is stepped (the pulse is steps(8), the cursor steps(1)); none runs smooth and keeps the compositor busy [$PHN_V]" [ "$PHN_V" = steps ]
+PHN_AM="out/$P-phn-anim.html"
+sed 's/animation: pulse 2.6s steps(8) infinite;/animation: pulse 2.6s ease-in-out infinite;/' "$H" > "$PHN_AM"
+PHN_AN=$(grep -c 'animation: pulse 2.6s ease-in-out infinite;' "$PHN_AM")
+PHN_HK=$H; H=$PHN_AM   # runq serves $H: point it at the copy for this one call, then put it back
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-animm" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 60 --eval "$PHN_EVA" >/dev/null 2>&1
+H=$PHN_HK
+PHN_V=$(evalv "out/$P-phn-animm.json" 1)
+case $PHN_V in continuous:[1-9]*) PHN_OK=1 ;; *) PHN_OK=0 ;; esac
+rowif "the animation probe bites: a page copy whose pulse is ease-in-out again reads continuous (mutation $PHN_AN) [$PHN_V]" [ "$PHN_AN/$PHN_OK" = 1/1 ]
+
 # ---- static: size, keys, theme-free phone pass
 PHN_SZ=$(wc -c < "$H" | tr -d ' ')
 rowif "page size $PHN_SZ bytes ≤ $PHN_MAXB" [ "$PHN_SZ" -le "$PHN_MAXB" ]

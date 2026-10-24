@@ -51,7 +51,7 @@
 }
 :is(.brand, #panels-pill) .dot {
   width: 7px; height: 7px; border-radius: 50%; align-self: center; flex: none;
-  background: var(--ink-secondary); animation: pulse 2.6s ease-in-out infinite;
+  background: var(--ink-secondary); animation: pulse 2.6s steps(8) infinite;
 }
 @keyframes pulse { 0%,100%{opacity:.35;} 50%{opacity:1;} }
 :is(.brand, #panels-pill) .dot[data-live="stale"] { animation: none; opacity: .3; }   /* D3: calm pulse = a live feed, dimmed and still = stale, steady = not a live feed */
