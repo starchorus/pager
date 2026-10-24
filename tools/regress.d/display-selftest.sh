@@ -105,6 +105,8 @@
 #                the line that removes the directory; ov_cleanup now ignores TERM, INT and HUP for its own, bounded, time. At least four more TERM must have been sent
 #                while the Overview was there, so that the row cannot pass blind. S32 cleanpin: the first code line of ov_cleanup is `trap '' TERM INT HUP`, on both copies,
 #                with a detector self-check (a signal first, a commented trap and a trap for TERM alone are not it).
+#                S33 shortnap: a text pin on both copies, with a detector self-check: the watcher of a running jq (ov_jq) and the wait of ov_cleanup for the reader's end nap in
+#                ov_nap_short (0.2 s) and call ov_nap, the nap that widens with the idle time, nowhere.
 # The radio pair (Bluetooth screen, activity bars): S1 and S2 carry the new helper checks and the end-to-end checks of screen_bluetooth and screen_bands
 #                (so an edit of btlist, btco, bar8 or actbar, or one that lets a record of the wrong type through, is red there), S5 names them so they cannot
 #                be dropped, S9 counts one jq for the new screen, S13 walks eight screens and draws the Bluetooth screen of radio-pair whole.
@@ -1767,6 +1769,45 @@ for DST_E in $DST_COPIES; do
 done
 if [ "$DST_S32" = "$DST_X32" ]; then row "display cleanpin: the first code line of ov_cleanup is trap '' TERM INT HUP, before any signal is sent, any nap and the removal ($DST_X32 copies)" PASS
 else row "display cleanpin: $DST_S32/$DST_X32 copies as expected" FAIL; DST_KEEP=1; fi
+# ---- S33 shortnap: a text pin on both copies, with a detector self-check (a planted function is judged, a planted comment is not). The two waits that are over soon wait in the fixed short
+# nap (ov_nap_short, 0.2 s), not in the nap that widens with the idle time (ov_nap): (a) the watcher of a running jq in ov_jq (a cut B, Left or Right has to end the jq at once, and the
+# jq is capped at 20 s, so its naps would otherwise leave the 0.2 s stage), (b) the wait of ov_cleanup for the reader's end (ten naps at most; with the widening nap it could take about
+# ten seconds after a long idle). The self-test of the Overview pins the naps themselves; this row pins where they are called from. The self-check: a planted loop that naps short is found,
+# one that naps with the widening nap, one that does both and one whose short nap is a comment are not.
+# shellcheck disable=SC2016   # the expressions are extended regular expressions, literal on purpose
+DST_SNS='do ov_nap_short;'
+# shellcheck disable=SC2016
+DST_NW='(^|[^_a-z])ov_nap([^_a-z]|$)'
+dst_shortnap() {   # dst_shortnap FN WAITRE: ok when FN (a script on stdin) has one code line matching WAITRE that naps short, and no code line anywhere in FN that calls the widening nap
+    dst_code > "$DST_D/s33-in.txt"
+    DST_N1=$(dst_fn "$1" < "$DST_D/s33-in.txt" | grep -E "$2" | grep -cF "$DST_SNS")
+    DST_N2=$(dst_fn "$1" < "$DST_D/s33-in.txt" | grep -cE "$DST_NW")
+    [ "$DST_N1/$DST_N2" = 1/0 ] && echo ok || echo "$DST_N1/$DST_N2"
+}
+# shellcheck disable=SC2016   # the planted lines are literal script text
+DST_SW1=$(printf '%s\n' 'ov_jq() {' '        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap_short; done' '}' | dst_shortnap ov_jq 'kill -0 "\$oj_p"')
+# shellcheck disable=SC2016
+DST_SW2=$(printf '%s\n' 'ov_jq() {' '        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap; done' '}' | dst_shortnap ov_jq 'kill -0 "\$oj_p"')
+# shellcheck disable=SC2016
+DST_SW3=$(printf '%s\n' 'ov_jq() {' '        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap_short; done' '        ov_nap' '}' | dst_shortnap ov_jq 'kill -0 "\$oj_p"')
+# shellcheck disable=SC2016
+DST_SW4=$(printf '%s\n' 'ov_jq() {' '        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap; done   # do ov_nap_short; done' '}' | dst_shortnap ov_jq 'kill -0 "\$oj_p"')
+DST_S33=0; DST_X33=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X33=$((DST_X33 + 1)); DST_L33=""
+  if [ "$DST_SW1" != ok ] || [ "$DST_SW2" = ok ] || [ "$DST_SW3" = ok ] || [ "$DST_SW4" = ok ]; then
+    DST_L33="$DST_L33 detectors: a loop that naps short is found '$DST_SW1', one that naps with the widening nap '$DST_SW2', one that does both '$DST_SW3' and one whose short nap is a comment '$DST_SW4' are not (want ok for the first and anything else for the rest);"
+  fi
+  # shellcheck disable=SC2016
+  DST_Q6=$(dst_shortnap ov_jq 'kill -0 "\$oj_p"' < "$DST_C")
+  # shellcheck disable=SC2016
+  DST_Q7=$(dst_shortnap ov_cleanup 'kill -0 "\$OV_RPID"' < "$DST_C")
+  [ "$DST_Q6" = ok ] || DST_L33="$DST_L33 the watcher loop of ov_jq: short-nap lines/widening-nap lines '$DST_Q6' (want ok);"
+  [ "$DST_Q7" = ok ] || DST_L33="$DST_L33 the reader wait of ov_cleanup: short-nap lines/widening-nap lines '$DST_Q7' (want ok);"
+  if [ -z "$DST_L33" ]; then DST_S33=$((DST_S33 + 1)); else echo "    shortnap, $DST_G copy:$DST_L33"; fi
+done
+if [ "$DST_S33" = "$DST_X33" ]; then row "display shortnap: the watcher of a running jq (ov_jq) and the wait of ov_cleanup for the reader nap in ov_nap_short, 0.2 s, and call the widening nap nowhere ($DST_X33 copies)" PASS
+else row "display shortnap: $DST_S33/$DST_X33 copies as expected" FAIL; DST_KEEP=1; fi
 # ---- S31 alertline (0.2): the summary's alert line, "Deauth/disassoc frames heard: N AP(s)", from alerts[] of the capture. tests/fixtures/alerts.json holds three reports: two for access
 # points the capture has (9 and 4 reports) and one for an address it has not, so the line says 2 APs (the page draws a note and a ring for those two and for no other). Per copy, under the
 # real and the device-like jq (which has no regex builtin): (a) the line is there once, exactly that text, directly after the open/WEP line, at most 40 columns, ASCII, and neutral (no
@@ -1932,4 +1973,4 @@ if [ "$DST_S33" = "$DST_X33" ]; then row "display: a capture jq cannot parse (cu
 else row "display unreadable capture: $DST_S33/$DST_X33 copies as expected" FAIL; DST_KEEP=1; fi
 
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
-unset -f dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first
+unset -f dst_shortnap dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first

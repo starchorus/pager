@@ -154,9 +154,23 @@ KEY=; KEY_CS=; KEY_ERR=; STRIKE_CS=100
 OV_TMP=; OV_QUE=; OV_CNT=; OV_RAW=; OV_JQO=; OV_RDONE=; OV_WPF=; OV_QUIT=; OV_RPID=; OV_JPID=; OV_WTCH=
 OV_QN=0; OV_NC=0; OV_QC=0; CN_L=0; CN_E=0; NK=; QL=; ov_sig=
 CR=$(printf '\r'); TAB=$(printf '\t')
-# ov_nap: the Overview's one nap, 0.2 s (a whole second where the sleep applet has no fractions): the shell looks at the queue no oftener
-# than that between draws, and the watcher of a running jq (ov_jq) at the same pace
-ov_nap() { sleep 0.2 2>/dev/null || sleep 1; }
+# ov_nap: the nap of the wait for a key (ov_await), and it widens the longer nobody presses anything. OV_NAPS counts the naps since the last key
+# was taken or the last screen was drawn (both set it back to 0, see ov_await and draw): the first 15 naps (about 3 s, when another press is
+# likely) are 0.2 s, the next 54 (up to about 30 s) 0.5 s, every one after that 1 s. The count is the clock: no process is started to read
+# one, and the shell still looks at the queue between naps. Where the sleep applet has no fractions each stage is a whole second (the
+# stages then run longer in time, not in naps). A press after a long idle is seen up to 1 s late; the UI's own handling of it is not slowed.
+# ov_nap_short: the fixed short nap, 0.2 s (a whole second where the sleep applet has no fractions), for the two waits that are over soon and
+# must not lag: the watcher of a running jq (ov_jq; the jq is under `timeout` for 20 s at most, and a cut key has to end it) and the removal
+# of the reader's end (ov_cleanup, ten naps at most).
+OV_NAPS=0
+ov_nap() {
+    if [ "$OV_NAPS" -lt 15 ]; then ov_ns=0.2
+    elif [ "$OV_NAPS" -lt 69 ]; then ov_ns=0.5
+    else ov_ns=1; fi
+    OV_NAPS=$((OV_NAPS + 1))
+    sleep "$ov_ns" 2>/dev/null || sleep 1
+}
+ov_nap_short() { sleep 0.2 2>/dev/null || sleep 1; }
 # ov_counts -> CN_L, CN_E: the numbers in OV_CNT as the reader last wrote them. The reader replaces the file by a rename (see The key
 # reader), so a read finds a whole file, the old numbers or the new; status 1 is for a file that is not there or holds something else, and
 # the caller takes it as no news. The shell's own read: no process.
@@ -275,7 +289,7 @@ ov_qnext() {
     done < "$OV_QUE"
     return 1
 }
-# ov_await -> KEY: waits for the next key of the queue, napping (ov_nap) while there is none, and takes it. KEY is A, B, UP, DOWN, LEFT or
+# ov_await -> KEY: waits for the next key of the queue, napping (ov_nap, which widens with the idle time) while there is none, and takes it. KEY is A, B, UP, DOWN, LEFT or
 # RIGHT as keyname makes it, else empty (a strike); KEY_CS is the time that wait was open (empty without a clock). KEY_ERR=1: the reader has
 # ended and left nothing: no answer and no key, a failure, and the Overview says so instead of counting it as a strike. The reader has ended
 # when it has left its mark (OV_RDONE) or when its pid is gone (`kill -0`, no process): a reader killed with KILL runs no trap, and one on a
@@ -295,6 +309,7 @@ ov_await() {
         ov_nap
     done
     [ -n "$aw_ok" ] || return 0
+    OV_NAPS=0   # a key was taken: the next wait starts with the short nap again
     aw_t=${QL%% *}; aw_k=${QL#* }
     case $aw_t in ''|*[!0-9]*) ;; *) KEY_CS=$aw_t ;; esac
     keyname "$aw_k"; KEY=$NK
@@ -333,7 +348,7 @@ ov_kill() {
 # ov_rstart stored (it defers a signal until then), and its wait by the pid the reader wrote to OV_WPF, so nothing here guesses from `$!`:
 # should the reader itself have been killed from outside, its wait is still ended. The reader ends in its own time after the TERM (its wait
 # has to leave first), and its last act writes into the temp dir; removing the dir meanwhile could leave it with that one file in it, so
-# the removal waits for the reader's end, in ten naps at most (ov_nap: about 2 s, and about 10 s where the sleep applet has no fractions), never
+# the removal waits for the reader's end, in ten naps at most (ov_nap_short: about 2 s, and about 10 s where the sleep applet has no fractions), never
 # for ever (the reader's own trap writes nothing into a dir that is gone). The nap also lets the shell collect a reader that has ended (see
 # ov_await), so that its pid is then gone. The Overview stays endable: KILL cannot be ignored, and the signals are ignored for that wait only.
 # ov_wkill: end the wait the reader left open, by the pid it wrote to OV_WPF (nothing is guessed from `$!`). The KEY_ERR path uses it before
@@ -349,7 +364,7 @@ ov_cleanup() {
     [ -z "$OV_WTCH" ] || kill "$OV_WTCH" 2>/dev/null
     [ -z "$OV_JPID" ] || ov_kill "$OV_JPID"
     cl_n=0
-    while [ -n "$OV_RPID" ] && [ "$cl_n" -lt 10 ] && kill -0 "$OV_RPID" 2>/dev/null; do ov_nap; cl_n=$((cl_n + 1)); done
+    while [ -n "$OV_RPID" ] && [ "$cl_n" -lt 10 ] && kill -0 "$OV_RPID" 2>/dev/null; do ov_nap_short; cl_n=$((cl_n + 1)); done
     [ -z "$OV_TMP" ] || rm -rf "$OV_TMP"
 }
 
@@ -435,7 +450,7 @@ fingerprint() {
 # ov_jq LIMIT JQ-ARGS... -> fx_out (what jq printed) and, as the status, the one of `timeout` or of jq. Runs jq with those arguments under
 # `timeout LIMIT` (without it where LIMIT is empty): the screens' programs run under the cap, the health probe without one. The Overview
 # runs jq in the background with its output in a file, and the shell waits for it in `wait` (a TERM is therefore handled at once). A
-# watcher looks at the queue's counts every 0.2 s (ov_nap); once a B, Left or Right is waiting (ov_cut), it ends the jq and what `timeout`
+# watcher looks at the queue's counts every 0.2 s (ov_nap_short, not the widening nap: a running jq is not an idle wait); once a B, Left or Right is waiting (ov_cut), it ends the jq and what `timeout`
 # started for it (ov_kill; see draw). FX_CUT=1 says the run ended for that reason: fetch then keeps nothing, so the next draw of the screen
 # reads the capture again. A run that failed while such a key had come counts as cut too, whatever its status (143 or 137 for a jq that
 # was ended; a `timeout` that fired at that moment is not worth a verdict). The watcher leaves by itself when the jq is gone (its pid does
@@ -448,7 +463,7 @@ ov_jq() {
     OV_JPID=$!; oj_p=$!
     (
         trap - EXIT
-        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap; done
+        while kill -0 "$oj_p" 2>/dev/null && ! ov_cut; do ov_nap_short; done
         if ov_cut; then ov_kill "$oj_p"; fi
     ) > /dev/null 2>&1 < /dev/null &
     OV_WTCH=$!
@@ -1239,7 +1254,7 @@ frame() {
 # layers so a failing jq shows WHICH piece is wrong: (1) one probe per jq builtin / syntax form the
 # filters use, each on its own line; (2) a small table of bandnorm / secupper / isopenwep / sectag inputs
 # (modelled on the oracle in tools/regress.d/jq-noregex.sh, far smaller), with the Bluetooth and activity helpers; (3) the jq_healthy
-# probe and screen_summary, screen_bands and screen_bluetooth over a tiny embedded fixture; (4) the key names the Overview's key reader uses (keyname: padded answers, BACK, Escape, lower case). INFO lines are informational and never change the verdict.
+# probe and screen_summary, screen_bands and screen_bluetooth over a tiny embedded fixture; (4) the key names the Overview's key reader uses (keyname: padded answers, BACK, Escape, lower case); (5) the nap of the key wait (ov_nap: its three stages, and the two places that start the count over). INFO lines are informational and never change the verdict.
 # The one file it writes is that fixture (mktemp); a trap removes it again, also on INT/TERM.
 ST_N=0; ST_FAIL=0; ST_TMP=
 st_pass() { ST_N=$((ST_N + 1)); printf '[display-selftest]   PASS: %s\n' "$1"; }
@@ -1301,6 +1316,38 @@ st_cap_run() {   # st_cap_run CONTENT|-: st_o = what screen_summary prints for a
 st_cap_state() {
     st_cap_run "$3"
     if [ "$st_o" = "$2" ]; then st_pass "$1"; else st_fail "$1  (want '$2', got: $(printf '%s\n' "$st_o" | sed -n 1p | cut -c1-60))"; fi
+}
+# st_rep N WORD: " WORD" N times (what the stand-in sleep below writes down for N naps of one length)
+st_rep() { st_ri=0; while [ "$st_ri" -lt "$1" ]; do printf ' %s' "$2"; st_ri=$((st_ri + 1)); done; }
+# st_naps FROM COUNT [fractionless]: the arguments ov_nap passes to sleep over COUNT naps when OV_NAPS stands at FROM. Run in a sub-shell, so the
+# stand-in sleep (which only writes its argument down, or, with a third argument, fails on a fraction as an applet with none does) is gone again
+st_naps() {
+    (
+        sleep() { case $1 in *.*) [ -z "$na_w" ] || return 1 ;; esac; printf ' %s' "$1"; }
+        na_w=${3:-}; OV_NAPS=$1; na_i=0
+        while [ "$na_i" -lt "$2" ]; do ov_nap; na_i=$((na_i + 1)); done
+    )
+}
+# st_wait NAPS FROM: ov_await with the queue empty for NAPS naps, then one key ("50 A"), OV_NAPS standing at FROM when it starts. Prints the arguments
+# the stand-in sleep got, then |KEY|KEY_CS|OV_NAPS (the last when it ended). Run in a sub-shell (the caller captures it), so the stand-ins are gone again
+st_wait() {
+    sleep() { printf ' %s' "$1"; ST_NS=$((ST_NS + 1)); }
+    ov_counts() { [ "$ST_NS" -ge "$ST_WN" ] || return 1; CN_L=1; return 0; }
+    ov_qnext() { QL="50 A"; OV_QN=1; return 0; }
+    ST_WN=$1; ST_NS=0; OV_QN=0; OV_RPID=$$; OV_RDONE=/dev/null; OV_NAPS=$2
+    ov_await
+    printf '|%s|%s|%s' "$KEY" "$KEY_CS" "$OV_NAPS"
+}
+# st_draw FROM: draw with OV_NAPS standing at FROM; prints OV_NAPS afterwards (render and frame stand in; sub-shell as above)
+st_draw() {
+    render() { :; }; frame() { :; }; ov_counts() { return 1; }; ov_cut() { return 1; }
+    OV_NAPS=$1; OV_LIVE=
+    draw summary
+    printf '%s' "$OV_NAPS"
+}
+# st_nap NAME WANT GOT: PASS iff GOT is WANT
+st_nap() {
+    if [ "$2" = "$3" ]; then st_pass "$1"; else st_fail "$1  (want '$2', got '$3')"; fi
 }
 st_verdict() {
     if [ "$ST_FAIL" -eq 0 ]; then printf '[display-selftest] SELFTEST: ALL PASS (%s checks)\n' "$ST_N"; return 0; fi
@@ -1478,6 +1525,20 @@ ST_JSON
     st_key "keyname: spaces, a tab and a CR around the word are stripped" " $TAB RIGHT $TAB$CR" RIGHT
     st_key "keyname: a word nobody knows is no key" "left" ""
     st_key "keyname: an empty answer is no key" "" ""
+    # (5) the nap of the key wait: the Overview's three stages and the two places that start them over. Pure shell, no jq; every run is a sub-shell with a
+    # stand-in sleep that only writes its argument down, so nothing is slept and no process is started. Stage one is 15 naps of 0.2 s (about 3 s),
+    # stage two 54 naps of 0.5 s (up to about 30 s), then 1 s a nap; the counter is the clock
+    st_nap "ov_nap: the first 15 naps are 0.2 s" "$(st_rep 15 0.2)" "$(st_naps 0 15)"
+    st_nap "ov_nap: the 16th to the 69th nap are 0.5 s" "$(st_rep 54 0.5)" "$(st_naps 15 54)"
+    st_nap "ov_nap: the 70th nap and every one after is 1 s" "$(st_rep 4 1)" "$(st_naps 69 4)"
+    st_nap "ov_nap: the stages meet where they should (14: 0.2, 0.5, 0.5; 68: 0.5, 1, 1)" "$(st_rep 1 0.2)$(st_rep 2 0.5) $(st_rep 1 0.5)$(st_rep 2 1)" "$(st_naps 14 3) $(st_naps 68 3)"
+    st_nap "ov_nap: a sleep with no fractions naps a whole second at every stage" "$(st_rep 72 1)" "$(st_naps 0 72 whole)"
+    st_nap "ov_nap_short: 0.2 s whatever the count" "$(st_rep 1 0.2)" "$( (sleep() { printf ' %s' "$1"; }; OV_NAPS=500; ov_nap_short) )"
+    # the wait itself: the queue is empty for a few naps, then a key comes (stand-ins for the queue reads; the reader is this shell, which is alive)
+    st_nap "ov_await: three naps of 0.2 s, then the key, and the count starts over" "$(st_rep 3 0.2)|A|50|0" "$(st_wait 3 0)"
+    st_nap "ov_await: after a long idle the naps are 1 s, and a key taken sets the count back to 0" "$(st_rep 2 1)|A|50|0" "$(st_wait 2 100)"
+    # a screen drawn sets the count back too (render and frame stand in, so no jq runs)
+    st_nap "draw: a screen drawn sets the count of naps back to 0" "0" "$(st_draw 100)"
     st_verdict
 }
 
@@ -1488,10 +1549,6 @@ render() {
         *) screen_summary ;;
     esac
 }
-
-# --selftest is dispatched BEFORE the jq gate on purpose: without jq it still has to print "FAIL: jq present"
-# and the FAILED line (exit 1) instead of taking the err_dialog + exit 1 path of a normal run.
-if [ "${1:-}" = "--selftest" ]; then display_selftest; exit $?; fi
 
 if [ "$1" = "--once" ]; then
     command -v jq >/dev/null 2>&1 || { err_dialog "Overview needs jq."; exit 1; }
@@ -1516,6 +1573,7 @@ draw() {
     ov_counts && OV_QC=$CN_L
     ov_cut || frame "$1"
     OV_GATE=
+    OV_NAPS=0   # a screen was drawn: the wait that follows starts with the short nap again
 }
 
 # The screens in the order of the list and of Left / Right, wrapping round at both ends. step sets view to the neighbour,
@@ -1541,6 +1599,10 @@ view_of() {
         Bluetooth) view=bluetooth ;; "Air Quality") view=air ;; *) return 1 ;;
     esac
 }
+
+# --selftest is dispatched BEFORE the jq gate on purpose (after the screens and the loop's helpers are defined, so that the self-test can run draw): without jq it still has to print "FAIL: jq present"
+# and the FAILED line (exit 1) instead of taking the err_dialog + exit 1 path of a normal run.
+if [ "${1:-}" = "--selftest" ]; then display_selftest; exit $?; fi
 
 # The Overview. On the device the first things that happen are the traps, the private temp dir and the key reader's first wait, and only
 # then the first line (before any jq call, so the screen still answers at once): the wait is registered while the heading goes out, not
