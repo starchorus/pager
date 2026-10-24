@@ -102,7 +102,7 @@ fragment. The hook checks; it never rebuilds. A merge conflict in `starchorus.ht
 
 | Marker | Content |
 |---|---|
-| `/* ==== 00 EMBEDDED FONT … ==== */` | `@font-face` 'Starchorus Sans' as a `data:` URI (woff2); the typeface is Overpass under the SIL OFL 1.1, the licence notice is in the comment. No network fetch. |
+| `/* ==== 00 EMBEDDED FONT … ==== */` | `@font-face` 'Starchorus Sans' as a `data:` URI (woff2); the typeface is Overpass under the SIL OFL 1.1, the licence notice is in the comment. Both rules leave U+00B7 out (`unicode-range: U+0-B6, U+B8-10FFFF`): the subset carries a middle-dot glyph with no advance, so the dot of texts such as '0 free · 0 associated' would sit over the character after it; the next font of the stack sets it instead (`tools/regress.d/theme-whitehall.sh` measures the advance). No network fetch. |
 | `/* ==== 01 RESET & BASE ==== */` | `color-scheme: dark`; `body` with `background-color: var(--surface-base)`, `background-image: var(--surface-gradient)`, `font-family: var(--font-ui)`, `font-size: var(--size-hud)`, `letter-spacing: var(--letter-spacing)` (no `font` shorthand: `--font-ui` is only the family stack); `[hidden] {display:none !important}`; `#stage` fixed, three canvases `#bg`, `#sky`, `#hud` stacked (`touch-action:none`); only `#hud` receives pointer events. |
 | `/* ==== 02 THEME TOKENS (CSS-SPIEGEL) ==== */` | `:root { … }` with the Foundation values as a static first-paint copy of all `CSS_MIRROR` variables (§3.2). No static block for other themes: `applyTheme()` mirrors all variables via `style.setProperty` from `THEME` (single source of truth = JS). `data-theme` is set but carries no CSS rule; structure runs only through token attributes: `data-banner` (from `chrome.banner.show`; sets `--chrome-top/--chrome-bot`), `data-cursor`, `data-plaque` and `data-rm`. |
 | `/* ==== 03 PANELS & HUD ==== */` | `.panel` (fill/border/radius/blur/shadow from variables), `#masthead`, `#stats`, `#source`, `#legend`, `.cursor` (`:root[data-cursor="off"] .cursor {display:none}`; CSS cannot evaluate `0ms`, hence the attribute). Corner brackets `.panel::before/::after` from `chrome.bezel`. Banners `#classbar-top/-bot` and `#dtg` only with `data-banner="on"`. **Edge panel rule (D15):** `#masthead, #stats, #source` at the top at `--chrome-top + 20px`, `#legend, #controls` at the bottom at `--chrome-bot + 20px`; collisions are resolved by `layoutEdges()` (section 37) via `--lay-*` variables (§9.8a). **Hide panels** (`:root[data-panels="off"]`, §9.8): every `.panel` except `#detail` and the two dialogues goes to `visibility: hidden` with its box kept; `#panels-pill` takes its place. |
@@ -2825,6 +2825,8 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   'WHITEHALL' remains (D20).
 - **No proprietary fonts** (GDS Transport, Johnston, Rail Alphabet). Embedded is Overpass under the SIL OFL 1.1 as
   'Starchorus Sans' (`OFL.txt`); 'Frutiger' appears in the Whitehall stack only as a never-reached fallback behind it.
+  The face leaves U+00B7 out (`unicode-range`): its middle-dot glyph has no advance, so the dot of texts such as
+  '0 free · 0 associated' comes from the next font of the stack that has one.
 - **Audio:** own sounds only; `AudioContext` only after a user gesture; never speak an SSID or MAC.
 - **Denylist.** Three lists, one line per entry, no comments, no blank lines:
   `tools/denylist.txt` – case-insensitive, substring (film quotations, game-menu titles, code words, names from the books,

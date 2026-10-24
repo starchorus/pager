@@ -2,7 +2,8 @@
 # shellcheck shell=sh
 # tools/regress.d/theme-whitehall.sh -- the Whitehall theme.
 #   true exercise banner (every line ends with the disclaimer) · plot-freshness tote lamps (D1) · teleprinter logon (STARTEX, ITA2 characters, constant 37.5 ms) ·
-#   sector clock (hand from `generated`) · ownship symbol · the new plot's own dashed mark · U1 = no (the sky still turns)
+#   sector clock (hand from `generated`) · ownship symbol · the new plot's own dashed mark · U1 = no (the sky still turns) ·
+#   the middle dot U+00B7 has an advance in 'Starchorus Sans' (both faces leave it out; the next font of the stack sets it)
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only TWH_* globals are set.
 
 TWH_Q="?poll=0&spin=0&intro=0&debug=1&theme=whitehall"
@@ -151,3 +152,25 @@ TWH_CLK=$(awk '/^function toteObj\(/,/^function renderBadge\(/' starchorus.html 
 rowif "Whitehall: the clock and the tote read no wall clock and no random ($TWH_CLK)" [ "$TWH_CLK" = 0 ]
 TWH_DIS=$(grep -c 'NOT A GOVERNMENT SYSTEM' starchorus.html)
 rowif "Whitehall: the disclaimer is in the copy tokens of every banner line ($TWH_DIS occurrences)" [ "$TWH_DIS" -ge 7 ]
+
+# ---- the middle dot U+00B7 in 'Starchorus Sans': the embedded subset carries a glyph for it with no advance (measured 22 October 2026: measureText("A·B") equals
+#      measureText("AB") in both weights), so Whitehall texts such as "0 free · 0 associated" had the dot over the character after it. Both @font-face rules leave
+#      U+00B7 out (unicode-range: U+0-B6, U+B8-10FFFF) and the next font of the stack sets it. The row measures the advance in both weights (> 0), reads the two
+#      ranges back from document.fonts, and keeps the defect in view as a control: the same face loaded once more without the range (a FontFace made from the
+#      rule's src) still gives the dot no advance (0), so the fix is the range, not the font. On the page before the fix the row is red (advances 0, ranges U+0-10FFFF).
+TWH_EVD='(async()=>{const o={};await Promise.all([document.fonts.load("400 20px \"Starchorus Sans\""),document.fonts.load("500 20px \"Starchorus Sans\"")]);
+const c=document.createElement("canvas").getContext("2d");const adv=(f)=>{c.font=f;return +(c.measureText("A·B").width-c.measureText("AB").width).toFixed(2)};
+o.w400=adv("400 20px \"Starchorus Sans\"");o.w500=adv("500 20px \"Starchorus Sans\"");o.pos=o.w400>0&&o.w500>0;
+o.faces=[...document.fonts].filter(f=>f.family.replace(/["\x27]/g,"")==="Starchorus Sans").sort((a,b)=>a.weight-b.weight).map(f=>f.weight+":"+f.unicodeRange).join("|");
+let src="";for(const sh of document.styleSheets){try{for(const r of sh.cssRules){if(r.type===CSSRule.FONT_FACE_RULE&&/Starchorus Sans/.test(r.style.getPropertyValue("font-family"))&&r.style.getPropertyValue("font-weight")==="400")src=r.style.getPropertyValue("src")}}catch(e){}}
+o.ctl=null;if(src){const f=new FontFace("Starchorus Probe",src,{weight:"400"});await f.load();document.fonts.add(f);o.ctl=adv("400 20px \"Starchorus Probe\"");document.fonts.delete(f)}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+runq demo "$TWH_Q" "out/$P-twh-dot" --width 1000 --height 640 --wait 2 --fps 0 --eval-timeout 60 --eval "$TWH_EVD" >/dev/null 2>&1
+TWH_D=$(evalv "out/$P-twh-dot.json" 1)
+TWH_DV=$(printf '%s' "$TWH_D" | python3 -c 'import json,sys
+try: o=json.load(sys.stdin)
+except Exception: o={}
+ok=o.get("pos") is True and o.get("faces")=="400:U+0-B6, U+B8-10FFFF|500:U+0-B6, U+B8-10FFFF" and o.get("ctl")==0 and o.get("errors")==0
+print("ok" if ok else "bad", "400:", o.get("w400"), "500:", o.get("w500"), "raw face:", o.get("ctl"), "ranges:", o.get("faces"))')
+if [ "${TWH_DV%% *}" = ok ]; then row "Whitehall: the middle dot U+00B7 has an advance in Starchorus Sans (${TWH_DV#ok }; the raw face without the range gives 0)" PASS
+else row "Whitehall: the middle dot U+00B7 has an advance in Starchorus Sans [$(printf '%s' "$TWH_DV" | cut -c1-160)]" FAIL; fi
