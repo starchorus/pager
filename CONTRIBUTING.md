@@ -79,9 +79,14 @@ only joins them and the built page is to hold the line once.
 
 Beyond the two mandatory checks, everything here is offered to contributors, not required of them:
 
-- `sh tools/quick.sh`: the Chrome-free checks, in seconds.
+- `sh tools/quick.sh`: the Chrome-free checks.
+- `sh tools/quick.sh docs`: the documents mode, about fifteen seconds as of 24 October 2026: the
+  documentation rows that bind the text to the code (version, the specification's tables, hand-typed
+  lists and numbers). It needs Chrome.
 - `sh tools/install-hooks.sh`: once per clone; after that, `quick.sh` runs on the staged state with
-  every commit that touches code, tests or tools.
+  every commit that touches code, tests or tools, and `quick.sh docs` with every commit that stages
+  a document (this file, the README, `docs/` and the like), alone, or after `quick.sh` when code is
+  staged too.
 - `sh tools/verify.sh starchorus.html demo out/demo`: load the page headless in Chrome and check it.
 
 What the test nets prove, and what they do not, is set out in [tools/README.md](tools/README.md). A
