@@ -52,6 +52,7 @@ therefore runs **without** `opkg` and **without** internet access on the device.
 | `nc` | present | **GNU netcat 0.7.1** (not BusyBox nc); carries the page server `starchorus-serve.sh`; offers `-s ADDRESS` (local address, §8) |
 | `cksum` | missing | `ash: cksum: not found`, exit 127 (seen 11 October 2026, and in the installer runs of 14 and 15 October). `tools/install.sh` therefore verifies by reading all six files back with `scp` and comparing them with `cmp`, and reports that as a pass: a missing applet is a fact about the device, not a warning |
 | `head -c` | present | `head -c 400` works, exit 0 (installer runs of 14 and 15 October 2026); the installer reads the first 400 bytes of `starchorus.json` with it and prints only `generated` and `source` |
+| `mv -f` | present (BusyBox; the payload's own bundle copy writes `.tmp` and renames it with `mv`) | `tools/install.sh` of 0.2.5 renames its uploads (`<name>.new`) into place with one command, `mv -f a.new a && mv -f b.new b ...`, after the last upload, and reads the collector's `--status` before the uploads. As of 24 October 2026 neither has run on the device: the stand-ins of `tools/regress.d/installer.sh` are all the evidence, and the first real run should be watched |
 | `stat` | missing | the collector reads the size and mtime of `recon.db` with one `ls -lnL --full-time` instead (§6a) |
 | `crond` | present | BusyBox cron, one-minute tick (`starchorus-collect.sh --once`) |
 | `start-stop-daemon` | present | detaches the netcat server cleanly from the payload run |
@@ -928,7 +929,9 @@ The Overview `starchorus-display.sh` is the on-device view: eight screens from `
 (the summary, strongest networks, bands and security, devices and merges, probe requests,
 stations, Bluetooth, air quality) as LOG lines. The payload runs it as a child process at nice 19 and hands it
 the time of the last Start, so it never shows a capture from before it ('Waiting for the first
-scan.'). It has no menu of its own, and starting and stopping belong to the payload. From the first screen on it keeps a key reader running: a background process that starts `WAIT_FOR_INPUT`, with no time limit, takes its answer,
+scan.'). A capture file that exists and is not empty but that `jq` cannot read (status 2 or 5: cut off, not JSON) or that holds only the word `null`
+is shown as the one line 'Capture unreadable.' and not as the waiting line (0.2.5; an empty file and a missing one still wait): a corrupt capture used to look
+like a slow start for ever. As of 24 October 2026 this is judged on the development machine, with `jq` 1.7 and a `jq` that fails like the device's, and has not been seen on the device. It has no menu of its own, and starting and stopping belong to the payload. From the first screen on it keeps a key reader running: a background process that starts `WAIT_FOR_INPUT`, with no time limit, takes its answer,
 appends it to a queue and starts the next wait at once, so a wait is open while a screen or 'Reading...' is drawn and a press made then is kept,
 in the order it came. That follows from the measurements below: a press made while no wait is open is lost (M1) and B is then taken by the
 Pager's own UI (M2), whereas a wait started in the background still receives a key while the foreground writes LOG lines (M3). A wait takes
@@ -1061,7 +1064,8 @@ taken: the server runs at nice 19 on the single core and may handle its signal l
 Each script carries a `# Version:` and a `# Contract:` header. The contract number is the interface
 the payload shares with the collector (`--status`, `--stop`, the pidfiles) and the Overview (its
 environment); it changes with that interface, so a payload updated on its own is caught at the same
-version too (an installed script with a version but no contract line counts as contract 1). A
+version too (an installed script with a version but no contract line counts as contract 1). The installed netcat server (`# Version:`) and
+page (the `version:` line of `index.html`) have no contract line and are compared by version alone (0.2.5). A
 difference is reported once at launch. The remedy is `tools/install.sh`; in the self-contained
 layout, which has no `tools/` on the device, the dialogue names the file to delete instead
 (`starchorus-collect.sh` in `/root/loot/starchorus`), after which the next run copies the bundle again.

@@ -190,7 +190,9 @@ stderr: the payload runner reads the payload's output until it ends, and an Over
 would otherwise keep it open. After 'Start' the payload keeps the 'Starting' spinner up until the first capture since that
 Start exists (up to 20 seconds; `STARCHORUS_FIRST_CAP` sets the wait in tenths of a second, default 200, and the wait ends
 early when the collector has gone), so the Overview normally opens on numbers. If the first scan is late
-it opens on 'Waiting for the first scan.', and key A draws it again.
+it opens on 'Waiting for the first scan.', and key A draws it again. A capture file that exists and is not empty but that `jq` cannot read (cut off, or
+not JSON), or that holds only the word `null`, is not a slow start: the screen says 'Capture unreadable.' on one line instead, with the frame, and key A looks again
+(an empty file and a missing one keep the waiting line).
 
 **Why text.** The display path has no webview and no HTML/JS engine, and a payload cannot register a
 screen of its own. It can, however, write lines to the log on the display and show selection lists.
@@ -256,6 +258,7 @@ on weak evidence, and the Overview has no need to find out). It has no Start, St
 | Draw (any of the eight), reader's wait open | `Reading...` while `jq` runs, the block, the frame | the finished draw answers it: no second draw | the draw ends at once, then the list opens | the draw ends at once, then the previous / next screen is drawn | the draw goes on; nothing is drawn for them |
 | Screen (any of the eight), wait open | the finished draw | Draw: the same screen again | opens the list, the cursor on this screen | Draw: the previous / next screen | ignored: nothing drawn |
 | Waiting, wait open | 'Waiting for the first scan.' and the frame | Draw: again, and reads the capture if one has come | opens the list | as on a screen | ignored |
+| Unreadable, wait open | 'Capture unreadable.' and the frame | Draw: again, and reads the capture again only if the file has changed | opens the list | as on a screen | ignored |
 | List, no wait of the reader's | `LIST_PICKER` titled `Overview` with the rows `Summary`, `Strongest Networks`, `Bands & Security`, `Devices & Merges`, `Probe Requests`, `Stations`, `Bluetooth`, `Air Quality` | Draw: the chosen screen (a new reader first) | ends the Overview with exit 0: the payload's menu, the cursor on 'Overview' | the picker's own | the picker's own |
 
 Left and Right step through the screens in the order of the list and round its ends: Right on Air Quality shows the summary, and
@@ -299,7 +302,7 @@ press A for the present state.
 
 Each screen reads the capture with a single `jq` process, run under `timeout 20` where the device has `timeout`
 (`STARCHORUS_JQ_CAP` moves the limit, for tests only). A scan that takes longer ends as the two lines `This scan took over 20 s to
-read.` and `Try Settings > Show Last: 1 h.`. What a read gave (the numbers, 'no data' or 'too slow') is kept for as long as the capture
+read.` and `Try Settings > Show Last: 1 h.`. What a read gave (the numbers, 'no data', 'unreadable' or 'too slow') is kept for as long as the capture
 file is unchanged, so A on an unchanged capture runs no `jq` and only the age in the frame moves. The health probe that the summary, top and
 bands screens make once per run (`jq_healthy`: one `jq` call on known values, without the cap) runs the same way, in the background with the
 same watcher, so a B, Left or Right in the first draw ends it as well; a probe that was ended says nothing about `jq` and is asked again at the

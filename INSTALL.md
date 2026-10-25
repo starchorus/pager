@@ -92,6 +92,11 @@ git clone https://github.com/starchorus/pager.git
 
 **You should see** a new folder `pager`.
 
+**If you took the Pager archive from a release** (`starchorus-<version>-pager.tar.gz`) instead, check it
+before you use it: put it and `SHA256SUMS` in one folder, unpack it there (`tar xzf starchorus-<version>-pager.tar.gz`)
+and run `shasum -a 256 -c SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux). **You should see** `OK` after the archive
+and after each of the eight files; any other word means the download is not what was published, so fetch it again.
+
 **Then, in either case,** move your terminal into that folder. Type `cd`, a space, then drag the
 folder from Finder or Explorer into the terminal window, and press Enter. For example:
 
@@ -210,7 +215,9 @@ that waits longer, and the installer then reports that it could not authenticate
 
    **You should see** a table of files with their versions and target paths on the Pager, the line
    'DRY RUN: nothing is connected, nothing is copied', and a numbered list of the exact `ssh` and
-   `scp` commands a real run would use.
+   `scp` commands a real run would use. If the files you downloaded carry different versions (a page
+   of one build with a collector of another), it stops here with an error and sends nothing; download
+   the folder again as one.
 
 2. Run it for real:
 
@@ -226,9 +233,17 @@ that waits longer, and the installer then reports that it could not authenticate
 
 3. Type the root password when asked ('connecting to root@… (enter the root password once)').
 
-   **You should see** sections headed `==> uploading`, `==> integrity`, `==> selftests on the
-   device`, `==> one real passive capture` and `==> Overview smoke test`, each followed by lines
-   marked `[PASS]`. Near the end comes a line beginning `==> result:` that ends in `0 failed`.
+   **You should see** sections headed `==> the collector on the device`, `==> uploading`, `==> setting
+   exec bits`, `==> renaming the 7 files into place`, `==> integrity`, `==> selftests on the
+   device`, `==> one real passive capture` and `==> Overview smoke test`, with lines marked `[PASS]`
+   in the checks. Near the end comes a line beginning `==> result:` that ends in `0 failed`.
+
+The installer first asks the collector that is already on the Pager, read-only, whether a loop is running
+(`==> the collector on the device`). If one is, you get a `!! [WARN]` line and the run goes on: stop
+Starchorus first, as the update steps say, or the loop keeps running its old script until you stop it and
+start it again. Each file goes up under its name plus `.new` and all seven are renamed into place with one
+command at the end, so that a connection that drops in the middle leaves the old files where they were
+(a `.new` file left behind is harmless; the next run replaces it).
 
 The Pager has no `cksum`, so the `==> integrity` section is a single `[PASS]` line saying that the
 device has none and that all seven files were read back and compared byte for byte. That is how
@@ -334,7 +349,7 @@ Choose **one** of the two ways.
 waits at most 20 seconds for it, and the first capture can take up to half a minute. Then the Overview
 opens on the Pager's display: the line 'Overview', 'Reading...', and a summary with counts of access points
 by band, ending with the time of the scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
-If the first scan is late, it reads 'Waiting for the first scan.' instead; key A looks again. The screen
+If the first scan is late, it reads 'Waiting for the first scan.' instead; key A looks again. If the capture file is there but cannot be read (cut off, or not JSON), it reads 'Capture unreadable.' instead. The screen
 never changes by itself: key A draws it again, Left and Right step through the other screens, and key B
 goes up one level, to the list of screens and from there to the menu, now titled 'Starchorus: Running'.
 
@@ -482,20 +497,21 @@ The terminal in Hak5's [Virtual Pager](https://documentation.hak5.org/wifi-pinea
 3. Replace all seven files, by the route you used before: the installer (section 3) and the manual
    route (section 4) both copy all seven. With the payload directory from Hak5's library, copy the new
    directory over the old one and delete `/root/loot/starchorus/starchorus-collect.sh`; the payload
-   then copies its bundle into `/root/loot/starchorus` again. Files are overwritten in place, and
-   your settings in `/root/loot/starchorus/settings.conf` are kept either way.
+   then copies its bundle into `/root/loot/starchorus` again. The installer replaces each file by renaming a new one onto it,
+   and your settings in `/root/loot/starchorus/settings.conf` are kept either way.
 4. Start it again (section 5). The first start after an update takes a little longer: the collector
    splits the vendor (OUI) list into an index once, so the first capture comes later than usual.
 
 Replace all seven, not only the payload. The payload compares the installed collector and Overview
 with itself when it opens, by version and by their `# Contract:` number, the interface the payload,
-the collector and the Overview share. When they differ, it says so once, in a dialogue: 'Installed
+the collector and the Overview share, and the installed netcat server and page by version. When they differ, it says so once, in a dialogue: 'Installed
 …, payload …' for another version, 'Installed files differ from the payload.' for the same version
 with another contract. The dialogue names the remedy: 'Run tools/install.sh.', or, with the Hak5
 library copy, which has no `tools` folder on the Pager, the collector file to delete. A payload
 replaced on its own is caught at the same version too. Files from the first release carry no
-Contract line and count as contract 1. The page and the netcat server are not compared; they
-belong to the same build, so replace them with the rest.
+Contract line and count as contract 1. The netcat server and the page have no contract line, so only
+their version is compared (as of 24 October 2026; the dialogue is the same and appears once, for the
+first file that differs). The installer refuses to install files that disagree with each other.
 
 **Uninstall**
 

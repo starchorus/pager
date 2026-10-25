@@ -246,9 +246,12 @@ ssh root@<device> '/root/payloads/user/reconnaissance/starchorus/payload.sh star
 ssh root@<device> '/root/payloads/user/reconnaissance/starchorus/payload.sh stop'
 ```
 
-Then open `http://<device>:8199/` in the browser. The installer reads every file back and compares
-the bytes, because the Pager has no `cksum`, and then runs the self-tests, one passive `--once` run
-and an Overview test. With `--dry-run` it only shows the commands; `--host` or `STARCHORUS_HOST`
+Then open `http://<device>:8199/` in the browser. The installer first refuses files of different
+versions, then reads the installed collector's status (read-only; a running loop is a warning, and
+it never stops anything), uploads each file as `<name>.new` and renames all seven into place with
+one command, so a dropped connection leaves no half-written script at a path that is run. It reads
+every file back and compares the bytes, because the Pager has no `cksum`, and then runs the
+self-tests, one passive `--once` run and an Overview test. With `--dry-run` it only shows the commands; `--host` or `STARCHORUS_HOST`
 sets the device's address.
 
 ### Collector
@@ -336,7 +339,7 @@ screen and keeps one open while it draws, so a press made while it reads is kept
 again, key B goes up one level (a screen, then the list of the eight screens, then the menu), and Left
 and Right step through the screens. Each screen
 ends with the time of its scan ('Last scan 12:04:31 (42 s ago)') and the keys ('A: Refresh   B: Back').
-A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again).
+A capture older than the last Start is not shown ('Waiting for the first scan.'; key A looks again). A capture file that is there but cannot be read says 'Capture unreadable.' instead.
 Its only output is LOG lines. Red stands only
 for an alarm (an open or WEP network, the line 'jq incomplete', 'No new scan' when the collector
 has stopped writing, or the summary's one line 'Deauth/disassoc frames heard: 2 APs' when the capture carries alerts, see Alerts). On the development machine,

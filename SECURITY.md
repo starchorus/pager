@@ -233,7 +233,13 @@ panel, or `STARCHORUS.clearLocalData()`, deletes them all in one call. There are
 | `starchorus.baseline.v1` | the baseline: per AP `[SSID, channel, band, security class, RSSI]` under its BSSID, per station only `[RSSI]` under its MAC (field `st`, **no link** to an AP), plus the capture's timestamp | **≤ 500 APs, ≤ 2000 stations** (strongest first); never the device's own transmitters, never probable phone hotspots |
 | `starchorus.watch.v1` | the watchlist: SSID texts only (≤ 32 characters) | **≤ 20 entries**; it matches only `aps[].ssid`, never probes |
 | `starchorus.library.v1` | the library **rules**: OUI patterns with `?` and `*` (`aa:bb:cc:??:??:??`) and their class `friend`/`neutral`/`suspect` | **≤ 20 rules**; vendor prefixes only |
-| `starchorus.notes.v1` | alias (≤ 24 characters), note (≤ 120), up to 4 tags (≤ 12) per **observed key** (AP or station) | **≤ 200 entries**; control characters are removed |
+| `starchorus.notes.v1` | alias (≤ 24 characters), note (≤ 120), up to 4 tags (≤ 12) per **observed key** (AP or station) | **≤ 200 entries**; control characters are removed (see the note below) |
+
+Text that comes from the air or from a file (SSIDs, security texts, source and centre labels, aliases, notes, tags) goes through one function of the page before it is shown or stored. It removes the control
+characters below U+0020 and U+007F, the C1 controls (U+0080 to U+009F), the zero-width characters and direction marks (U+200B to U+200F), the embeddings and overrides (U+202A to U+202E:
+U+202E would make what follows it read backwards, so that a network could be drawn under another name), the invisible operators and isolates (U+2060 to U+2069) and U+FEFF; the range
+U+2060 to U+2069 also takes U+2065, which no character uses. All of it is still escaped on display, and the text is cut to its length limit after the removal. As of 24 October 2026
+this is checked in the page's DOM text (tooltip and detail sheet) in headless Chrome; no other browser was tried. The collector's own handling of such characters is not part of this note.
 
 In `sessionStorage`, each theme has a flag `starchorus.introShown.<theme>` (`"1"`) so that the
 introduction runs only once per session; it disappears with the tab.
@@ -369,6 +375,19 @@ only; without it, `172.16.52.1` if configured, otherwise `127.0.0.1`. An explici
 binds that one. `all` listens on every interface and exposes the data to every network the device
 is on; it is never chosen automatically, and `0.0.0.0` is not accepted in its place. The netcat
 server binds one address through `nc -s`; with an `nc` that lacks it, it starts only with `all`.
+
+### The installer and the release files
+
+`tools/install.sh` runs on the development machine and sends the remote commands its header lists, and no other: `mkdir -p`, the collector's read-only `--status`, `chmod`, one
+`mv -f <name>.new <name> && ...` command that moves the uploaded files into place, `cksum`, the two `--selftest` runs, one passive `--once`, `head -c 400` of `starchorus.json` and the Overview's
+`--once summary`. The status read and the rename were added in 0.2.5 by the owner's decision (24 October 2026); `tools/regress.d/installer.sh` pins the list, the order of every run and the
+shape of the uploads (to `<name>.new` first, so that a dropped connection leaves no truncated script at a path that is run). Nothing the installer sends transmits over the air, changes a radio or the
+controller, or stops a service. It refuses to start when the files it would install carry different versions.
+
+`tools/release.sh OUTDIR` builds the Pager archive and `SHA256SUMS` (the archive, then every file inside it) so that the same sources and commit give the same bytes on the same machine (another zlib may compress differently; the files' sums are the same): owner and group `root`, one time
+on every entry (the commit time of HEAD), sorted names, no name of the maintainer. A downloader unpacks the archive next to `SHA256SUMS` and runs `shasum -a 256 -c SHA256SUMS`
+(INSTALL.md). The sums show that the files are the ones that were published; they are not a signature. Whoever can change the archive on the page it is served from can change
+`SHA256SUMS` beside it, so the sums are worth most when the line for the archive is also read from a second place (the release notes). Nothing is signed.
 
 ## 6. Reporting security concerns
 

@@ -154,7 +154,7 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
   `collect.log` is shown. Otherwise the 'Starting' spinner stays up until the first scan since 'Start'
   has been written (up to 20 seconds, and no longer once the collector has gone), and then the Overview
   opens on its summary. If the scan is late, it opens on 'Waiting for the first scan.', and key A looks
-  again.
+  again; a capture that cannot be read says 'Capture unreadable.' instead.
 - **Overview** opens on the summary. It starts its wait for a key, with no time limit, before it draws and
   keeps one open while it draws, so a press made while 'Reading...' shows is kept and acted on in its turn: B, Left and Right end that
   draw at once, A, Up and Down let it finish, and an A pressed during a draw is answered by that draw; it never redraws by itself.
