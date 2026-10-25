@@ -36,13 +36,23 @@
 #                 on this machine, not the device's ash (BusyBox), and it cannot see what a /proc-less or applet-poor system does. Dash stands in for sh on the PATH of that one run only;
 #                 a script that names /bin/sh by its path would still get the machine's. The bare-name row reads the installer's text: a client
 #                 reached through a variable that holds a path ("$SSH" set to /usr/bin/ssh) would get past it.
+# 0.2.5 (24 October 2026, the owner's decision): the installer reads the installed collector's status before the uploads (read-only; a running loop is a
+#                 WARN), uploads every file as <target>.new, sets the exec bits on those and renames them all into place with ONE command (mv -f, joined by &&);
+#                 the header's list of remote commands gained the status read and the rename, and this file pins both: the kinds, the order of every run
+#                 (mkdir status up*7 chmod mv cksum ...), the uploads to the .new names, exactly one rename command with the seven pairs in the order of FILES
+#                 after the last upload, exactly one status read before the first upload, chmod on .new names only. Added runs: a loop that is running (WARN), an
+#                 idle one, a failed rename, and the version check (five files that disagree end the run with exit 1 before the first remote command, in a copy
+#                 root, one run for each file; the --dry-run says the same). Negative probes added: a copy that renames with a second command per file, a copy that
+#                 skips the status read, a copy that uploads to the final path. The judges of the scp order are tested on dummy logs for each of those faults.
 # Sourced by tools/regress.sh (T2) with cwd = repo root; Chrome-free. Only INS_* names and ins_* functions are set. Nothing connects anywhere:
 # the installer runs with a PATH farm in which ssh and scp ARE the stand-ins (the real ones, slogin, sftp and ssh-keyscan are not on it), against a documentation address
 # (TEST-NET-2); the stand-ins refuse any other host. Not run in tools/quick.sh (T1): some forty installer runs and the collector self-test (two minutes or so).
 #
 # The stand-ins log one line per call (TAB separated: kind, host, options, then command | source and destination; a tab or a line break inside
 # a field is logged as \001 / \002, so it cannot split a field or a line, and every judge first checks the shape of each line) and act on a fake remote root.
-#   ssh      mkdir -p, chmod +x (INS_X_CHMOD=fail makes it fail), cksum (answers "not found", exit 127, like the Pager's BusyBox; with real
+#   ssh      mkdir -p, the collector's status (INS_X_STATUS=running says "loop RUNNING"; the default is an idle loop; a device with no collector yet answers 127),
+#            chmod +x (INS_X_CHMOD=fail makes it fail), mv -f (the one rename command, the pairs joined by &&: INS_X_MV=fail makes it fail at once, INS_X_MVFAIL=<n>
+#            at the nth pair, after the earlier ones were done), cksum (answers "not found", exit 127, like the Pager's BusyBox; with real
 #            lines when INS_X_CKSUM=ok, lines with other numbers when =other, a line that is no use when =junk),
 #            the control socket of a master connection that came up (a plain file at its ControlPath, so the cleanup's -O exit is sent),
 #            sh <script> --selftest (a result line; INS_X_SELFTEST for the collector, INS_X_DSELFTEST for the Overview: fail, noline, rc = ALL PASS
@@ -62,6 +72,7 @@ mkdir -p "$INS_B"
 INS_TAB=$(printf '\t')
 # the seven targets, in the order of FILES in tools/install.sh (the page becomes index.html)
 INS_DESTS="$INS_L/starchorus-collect.sh $INS_L/index.html $INS_L/starchorus-display.sh $INS_L/starchorus-serve.sh $INS_PL/payload.sh $INS_PL/starchorus-display.sh $INS_PL/alert-deauth.sh"
+# (the uploads go to these names plus .new, the exec bits are set on those, and one rename command moves them into place: ins_scp_bad judges that)
 # the PATH of a run: every tool of this machine's PATH except ssh and scp (the stand-ins take their place) and the other clients of the ssh
 # family that reach a host (slogin is a link to ssh on some systems; sftp, ssh-keyscan): a call by one of those names finds nothing
 path_farm "$INS_B" ssh scp slogin sftp ssh-keyscan
@@ -100,6 +111,22 @@ case $cmd in
       junk)  echo "cksum: unrecognised option"; exit 1 ;;                                                                          # an applet that gives no usable output
       *)     echo "ash: cksum: not found"; exit 127 ;;
     esac ;;
+  "cd $L && STARCHORUS_OUTDIR=$L ./starchorus-collect.sh --status")
+    [ -f "$d$L/starchorus-collect.sh" ] || { echo "ash: ./starchorus-collect.sh: not found" >&2; exit 127; }
+    case ${INS_X_STATUS:-idle} in
+      running) echo "[starchorus] loop RUNNING (pid 4242)"; echo "[starchorus] airodump not running" ;;
+      *)       echo "[starchorus] loop not running"; echo "[starchorus] airodump not running" ;;
+    esac ;;
+  "mv -f "*)
+    [ "${INS_X_MV:-ok}" = ok ] || { echo "mv: can't rename: Read-only file system" >&2; exit 1; }
+    mvk=0; set -- $cmd
+    while [ $# -gt 0 ]; do
+      [ "$1" = mv ] && [ "${2:-}" = -f ] && [ $# -ge 4 ] || { echo "ash: ${1:-}: not found" >&2; exit 127; }
+      mvs=$3; mvd=$4; shift 4; mvk=$((mvk + 1))
+      [ "${INS_X_MVFAIL:-0}" != "$mvk" ] || { echo "mv: can't rename '$mvs': No such file or directory" >&2; exit 1; }
+      mv -f "$d$mvs" "$d$mvd" || exit 1
+      if [ $# -gt 0 ]; then [ "$1" = '&&' ] || { echo "ash: $1: not found" >&2; exit 127; }; shift; fi
+    done ;;
   "sh $L/starchorus-collect.sh --selftest")
     [ -f "$d$L/starchorus-collect.sh" ] || { echo "sh: can't open $L/starchorus-collect.sh" >&2; exit 127; }
     case ${INS_X_SELFTEST:-pass} in
@@ -159,7 +186,8 @@ case $dst in
     [ "${INS_X_UPFAIL:-0}" != "$n" ] || { echo "scp: $path: Failure" >&2; exit 1; }
     [ -d "$d${path%/*}" ] || { echo "scp: $path: No such file or directory" >&2; exit 1; }
     cat "$src" > "$d$path" || exit 1   # a new file with the default mode, as scp makes it: the exec bit has to come from the chmod
-    [ "${INS_X_CORRUPT:-}" != "${path##*/}" ] || printf 'x' >> "$d$path" ;;
+    cb=${path##*/}; cb=${cb%.new}   # the upload goes to <target>.new: the damage is named by the target
+    [ "${INS_X_CORRUPT:-}" != "$cb" ] || printf 'x' >> "$d$path" ;;
   *)
     host=${src#root@}; host=${host%%:*}; path=${src#*:}
     printf 'scp-get\t%s\t%s\t%s\t%s\n' "$(vis "$host")" "$(vis "${opts# }")" "$(vis "$path")" "$(vis "$dst")" >> "$INS_X_LOG"
@@ -174,12 +202,19 @@ chmod +x "$INS_B/ssh" "$INS_B/scp"
 ins_run() {   # ins_run NAME [VAR=value ...] -> INS_RC, $INS_T/NAME.out (installer output), $INS_T/NAME.log (the stand-ins' log); INS_IN = the installer
   INS_in=$1; shift
   rm -rf "$INS_DEV"; mkdir -p "$INS_DEV"; : > "$INS_T/$INS_in.log"; rm -f "$INS_T/$INS_in.log.up"
+  case " $* " in *" INS_X_STATUS="*) mkdir -p "$INS_DEV$INS_L"; echo "an old collector" > "$INS_DEV$INS_L/starchorus-collect.sh" ;; esac   # a device that has a collector already
+  if [ "${INS_seed:-0}" = 1 ]; then for INS_sp in $INS_DESTS; do mkdir -p "$INS_DEV${INS_sp%/*}"; printf 'old %s\n' "$INS_sp" > "$INS_DEV$INS_sp"; done; fi   # an older install: a marker at every final path
   ( env -u STARCHORUS_HOST PATH="$INS_B" INS_X_LOG="$INS_T/$INS_in.log" INS_X_DEV="$INS_DEV" INS_X_HOST="$INS_HOST" "$@" \
       "$INS_SH" "$INS_IN" --host "$INS_HOST" ) > "$INS_T/$INS_in.out" 2>&1 < /dev/null; INS_RC=$?
   # every run of the real installer (not of a mutated copy) is recorded: the row "nothing else, in every run" judges all of them
   [ "$INS_IN" != "$R/tools/install.sh" ] || case " $INS_RUNS " in *" $INS_in "*) ;; *) INS_RUNS="$INS_RUNS $INS_in" ;; esac
 }
 INS_RUNS=""
+INS_seed=0
+ins_old() {   # ins_old -> "K/N" for the fake root as the last run left it: K = final paths that still hold their marker (ins_run with INS_seed=1), N = .new files left
+  INS_ok7=0; for INS_sp in $INS_DESTS; do [ "$(cat "$INS_DEV$INS_sp" 2> /dev/null)" = "old $INS_sp" ] && INS_ok7=$((INS_ok7 + 1)); done
+  printf '%s/%s' "$INS_ok7" "$(find "$INS_DEV" -name '*.new' | wc -l | tr -d ' ')"
+}
 # the shape of every log line, the first rule of every judge: a known kind, exactly its number of fields (ssh 4, scp 5) and no tab or line break
 # inside a word (the stand-ins log those as \001 / \002). Without it a command could hide a second one behind a tab, in a field nobody reads.
 # shellcheck disable=SC2016   # awk program text: its $1 and NF are awk's, not the shell's
@@ -188,7 +223,7 @@ INS_AWK_SHAPE='
     $1 != "ssh" && $1 != "scp-up" && $1 != "scp-get" { print "log line " NR ": a call of an unknown kind (" $1 ")"; next }
     NF != ($1 == "ssh" ? 4 : 5) { print "log line " NR " (" $1 "): " NF " fields, not " ($1 == "ssh" ? 4 : 5) " (a tab inside a word)"; next }
     $0 ~ ctl { print "log line " NR " (" $1 "): a tab or a line break inside a word"; next }'
-ins_kinds() {   # ins_kinds LOG -> the order of operations as words, a run of one kind as kind*N ("mkdir up*7 chmod cksum get*7 csel dsel once head smoke")
+ins_kinds() {   # ins_kinds LOG -> the order of operations as words, a run of one kind as kind*N ("mkdir status up*7 chmod mv cksum get*7 csel dsel once head smoke")
   awk -F'\t' '
     function emit(k) { if (k == last) { n++ } else { flush(); last = k; n = 1 } }
     function flush() { if (last != "") out = out (out == "" ? "" : " ") last (n > 1 ? "*" n : "") }
@@ -198,6 +233,7 @@ ins_kinds() {   # ins_kinds LOG -> the order of operations as words, a run of on
     $1 == "ssh" && $3 !~ /(^| )-O / {
       c = $4; k = "OTHER"
       if (c ~ /^mkdir -p /) k = "mkdir"; else if (c ~ /^chmod /) k = "chmod"; else if (c ~ /^cksum /) k = "cksum"
+      else if (c ~ /^mv -f /) k = "mv"; else if (c ~ /\.\/starchorus-collect\.sh --status$/) k = "status"
       else if (c ~ /starchorus-collect\.sh --selftest$/) k = "csel"; else if (c ~ /starchorus-display\.sh --selftest$/) k = "dsel"
       else if (c ~ /\.\/starchorus-collect\.sh --once$/) k = "once"; else if (c ~ /^head -c /) k = "head"; else if (c ~ /--once summary$/) k = "smoke"
       emit(k)
@@ -213,6 +249,8 @@ ins_cmds_bad() {   # ins_cmds_bad LOG -> the remote commands the header's list d
       ok[++n] = "^mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus$"
       ok[++n] = "^chmod [+]x " dp "( " dp ")*$"
       ok[++n] = "^cksum " dp "( " dp ")*$"
+      ok[++n] = "^cd /root/loot/starchorus && STARCHORUS_OUTDIR=/root/loot/starchorus [.]/starchorus-collect[.]sh --status$"
+      ok[++n] = "^mv -f " dp "[.]new " dp "( && mv -f " dp "[.]new " dp ")*$"
       ok[++n] = "^sh /root/loot/starchorus/starchorus-collect[.]sh --selftest$"
       ok[++n] = "^sh /root/loot/starchorus/starchorus-display[.]sh --selftest$"
       ok[++n] = "^cd /root/loot/starchorus && STARCHORUS_OUTDIR=/root/loot/starchorus STARCHORUS_MAX_AGE=[0-9]+ [.]/starchorus-collect[.]sh --once$"
@@ -220,6 +258,7 @@ ins_cmds_bad() {   # ins_cmds_bad LOG -> the remote commands the header's list d
       ok[++n] = "^STARCHORUS_JSON=/root/loot/starchorus/starchorus[.]json STARCHORUS_DISPLAY_PLAIN=1 sh /root/loot/starchorus/starchorus-display[.]sh --once summary$"
     }
     $1 == "ssh" && $3 ~ /(^| )-O / { o = $3; gsub(/ControlPath=[^ ]*/, "ControlPath=<cm>", o); if (o != "-o ControlPath=<cm> -O exit" || $4 != "") print "ssh -O " $3 " " $4; next }
+    $1 == "ssh" && $4 ~ /^mv -f / { c = split($4, pr, " && "); for (j = 1; j <= c; j++) { split(pr[j], w, " "); if (w[3] != w[4] ".new") print "a rename that is not <name>.new onto <name>: " pr[j] } }   # every pair names ONE file twice
     $1 == "ssh" { g = 0; for (i = 1; i <= n; i++) if ($4 ~ ok[i]) g = 1; if (!g) print $4; next }
     $1 == "scp-up" && $5 !~ ("^" dp "$") { print "scp upload to a path not on the list: " $5; next }
     $1 == "scp-get" && $4 !~ ("^" dp "$") { print "scp read of a path not on the list: " $4; next }' "$1"
@@ -232,12 +271,24 @@ ins_opts_bad() {   # ins_opts_bad LOG -> calls whose options are not exactly the
     ($1 == "scp-up" || $1 == "scp-get") && o != "-O -o ControlMaster=auto -o ControlPath=<cm> -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" { print $1 ": " $3 }
     $2 != host { print $1 ": host " $2 }' host="$INS_HOST" "$1"
 }
-ins_scp_bad() {   # ins_scp_bad LOG GETS -> uploads that are not exactly the seven targets in order (once each); reads of a file that was not sent; GETS = wanted number of reads; a log line of the wrong shape
+ins_scp_bad() {   # ins_scp_bad LOG GETS -> uploads that are not exactly the seven targets plus .new, in order (once each); reads of a file that was not sent; GETS = wanted number of reads; a log line of the wrong shape;
+                  # and the new shape of the install: exactly one status read, before the first upload; chmod on .new names only, after the last upload and before the rename; exactly one rename command,
+                  # after the last upload, with the seven pairs "mv -f T.new T" in the order of FILES
   awk -F'\t' -v dests="$INS_DESTS" -v gets="$2" "$INS_AWK_SHAPE"'
-    BEGIN { nd = split(dests, want, " ") }
-    $1 == "scp-up" { u++; if (u > nd || $5 != want[u]) print "upload " u ": " $5; sent[$5] = 1 }
+    BEGIN { nd = split(dests, want, " "); wm = ""; for (i = 1; i <= nd; i++) { wm = wm (i > 1 ? " && " : "") "mv -f " want[i] ".new " want[i]; want[i] = want[i] ".new" } }
+    $1 == "scp-up" { u++; if (u > nd || $5 != want[u]) print "upload " u ": " $5; p = $5; sub(/[.]new$/, "", p); sent[p] = 1 }
     $1 == "scp-get" { g++; if (!($4 in sent)) print "read-back of a file that was not sent: " $4 }
-    END { if (u != nd) print "uploads: " u " (want " nd ")"; if (g != gets) print "read-backs: " g " (want " gets ")" }' "$1"
+    $1 == "ssh" && $3 !~ /(^| )-O / {
+      c = $4
+      if (c ~ /collect[.]sh --status$/) { st++; if (u > 0) print "the status read came after an upload" }
+      else if (c ~ /^chmod /) {
+        n = split(c, a, " "); for (i = 3; i <= n; i++) if (a[i] !~ /[.]new$/) print "chmod on a final path: " a[i]
+        if (u != nd) print "chmod before the last upload"; if (m > 0) print "chmod after the rename"
+      }
+      else if (c ~ /^mv /) { m++; if (u != nd) print "rename before the last upload"; if (c != wm) print "the rename is not the seven pairs in order: " c }
+    }
+    END { if (u != nd) print "uploads: " u " (want " nd ")"; if (g != gets) print "read-backs: " g " (want " gets ")"
+          if (st != 1) print "status reads: " st + 0 " (want 1)"; if (m != 1) print "rename commands: " m + 0 " (want 1)" }' "$1"
 }
 ins_clean_judge() {   # ins_clean_judge NAME GETS: the whole of the clean-run claim in one status (0 = holds): exit 0, order, nothing else, options, scp, no "differ"/"NOT verified"
   [ "$INS_RC" = 0 ] || return 1
@@ -257,6 +308,12 @@ for INS_w in 'mkdir -p' 'chmod' 'cksum' '--selftest' '--once' 'head of starchoru
   case "$INS_hd $(grep -m 1 '^# No package manager' "$INS_IN" 2> /dev/null)" in *"$INS_w"*) ;; *) INS_hok=0 ;; esac
 done
 rowif "installer header names the seven kinds of remote command this drop-in judges (and 'nothing else is ever sent')" [ "$INS_hok" = 1 ]
+
+INS_hn=1
+for INS_w in 'mv -f' 'read-only status' 'status flag' 'owner'"'"'s decision' 'the status read never stops anything'; do
+  case "$INS_hd $(grep -m 1 '^# No package manager' "$INS_IN" 2> /dev/null)" in *"$INS_w"*) ;; *) INS_hn=0 ;; esac
+done
+rowif "installer header names the two kinds added in 0.2.5 (the collector's read-only status, the rename with mv -f), says whose decision it was, and that the status read stops nothing" [ "$INS_hn" = 1 ]
 
 # the stand-ins only see what reaches them through PATH: the installer must call ssh and scp by their bare names. A path to the binary
 # (/usr/bin/ssh, "$HOME"/bin/scp), `command -p`, a PATH= of its own, or another client of the family would reach the real one, unlogged.
@@ -279,7 +336,7 @@ rowif "installer calls ssh and scp by their bare names only ($INS_bn call lines;
 
 # ---- 1. the device as it is (no cksum applet): the read-back compares all seven files
 ins_run dev
-INS_k=$(ins_kinds "$INS_T/dev.log"); INS_kw="mkdir up*7 chmod cksum get*7 csel dsel once head smoke"
+INS_k=$(ins_kinds "$INS_T/dev.log"); INS_kw="mkdir status up*7 chmod mv cksum get*7 csel dsel once head smoke"
 INS_nc=$(grep -c "^ssh$INS_TAB" "$INS_T/dev.log")
 INS_ok=0; [ "$INS_fair" = 1 ] && [ "$INS_RC" = 0 ] && [ "$INS_k" = "$INS_kw" ] && INS_ok=1
 rowif "installer run 1 (device without cksum, stand-ins first on PATH $INS_fair): exit $INS_RC (want 0), order [$INS_k]" [ "$INS_ok" = 1 ]
@@ -308,6 +365,9 @@ INS_exec=0
 for INS_x in $INS_DESTS; do [ -x "$INS_DEV$INS_x" ] && INS_exec=$((INS_exec + 1)); done
 INS_ok=0; [ "$INS_cmpbad" = 0 ] && [ "$INS_exec" = 6 ] && INS_ok=1
 rowif "installer: the fake remote root holds the seven files byte for byte ($INS_cmpbad differ), $INS_exec of 7 executable (all but the page)" [ "$INS_ok" = 1 ]
+INS_nl=$(find "$INS_DEV" -name '*.new' | wc -l | tr -d ' ')
+INS_ok=0; [ "$INS_nl" = 0 ] && [ -z "$(ins_scp_bad "$INS_T/dev.log" 7)" ] && INS_ok=1
+rowif "installer: after the rename no <target>.new is left on the fake remote root ($INS_nl), and the one rename moved exactly the seven files" [ "$INS_ok" = 1 ]
 rowif "installer integrity, device without cksum: all 7 files read back and compared, said so in one [PASS] line" \
   grep -q 'the device has no cksum; integrity verified by reading all 7 files back with scp and comparing the bytes (identical)' "$INS_T/dev.out"
 rowif "installer smoke test, clean run: the band counters are filled ('2.4:1  5:2  6:1') and reported as a pass" \
@@ -316,14 +376,14 @@ rowif "installer smoke test, clean run: the band counters are filled ('2.4:1  5:
 # ---- 2. a device that does have cksum: no read-back at all
 ins_run ck INS_X_CKSUM=ok
 INS_k=$(ins_kinds "$INS_T/ck.log")
-INS_ok=0; [ "$INS_RC" = 0 ] && [ "$INS_k" = "mkdir up*7 chmod cksum csel dsel once head smoke" ] && grep -q 'cksum identical for all 7 files (CRC + size)' "$INS_T/ck.out" && ins_clean_judge ck 0 && INS_ok=1
+INS_ok=0; [ "$INS_RC" = 0 ] && [ "$INS_k" = "mkdir status up*7 chmod mv cksum csel dsel once head smoke" ] && grep -q 'cksum identical for all 7 files (CRC + size)' "$INS_T/ck.out" && ins_clean_judge ck 0 && INS_ok=1
 rowif "installer run 2 (device with cksum): exit $INS_RC (want 0), order [$INS_k] (no read-back), 'cksum identical for all 7 files'" [ "$INS_ok" = 1 ]
 
 # ---- 3. a damaged upload: the read-back finds it, the run stops before the self-tests and the smoke test
 ins_run bad INS_X_CORRUPT=payload.sh
 INS_k=$(ins_kinds "$INS_T/bad.log")
 INS_c3=0; [ "$INS_RC" = 1 ] && grep -q 'differ between the repo and the device' "$INS_T/bad.out" && grep -q "$INS_PL/payload.sh: bytes differ after the read-back" "$INS_T/bad.out" \
-  && grep -q 'the upload is not intact' "$INS_T/bad.out" && [ "$INS_k" = "mkdir up*7 chmod cksum get*7" ] && INS_c3=1
+  && grep -q 'the upload is not intact' "$INS_T/bad.out" && [ "$INS_k" = "mkdir status up*7 chmod mv cksum get*7" ] && INS_c3=1
 rowif "installer, one file damaged on upload: exit $INS_RC (want 1), the file named, 'the upload is not intact', stops after the read-back [$INS_k]" [ "$INS_c3" = 1 ]
 [ "$INS_c3" = 1 ] || tail -n 8 "$INS_T/bad.out" | cut -c1-200 | sed 's/^/    /'
 INS_neg=1; ins_clean_judge bad 7 && INS_neg=0
@@ -338,7 +398,7 @@ ins_run ckbad INS_X_CKSUM=ok INS_X_CORRUPT=payload.sh
 INS_k=$(ins_kinds "$INS_T/ckbad.log"); INS_sb=$(ins_scp_bad "$INS_T/ckbad.log" 1)
 INS_ok=0; [ "$INS_RC" = 1 ] && grep -q '1 of 7 file(s) not settled by cksum -- reading them back with scp and comparing the bytes' "$INS_T/ckbad.out" \
   && grep -q "$INS_PL/payload.sh: bytes differ (cksum local [0-9]* [0-9]*, device [0-9]* [0-9]*)" "$INS_T/ckbad.out" && grep -q 'the upload is not intact' "$INS_T/ckbad.out" \
-  && [ "$INS_k" = "mkdir up*7 chmod cksum get" ] && [ -z "$INS_sb" ] && grep -q "^scp-get$INS_TAB.*$INS_TAB$INS_PL/payload.sh$INS_TAB" "$INS_T/ckbad.log" && INS_ok=1
+  && [ "$INS_k" = "mkdir status up*7 chmod mv cksum get" ] && [ -z "$INS_sb" ] && grep -q "^scp-get$INS_TAB.*$INS_TAB$INS_PL/payload.sh$INS_TAB" "$INS_T/ckbad.log" && INS_ok=1
 rowif "installer, device with cksum and one file damaged: cksum settles six, the seventh alone is read back and named with both CRCs, exit $INS_RC (want 1), stops after the read-back [$INS_k]" [ "$INS_ok" = 1 ]
 [ "$INS_ok" = 1 ] || { [ -z "$INS_sb" ] || printf '%s\n' "$INS_sb" | sed 's/^/    /'; tail -n 8 "$INS_T/ckbad.out" | cut -c1-200 | sed 's/^/    /'; }
 
@@ -346,14 +406,14 @@ rowif "installer, device with cksum and one file damaged: cksum settles six, the
 ins_run nr INS_X_NOREAD=index.html
 INS_k=$(ins_kinds "$INS_T/nr.log")
 INS_c4=0; [ "$INS_RC" = 1 ] && grep -q 'integrity NOT verified for 1 of 7 file' "$INS_T/nr.out" && grep -q "$INS_L/index.html: could not be read back" "$INS_T/nr.out" \
-  && grep -q 'Integrity: NOT verified for 1 of 7 file' "$INS_T/nr.out" && grep -q 'INSTALL NOT VERIFIED' "$INS_T/nr.out" && [ "$INS_k" = "mkdir up*7 chmod cksum get*7 csel dsel once head smoke" ] && INS_c4=1
+  && grep -q 'Integrity: NOT verified for 1 of 7 file' "$INS_T/nr.out" && grep -q 'INSTALL NOT VERIFIED' "$INS_T/nr.out" && [ "$INS_k" = "mkdir status up*7 chmod mv cksum get*7 csel dsel once head smoke" ] && INS_c4=1
 rowif "installer, one read-back fails: 'integrity NOT verified for 1 of 7', the file named, the other checks still run, exit $INS_RC (want 1), 'INSTALL NOT VERIFIED'" [ "$INS_c4" = 1 ]
 [ "$INS_c4" = 1 ] || tail -n 12 "$INS_T/nr.out" | cut -c1-200 | sed 's/^/    /'
 
 # ---- 5. an upload that fails stops the run: nothing after it is sent (no exec bits, no cksum, no self-test, no capture, no smoke test)
-ins_run up3 INS_X_UPFAIL=3
+INS_seed=1; ins_run up3 INS_X_UPFAIL=3; INS_seed=0; INS_old_up3=$(ins_old)   # over an older install: the markers at the final paths must survive (row in 6c)
 INS_k=$(ins_kinds "$INS_T/up3.log")
-INS_c5=0; [ "$INS_RC" = 1 ] && grep -q 'upload failed: starchorus-display.sh -> '"$INS_L"'/starchorus-display.sh' "$INS_T/up3.out" && [ "$INS_k" = "mkdir up*3" ] && ! grep -q 'smoke test' "$INS_T/up3.out" && INS_c5=1
+INS_c5=0; [ "$INS_RC" = 1 ] && grep -q 'upload failed: starchorus-display.sh -> '"$INS_L"'/starchorus-display.sh' "$INS_T/up3.out" && [ "$INS_k" = "mkdir status up*3" ] && ! grep -q 'smoke test' "$INS_T/up3.out" && INS_c5=1
 rowif "installer, the third upload fails: exit $INS_RC (want 1), 'upload failed' names the file, nothing after it is sent [$INS_k]" [ "$INS_c5" = 1 ]
 [ "$INS_c5" = 1 ] || tail -n 6 "$INS_T/up3.out" | cut -c1-200 | sed 's/^/    /'
 ins_run nossh INS_X_NOSSH=1
@@ -386,7 +446,7 @@ rowif "installer smoke test: a digit has to follow each colon at once ($INS_sn c
 #      bytes are identical, and with one read-back failing; a collector self-test without a result line, or ALL PASS with a non-zero exit; an
 #      Overview self-test that is red, without a result line, missing (an older Overview), or ALL PASS with a non-zero exit; a non-zero --once;
 #      a failed head; a repo Overview without --selftest (a copy root whose tools/install.sh is the real installer byte for byte)
-INS_KW_ALL="mkdir up*7 chmod cksum get*7 csel dsel once head smoke"
+INS_KW_ALL="mkdir status up*7 chmod mv cksum get*7 csel dsel once head smoke"
 INS_qbad=""; INS_qn=0
 ins_branch() {   # ins_branch NAME WANT_RC 'WANT KINDS' 'WANT TEXT' [VAR=value ...]
   INS_qn=$((INS_qn + 1)); INS_qm=$1; INS_qw=$2; INS_qk=$3; INS_qt=$4; shift 4
@@ -395,7 +455,7 @@ ins_branch() {   # ins_branch NAME WANT_RC 'WANT KINDS' 'WANT TEXT' [VAR=value .
   [ "$INS_k" = "$INS_qk" ] || INS_qbad="$INS_qbad $INS_qm(order [$INS_k])"
   grep -qF -- "$INS_qt" "$INS_T/$INS_qm.out" || INS_qbad="$INS_qbad $INS_qm(no '$INS_qt')"
 }
-ins_branch chm 1 "mkdir up*7 chmod" 'install: chmod +x failed on the device' INS_X_CHMOD=fail
+INS_seed=1; ins_branch chm 1 "mkdir status up*7 chmod" 'install: chmod +x failed on the device' INS_X_CHMOD=fail; INS_seed=0; INS_old_chm=$(ins_old)
 ins_branch ckj 0 "$INS_KW_ALL" '[WARN] cksum gave no usable output on the device (cksum: unrecognised option); integrity verified instead by reading all 7 files back' INS_X_CKSUM=junk
 ins_branch cko 0 "$INS_KW_ALL" '[WARN] cksum did not confirm 7 file(s) (line missing, or other numbers), but the bytes read back are identical' INS_X_CKSUM=other
 ins_branch ckn 1 "$INS_KW_ALL" "$INS_L/index.html: could not be read back (cksum local " INS_X_CKSUM=other INS_X_NOREAD=index.html
@@ -417,7 +477,7 @@ sed 's/--selftest/--no-such-flag/g' "$R/starchorus-display.sh" > "$INS_Q/starcho
 cp "$INS_Q/starchorus-display.sh" "$INS_Q/library/user/reconnaissance/starchorus/starchorus-display.sh"
 INS_qsame=0; cmp -s "$INS_Q/tools/install.sh" "$R/tools/install.sh" && ! grep -qF -- '--selftest' "$INS_Q/starchorus-display.sh" && INS_qsame=1
 INS_IN="$INS_Q/tools/install.sh"
-ins_branch odisp 0 "mkdir up*7 chmod cksum get*7 csel once head smoke" '[WARN] starchorus-display.sh in this repo has no --selftest yet -- the Overview selftest was skipped'
+ins_branch odisp 0 "mkdir status up*7 chmod mv cksum get*7 csel once head smoke" '[WARN] starchorus-display.sh in this repo has no --selftest yet -- the Overview selftest was skipped'
 INS_IN="$R/tools/install.sh"
 [ "$INS_qsame" = 1 ] && INS_RUNS="$INS_RUNS odisp"   # the copy IS the real installer: its run is one of the real installer's runs
 INS_ok=0; [ -z "$INS_qbad" ] && [ "$INS_qn" = 13 ] && [ "$INS_qsame" = 1 ] && INS_ok=1
@@ -456,6 +516,101 @@ for INS_e in $INS_ALL; do
 done
 INS_ok=0; [ "$INS_cxn" = 27 ] && [ -z "$INS_cxbad" ] && INS_ok=1
 rowif "installer's cleanup closes the master connection: one '-O exit' call, the last of the run, in $INS_cxn of 27 runs that connected, none in the run that could not; the judges above accept it${INS_cxbad:+ -- wrong:$INS_cxbad}" [ "$INS_ok" = 1 ]
+
+# ---- 6c. the status read and the rename (0.2.5): a loop that is running is a WARN and the run goes on and exits 0; an idle loop is only said; the old file is replaced by the rename;
+#      a failed rename ends the run (exit 1) after the exec bits and before cksum; a rename that fails at the third pair has done two (the && chain stops there) and the run says so
+INS_ALL2="mv3 mvf sti stw"   # sorted (C): the new runs of the real installer; each is judged by the same judges as the 28 above
+ins_run stw INS_X_STATUS=running
+INS_k=$(ins_kinds "$INS_T/stw.log"); INS_ok=0
+[ "$INS_RC" = 0 ] && [ "$INS_k" = "$INS_kw" ] && grep -qF '[WARN] a collector loop is running on the device (pid 4242): it keeps its old script until it is stopped and started again; INSTALL.md says to stop it first' "$INS_T/stw.out" \
+  && grep -q '==> result: [0-9]* passed, 1 warning(s), 0 failed' "$INS_T/stw.out" && ! grep -q '\[FAIL\]' "$INS_T/stw.out" && ins_clean_judge stw 7 \
+  && cmp -s "$R/starchorus-collect.sh" "$INS_DEV$INS_L/starchorus-collect.sh" && [ -z "$(find "$INS_DEV" -name '*.new')" ] && INS_ok=1
+rowif "installer, a collector loop is running: '[WARN] a collector loop is running (pid 4242)', not a FAIL, the run goes on (exit $INS_RC, want 0), the old collector is replaced by the rename [$INS_k]" [ "$INS_ok" = 1 ]
+[ "$INS_ok" = 1 ] || tail -n 8 "$INS_T/stw.out" | cut -c1-200 | sed 's/^/    /'
+ins_run sti INS_X_STATUS=idle
+INS_k=$(ins_kinds "$INS_T/sti.log"); INS_ok=0
+[ "$INS_RC" = 0 ] && [ "$INS_k" = "$INS_kw" ] && grep -qF '  no collector loop is running' "$INS_T/sti.out" && ! grep -q '\[WARN\]\|\[FAIL\]' "$INS_T/sti.out" && ins_clean_judge sti 7 && INS_ok=1
+rowif "installer, an installed collector with no loop running: said in one line, no WARN (exit $INS_RC, want 0) [$INS_k]" [ "$INS_ok" = 1 ]
+INS_ok=0; grep -qF 'no answer from an installed collector (exit 127: ash: ./starchorus-collect.sh: not found)' "$INS_T/dev.out" && ! grep -q '\[WARN\]' "$INS_T/dev.out" && INS_ok=1
+rowif "installer, no collector on the device yet (first install): the status read is answered 127, said in one line, not a WARN and not a FAIL (run 1)" [ "$INS_ok" = 1 ]
+INS_seed=1; ins_run mvf INS_X_MV=fail; INS_seed=0; INS_old_mvf=$(ins_old)
+INS_k=$(ins_kinds "$INS_T/mvf.log"); INS_ok=0
+[ "$INS_RC" = 1 ] && [ "$INS_k" = "mkdir status up*7 chmod mv" ] && grep -qF 'install: the rename into place failed on the device' "$INS_T/mvf.out" && ! grep -q 'smoke test' "$INS_T/mvf.out" && INS_ok=1
+rowif "installer, the rename fails: exit $INS_RC (want 1), 'the rename into place failed', nothing after it is sent [$INS_k]" [ "$INS_ok" = 1 ]
+[ "$INS_ok" = 1 ] || tail -n 8 "$INS_T/mvf.out" | cut -c1-200 | sed 's/^/    /'
+INS_seed=1; ins_run mv3 INS_X_MVFAIL=3; INS_seed=0; INS_old_mv3=$(ins_old)
+INS_k=$(ins_kinds "$INS_T/mv3.log"); INS_ok=0
+INS_p1=0; cmp -s "$R/starchorus-collect.sh" "$INS_DEV$INS_L/starchorus-collect.sh" && cmp -s "$R/starchorus.html" "$INS_DEV$INS_L/index.html" && INS_p1=1
+INS_p3=0; [ "$(cat "$INS_DEV$INS_L/starchorus-display.sh")" = "old $INS_L/starchorus-display.sh" ] && [ -e "$INS_DEV$INS_L/starchorus-display.sh.new" ] && INS_p3=1   # the third: still the old file, its .new beside it
+[ "$INS_RC" = 1 ] && [ "$INS_k" = "mkdir status up*7 chmod mv" ] && [ "$INS_p1/$INS_p3" = 1/1 ] && grep -qF 'some files may be new, the rest old; run the installer again' "$INS_T/mv3.out" && INS_ok=1
+rowif "installer, the rename fails at the third pair: the first two are in place, the third still a .new (exit $INS_RC, want 1), and the message says some files may be new [$INS_k]" [ "$INS_ok" = 1 ]
+# a failed upload, chmod or rename leaves the old files at the final paths: the four runs ran over an older install (a marker at each of the seven final paths), and the fake root as each left it
+# is counted (markers intact / .new files left): the third upload fails 7/2, chmod fails 7/7, the rename fails at once 7/7; the rename that fails at the third pair has replaced the first two
+# byte for byte (above) and left the last five old, with their five .new files beside them
+INS_ok=0; [ "$INS_old_up3 $INS_old_chm $INS_old_mvf $INS_old_mv3" = "7/2 7/7 7/7 5/5" ] && [ "$INS_p1" = 1 ] && INS_ok=1
+rowif "installer, a failed upload, chmod or rename leaves the old files at the final paths (over an older install; markers intact/.new left: third upload fails $INS_old_up3, chmod fails $INS_old_chm, rename fails $INS_old_mvf, want 7/2 7/7 7/7; the rename fails at the third pair $INS_old_mv3, want 5/5, the first two replaced byte for byte)" [ "$INS_ok" = 1 ]
+# and each says that .new files remain next to the targets and that the next run replaces them
+INS_ok=0
+grep -qF 'up to 3 .new file(s) remain on the device next to the targets, and the next run replaces them' "$INS_T/up3.out" && grep -qF 'the 7 .new files remain on the device next to the targets, and the next run replaces them' "$INS_T/chm.out" \
+  && grep -qF 'some .new files may remain next to the targets, and the next run replaces them' "$INS_T/mvf.out" && grep -qF 'some .new files may remain next to the targets, and the next run replaces them' "$INS_T/mv3.out" && INS_ok=1
+rowif "installer, a failed upload, chmod or rename says that .new files remain on the device and that the next run replaces them (the third upload: up to 3; chmod: the 7; rename: some)" [ "$INS_ok" = 1 ]
+# shellcheck disable=SC2086   # INS_ALL2 is a word list on purpose
+ins_every_bad $INS_ALL2; INS_ok=0; [ "$INS_ejn" = 4 ] && [ -z "$INS_eo" ] && INS_ok=1
+rowif "installer sends nothing but the header's remote commands in the four new runs too ($INS_ejn of 4 logs judged: loop running, idle loop, rename fails, rename fails at the third pair)" [ "$INS_ok" = 1 ]
+[ -z "$INS_eo" ] || printf '%s\n' "$INS_eo" | sed 's/^/    /'
+INS_cxbad=""; INS_cxn=0
+for INS_e in $INS_ALL2; do
+  INS_cxc=$(grep -c "^ssh$INS_TAB$INS_HOST$INS_TAB-o ControlPath=[^$INS_TAB]* -O exit$INS_TAB\$" "$INS_T/$INS_e.log"); INS_cxl=$(tail -n 1 "$INS_T/$INS_e.log" | cut -f 3)
+  case $INS_cxc:$INS_cxl in "1:-o ControlPath="*" -O exit") INS_cxn=$((INS_cxn + 1)) ;; *) INS_cxbad="$INS_cxbad $INS_e($INS_cxc)" ;; esac
+done
+INS_ok=0; [ "$INS_cxn" = 4 ] && [ -z "$INS_cxbad" ] && INS_ok=1
+rowif "installer's cleanup closes the master connection in the four new runs too ($INS_cxn of 4: one '-O exit', the last call)${INS_cxbad:+ -- wrong:$INS_cxbad}" [ "$INS_ok" = 1 ]
+
+# ---- 6d. the files to install must agree with each other (0.2.5): a copy root (the real installer, byte for byte, and the repo's files) in which ONE file carries another version ends the run
+#      with exit 1 and names the versions, before any remote command (the log stays empty), and the --dry-run says the same and prints no plan; the unchanged copy installs (the control)
+INS_V="$INS_T/vroot"
+ins_bump() {   # ins_bump REL KIND -> $INS_V/REL: the file with the first version it carries changed to 9.9.9 (KIND page: the version: "x.y.z" line; hdr: the "# Version:" header)
+  case $1 in */*) mkdir -p "$INS_V/${1%/*}" ;; esac
+  case $2 in
+    page) awk '!d && /^[[:space:]]*version:[[:space:]]*"[0-9][0-9A-Za-z.-]*"/ { sub(/"[0-9][0-9A-Za-z.-]*"/, "\"9.9.9\""); d = 1 } { print }' "$R/$1" > "$INS_V/$1" ;;
+    *) awk '!d && /^#[[:space:]]*Version:[[:space:]]*[0-9]/ { sub(/[0-9][0-9A-Za-z.-]*/, "9.9.9"); d = 1 } { print }' "$R/$1" > "$INS_V/$1" ;;
+  esac
+}
+ins_vroot() {   # ins_vroot NAME RELS...: a fresh copy root; every file named is bumped, the others copied
+  rm -rf "$INS_V"; mkdir -p "$INS_V/tools" "$INS_V/library/user/reconnaissance/starchorus"; cp "$R/tools/install.sh" "$INS_V/tools/install.sh"
+  shift
+  for INS_vf in starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh library/user/reconnaissance/starchorus/payload.sh library/user/reconnaissance/starchorus/starchorus-display.sh library/user/reconnaissance/starchorus/alert-deauth.sh; do
+    INS_vb=0; for INS_vx in "$@"; do [ "$INS_vx" != "$INS_vf" ] || INS_vb=1; done
+    if [ "$INS_vb" = 0 ]; then cp "$R/$INS_vf" "$INS_V/$INS_vf"
+    else case $INS_vf in *.html) ins_bump "$INS_vf" page ;; *) ins_bump "$INS_vf" hdr ;; esac; fi
+  done
+}
+INS_vbad=""; INS_vn2=0; INS_PLR=library/user/reconnaissance/starchorus
+for INS_vc in "page:starchorus.html" "collector:starchorus-collect.sh" "display:starchorus-display.sh $INS_PLR/starchorus-display.sh" "server:starchorus-serve.sh" "payload:$INS_PLR/payload.sh" "alert:$INS_PLR/alert-deauth.sh"; do
+  INS_vl=${INS_vc%%:*}; INS_vr=${INS_vc#*:}
+  # shellcheck disable=SC2086   # the file list is a word list on purpose
+  ins_vroot "$INS_vl" $INS_vr
+  INS_IN="$INS_V/tools/install.sh"; ins_run "vk-$INS_vl"; INS_vrc=$INS_RC
+  sh "$INS_V/tools/install.sh" --dry-run > "$INS_T/vk-$INS_vl.dry" 2>&1; INS_vdrc=$?
+  INS_IN="$R/tools/install.sh"; INS_vn2=$((INS_vn2 + 1))
+  [ "$INS_vrc/$INS_vdrc" = 1/1 ] || INS_vbad="$INS_vbad $INS_vl(rc $INS_vrc, dry run $INS_vdrc)"
+  [ ! -s "$INS_T/vk-$INS_vl.log" ] || INS_vbad="$INS_vbad $INS_vl(a remote command was sent)"
+  grep -q 'install: the files to install carry different versions (' "$INS_T/vk-$INS_vl.out" && grep -q '9\.9\.9' "$INS_T/vk-$INS_vl.out" || INS_vbad="$INS_vbad $INS_vl(no message)"
+  grep -q 'nothing was sent to the device' "$INS_T/vk-$INS_vl.out" || INS_vbad="$INS_vbad $INS_vl(no 'nothing was sent')"
+  ! grep -q 'DRY RUN' "$INS_T/vk-$INS_vl.dry" || INS_vbad="$INS_vbad $INS_vl(the dry run printed a plan)"
+done
+ins_vroot control   # nothing bumped: the control
+INS_IN="$INS_V/tools/install.sh"; ins_run vk-control; INS_cr=$INS_RC; INS_IN="$R/tools/install.sh"
+INS_vk=$(ins_kinds "$INS_T/vk-control.log")
+INS_vcj=0; ins_clean_judge vk-control 7 && INS_vcj=1   # the control is judged as a clean run in full: nothing else, the options, the scp shape, no failure line
+INS_ok=0; [ -z "$INS_vbad" ] && [ "$INS_vn2" = 6 ] && [ "$INS_cr" = 0 ] && [ "$INS_vk" = "$INS_kw" ] && [ "$INS_vcj" = 1 ] && INS_ok=1
+rowif "installer, the files to install disagree on the version (page, collector, display, server, payload, the companion alert: $INS_vn2 of 6 copy roots with one file at 9.9.9): exit 1 before the first remote command, in the run and in the --dry-run, the message names the versions; the unchanged copy installs (exit $INS_cr)${INS_vbad:+ -- $INS_vbad}" [ "$INS_ok" = 1 ]
+rm -rf "$INS_V"
+# every run of the real installer is one the rows above judge: the runs recorded (ins_run) are exactly the 28 of INS_ALL and the four of INS_ALL2, so a run added later cannot go unjudged
+INS_rs2=$(printf '%s' "$INS_RUNS" | tr ' ' '\n' | sed '/^$/d' | LC_ALL=C sort | tr '\n' ' '); INS_rs2=${INS_rs2% }
+# shellcheck disable=SC2086   # the lists are word lists on purpose
+INS_rw2=$(printf '%s\n' $INS_ALL $INS_ALL2 | LC_ALL=C sort | tr '\n' ' '); INS_rw2=${INS_rw2% }
+rowif "installer, the runs of the real installer are exactly the listed 32 (INS_ALL + INS_ALL2): none is left unjudged [$INS_rs2]" [ "$INS_rs2" = "$INS_rw2" ]
 
 # ---- 7. the judges bite: dummy logs with one planted fault each (the intact log is green)
 INS_O="-o ControlMaster=auto -o ControlPath=/x/cm -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
@@ -504,21 +659,73 @@ ins_dummy red opts "$(printf 'scp-up\t%s\t%s\t%s\t%s' "$INS_HOST" "$INS_O" /a "$
 ins_dummy green opts "$(printf 'scp-up\t%s\t-O %s\t%s\t%s' "$INS_HOST" "$INS_O" /a "$INS_L/x")"
 INS_up() { printf 'scp-up\t%s\t-O %s\t/x\t%s' "$INS_HOST" "$INS_O" "$1"; }
 INS_all=""; for INS_x in $INS_DESTS; do INS_all="$INS_all
-$(INS_up "$INS_x")"; done
+$(INS_up "$INS_x.new")"; done
 INS_dl=$(printf '%s\n' "$INS_all" | sed '1d')
-ins_bite() {   # ins_bite red|green NAME LOG GETS: the scp judge on a log file
+ins_bite() {   # ins_bite red|green NAME LOG GETS [ERE]: the scp judge on a log file; ERE (red only) = a line the judge must print, so that the planted fault and not another rule makes it red
   INS_jn=$((INS_jn + 1)); INS_bo=$(ins_scp_bad "$3" "$4")
   if [ "$1" = red ]; then [ -n "$INS_bo" ] || { INS_jbad=$((INS_jbad + 1)); echo "    judge case: $2 is not red"; }
+    [ -z "${5:-}" ] || printf '%s\n' "$INS_bo" | grep -qE -- "$5" || { INS_jbad=$((INS_jbad + 1)); echo "    judge case: $2 is red, but not for its fault (want /$5/): $INS_bo"; }
   else [ -z "$INS_bo" ] || { INS_jbad=$((INS_jbad + 1)); echo "    judge case: $2 is not green: $INS_bo"; }; fi
 }
-printf '%s\n' "$INS_dl" > "$INS_T/dummy.log"
-ins_bite green 'the seven uploads in order' "$INS_T/dummy.log" 0
-printf '%s\n' "$INS_dl" | awk 'NR == 2 { held = $0; next } { print } NR == 3 { print held }' > "$INS_T/dummy2.log"          # uploads 2 and 3 swapped
-ins_bite red 'two uploads swapped' "$INS_T/dummy2.log" 0
-{ printf '%s\n' "$INS_dl"; printf 'scp-get\t%s\t-O %s\t%s\t/y\n' "$INS_HOST" "$INS_O" /root/loot/starchorus/settings.conf; } > "$INS_T/dummy3.log"
-ins_bite red 'a read of a file that was never sent' "$INS_T/dummy3.log" 1
-printf '%s\n' "$INS_dl" | sed "s|$INS_L/index.html|/root/index.html|" > "$INS_T/dummy4.log"
-ins_bite red 'an upload to another path' "$INS_T/dummy4.log" 0
+# the whole of a good install as the stand-ins log it: the status read, the seven uploads to <target>.new, the exec bits on the .new names of the six scripts, ONE rename command
+INS_stl=$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L ./starchorus-collect.sh --status")
+INS_nx=""; INS_mvc=""
+for INS_x in $INS_DESTS; do
+  case $INS_x in */index.html) ;; *) INS_nx="$INS_nx $INS_x.new" ;; esac
+  INS_mvc="${INS_mvc:+$INS_mvc && }mv -f $INS_x.new $INS_x"
+done
+INS_chl=$(INS_sl "chmod +x$INS_nx"); INS_mvl=$(INS_sl "$INS_mvc")
+INS_good="$INS_stl
+$INS_dl
+$INS_chl
+$INS_mvl"
+printf '%s\n' "$INS_good" > "$INS_T/dummy.log"
+ins_bite green 'the status read, the seven uploads to .new in order, the exec bits on .new, one rename' "$INS_T/dummy.log" 0
+# the cases of 0.2.4 on the good shape of 0.2.5 (the status read, the rename): the planted fault is the only difference from a green log, and the line it must give is named
+printf '%s\n' "$INS_good" | awk 'NR == 3 { held = $0; next } { print } NR == 4 { print held }' > "$INS_T/dummy2.log"          # uploads 2 and 3 swapped
+ins_bite red 'two uploads swapped' "$INS_T/dummy2.log" 0 '^upload 2: '
+{ printf '%s\n' "$INS_good"; printf 'scp-get\t%s\t-O %s\t%s\t/y\n' "$INS_HOST" "$INS_O" /root/loot/starchorus/settings.conf; } > "$INS_T/dummy3.log"
+ins_bite red 'a read of a file that was never sent' "$INS_T/dummy3.log" 1 '^read-back of a file that was not sent: /root/loot/starchorus/settings[.]conf$'
+{ printf '%s\n' "$INS_good"; printf 'scp-get\t%s\t-O %s\t%s\t/y\n' "$INS_HOST" "$INS_O" "$INS_L/index.html"; } > "$INS_T/dummy3g.log"
+ins_bite green 'the good shape and a read-back of a file that was sent (control for the read-back case)' "$INS_T/dummy3g.log" 1
+printf '%s\n' "$INS_good" | sed "/^scp-up/s|$INS_L/index.html|/root/index.html|" > "$INS_T/dummy4.log"
+ins_bite red 'an upload to another path' "$INS_T/dummy4.log" 0 '^upload 2: /root/index[.]html[.]new$'
+# the new shape of the install, one planted fault each (the scp judge): a status read after an upload, none, two; a rename as one command per file, none, with two pairs swapped, before the
+# last upload; the exec bits on a final path, after the rename; an upload to the final path; the cmds judge accepts the good shape and the one-per-file rename (each is on the list)
+ins_bitel() {   # ins_bitel red|green NAME GETS 'LOG TEXT'
+  printf '%s\n' "$4" > "$INS_T/dummy5.log"; ins_bite "$1" "$2" "$INS_T/dummy5.log" "$3"
+}
+ins_bitel red 'a status read after the first upload' 0 "$(printf '%s\n' "$INS_good" | awk 'NR == 1 { held = $0; next } { print } NR == 2 { print held }')"
+ins_bitel red 'no status read' 0 "$(printf '%s\n' "$INS_good" | sed 1d)"
+ins_bitel red 'two status reads' 0 "$INS_stl
+$INS_good"
+ins_bitel red 'no rename command' 0 "$(printf '%s\n' "$INS_good" | sed '$d')"
+ins_bitel red 'the rename as one command per file' 0 "$(printf '%s\n' "$INS_good" | sed '$d')
+$(for INS_x in $INS_DESTS; do INS_sl "mv -f $INS_x.new $INS_x"; printf '\n'; done | sed '/^$/d')"
+INS_mvs=$(printf '%s' "$INS_mvc" | sed "s| && mv -f $INS_L/index.html.new $INS_L/index.html||")
+ins_bitel red 'a rename that leaves a pair out' 0 "$(printf '%s\n' "$INS_good" | sed '$d')
+$(INS_sl "$INS_mvs")"
+INS_mvw=$(printf '%s' "$INS_mvc" | awk -F' && ' '{ print $2 " && " $1 " && " $3 " && " $4 " && " $5 " && " $6 " && " $7 }')
+ins_bitel red 'a rename with two pairs swapped' 0 "$(printf '%s\n' "$INS_good" | sed '$d')
+$(INS_sl "$INS_mvw")"
+ins_bitel red 'the rename before the last upload' 0 "$(printf '%s\n' "$INS_good" | awk -v mv="$INS_mvl" 'NR == 10 { next } { print } NR == 4 { print mv }')"
+ins_bitel red 'the exec bits on a final path' 0 "$(printf '%s\n' "$INS_good" | sed "s|chmod +x $INS_L/starchorus-collect.sh.new|chmod +x $INS_L/starchorus-collect.sh|")"
+ins_bitel red 'the exec bits after the rename' 0 "$INS_stl
+$INS_dl
+$INS_mvl
+$INS_chl"
+ins_bitel red 'an upload to the final path' 0 "$(printf '%s\n' "$INS_good" | sed "2s|/starchorus-collect.sh.new\$|/starchorus-collect.sh|")"
+ins_bitel green 'the good shape (control for the faults above)' 0 "$INS_good"
+INS_jn=$((INS_jn + 1)); { [ -z "$(printf '%s\n' "$INS_good" | { cat > "$INS_T/dummy6.log"; ins_cmds_bad "$INS_T/dummy6.log"; })" ]; } || { INS_jbad=$((INS_jbad + 1)); echo "    judge case: the good shape is not green for the cmds judge"; }
+ins_dummy red cmds "$(INS_sl "mv -f $INS_L/a.sh.new $INS_L/a.sh; uname -a")"
+ins_dummy red cmds "$(INS_sl "mv -f $INS_L/a.sh $INS_L/b.sh.new")"
+ins_dummy red cmds "$(INS_sl "mv -f /etc/passwd.new /etc/passwd")"
+ins_dummy red cmds "$(INS_sl "mv -f $INS_L/a.sh.new $INS_PL/settings.conf")"
+ins_dummy red cmds "$(INS_sl "mv -f $INS_L/a.sh.new $INS_L/a.sh && mv -f $INS_L/b.sh.new $INS_PL/b.sh")"
+ins_dummy green cmds "$(INS_sl "mv -f $INS_L/a.sh.new $INS_L/a.sh && mv -f $INS_PL/b.sh.new $INS_PL/b.sh")"
+ins_dummy red cmds "$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L ./starchorus-collect.sh --stop")"
+ins_dummy red cmds "$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L ./starchorus-collect.sh --status; uname -a")"
+ins_dummy green cmds "$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L ./starchorus-collect.sh --status")"
 # the shape of a line: a tab or a line break inside a word, raw (more fields) or as the stand-ins log it (\001 / \002), a short line, an unknown kind;
 # and the remote path of an scp, which the legacy protocol hands to the remote shell
 INS_C1=$(printf '\001'); INS_C2=$(printf '\002')
@@ -533,8 +740,9 @@ ins_dummy red cmds "$(INS_up "$INS_PL/alert-deauth.sh$INS_C1; uname -a")"
 ins_dummy red cmds "$(INS_up /etc/x)"
 ins_dummy red cmds "$(printf 'scp-get\t%s\t-O %s\t%s\t/y' "$INS_HOST" "$INS_O" /etc/shadow)"
 ins_dummy red opts "$(printf 'ssh\t%s\t%s\t%s\t%s' "$INS_HOST" "$INS_O" 'true' '; uname -a')"
-ins_dummy red scp7 "$(printf '%s\n' "$INS_dl" | sed '$d')" "$(printf 'scp-up\t%s\t-O %s\t/x\t%s\t%s' "$INS_HOST" "$INS_O" "$INS_PL/alert-deauth.sh" '; uname -a')"
-INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 43 ] && INS_ok=1   # every case as expected, and none of the 43 left out: one status, as rowif judges only the test it is given
+ins_dummy red scp7 "$(printf '%s\n' "$INS_good" | sed '$d' | sed '$d' | sed '$d')" "$(printf 'scp-up\t%s\t-O %s\t/x\t%s\t%s' "$INS_HOST" "$INS_O" "$INS_PL/alert-deauth.sh.new" '; uname -a')" "$INS_chl" "$INS_mvl"
+printf '%s\n' "$INS_jo" | grep -q '^log line 8 (scp-up): 6 fields' || { INS_jbad=$((INS_jbad + 1)); echo "    judge case $INS_jn (scp7): red, but not for the 6-field line: $INS_jo"; }   # on the good shape: the shape rule is what bites
+INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 66 ] && INS_ok=1   # every case as expected, and none of the 43 of 0.2.4 left out (62 with the cases of the status read and the rename, 65 with the three of the rename pairs, 66 with the green control of the read-back case): one status, as rowif judges only the test it is given
 rowif "installer judges bite on dummy logs ($((INS_jn - INS_jbad))/$INS_jn as expected: an extra command, a chained one, --status, --stop, a foreign path, a forward (-L and -O forward), an -O exit with a command or an option, a changed option, a third host, swapped, mis-sent and read-back files, a tab or a line break inside a command or a path, a short line, an unknown kind, an scp to or from a path not on the list)" [ "$INS_ok" = 1 ]
 
 # ---- 8. the real mutations: copies of install.sh that send more than the header allows; the judges are red on THEIR logs and green on the real installer's
@@ -554,6 +762,9 @@ ins_mut() {   # ins_mut NAME KIND [VAR=value ...] -> INS_MUT (1 = the copy diffe
     dtab) awk 'index($0, "$PLSRC/alert-deauth.sh|$PLDIR/alert-deauth.sh|x") == 1 { sub(/[|]x"$/, "\t; uname -a|x\"") } { print }' "$INS_real" ;;   # a tab in one destination of FILES
     stopst) awk '{ print } index($0, "res FAIL \"$_l selftest: ${_s#") > 0 { print "      rsh \"$CMD_STOP\" >/dev/null 2>&1" }' "$INS_real" ;;           # service control, only when a self-test is red
     stopsm) awk '{ print } index($0, "res FAIL \"Overview summary broken:") > 0 { print "  rsh \"$CMD_STOP\" >/dev/null 2>&1" }' "$INS_real" ;;               # service control, only when the smoke test is red
+    mv2) awk 'index($0, "rsh \"$CMD_MV\" ||") == 1 { print "for _d in $ALLDEST; do rsh \"mv -f $_d.new $_d\" || die 1 \"rename failed\"; done"; next } { print }' "$INS_real" ;;   # the rename as one command per file
+    nost) awk 'index($0, "rsh_cap \"$WORK/status.out\" \"$CMD_STATUS\"") == 1 { print ": > \"$WORK/status.out\"; st_rc=0"; next } { print }' "$INS_real" ;;   # no status read
+    inpl) awk 'index($0, "  rcp \"$ROOT/$rel\" \"$dest.new\" ||") == 1 { sub(/"\$dest\.new" \|\|/, "\"$dest\" ||") } { print }' "$INS_real" ;;   # upload straight to the final path
     stopon) awk 'index($0, "else res WARN \"collector --once exited") == 1 { sub(/^else /, "else rsh \"$CMD_STOP\" >/dev/null 2>/dev/null; ") } { print }' "$INS_real" ;;   # service control, only on the --once WARN branch
   esac > "$INS_M/tools/install.sh"
   INS_MUT=0; cmp -s "$INS_M/tools/install.sh" "$INS_real" || INS_MUT=1
@@ -601,6 +812,19 @@ ins_mut fpon stopon INS_X_ONCE_RC=2; INS_fm5=$INS_MUT; INS_frc5=$INS_RC; ins_eve
 INS_ok=0; [ "$INS_fm4$INS_fm5" = 11 ] && [ "$INS_fblind2" = 1 ] && [ "$INS_fj4" = 1 ] && [ "$INS_frc5" = 0 ] && printf '%s\n' "$INS_fe4" | grep -q -- '^fpon: .*--stop$' && INS_ok=1
 rowif "installer, negative probe: a copy that sends --stop only when --once exits non-zero (a warning: that run still exits $INS_frc5) passes the clean judge on the clean flow ($INS_fblind2) and is caught by the judge of every run on its --once run" [ "$INS_ok" = 1 ]
 [ "$INS_ok" = 1 ] || printf '%s\n' "$INS_fe4" | sed '/^$/d; s/^/    /'
+
+# the new shape, with copies of the installer that break it. The rename as one command per file (each command alone is on the header's list, so only the count of rename commands shows it),
+# no status read, an upload to the final path (the old way): the judges of the order are red on THEIR logs, green on the real run's
+ins_mut mmv2 mv2; INS_m1=$INS_MUT; INS_r1=$INS_RC; INS_b1=$(ins_scp_bad "$INS_T/mmv2.log" 7); INS_c1=$(ins_cmds_bad "$INS_T/mmv2.log")
+ins_mut mnost nost; INS_m2=$INS_MUT; INS_r2=$INS_RC; INS_b2=$(ins_scp_bad "$INS_T/mnost.log" 7)
+ins_mut minpl inpl; INS_m3=$INS_MUT; INS_r3=$INS_RC; INS_b3=$(ins_scp_bad "$INS_T/minpl.log" 0)
+INS_ok=0
+[ "$INS_m1$INS_m2$INS_m3" = 111 ] && printf '%s\n' "$INS_b1" | grep -qx 'rename commands: 7 (want 1)' && [ -z "$INS_c1" ] && [ "$INS_r1" = 0 ] && ! ins_clean_judge mmv2 7 \
+  && printf '%s\n' "$INS_b2" | grep -qx 'status reads: 0 (want 1)' && [ "$INS_r2" = 0 ] && ! ins_clean_judge mnost 7 \
+  && printf '%s\n' "$INS_b3" | grep -q '^upload 1: /root/loot/starchorus/starchorus-collect.sh$' && [ "$INS_r3" = 1 ] \
+  && [ -z "$(ins_scp_bad "$INS_T/dev.log" 7)" ] && INS_ok=1
+rowif "installer, negative probes: a copy that renames with one command per file (exit $INS_r1; each command is on the list, the count of rename commands is red: 7), a copy that skips the status read (exit $INS_r2; red: no status read), a copy that uploads to the final path (exit $INS_r3; red: upload 1 is not a .new name); the real run's log is green" [ "$INS_ok" = 1 ]
+[ "$INS_ok" = 1 ] || printf '%s\n' "$INS_b1" "$INS_c1" "$INS_b2" "$INS_b3" | sed '/^$/d; s/^/    /' | head -n 12
 
 # ---- A7b: the collector's own self-test under dash, the way tools/static.sh runs it (output into a file, judged by selftest_verdict). The self-test starts
 #      many children as `sh "$0" --once` and the like; the farm below puts dash in the place of sh, so those children run under dash too.

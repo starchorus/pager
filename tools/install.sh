@@ -12,19 +12,26 @@
 # human-started ssh/scp session.
 #   1. finds the repo from its own path; exit 2 if a source file is missing or the two starchorus-display.sh copies
 #      (repo root / library/.../starchorus) differ -- the payload directory must ship the same Overview;
-#   2. prints "file -> version" (page: version: "x.y.z"; collector/display/payload: "# Version:" header) BEFORE
-#      it touches the device, and the same real versions at the end;
-#   3. opens ONE ssh master connection (one password prompt), uploads with scp -O (legacy protocol: the device
-#      has no sftp-server), chmod +x, then checks every file, local vs device: by cksum (CRC + size) where the
-#      device has one, otherwise by reading the file back with scp and comparing the bytes (the Pager's BusyBox
+#   2. prints "file -> version" (page: version: "x.y.z"; collector/display/server/payload: "# Version:" header) BEFORE
+#      it touches the device, and the same real versions at the end; the files it is about to install must agree
+#      with each other: six versions (the companion alert's included) that are not one number end the run with exit 1, before any connection;
+#   3. opens ONE ssh master connection (one password prompt), reads the installed collector's status (read-only: a WARN,
+#      never a FAIL, when a loop is running), uploads every file with scp -O (legacy protocol: the device has no
+#      sftp-server) to its target name plus ".new", chmod +x on those, and renames them into place with ONE remote
+#      command after the last upload (a dropped connection leaves no truncated script at a final path; a script
+#      that is running keeps its old file), then checks every file, local vs device: by cksum (CRC + size) where
+#      the device has one, otherwise by reading the file back with scp and comparing the bytes (the Pager's BusyBox
 #      has no cksum: see "MEASURED ON THE DEVICE" below);
 #   4. runs the collector's and the Overview's own --selftest, one passive collector --once, and an Overview
 #      smoke test: "--once summary" must show a digit after "2.4:", "5:" and "6:" (blank counters are the
 #      symptom of jq filters aborting on the device, e.g. regex builtins: docs/device-notes.md 2a) and must not
 #      say "jq incomplete".
-# Remote commands (nothing else is ever sent): mkdir -p, chmod, cksum, "sh <installed script> --selftest",
-# "cd <dir> && ... ./starchorus-collect.sh --once", head of starchorus.json, "sh <installed display script> --once summary".
-# No package manager, no config, no service control, no AP-service calls.
+# Remote commands (nothing else is ever sent): mkdir -p, the collector's read-only status ("cd <dir> && ... ./starchorus-collect.sh" with
+# its status flag, which only reports), chmod, "mv -f <name>.new <name>" for every file, joined by && in ONE command, cksum,
+# "sh <installed script> --selftest", "cd <dir> && ... ./starchorus-collect.sh --once", head of starchorus.json,
+# "sh <installed display script> --once summary".
+# The list was extended on 24 October 2026 by the owner's decision (the status read and the rename; tools/regress.d/installer.sh pins it).
+# No package manager, no config, no service control (the status read never stops anything), no AP-service calls.
 # MEASURED ON THE DEVICE (docs/device-notes.md, runs of 14 and 15 October 2026, firmware as shipped): the BusyBox applet
 # "cksum" is absent ("ash: cksum: not found", exit 127) and "head -c" works. The installer therefore verifies by reading
 # all seven files back with scp and comparing them with cmp, and says so in one calm [PASS] line: the missing applet is a
@@ -116,8 +123,9 @@ ver_of() {   # ver_of REPO-RELATIVE-FILE -> its version, or "-" when the file ca
   printf '%s' "${_v:--}"
 }
 VER_PAGE=$(ver_of starchorus.html); VER_COLLECT=$(ver_of starchorus-collect.sh)
-VER_DASH=$(ver_of starchorus-display.sh);   VER_PAYLOAD=$(ver_of "$PLSRC/payload.sh")
-for _pair in "starchorus.html:$VER_PAGE" "starchorus-collect.sh:$VER_COLLECT" "starchorus-display.sh:$VER_DASH"; do
+VER_DASH=$(ver_of starchorus-display.sh);   VER_PAYLOAD=$(ver_of "$PLSRC/payload.sh"); VER_SERVE=$(ver_of starchorus-serve.sh)
+VER_ALERT=$(ver_of "$PLSRC/alert-deauth.sh")
+for _pair in "starchorus.html:$VER_PAGE" "starchorus-collect.sh:$VER_COLLECT" "starchorus-display.sh:$VER_DASH" "starchorus-serve.sh:$VER_SERVE" "$PLSRC/payload.sh:$VER_PAYLOAD" "$PLSRC/alert-deauth.sh:$VER_ALERT"; do
   [ "${_pair#*:}" != - ] || die 2 "cannot read the version of ${_pair%%:*} -- is this a complete checkout of the repo?"
 done
 # The test capture uses the installed payload's own window, read from its default (STARCHORUS_MAX_AGE:-N), not a copy typed
@@ -146,7 +154,11 @@ shq() {   # shell-quote one word, for DISPLAY only (the real calls pass the word
 # option string can be split into words on purpose.
 mk_opts() { SSH_OPTS="-o ControlMaster=auto -o ControlPath=$1 -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"; }
 CMD_MKDIR="mkdir -p $LOOT $PLDIR"
-CMD_CHMOD="chmod +x $XDEST"
+# every file goes up as <target>.new; the exec bits are set on those, then ONE command renames them all into place, in the order of FILES
+# (a rename within a directory is atomic: the final path holds the old file or the new one, never half of one)
+NEWX=""; for _d in $XDEST; do NEWX="$NEWX $_d.new"; done; NEWX=${NEWX# }
+CMD_MV=""; for _d in $ALLDEST; do CMD_MV="${CMD_MV:+$CMD_MV && }mv -f $_d.new $_d"; done
+CMD_CHMOD="chmod +x $NEWX"
 CMD_CKSUM="cksum $ALLDEST"
 CMD_CSELF="sh $LOOT/starchorus-collect.sh --selftest"
 CMD_PSELF="sh $LOOT/starchorus-display.sh --selftest"
@@ -169,8 +181,13 @@ EOF
 }
 
 say "Starchorus installer  ->  root@$HOST"
-say "Files from the repo (page $VER_PAGE, collector $VER_COLLECT, display $VER_DASH):"
+say "Files from the repo (page $VER_PAGE, collector $VER_COLLECT, display $VER_DASH, server $VER_SERVE, payload $VER_PAYLOAD, alert $VER_ALERT):"
 print_table
+# the files about to be installed must agree with each other: a page of one build with a collector of another is what the payload's
+# launch check reports afterwards; here it is stopped before the device is touched (the dry run says so as well)
+if [ "$VER_PAGE" != "$VER_COLLECT" ] || [ "$VER_PAGE" != "$VER_DASH" ] || [ "$VER_PAGE" != "$VER_SERVE" ] || [ "$VER_PAGE" != "$VER_PAYLOAD" ] || [ "$VER_PAGE" != "$VER_ALERT" ]; then
+  die 1 "the files to install carry different versions (page $VER_PAGE, collector $VER_COLLECT, display $VER_DASH, server $VER_SERVE, payload $VER_PAYLOAD, alert $VER_ALERT) -- nothing was sent to the device; bring them to one version first"
+fi
 
 if [ "$DRY" = 1 ]; then
   mk_opts '<tmpdir>/cm'
@@ -180,12 +197,14 @@ if [ "$DRY" = 1 ]; then
   n=1
   plan() { printf '%3d. %s\n' "$n" "$1"; n=$((n + 1)); }
   plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_MKDIR")"
+  plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_STATUS")    # read-only: a WARN if a loop is running"
   while IFS='|' read -r rel dest _x; do
-    plan "scp -O $SSH_OPTS $(shq "$ROOT/$rel") root@$HOST:$dest"
+    plan "scp -O $SSH_OPTS $(shq "$ROOT/$rel") root@$HOST:$dest.new"
   done <<EOF
 $FILES
 EOF
   plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_CHMOD")"
+  plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_MV")    # ONE command: every file into place"
   plan "ssh $SSH_OPTS root@$HOST $(shq "$CMD_CKSUM")    # then CRC + size compared with the local files"
   say "     The Pager's BusyBox has no cksum (docs/device-notes.md), so a real run reads every file back; where cksum does"
   say "     answer, only a file whose cksum is missing or differs is read back (file copy, then cmp with the repo file; <n> = 1..$NFILES):"
@@ -260,16 +279,32 @@ say ""
 say "==> connecting to root@$HOST (enter the root password once) ..."
 rsh "$CMD_MKDIR" || die 1 "cannot reach or authenticate on root@$HOST (mkdir failed) -- nothing was installed"
 
-say "==> uploading from the repo (scp -O)"
+say "==> the collector on the device (read-only status)"
+# An installed collector says "loop RUNNING (pid N)" or "loop not running". A loop that runs is a WARN, never a FAIL: the files are replaced by
+# renaming, so it goes on with its old script until it is stopped and started again (INSTALL.md: stop it first). No collector yet (first install)
+# or one that cannot answer is only said.
+rsh_cap "$WORK/status.out" "$CMD_STATUS"; st_rc=$?
+if LC_ALL=C grep -q 'loop RUNNING' "$WORK/status.out"; then
+  st_pid=$(LC_ALL=C sed -n 's/.*loop RUNNING (pid \([0-9][0-9]*\)).*/\1/p' "$WORK/status.out" | head -n 1)
+  res WARN "a collector loop is running on the device (pid ${st_pid:-?}): it keeps its old script until it is stopped and started again; INSTALL.md says to stop it first"
+elif [ "$st_rc" = 0 ]; then say "  no collector loop is running"
+else say "  no answer from an installed collector (exit $st_rc: $(firstline "$WORK/status.out")): nothing to stop first, or an older collector"; fi
+
+say "==> uploading from the repo (scp -O), each file as <target>.new"
+NUP=0
 while IFS='|' read -r rel dest _x; do
-  rcp "$ROOT/$rel" "$dest" || die 1 "upload failed: $rel -> $dest (the install is incomplete)"
-  say "  $rel -> $dest"
+  NUP=$((NUP + 1))
+  rcp "$ROOT/$rel" "$dest.new" || die 1 "upload failed: $rel -> $dest.new (the install is incomplete; no file was replaced; up to $NUP .new file(s) remain on the device next to the targets, and the next run replaces them)"
+  say "  $rel -> $dest.new"
 done <<EOF
 $FILES
 EOF
 
 say "==> setting exec bits"
-rsh "$CMD_CHMOD" || die 1 "chmod +x failed on the device"
+rsh "$CMD_CHMOD" || die 1 "chmod +x failed on the device (no file was replaced; the $NFILES .new files remain on the device next to the targets, and the next run replaces them)"
+
+say "==> renaming the $NFILES files into place (one command)"
+rsh "$CMD_MV" || die 1 "the rename into place failed on the device (some files may be new, the rest old; run the installer again; some .new files may remain next to the targets, and the next run replaces them)"
 
 say "==> integrity: cksum (CRC + size) local vs device"
 # The device's BusyBox has no cksum applet (see the header). "No usable output" (applet missing, other output
@@ -411,7 +446,8 @@ say "==> result: $NPASS passed, $NWARN warning(s), $NFAIL failed"
 say ""
 say "Installed on root@$HOST, real versions read from the repo files:"
 printf '  %-10s %-8s %s\n' page "$VER_PAGE" "$LOOT/index.html" collector "$VER_COLLECT" "$LOOT/starchorus-collect.sh" \
-  display "$VER_DASH" "$LOOT/starchorus-display.sh (+ the copy next to the payload)" payload "$VER_PAYLOAD" "$PLDIR/payload.sh"
+  display "$VER_DASH" "$LOOT/starchorus-display.sh (+ the copy next to the payload)" server "$VER_SERVE" "$LOOT/starchorus-serve.sh" payload "$VER_PAYLOAD" "$PLDIR/payload.sh" \
+  alert "$VER_ALERT" "$PLDIR/alert-deauth.sh"
 say "Integrity: $INTEG"
 cat <<EOF
 
@@ -422,8 +458,8 @@ Seen on the device by this run (docs/device-notes.md records the same two facts)
 This installer only copied files over ssh/scp and ran the passive on-device checks; nothing was transmitted
 over the air.
 
-If Starchorus was running on the device, stop it before installing and start it again afterwards (files are
-overwritten in place). On the device: payload menu -> Reconnaissance -> "Starchorus", pick
+If Starchorus was running on the device, stop it before installing and start it again afterwards (the files are
+replaced by renaming, so a loop that was running keeps its old script until then). On the device: payload menu -> Reconnaissance -> "Starchorus", pick
 "Start" (Settings sets what starts; settings stay in $LOOT/settings.conf, which this installer never
 touches). The payload serves the page with uhttpd or python3 where the Pager has them and otherwise with its
 bundled netcat server: browse to http://$HOST:8199/ (or the port set under Settings) from this machine, or pick
