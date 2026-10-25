@@ -284,5 +284,93 @@ hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null
 [ "$(hkp_ev1 "$HKP_T/afile/sub" "$HKP_AB")" = 0 ] || HKP_BAD="$HKP_BAD rc-nodir"
 rowif "hak5 package: the companion alert writes one line EPOCH deauth AP SOURCE DESTINATION CLIENT (lower-case addresses, - for a text that is none or unset, no message), private, keeps 2,000 lines, asks flock once per event, exits 0 (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
+# ---- 9 · the release tool (tools/release.sh, 0.2.5): the Pager archive and SHA256SUMS, the same bytes on one machine. Built twice into two directories: identical bytes; every entry root/root with uid and gid 0 and
+#          the one time of the commit (or of SOURCE_DATE_EPOCH where there is no commit), the four directories first and then the eight files in sorted order; SHA256SUMS holds exactly nine lines, the archive and the
+#          files inside it by their path in the archive, each the hash of those bytes, and `sha256sum -c` / `shasum -a 256 -c` passes after the archive is unpacked beside it; a changed source file in a copy of
+#          the tree changes the sum of the archive and of that file and of no other (negative), the unchanged copy gives the archive of the real tree byte for byte; no OUTDIR, and an OUTDIR that already
+#          holds a release, are refused with exit 2 and the old files stay; an OUTDIR that is the repo root or lies inside it is refused before anything is made and the failed run leaves no directory
+HKP_BAD=""
+HKP_EP=$(git -C "$R" log -1 --format=%ct HEAD 2>/dev/null); case $HKP_EP in ''|*[!0-9]*) HKP_EP=1700000000; HKP_SDE=1 ;; *) HKP_SDE=0 ;; esac
+HKP_R1="$HKP_T/rel 1"; HKP_R2="$HKP_T/rel 2"; HKP_RA=starchorus-$(sed -n 's/^# Version: *\([0-9][0-9A-Za-z.-]*\)$/\1/p' "$R/$HKP_REL/payload.sh" | head -n 1)-pager.tar.gz
+if [ "$HKP_SDE" = 1 ]; then
+  (cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$R/tools/release.sh" "$HKP_R1" > "$HKP_T/rel1.out" 2>&1); HKP_C1=$?
+  (cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$R/tools/release.sh" "$HKP_R2" > "$HKP_T/rel2.out" 2>&1); HKP_C2=$?
+else
+  (cd / && sh "$R/tools/release.sh" "$HKP_R1" > "$HKP_T/rel1.out" 2>&1); HKP_C1=$?
+  (cd / && sh "$R/tools/release.sh" "$HKP_R2" > "$HKP_T/rel2.out" 2>&1); HKP_C2=$?
+fi
+[ "$HKP_C1/$HKP_C2" = 0/0 ] || HKP_BAD="$HKP_BAD rc$HKP_C1/$HKP_C2"
+cmp -s "$HKP_R1/$HKP_RA" "$HKP_R2/$HKP_RA" || HKP_BAD="$HKP_BAD archives-differ"
+cmp -s "$HKP_R1/SHA256SUMS" "$HKP_R2/SHA256SUMS" || HKP_BAD="$HKP_BAD sums-differ"
+[ "$(cd "$HKP_R1" && find . | sed 's#^\./##' | LC_ALL=C sort | tr '\n' ' ')" = ". SHA256SUMS $HKP_RA " ] || HKP_BAD="$HKP_BAD other-files"
+# shellcheck disable=SC2016   # the program is python's
+HKP_PY='import sys, tarfile
+t = tarfile.open(sys.argv[1]); ep = int(sys.argv[2]); ms = t.getmembers(); bad = []
+if len(ms) != 12: bad.append("members %d" % len(ms))
+for m in ms:
+    if (m.uid, m.gid, m.uname, m.gname) != (0, 0, "root", "root"): bad.append("owner " + m.name)
+    if m.mtime != ep: bad.append("time " + m.name)
+    if m.pax_headers: bad.append("pax " + m.name)
+d = [m.name for m in ms if m.isdir()]; f = [m.name for m in ms if m.isreg()]
+if d != ["library", "library/user", "library/user/reconnaissance", "library/user/reconnaissance/starchorus"] or ms[:4] != [m for m in ms if m.isdir()]: bad.append("dirs " + ",".join(d))
+if f != sorted(f) or len(f) != 8: bad.append("files not 8 sorted")
+print(" ".join(bad) if bad else "ok")'
+HKP_PO=$(python3 -I -c "$HKP_PY" "$HKP_R1/$HKP_RA" "$HKP_EP" 2>&1); [ "$HKP_PO" = ok ] || HKP_BAD="$HKP_BAD tar[$HKP_PO]"
+HKP_X="$HKP_T/unpacked"; mkdir -p "$HKP_X"; tar -xzf "$HKP_R1/$HKP_RA" -C "$HKP_X" 2>/dev/null; cp "$HKP_R1/$HKP_RA" "$HKP_R1/SHA256SUMS" "$HKP_X/"
+HKP_LS=$(cd "$HKP_X" && find library -type f | LC_ALL=C sort | tr '\n' ' '); HKP_LW=$(sed '1d; s/^[0-9a-f]*  //' "$HKP_R1/SHA256SUMS" | tr '\n' ' ')
+[ "$HKP_LS" = "$HKP_LW" ] || HKP_BAD="$HKP_BAD sums-list"
+[ "$(sed -n 1p "$HKP_R1/SHA256SUMS" | sed 's/^[0-9a-f]*  //')/$(wc -l < "$HKP_R1/SHA256SUMS" | tr -d ' ')" = "$HKP_RA/9" ] || HKP_BAD="$HKP_BAD sums-first"
+HKP_CHK=$(cd "$HKP_X" && if command -v sha256sum >/dev/null 2>&1; then sha256sum -c SHA256SUMS; else shasum -a 256 -c SHA256SUMS; fi 2>&1); HKP_CR=$?
+[ "$HKP_CR" = 0 ] && [ "$(printf '%s\n' "$HKP_CHK" | grep -c ': OK$')" = 9 ] || HKP_BAD="$HKP_BAD check($HKP_CR)"
+# a copy of the tree (what the tool reads), unchanged and with one source changed
+# (a copy of its own, built here from every source the package step reads, the root starchorus-display.sh included: nothing is borrowed from section 5's copy)
+HKP_C="$HKP_T/relcopy"; mkdir -p "$HKP_C/tools" "$HKP_C/$HKP_REL" "$HKP_C/packaging/hak5"
+for HKP_f in tools/release.sh tools/hak5-package.sh starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh LICENSE \
+  packaging/hak5/README.md "$HKP_REL/payload.sh" "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh"; do cp "$HKP_f" "$HKP_C/$HKP_f"; done
+(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel c" > "$HKP_T/relc.out" 2>&1); HKP_C3=$?
+cmp -s "$HKP_R1/$HKP_RA" "$HKP_T/rel c/$HKP_RA" || HKP_BAD="$HKP_BAD copy-differs"
+echo '# a changed line' >> "$HKP_C/starchorus-serve.sh"
+(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel d" > "$HKP_T/reld.out" 2>&1); HKP_C4=$?
+HKP_DF=$(diff "$HKP_R1/SHA256SUMS" "$HKP_T/rel d/SHA256SUMS" | grep -c '^>')
+[ "$HKP_C3/$HKP_C4/$HKP_DF" = 0/0/2 ] && [ "$(diff "$HKP_R1/SHA256SUMS" "$HKP_T/rel d/SHA256SUMS" | sed -n 's/^> [0-9a-f]*  //p' | tr '\n' ' ')" = "$HKP_RA $HKP_REL/starchorus-serve.sh " ] || HKP_BAD="$HKP_BAD negative($HKP_C3/$HKP_C4/$HKP_DF)"
+# an OUTDIR in the repo is refused before anything is made (tried in the copy, never in the real tree): the repo root as ".", absolute, with a trailing slash and as library/.., the payload
+# directory, a path inside it, a directory that does not exist yet inside the repo, and a link to the repo: exit 2 with the reason named, the copy byte for byte as it was, no directory made;
+# the same copy still builds into a directory outside it (the control, so that the refusals are the OUTDIR's and not a broken copy)
+mkdir -p "$HKP_T/rel link" && ln -s "$HKP_C" "$HKP_T/rel link/clink"
+HKP_FP0=$(cd "$HKP_C" && find . | LC_ALL=C sort | cksum)$(cd "$HKP_C" && find . -type f | LC_ALL=C sort | while IFS= read -r HKP_f; do cksum < "$HKP_f"; done | cksum)
+hkp_relref() {   # hkp_relref LABEL OUTDIR: run from inside the copy
+  _hl=$1; _ho=$2
+  _hm=$(cd "$HKP_C" && SOURCE_DATE_EPOCH=$HKP_EP sh tools/release.sh "$_ho" 2>&1); _hr=$?
+  [ "$_hr" = 2 ] || HKP_BAD="$HKP_BAD $_hl:rc$_hr"
+  case $_hm in *"release: "*"lies inside the repo"*) ;; *) HKP_BAD="$HKP_BAD $_hl:message" ;; esac
+  [ "$(cd "$HKP_C" && find . | LC_ALL=C sort | cksum)$(cd "$HKP_C" && find . -type f | LC_ALL=C sort | while IFS= read -r HKP_f; do cksum < "$HKP_f"; done | cksum)" = "$HKP_FP0" ] || HKP_BAD="$HKP_BAD $_hl:copy-changed"
+}
+hkp_relref dot .
+hkp_relref abs "$HKP_C"
+hkp_relref slash "$HKP_C/"
+hkp_relref updown "$HKP_C/library/.."
+hkp_relref payload "$HKP_REL"
+hkp_relref inside "$HKP_C/$HKP_REL/sub"
+hkp_relref newdir "$HKP_C/nosuch/deeper"
+hkp_relref tools tools
+hkp_relref link "$HKP_T/rel link/clink"
+hkp_relref linknew "$HKP_T/rel link/clink/nosuch"
+HKP_RCU=$(printf '%s\n' "$HKP_C" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+if [ "$HKP_RCU" != "$HKP_C" ] && [ -d "$HKP_RCU" ] && [ "$HKP_RCU" -ef "$HKP_C" ]; then hkp_relref case "$HKP_RCU"; hkp_relref casenew "$HKP_RCU/nosuch"; fi   # a case-insensitive file system only
+(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel e" > "$HKP_T/rele.out" 2>&1) || HKP_BAD="$HKP_BAD outside-control"
+# nothing left behind by a run that fails after the OUTDIR is accepted: no archive or temp file, and no directory made, when the package step cannot run (a source missing)
+mv "$HKP_C/LICENSE" "$HKP_C/LICENSE.away"
+(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel f" > "$HKP_T/relf.out" 2>&1); HKP_C7=$?
+mv "$HKP_C/LICENSE.away" "$HKP_C/LICENSE"
+{ [ "$HKP_C7" = 2 ] && [ ! -e "$HKP_T/rel f" ]; } || HKP_BAD="$HKP_BAD failed-run:rc$HKP_C7"
+# no OUTDIR, and an OUTDIR that holds a release already
+(cd / && sh "$R/tools/release.sh" > "$HKP_T/rel0.out" 2>&1); HKP_C5=$?
+HKP_H1=$(cksum < "$HKP_R1/SHA256SUMS")
+if [ "$HKP_SDE" = 1 ]; then (cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$R/tools/release.sh" "$HKP_R1" > "$HKP_T/rel9.out" 2>&1); HKP_C6=$?
+else (cd / && sh "$R/tools/release.sh" "$HKP_R1" > "$HKP_T/rel9.out" 2>&1); HKP_C6=$?; fi
+[ "$HKP_C5/$HKP_C6" = 2/2 ] && [ "$(cksum < "$HKP_R1/SHA256SUMS")" = "$HKP_H1" ] || HKP_BAD="$HKP_BAD refusals($HKP_C5/$HKP_C6)"
+rowif "hak5 package: tools/release.sh builds the archive twice with the same bytes, root/root uid 0 gid 0 and one time on every entry, SHA256SUMS = the archive and the 8 files inside it, checked OK after unpacking; a changed source changes exactly its sum and the archive's; no OUTDIR, an existing release or an OUTDIR in the repo (root, payload directory, a path inside it, a link, a new directory in it) is refused and nothing is made, a failed run leaves no directory (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+[ -z "$HKP_BAD" ] || { sed 's/^/    /' "$HKP_T/rel1.out" | head -n 5; printf '%s\n' "$HKP_CHK" | grep -v ': OK$' | head -n 5; }
+
 rm -rf "$HKP_T"
 fi
