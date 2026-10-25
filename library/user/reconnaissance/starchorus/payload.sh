@@ -757,8 +757,11 @@ pl_status() {
     ui_log "Window $(pl_wlab "$STARCHORUS_MAX_AGE"), every $STARCHORUS_INTERVAL s"
 }
 
-# pl_skew -> the "# Version:" and "# Contract:" headers of the installed collector and Overview against this payload's own;
-# a difference is reported once per launch (dialogue and LOG on the device, stderr elsewhere) and nothing else changes. The
+# pl_skew -> the "# Version:" and "# Contract:" headers of the installed collector and Overview against this payload's own, and the
+# "# Version:" of the installed netcat server and the version line of the installed page (index.html: `  version: "x.y.z",`), which
+# carry no contract of their own and are judged on the version alone;
+# a difference is reported once per launch (dialogue and LOG on the device, stderr elsewhere; one dialogue, for the first file that
+# differs) and nothing else changes. The
 # contract number is the interface the three scripts share (the collector's --status/--stop/pidfile protocol, the
 # Overview's environment): it changes with that interface, so a payload updated on its own is caught at the same version
 # too. An installed file with a version but no contract line is contract 1; a file
@@ -766,6 +769,7 @@ pl_status() {
 # carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them.
 pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_con() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
+pl_pver() { sed -n '/^  version: "[0-9][0-9A-Za-z.-]*",$/{s/^  version: "\(.*\)",$/\1/p;q;}' "$1" 2>/dev/null; }   # the page's version line (tools/doc-truth.py reads the same one); q: sed stops at the first match and does not read the rest of the page
 pl_skew() {
     pl_me=$(pl_ver "$0"); [ -n "$pl_me" ] || pl_me=$(pl_ver "$PL_HOME/payload.sh")
     [ -n "$pl_me" ] || return 0
@@ -773,17 +777,23 @@ pl_skew() {
     if [ -f "$PL_HOME/starchorus-collect.sh" ] && [ "$PL_HOME" != "$STARCHORUS_DIR" ]; then
         pl_fd="Delete starchorus-collect.sh\nin $STARCHORUS_DIR."; pl_fn="delete $STARCHORUS_DIR/starchorus-collect.sh"
     else pl_fd="Run tools/install.sh."; pl_fn="run tools/install.sh"; fi
-    for pl_f in starchorus-collect.sh starchorus-display.sh; do
-        pl_v=$(pl_ver "$STARCHORUS_DIR/$pl_f")
+    for pl_f in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh index.html; do
+        case $pl_f in
+            index.html) pl_v=$(pl_pver "$STARCHORUS_DIR/$pl_f") ;;
+            *) pl_v=$(pl_ver "$STARCHORUS_DIR/$pl_f") ;;
+        esac
         [ -n "$pl_v" ] || continue
-        pl_c=$(pl_con "$STARCHORUS_DIR/$pl_f"); pl_c=${pl_c:-1}
+        case $pl_f in
+            starchorus-serve.sh|index.html) pl_c=$pl_mc; pl_cn= ;;   # no contract line: the version alone decides
+            *) pl_c=$(pl_con "$STARCHORUS_DIR/$pl_f"); pl_c=${pl_c:-1}; pl_cn=" (contract $pl_c)" ;;
+        esac
         if [ "$pl_v/$pl_c" = "$pl_me/$pl_mc" ]; then continue; fi
         if [ "$ONDEV" = 1 ]; then
             if [ "$pl_v" = "$pl_me" ]; then pl_sk="Installed files differ from\nthe payload."; pl_sl="Installed files differ from the payload."
             else pl_sk="Installed $pl_v, payload $pl_me."; pl_sl=$pl_sk; fi
             ui_log red "$pl_sl"
             ui_err "$pl_sk\n$pl_fd"
-        else echo "Starchorus: note: installed $pl_f is $pl_v (contract $pl_c), this payload is $pl_me (contract $pl_mc); $pl_fn" >&2; fi
+        else echo "Starchorus: note: installed $pl_f is $pl_v$pl_cn, this payload is $pl_me (contract $pl_mc); $pl_fn" >&2; fi
         return 0
     done
 }

@@ -183,6 +183,7 @@ checks.' ''
   dtr_probe 1 'starchorus-collect.sh: header 0.2.0-dev.3, but the page version is 0.2.5' headers starchorus-collect.sh replace '# Version:      0.2.5' '# Version:      0.2.0-dev.3'
   dtr_probe 1 'starchorus-display.sh: header 0.2.0-dev.3, but the page version is 0.2.5' headers starchorus-display.sh replace '# Version:      0.2.5' '# Version:      0.2.0-dev.3'
   dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header 0.2.0-dev.3' headers library/user/reconnaissance/starchorus/payload.sh replace '# Version: 0.2.5' '# Version: 0.2.0-dev.3'
+  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh: header 0.2.0-dev.3, but the page version is 0.2.5' headers library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Version: 0.2.5' '# Version: 0.2.0-dev.3'
   dtr_probe 1 'but the page version is 0.2.0-dev.3' headers starchorus.html replace '  version: "0.2.5",' '  version: "0.2.0-dev.3",'
   # contract: one header left at the old number (collector, display script and its copy, payload), one bumped alone, one gone
   dtr_probe 1 'starchorus-collect.sh: header says 2, want 3' contract starchorus-collect.sh replace '# Contract:     3' '# Contract:     2' --want 3
@@ -191,7 +192,13 @@ checks.' ''
   dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header says 4, want 3' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4' --want 3
   dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4'
   dtr_probe 1 'starchorus-collect.sh has no `# Contract:` header' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3
+  # the companion alert (it fixes the alerts.log line format the collector parses): left at the old number, bumped alone, its header gone
+  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh: header says 2, want 3' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 3' '# Contract: 2' --want 3
+  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 3' '# Contract: 4'
+  dtr_probe 1 'Contract 3 in 3 of 4 script headers and in the companion alert' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3   # the label counts the scripts that have a header: three of four
+  dtr_probe 1 'Contract 3 in 4 of 4 script headers and NOT in the companion alert' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
+  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh has no `# Contract:` header' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
 }
 rm -rf "$DTR_w"
-DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 50 ] && DTR_pok=1
-rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 50), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]
+DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 66 ] && DTR_pok=1
+rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 66), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]

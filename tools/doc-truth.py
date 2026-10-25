@@ -22,9 +22,10 @@ CHECKS
             no-break spaces) is removed before reading; a claim wrapped over one line end is read on the line where it starts.
   runlist   the run list of docs/architecture.md §11.0 = the fixture loop of tools/regress.sh (names, order, count).
   headers   the "# Version:" header of every script that carries one (collector, display script and its library copy, serve script,
-            both payload.sh) is the page version (`version: "x.y.z"` in starchorus.html): one project, one version number.
+            both payload.sh, and the companion alert alert-deauth.sh) is the page version (`version: "x.y.z"` in starchorus.html): one project, one version number.
   contract  [--want N]   the "# Contract:" header of the four scripts that carry one (collector, display script and its library copy,
-            the library payload.sh) is one number, and N where --want is given (the radio pair's interface number is 3).
+            the library payload.sh) and of the companion alert (alert-deauth.sh: it fixes the alerts.log line format the collector parses)
+            is one number, and N where --want is given (the radio pair's interface number is 3).
 GUARDS AGAINST: a list or number that is copied by hand goes stale without any row noticing (a new shell script in no shell list; a
                 README that names a check count the selftest no longer has; a doc that names a collector version other than the current one).
 NEGATIVE PROBE: tools/regress.d/doc-truth.sh breaks one input per check in a copy (rename a source literal, a wrong count, a header
@@ -418,7 +419,8 @@ def chk_runlist(a, root):
 
 # ------------------------------------------------------------------ headers
 HEADER_SCRIPTS = ("starchorus-collect.sh", "starchorus-display.sh", "library/user/reconnaissance/starchorus/starchorus-display.sh",
-                  "starchorus-serve.sh", "payload.sh", "library/user/reconnaissance/starchorus/payload.sh")
+                  "starchorus-serve.sh", "payload.sh", "library/user/reconnaissance/starchorus/payload.sh",
+                  "library/user/reconnaissance/starchorus/alert-deauth.sh")   # the companion alert is one of the files the installer sends: its version is bound as well
 
 
 def chk_headers(a, root):
@@ -441,11 +443,13 @@ def chk_headers(a, root):
 # ------------------------------------------------------------------ contract
 CONTRACT_SCRIPTS = ("starchorus-collect.sh", "starchorus-display.sh", "library/user/reconnaissance/starchorus/starchorus-display.sh",
                     "library/user/reconnaissance/starchorus/payload.sh")
+# the companion alert carries the number too (it fixes the alerts.log line format the collector parses): bound like the four, counted beside them
+CONTRACT_COMPANION = "library/user/reconnaissance/starchorus/alert-deauth.sh"
 
 
 def chk_contract(a, root):
-    prob, nums = [], []
-    for script in CONTRACT_SCRIPTS:
+    prob, got = [], []   # got: (script, number) of every header that was read
+    for script in CONTRACT_SCRIPTS + (CONTRACT_COMPANION,):
         n = None
         for ln in rd(root, script).split("\n")[:40]:
             m = re.match(r"^#\s*Contract:\s*(\d+)\s*$", ln)
@@ -455,13 +459,17 @@ def chk_contract(a, root):
         if n is None:
             prob.append("%s has no `# Contract:` header in its first 40 lines" % script)
         else:
-            nums.append(n)
+            got.append((script, n))
             if a.want is not None and n != a.want:
                 prob.append("%s: header says %d, want %d" % (script, n, a.want))
+    nums = [n for _, n in got]
     if len(set(nums)) > 1:
-        prob.append("the headers do not agree: %s" % ", ".join("%s %d" % (s, n) for s, n in zip(CONTRACT_SCRIPTS, nums)))
-    return result("Contract %s in %d script headers%s" % ("/".join(str(n) for n in sorted(set(nums))) or "none", len(nums),
-                                                        "" if a.want is None else " (want %d)" % a.want), prob)
+        prob.append("the headers do not agree: %s" % ", ".join("%s %d" % (s, n) for s, n in got))
+    n_scripts = sum(1 for s, _ in got if s in CONTRACT_SCRIPTS)
+    n_comp = sum(1 for s, _ in got if s == CONTRACT_COMPANION)
+    return result("Contract %s in %d of %d script headers and %s the companion alert's%s" % (
+        "/".join(str(n) for n in sorted(set(nums))) or "none", n_scripts, len(CONTRACT_SCRIPTS),
+        "in" if n_comp else "NOT in", "" if a.want is None else " (want %d)" % a.want), prob)
 
 
 CHECKS = {"lists": chk_lists, "sources": chk_sources, "census": chk_census, "fixtures": chk_fixtures,

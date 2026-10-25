@@ -661,6 +661,31 @@ pui_is contract [ "$PUI_CON/$PUI_CON/$PUI_CON" = "$(pui_hc starchorus-collect.sh
 pui_new; printf '# Version: %s\n# Contract: %s\n' "$PUI_VER" "$((PUI_CON - 1))" >> "$PUI_D/starchorus-collect.sh"
 pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
 pui_is skewprev [ "$(pui_x ERROR_DIALOG "$PUI_SKD")/$(pui_x LOG red 'Installed files differ from the payload.')/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+# the netcat server and the page (index.html, its `  version: "x.y.z",` line) carry no contract of their own: the version alone is judged, and the
+# dialogue stays one dialogue however many files differ. An installed server or page of another version: once; the same version: none; a server with no
+# header and a page with no version line are not judged (like a collector with no version header); the command line names the file.
+PUI_SKV="Installed 0.0.9, payload $PUI_VER.\\nRun tools/install.sh."
+pui_new; printf '# Version: 0.0.9\n' >> "$PUI_D/starchorus-serve.sh"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewserve [ "$(pui_x ERROR_DIALOG "$PUI_SKV")/$(pui_x LOG red "Installed 0.0.9, payload $PUI_VER.")/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+pui_new; printf '<!doctype html>\n<script>\nconst X = {\n  version: "0.0.9",\n};\n' >> "$PUI_D/index.html"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewpage [ "$(pui_x ERROR_DIALOG "$PUI_SKV")/$(pui_x LOG red "Installed 0.0.9, payload $PUI_VER.")/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+pui_new; printf '# Version: 0.0.9\n' >> "$PUI_D/starchorus-serve.sh"; printf '  version: "0.0.8",\n' >> "$PUI_D/index.html"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewboth [ "$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^LOG	red')/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+pui_new; printf '# Version: %s\n' "$PUI_VER" >> "$PUI_D/starchorus-serve.sh"; printf '  version: "%s",\n' "$PUI_VER" >> "$PUI_D/index.html"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewservematch [ "$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^LOG	red')/$(pui_x "$PUI_STOP" Start)" = 0/0/1 ]
+pui_new; printf '#!/bin/sh\n# no header\n' >> "$PUI_D/starchorus-serve.sh"; printf '<!doctype html>\n  version = "0.0.9"\n' >> "$PUI_D/index.html"
+pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
+pui_is skewunjudged [ "$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^LOG	red')/$(pui_x "$PUI_STOP" Start)" = 0/0/1 ]
+pui_new; printf '# Version: 0.0.9\n' >> "$PUI_D/starchorus-serve.sh"
+pui_run "$PUI_HL" sh "$PUI_PL" status
+pui_is skewservecli [ "$(grep -c "installed starchorus-serve.sh is 0.0.9, this payload is $PUI_VER (contract $PUI_CON); run tools/install.sh" "$PUI_T/out")" = 1 ]
+pui_new; printf '  version: "0.0.9",\n' >> "$PUI_D/index.html"
+pui_run "$PUI_HL" sh "$PUI_PL" status
+pui_is skewpagecli [ "$(grep -c "installed index.html is 0.0.9, this payload is $PUI_VER (contract $PUI_CON); run tools/install.sh" "$PUI_T/out")" = 1 ]
 rowif "payload ui: launch: L1 first, STOPPED/Start, B silent; E1, E12 exit 1; version and contract skew reported once (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 11 · Start (no question): spinner, marker, the collector at nice 19, E3 without a server program, the Overview as a
@@ -1441,6 +1466,13 @@ pui_is strikesslow [ "$PUI_RC/$(pui_used)/$(pui_nw)/$(pui_tok)" = "0/8/7/O R S N
 pui_ans "=A" "=B"
 pui_ovrun STARCHORUS_JSON="$F/field-probes.json" STARCHORUS_SINCE=9999999999 sh "$PUI_DS"
 pui_is waiting [ "$PUI_RC/$(pui_lt 'Waiting for the first scan.')/$(pui_logc 'No new scan')/$(pui_logc 'Last scan')/$(pui_logc 'APs ')/$(pui_tok)" = "0/2/0/0/0/O R G F G F P" ]
+# a capture that exists but that jq cannot read (cut off, as after a failed write; 0.2.5): "Capture unreadable." on each of the two draws and not the waiting line, no block,
+# no age line, the key line; the second draw reads nothing again (the verdict is kept). The waiting row above stays: it is a capture from before Start, not a broken one.
+printf '{"aps":[{"bssid":"02:00' > "$PUI_T/cut.json"
+pui_ans "=A" "=B"
+pui_ovrun STARCHORUS_JSON="$PUI_T/cut.json" sh "$PUI_DS"
+pui_is unreadable [ "$PUI_RC/$(pui_lt 'Capture unreadable.')/$(pui_lt 'Waiting for the first scan.')/$(pui_logc 'No new scan')/$(pui_logc 'Last scan')/$(pui_logc 'APs ')/$(pui_lt 'A: Refresh   B: Back')/$(pui_tok)" = "0/2/0/0/0/0/2/O R F F P" ]
+pui_is "unreadable:gone" pui_nopids   # and it leaves no wait behind for the runs after it
 # the payload gone before the first draw: nothing is drawn, not even the heading, and no wait is opened (parent_gone comes first); the
 # payload gone while the Overview waits ("x" in the answer ends it just before the key comes): it ends at that key and draws nothing
 # more; the reader had opened its next wait by then (two waits, the second never answered), and the exit ends it: none is left alive

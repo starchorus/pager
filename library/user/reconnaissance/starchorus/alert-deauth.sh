@@ -3,6 +3,7 @@
 # Description: Writes one line per firmware alert to the Starchorus alerts.log, in a directory of its own (time and addresses only). Sends nothing.
 # Author: Starchorus
 # Version: 0.2.5
+# Contract: 3
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # The companion of Starchorus for the firmware's alert deauth_flood_detected. The firmware runs this file once for each such event and hands it the
@@ -11,7 +12,8 @@
 # firmware gave none or something that is not an address; the Starchorus collector reads that log, and the page words it as 'many deauth/disassoc frames
 # heard for this AP'. What it is not: a detector (the firmware decides what counts as many, nothing here listens to a frame), anything that transmits, or
 # anything that signals the user (no display, sound, LED or vibration command: the firmware's own alert already shows the event, and whether this file
-# should add a signal is the owner's choice and has not been made). The alert name and the message text are not written: the text is free text from the
+# should add a signal is the owner's choice and has not been made). The Contract line is the interface number the Starchorus scripts share (see payload.sh): this file
+# fixes the line format of alerts.log that the collector parses, so a change to that format moves the number in both. The alert name and the message text are not written: the text is free text from the
 # firmware, and the log holds times and addresses only. SOURCE is the address the frames claim, which in a flood is usually not the sender's, so it is kept as
 # received and is no lead to anyone. The log is kept to its last 2,000 lines, so that a flood of events cannot fill the flash. Install: copy this file to
 # /root/payloads/alerts/deauth_flood_detected/starchorus/payload.sh and make it executable (the README of the payload says how). Exit status: 0, always.
