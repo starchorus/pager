@@ -117,6 +117,46 @@ H=$FUZ_HKEEP
 FUZ_PV=$(fuzz_verdict "out/$P-fuzz-probe.json" probe 0 0 -); FUZ_PC=$?
 FUZ_POK=0; [ "$FUZ_E" = 1 ] && [ "$FUZ_N" = 1 ] && [ "$FUZ_D" = 2 ] && [ "$FUZ_PC" = 0 ] && FUZ_POK=1
 rowif "ingest fuzz sensor bites: page with esc=String and no null-skip is RED, $FUZ_PV" [ "$FUZ_POK" = 1 ]
+
+# ---- 3b. text from the air that cannot be shown (0.2.5): an SSID made of letters with C1 controls, zero-width characters, direction marks and overrides (U+202E among them), embeddings, isolates, the invisible
+# operators and U+FEFF between them is stored and drawn WITHOUT them: the node's text is the letters alone, and neither the tooltip nor the detail sheet (the DOM text is read) holds one of those characters
+# and both hold the letters. Ordinary text next to them is NOT touched (positive term): a second SSID of accented Latin, CJK, Greek, Hebrew, Arabic, a no-break space and an emoji comes out of the page unchanged (node and tooltip), on the page and on the old-expression copy alike. The tooltip and the sheet are the sinks the earlier expression `[\x00-\x1f\x7f]` let the overrides through. The page's one expression is pinned to the line, and a copy of the page with the
+# earlier expression must be RED on the same run (fair: the copy differs from the page in that one line, and it boots without an error)
+FUZ_CTLJS='(()=>{const BAD=/[\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
+const raw="A\u202eB\u200bC\u0085D\u200fE\u2066F\u2069G\ufeffH\u2060I\u202aJ\u202dK\u2064L\u0090M\u007fN\u200cO\u2065P",want="ABCDEFGHIJKLMNOP";
+const id="02:00:00:00:0c:01",id2="02:00:00:00:0c:02",o={};
+const legit="Caf\u00e9 \u65e5\u672c\u8a9e \u0395\u03bb\u03ac\u03b4\u03b1 \u05e9\u05dc \u0645\u0631 \ud83d\ude00 a\u00a0b";   /* 27 UTF-16 units: inside the 32 an SSID may have */
+STARCHORUS.load({source:"recon-db",generated:100,aps:[{bssid:id,ssid:raw,band:"2.4",channel:6,freq:2437,rssi:-50,security:"WPA2"},{bssid:id2,ssid:legit,band:"5",channel:36,freq:5180,rssi:-60,security:"WPA2"}],unassociated:[]},"ctl");
+o.err=STARCHORUS.errors().length;
+const ap=JSON.parse(STARCHORUS.exportText("json")).aps.find(a=>a.bssid===id);o.node=ap?ap.ssid:null;
+STARCHORUS.hoverNode(id);const tip=document.getElementById("tip").innerText;STARCHORUS.hoverNode(null);
+STARCHORUS.select(id);const det=document.getElementById("detail-title").innerText+"\n"+document.getElementById("detail-body").innerText;STARCHORUS.deselect();
+const ap2=JSON.parse(STARCHORUS.exportText("json")).aps.find(a=>a.bssid===id2);o.legitOk=!!ap2&&ap2.ssid===legit;
+STARCHORUS.hoverNode(id2);o.legitTip=document.getElementById("tip").innerText.indexOf(legit.replace(/\u00a0/g," "))>=0||document.getElementById("tip").innerText.indexOf(legit)>=0;STARCHORUS.hoverNode(null);
+o.nodeOk=o.node===want;o.tipHas=tip.indexOf(want)>=0;o.tipBad=BAD.test(tip);o.detHas=det.indexOf(want)>=0;o.detBad=BAD.test(det);
+delete o.node;return JSON.stringify(o)})()'
+FUZ_CQ="?poll=0&spin=0&intro=0&debug=1"
+runq demo "$FUZ_CQ" "out/$P-fuzz-ctl" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
+FUZ_CV=$(evalv "out/$P-fuzz-ctl.json" 1)
+FUZ_NEWC='[\x00-\x1f\x7f-\x9f'
+for FUZ_r in 200b:200f 202a:202e 2060:2069; do FUZ_NEWC="$FUZ_NEWC"'\u'"${FUZ_r%:*}"'-\u'"${FUZ_r#*:}"; done
+FUZ_NEWC="$FUZ_NEWC"'\u'"feff]"
+FUZ_OLDC='[\x00-\x1f\x7f]'
+FUZ_CN=$(grep -cF "String(x).replace(/$FUZ_NEWC/g," "$H")
+FUZ_CPG="out/$P-fuzz-ctl-old.html"
+FUZ_A=$FUZ_NEWC FUZ_B=$FUZ_OLDC awk '{ i = index($0, ENVIRON["FUZ_A"]); if (i) $0 = substr($0, 1, i - 1) ENVIRON["FUZ_B"] substr($0, i + length(ENVIRON["FUZ_A"])) } { print }' "$H" > "$FUZ_CPG"
+FUZ_CD2=$(diff "$H" "$FUZ_CPG" | grep -c '^<')
+FUZ_HKEEP=$H; H=$FUZ_CPG
+runq demo "$FUZ_CQ" "out/$P-fuzz-ctl-old" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
+H=$FUZ_HKEEP
+FUZ_CO=$(evalv "out/$P-fuzz-ctl-old.json" 1)
+FUZ_CWANT='{"err":0,"legitOk":true,"legitTip":true,"nodeOk":true,"tipHas":true,"tipBad":false,"detHas":true,"detBad":false}'
+FUZ_OOK=0; [ "$FUZ_CV" = "$FUZ_CWANT" ] && [ "$FUZ_CN" = 1 ] && FUZ_OOK=1
+rowif "ingest fuzz: an SSID with C1 controls, zero-width characters, direction marks, U+202E and the other overrides, isolates and U+FEFF is stored and drawn without them (node, tooltip and detail sheet read as DOM text); the page holds the one expression once [$FUZ_CV]" [ "$FUZ_OOK" = 1 ]
+FUZ_BK=0
+case $FUZ_CO in '{"err":0,"legitOk":true,"legitTip":true,"nodeOk":false,"tipHas":false,"tipBad":true,"detHas":false,"detBad":true}') FUZ_BK=1 ;; esac
+[ "$FUZ_CD2" = 1 ] || FUZ_BK=0
+rowif "ingest fuzz sensor bites: a page copy with the earlier expression [\\x00-\\x1f\\x7f] (differs in $FUZ_CD2 line) draws the overrides and the zero-width characters: RED [$FUZ_CO]" [ "$FUZ_BK" = 1 ]
 [ "$FUZ_POK" = 1 ] || echo "    target lines esc $FUZ_E, null-skip $FUZ_N, changed lines $FUZ_D"
 
 # ---- 4. the display script under real jq: the hostile SSID texts (only those the collector could have written) never break a screen,
