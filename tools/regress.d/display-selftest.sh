@@ -1874,5 +1874,62 @@ DST_ALWEOF
   else row "display alert line: $DST_S31/$DST_X31 copies as expected" FAIL; DST_KEEP=1; fi
 fi
 
+# ---- S33 unreadable (0.2.5): a capture that exists and is not empty but that jq cannot read (cut off, not JSON, the one word null) says "Capture unreadable." and not the waiting
+# line, which looked like a slow start for ever; an empty file and a missing one keep "Waiting for the first scan."; a good document says neither. Per copy, under the real and the
+# device-like jq: (a) --once on all eight screens prints exactly that one line for each of five unreadable files (cut off, text, null, null with blanks) and exactly the waiting line for the empty and the missing file; (b) a good document prints neither; (c) the interactive Overview
+# on a cut-off capture (A A B): the line on each of three draws, no waiting line, the frame each time, "Reading..." once and two jq runs (the health probe and the program: the verdict is
+# cached per capture, so A starts no third); (d) NEGATIVE CONTROLS, planted copies of the script: the status test (2|5) taken out of fetch() => a cut-off file says "Waiting"; the null test taken out
+# => a null file says "Waiting"; the line taken out of nodata() => a cut-off file says nothing of the kind. Each planted copy must differ from the real one in exactly one line.
+DST_U=$DST_D/s33; mkdir -p "$DST_U"
+printf '' > "$DST_U/empty"; printf '{"aps":[{"bssid":"02:00' > "$DST_U/cut"; printf 'not json at all\n' > "$DST_U/text"; printf 'null\n' > "$DST_U/null"
+printf '  null \n\n' > "$DST_U/null2"; printf '{"aps":[]}\n' > "$DST_U/good"
+DST_UB="Capture unreadable."; DST_UW="Waiting for the first scan."
+DST_S33=0; DST_X33=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X33=$((DST_X33 + 1)); DST_L33=""
+  for DST_N in 0 1; do
+    for DST_SC in summary top bands devices; do
+      for DST_U1 in cut text null null2 empty nosuch good; do
+        DST_TG="s33-$DST_G-$DST_N-$DST_SC-$DST_U1"
+        dst_once "$DST_TG" "$DST_C" "$DST_SC" "$DST_U/$DST_U1" "$DST_N" < /dev/null; DST_O="$DST_D/$DST_TG.out"
+        DST_UC=$(dst_cnt "$DST_UB" "$DST_O"); DST_UK=$(dst_cnt "$DST_UW" "$DST_O"); DST_UL=$(grep -c . "$DST_O")
+        case $DST_U1 in
+          cut|text|null|null2) [ "$DST_UC/$DST_UK/$DST_UL" = 1/0/1 ] || DST_L33="$DST_L33 $DST_SC $DST_U1 nrx=$DST_N: unreadable x$DST_UC (want 1), waiting x$DST_UK (want 0), $DST_UL lines (want 1);" ;;
+          empty|nosuch) [ "$DST_UC/$DST_UK/$DST_UL" = 0/1/1 ] || DST_L33="$DST_L33 $DST_SC $DST_U1 nrx=$DST_N: unreadable x$DST_UC (want 0), waiting x$DST_UK (want 1), $DST_UL lines (want 1);" ;;
+          *) [ "$DST_UC/$DST_UK" = 0/0 ] && [ "$DST_UL" -ge 1 ] || DST_L33="$DST_L33 $DST_SC good nrx=$DST_N: unreadable x$DST_UC, waiting x$DST_UK (want 0 and 0), $DST_UL lines (want 1 or more);" ;;
+        esac
+      done
+    done
+  done
+  # (c) the interactive Overview on a cut-off capture
+  DST_OVSRC="$DST_U/cut"; dst_ov "s33-$DST_G-ov" "$DST_C" "A A B"; DST_OVSRC=; DST_O="$DST_D/s33-$DST_G-ov.out"
+  DST_UC=$(dst_cnt "LOG $DST_UB" "$DST_O"); DST_UK=$(dst_cnt "LOG $DST_UW" "$DST_O"); DST_UF=$(dst_cnt 'LOG A: Refresh   B: Back' "$DST_O")
+  DST_UR=$(dst_cnt 'LOG Reading...' "$DST_O"); DST_UJ=$(grep -c x "$DST_D/s33-$DST_G-ov.jq")
+  [ "$DST_RC/$DST_UC/$DST_UK/$DST_UF/$DST_UR/$DST_UJ" = 0/3/0/3/1/2 ] \
+    || DST_L33="$DST_L33 interactive: rc $DST_RC, unreadable x$DST_UC (want 3), waiting x$DST_UK (want 0), frames x$DST_UF (want 3), Reading... x$DST_UR (want 1), jq x$DST_UJ (want 2);"
+  # (d) the planted copies
+  for DST_MN in status null line; do
+    # shellcheck disable=SC2016   # sed programs: the display script's own text, not to be expanded here
+    case $DST_MN in
+      status) DST_MF='/^ *2|5) fx_vd=bad; fx_out= ;;$/d'; DST_MU='cut' ;;
+      null) DST_MF='/elif \[ "$(head -c 32 .*= null \]; then fx_vd=bad$/d'; DST_MU=null ;;
+      *) DST_MF='s/elif \[ "$FX_BAD" = 1 \]; then log "$BAD1"; //'; DST_MU='cut' ;;
+    esac
+    DST_MO="$DST_D/s33-$DST_G-$DST_MN.sh"
+    sed "$DST_MF" "$DST_C" > "$DST_MO"; DST_MD=$(diff "$DST_C" "$DST_MO" | grep -c '^<')
+    dst_once "s33-$DST_G-m$DST_MN" "$DST_MO" summary "$DST_U/$DST_MU" 0 < /dev/null
+    DST_MC=$(dst_cnt "$DST_UB" "$DST_D/s33-$DST_G-m$DST_MN.out")
+    [ "$DST_MD/$DST_MC" = 1/0 ] || DST_L33="$DST_L33 planted copy '$DST_MN': $DST_MD lines differ (want 1), still says unreadable x$DST_MC (want 0);"
+  done
+  # the selftest of the display carries the six checks of its own
+  DST_T="$DST_D/tmp"   # S19's loop over sed and cut leaves DST_T at "cut": the selftest's fixture needs the real temp directory
+  dst_st "s33-$DST_G-st" "$DST_C" 0 "" sh; DST_O="$DST_D/s33-$DST_G-st.out"
+  DST_UP=$(grep -c '^\[display-selftest\]   PASS: capture states: ' "$DST_O")
+  [ "$DST_UP" = 6 ] || DST_L33="$DST_L33 the --selftest holds $DST_UP checks 'capture states' (want 6);"
+  if [ -z "$DST_L33" ]; then DST_S33=$((DST_S33 + 1)); else echo "    unreadable, $DST_G copy:$DST_L33"; fi
+done
+if [ "$DST_S33" = "$DST_X33" ]; then row "display: a capture jq cannot parse (cut off, text, null) says 'Capture unreadable.' on four screens, an empty or missing one still 'Waiting for the first scan.', a good one neither; the Overview says it on each draw and runs two jq; three planted copies fall back to waiting; $DST_X33 copies, real and device-like jq" PASS
+else row "display unreadable capture: $DST_S33/$DST_X33 copies as expected" FAIL; DST_KEEP=1; fi
+
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
 unset -f dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first

@@ -460,19 +460,22 @@ ov_jq() {
     return "$oj_rc"
 }
 # fetch SCREEN 'PROGRAM': run (or reuse) the screen's one jq program and load() its records; 1 = nothing to show, and
-# FX_SLOW says whether that is because jq ran out of time (see nodata); 1 also when a key ended the draw (see draw), FX_SLOW 0.
+# FX_SLOW says whether that is because jq ran out of time and FX_BAD whether it is because the capture is no document (see nodata); 1 also when
+# a key ended the draw (see draw), both 0.
 # The fingerprint is taken BEFORE jq reads the file: a capture that lands in between is simply read again at the
 # next draw. stderr goes to /dev/null on purpose (see jq_warn).
 # In the Overview (OV_LIVE=1) a run that is not served from the cache says "Reading..." first (busy: see BUSY) and runs (ov_jq)
 # under `timeout` (see JQ_TMO), so a capture too big for the device cannot hold the screen for ever: status 124, 137
 # or 143 from that `timeout` is "too slow". Only from it: a jq that ran without the limit (no applet, --once, --selftest) and
 # was killed from outside (the out-of-memory killer, a TERM) never had the cap to overrun, so that is no data.
-# The no-data and the slow verdict are cached per fingerprint exactly like the records (CV_<screen>: ok, nodata or slow), so a
+# A capture that exists and is not empty but that jq cannot read (status 2 or 5: cut off, not JSON) or that is the one word null is
+# "bad": it prints "Capture unreadable." and not the waiting line, which would look like a slow start for ever. An empty file and a missing one
+# stay "Waiting". The no-data, the bad and the slow verdict are cached per fingerprint exactly like the records (CV_<screen>: ok, nodata, bad or slow), so a
 # draw of the same file again, A on the waiting or on the slow screen, starts no jq. The collector replaces starchorus.json
 # atomically once a cycle (5 to 30 s); until it does, only the time of the scan and its age (shell arithmetic) move.
 # Only the Overview sets OV_LIVE; --once and --selftest make one plain jq call (no cap, no "Reading...").
 fetch() {
-    FX_SLOW=0
+    FX_SLOW=0; FX_BAD=0
     [ -s "$JSON" ] || return 1
     [ -n "$FP_MODE" ] || fp_init
     fx_key="$JSON|$(fingerprint)"
@@ -489,8 +492,11 @@ fetch() {
             fx_out=$(jq -r "$JQLIB$SINCE_JQ$2" "$JSON" 2>/dev/null); fx_rc=$?
         fi
         case $fx_rc in
-            0) if [ -n "$fx_out" ]; then fx_vd=ok; else fx_vd=nodata; fi ;;
+            0) if [ -n "$fx_out" ]; then fx_vd=ok
+               elif [ "$(head -c 32 "$JSON" 2>/dev/null | tr -d ' \t\r\n')" = null ]; then fx_vd=bad
+               else fx_vd=nodata; fi ;;
             124|137|143) if [ "$fx_lim" = 1 ]; then fx_vd=slow; else fx_vd=nodata; fi; fx_out= ;;
+            2|5) fx_vd=bad; fx_out= ;;
             *) fx_vd=nodata; fx_out= ;;
         esac
         [ "$fx_key" = "$JSON|" ] || eval "CK_$1=\$fx_key CO_$1=\$fx_out CV_$1=\$fx_vd"
@@ -498,6 +504,7 @@ fetch() {
     case $fx_vd in
         ok) load "$fx_out" ;;
         slow) FX_SLOW=1; return 1 ;;
+        bad) FX_BAD=1; return 1 ;;
         *) return 1 ;;
     esac
 }
@@ -510,13 +517,14 @@ esac
 WAITING="Waiting for the first scan."
 SLOW1="This scan took over 20 s to read."   # the words stay when STARCHORUS_JQ_CAP shortens the cap
 SLOW2="Try Settings > Show Last: 1 h."
+BAD1="Capture unreadable."
 # nodata: what a screen prints when fetch() has nothing to show: the two lines for a capture jq could not read in time, else
-# the waiting line (no capture yet, or only an earlier run's)
-nodata() { if [ "$FX_SLOW" = 1 ]; then log "$SLOW1"; log "$SLOW2"; else log "$WAITING"; fi; }
+# the one line for a capture that is no document, else the waiting line (no capture yet, or only an earlier run's)
+nodata() { if [ "$FX_SLOW" = 1 ]; then log "$SLOW1"; log "$SLOW2"; elif [ "$FX_BAD" = 1 ]; then log "$BAD1"; else log "$WAITING"; fi; }
 # "Reading..." (BUSY) is the first line of a draw that has to run jq, printed once however many jq runs the draw needs
 # (the probe of jq_healthy, then the screen's program). Only the Overview sets OV_LIVE; --once prints no such line.
 BUSY="Reading..."
-OV_LIVE=0; OV_BUSY=0; FX_SLOW=0; OV_INT=
+OV_LIVE=0; OV_BUSY=0; FX_SLOW=0; FX_BAD=0; OV_INT=
 busy() { [ "$OV_LIVE" = 1 ] && [ "$OV_BUSY" = 0 ] || return 0; OV_BUSY=1; log "$BUSY"; }
 # jq runs under `timeout` where the applet exists (BusyBox has it): 20 s, STARCHORUS_JQ_CAP shortens the cap (tests only)
 JQ_TMO=
@@ -1283,6 +1291,17 @@ st_key() {  # st_key NAME RAW WANT: keyname (the key reader's) turns RAW into WA
     keyname "$2"
     if [ "$NK" = "$3" ]; then st_pass "$1"; else st_fail "$1  (got '$NK', want '$3')"; fi
 }
+# st_cap_state NAME WANT 'PRINTF-ARG' | -: screen_summary on a capture file with that content (- = no file at all) prints exactly the one line WANT
+# (the waiting line or the unreadable line), and never the other one. The verdict cache is cleared first: the same file name, size and second would be a hit.
+st_cap_run() {   # st_cap_run CONTENT|-: st_o = what screen_summary prints for a capture file of that content (- = none)
+    unset CK_summary CV_summary CO_summary
+    if [ "$1" = - ]; then JSON=$ST_TMP.none; else printf '%s' "$1" > "$ST_TMP"; JSON=$ST_TMP; fi
+    st_o=$(screen_summary 2>&1)
+}
+st_cap_state() {
+    st_cap_run "$3"
+    if [ "$st_o" = "$2" ]; then st_pass "$1"; else st_fail "$1  (want '$2', got: $(printf '%s\n' "$st_o" | sed -n 1p | cut -c1-60))"; fi
+}
 st_verdict() {
     if [ "$ST_FAIL" -eq 0 ]; then printf '[display-selftest] SELFTEST: ALL PASS (%s checks)\n' "$ST_N"; return 0; fi
     printf '[display-selftest] SELFTEST: FAILED (%s of %s)\n' "$ST_FAIL" "$ST_N"; return 1
@@ -1433,6 +1452,22 @@ ST_JSON
     else
         st_fail "screen_summary end-to-end (no temp file for the fixture)"
     fi
+    # (3b) a capture that is no document says so: the waiting line is for a file that is not there yet or is still empty, "Capture unreadable." for one
+    # that is cut off, is not JSON or is the one word null; a good document says neither
+    ST_TMP=$(mktemp "${TMPDIR:-/tmp}/starchorus-display-st.XXXXXX" 2>/dev/null) || ST_TMP=
+    if [ -n "$ST_TMP" ]; then
+        st_cap_state "capture states: a cut-off document is unreadable, not waiting" "$BAD1" '{"aps":[{"bssid":"02:00'
+        st_cap_state "capture states: text that is no JSON is unreadable" "$BAD1" 'not json'
+        st_cap_state "capture states: the one word null is unreadable" "$BAD1" 'null'
+        st_cap_state "capture states: an empty file is still waiting" "$WAITING" ''
+        st_cap_state "capture states: a missing file is still waiting" "$WAITING" -
+        st_cap_run '{"aps":[]}'
+        if printf '%s\n' "$st_o" | grep -q '^APs 0 ' && ! printf '%s\n' "$st_o" | grep -qxF -e "$BAD1" -e "$WAITING"; then st_pass "capture states: a good document says neither line"
+        else st_fail "capture states: a good document says neither line  (got: $(printf '%s\n' "$st_o" | sed -n 1p | cut -c1-60))"; fi
+        rm -f "$ST_TMP"; ST_TMP=
+    else
+        st_fail "capture states (no temp file for the fixtures)"
+    fi
     # (4) the key reader's names. Pure shell, no jq: the reader and the shell both turn what WAIT_FOR_INPUT printed into a key with keyname, which strips
     # spaces, tabs and CR with parameter expansions that the device's shell has to get right (the stand-ins of the regression run only prove them on a
     # laptop's); BACK and Escape count as B and a lower-case a or b as the capital; any other word, an empty answer included, is no key (a strike)
@@ -1475,7 +1510,7 @@ fi
 # the moment the frame is out is certainly a later one. R_gen and R_interval are cleared first: a screen that has nothing to show
 # (waiting, slow) must not borrow the time of the screen before.
 draw() {
-    OV_BUSY=0; FX_SLOW=0; unset R_gen R_interval
+    OV_BUSY=0; FX_SLOW=0; FX_BAD=0; unset R_gen R_interval
     [ "$OV_LIVE" != 1 ] || OV_GATE=1
     render "$1"
     ov_counts && OV_QC=$CN_L
