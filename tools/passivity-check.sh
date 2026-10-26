@@ -6,7 +6,9 @@
 #        --pending = print what is announced and not there yet (BT_NOT_YET, APCLI_NOT_YET), one name per line: empty once the collector has them all)
 # Prints one PASS/FAIL row per check; exit 0 = all PASS, 1 = at least one FAIL, 2 = setup problem. Besides the names of the Bluetooth stack (rows 6b), the row 6d lists every command
 # of the shell scope whose NAME is built when the line runs (a command word that holds an expansion), and the row 6e every command whose name a glob, `find -exec`, `xargs` or an alias makes,
-# each against a pinned list.
+# each against a pinned list. The row 6g reads the literal command words of the same scope and denies the programs that connect out, install, configure or switch something, every command of iw that does not read, the verbs of ip, tc and ifconfig that set (an abbreviation of a verb is the verb) and the clock, log and scan options of date, logger, logread and iwinfo (and a redirection
+# into /sys, /proc/sys, /dev/tcp or /dev/udp), with the six lines of the monitor interface that the collector makes and removes itself pinned; the row 6h pins the places where a program text is made or taken and run (eval, a shell with -c, reading its input or given a file,
+# system(), an awk command pipe, awk -f, . FILE, xargs, find -exec, ln, an interpreter with -c, with no script or given a file, an exec of a built word, the action of a trap that is not a plain name or one string).
 # Every row here has a planted violation in tools/passivity-mutate.sh: a row renamed or a rule widened makes that script
 # say which name/mutation to adjust. The sqlite3 (-readonly) and starchorus-serve.sh rows are covered the same way.
 # tools/device-probe.sh is the one file of tools/ that runs on the device. It is in the scope with three rows of its own (row 7d below, 'device-probe.sh ...'): the same denylists
@@ -102,9 +104,35 @@ BT_RE="(^|[^A-Za-z0-9_-])($BT_WORDS)([^A-Za-z0-9_-]|\$)"
 # one of them only in a pinned line (a presence test by name, a usage text); the collector and the other scripts are not read for these words. A hyphen is part of a name (`airodump-ng`), not a boundary.
 PNET_WORDS='curl|wget|nc|ncat|netcat|socat|ping6?|traceroute|ssh|scp|sftp|telnet|ftp|tftp|uci|opkg|ifconfig|ip|iptables|tcpdump|airodump-ng|dumpcap|tshark|service|reload_config|wifi|pkill|killall|reboot|poweroff|halt'
 PNET_RE="(^|[^A-Za-z0-9_-])($PNET_WORDS)([^A-Za-z0-9_-]|\$)"
+# Used by the row 6g (every shell file of the shipped scope, the command words as the reader of row 7d reads them): the programs that talk over a network, capture, install, configure, start or stop a service, switch the device off, tune the kernel or change the clock or an
+# interface, named by their command word. PNET_WORDS above less `ip`, `ifconfig`, `tcpdump` and `airodump-ng` (the first two are read below by their verbs, the last two are the capture tools the collector starts), plus the name servers, the mail and time programs, `nft` and `ip6tables`,
+# `sysctl` and `rfkill`, and the ones PNET_WORDS leaves out that do the same (`ftpput`, `ftpget`, `rsync`, `ubus`, `modprobe`, `insmod`, `rmmod`, `ifup`, `ifdown`, `iwpriv`, `udhcpc`, `dhclient`, `brctl`, `swconfig`, `ethtool`, `iperf`, `iperf3`, `tracepath`, `traceroute6`,
+# the text browsers and downloaders `lynx`, `w3m`, `elinks`, `aria2c`, `axel`, `wget2`, `uclient-fetch`, `nping`, the servers `tcpsvd`, `udpsvd`, `telnetd`, `ftpd`, `dropbear`, `sshd`, `dnsmasq`, `dhcpd`, and `rdate`, `ntpclient`, `crontab`).
+# `nc` is in the list: its literal word is red wherever it stands (the listener of starchorus-serve.sh runs "$NC", a name that is built when the line runs: row 6d). A word of this family is judged by the name of the command alone, not by its arguments: `uci show` and `opkg list` are red too.
+OUT_WORDS='curl|wget|nc|ncat|netcat|socat|ping|ping6|traceroute|traceroute6|tracepath|ssh|scp|sftp|telnet|ftp|ftpput|ftpget|tftp|rsync|uci|opkg|iptables|ip6tables|nft|dumpcap|tshark|service|reload_config|wifi|ubus|pkill|killall|reboot|halt|poweroff|nslookup|dig|ntpd|ntpdate|sendmail|mail|sysctl|rfkill|modprobe|insmod|rmmod|ifup|ifdown|iwpriv|udhcpc|dhclient|brctl|swconfig|ethtool|iperf|iperf3|lynx|w3m|elinks|aria2c|axel|wget2|nping|tcpsvd|udpsvd|telnetd|ftpd|dropbear|sshd|rdate|crontab|uclient-fetch|ntpclient|dnsmasq|dhcpd'
+# More of the same kind that OpenWrt and BusyBox ship: the other ssh client (`dbclient`; `ssh` is often a link to it), the Wake-on-LAN sender (`ether-wake`, `etherwake`), the lookups and the TLS client (`whois`, `host`, `nsupdate`, `openssl`), the MQTT clients, the firewall front ends
+# (`fw3`, `fw4`), the flash, firmware and boot-environment tools (`mtd`, `sysupgrade`, `firstboot`, `fw_setenv`), the raw register writers (`devmem`, `i2cset`), `mount` and `umount` (`mount -t nfs`), the other time programs (`hwclock`, `chronyd`, `chronyc`, `sntp`, `htpdate`). The name alone decides, as above.
+OUT_WORDS=$OUT_WORDS'|dbclient|ether-wake|etherwake|whois|openssl|host|nsupdate|mosquitto_pub|mosquitto_sub|fw3|fw4|mtd|sysupgrade|firstboot|fw_setenv|devmem|i2cset|mount|umount|hwclock|chronyd|chronyc|sntp|htpdate'
+# And the programs that change an interface or a radio by name: the MAC changer (`macchanger`), Broadcom's `wl`, `nvram`, Madwifi's `wlanconfig`, the VLAN, bonding, mesh and tunnel tools (`vconfig`, `ifenslave`, `batctl`, `tunctl`).
+OUT_WORDS=$OUT_WORDS'|macchanger|wl|nvram|wlanconfig|vconfig|ifenslave|batctl|tunctl'
+# And, since the third round of the review (26 October 2026), the rest of BusyBox's network applets that talk, serve or set an address (`dnsd`, `fakeidentd`, `ifplugd`, `nameif`, `nbd-client`, `pscan`, `slattach`, `ssl_client`, `tftpd`, `udhcpc6`, `udhcpd`,
+# `zcip`, `inetd`) and its flash writers (`flashcp`, `flash_eraseall`, `flash_lock`, `flash_unlock`, `nandwrite`); the scanners and probes (`mtr`, `fping`, `arp-scan`, `masscan`, `zmap`); the mDNS publishers and browsers (`avahi-publish`, `-publish-service`, `-publish-address`,
+# `-browse`, `-resolve`, `-daemon`, `-set-host-name`, OpenWrt's `umdns`); the other file-transfer clients (`lftp`, `ncftp`, `ncftpput`, `ncftpget`); the SNMP tools (`snmpget`, `snmpset`, `snmpwalk`, `snmpbulkwalk`, `snmptrap`, `snmpd`); the job schedulers `at` and `batch`
+# (a command they run later is a text this file does not hold); the modem and dial-up tools (`pppd`, `uqmi`, `qmicli`, `mmcli`, `comgt`, `gcom`); and the page servers that are not the three of route A (`lighttpd`, `nginx`, `mini_httpd`, `thttpd`, `darkhttpd`: whatever directory they
+# are given, row 6f reads the docroot of the three only). `bridge` is read by its verbs as `ip` is (below).
+OUT_WORDS=$OUT_WORDS'|dnsd|fakeidentd|ifplugd|nameif|nbd-client|pscan|slattach|ssl_client|tftpd|udhcpc6|udhcpd|zcip|inetd|flashcp|flash_eraseall|flash_lock|flash_unlock|nandwrite'
+OUT_WORDS=$OUT_WORDS'|mtr|fping|arp-scan|masscan|zmap|avahi-publish|avahi-publish-service|avahi-publish-address|avahi-browse|avahi-resolve|avahi-daemon|avahi-set-host-name|umdns'
+OUT_WORDS=$OUT_WORDS'|lftp|ncftp|ncftpput|ncftpget|snmpget|snmpset|snmpwalk|snmpbulkwalk|snmptrap|snmpd|at|batch|pppd|uqmi|qmicli|mmcli|comgt|gcom|lighttpd|nginx|mini_httpd|thttpd|darkhttpd'
+# `ip` and `tc` are red when a word of the command is one of CHG_VERBS (for `tc` also one of TC_NOUNS) or the beginning of one: iproute2 and BusyBox take every unambiguous prefix (`ip l s wlan1mon down`, `ip r d default`, `ip a a 192.0.2.1/24 dev wlan0`, `tc q a dev wlan0 root netem`, `ip -ba FILE`),
+# so an abbreviation is read as the verb it can stand for (the objects `ip a` and `ip r` are the beginning of a verb too, and red with them: the row errs on the side of red). `iw` matches its commands whole, and only the commands that read are green: `iw dev wlan0 info`, `link`, `scan` (the row `iw scan opt-in only` holds the one guarded line),
+# `survey dump`, `station dump` or `get`, `reg get`, `wowlan show`, `event`, `features`, `commands`, `help`, `version`, `list`, `channels`, `get`, `mpath` or `mpp` with `dump` or `get`; every other command (`switch`, `offchannel`, `roc`, `ocb`, `auth`, `measurement`, `vendor`, `ap`, `cac`, `mpath new`, `mesh leave`, `coalesce`, `reg reload`, a command that an expansion makes) is red,
+# and so is any word that is a CHG_VERBS word. `ip link show` and `ip -s link` read and stay green. `date` is red with -s, --set, or an operand of digits or from an expansion (`"$@"` passes arguments on and is not read), `logger` with -n or --server, `logread` with -r, `iwinfo` with `scan`.
+# `ifconfig` is red when it is given more than an interface (an option before it apart: -a, -s, -v). A redirection, `tee` or `dd of=` that writes to /sys, /proc/sys, /dev/tcp or /dev/udp is red too (the second small rule of the row).
+CHG_VERBS='set|add|del|delete|flush|change|replace|append|prepend|disconnect|exec|restore'
+TC_NOUNS='qdisc|class|filter'
 [ "${1:-}" != --regexes ] || {
-  for _n in NETSURF_RE NETX SEC6_RE TX_WORDS IW_VERBS BT_WORDS BT_WRAP_RE PNET_WORDS; do
-    case $_n in NETSURF_RE) _v=$NETSURF_RE;; NETX) _v=$NETX;; SEC6_RE) _v=$SEC6_RE;; TX_WORDS) _v=$TX_WORDS;; IW_VERBS) _v=$IW_VERBS;; BT_WORDS) _v=$BT_WORDS;; PNET_WORDS) _v=$PNET_WORDS;; *) _v=$BT_WRAP_RE;; esac
+  for _n in NETSURF_RE NETX SEC6_RE TX_WORDS IW_VERBS BT_WORDS BT_WRAP_RE PNET_WORDS OUT_WORDS CHG_VERBS TC_NOUNS; do
+    case $_n in NETSURF_RE) _v=$NETSURF_RE;; NETX) _v=$NETX;; SEC6_RE) _v=$SEC6_RE;; TX_WORDS) _v=$TX_WORDS;; IW_VERBS) _v=$IW_VERBS;; BT_WORDS) _v=$BT_WORDS;; PNET_WORDS) _v=$PNET_WORDS;; OUT_WORDS) _v=$OUT_WORDS;; CHG_VERBS) _v=$CHG_VERBS;; TC_NOUNS) _v=$TC_NOUNS;; *) _v=$BT_WRAP_RE;; esac
     printf '%s\t%s\n' "$_n" "$_v"
   done; exit 0; }
 # The shell files of the scope are read WHOLE, one file at a time, by ONE reader (BTSEG below, mode dyn, with BT_VIEW: shview() runs it), and the lists the rows lean on come from that reading, from no
@@ -122,7 +150,7 @@ export FNDEF
 # dyn = row 6d, over every line of every shell file of the scope, functions and top level alike (BT_SEG_FNS is `*`): it does not use mask() and cmds() above but reads the raw
 # text with a stack of its own (dyn() below) and lists each simple command whose command word holds an expansion; the row compares what it lists with a pinned list.
 # shellcheck disable=SC2016   # awk program
-BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"]; PFN = " " ENVIRON["BT_PFN"] " "; VIEW = ENVIRON["BT_VIEW"]; VHEADS = ENVIRON["BT_HEADS"]; FDEFS = ENVIRON["BT_FDEFS"]; ADEFS = ENVIRON["BT_ADEFS"]; DEFRE = ENVIRON["FNDEF"]; VNEST = ENVIRON["BT_NESTED"]; SCRF = ENVIRON["BT_SCRIPT"]; SHF = ENVIRON["BT_SHEADS"]; ODDF = ENVIRON["BT_ODD"]; CNT = ENVIRON["BT_CNT"]; vfn = "-" }
+BTSEG='BEGIN { WRAP = ENVIRON["BT_WRAP_RE"]; CMDW = ENVIRON["BT_CMD_RE"]; MODE = ENVIRON["BT_MODE"]; FNS = ENVIRON["BT_SEG_FNS"]; CMDS = ENVIRON["BT_CMDS"]; WRF = ENVIRON["BT_WRITES"]; PFN = " " ENVIRON["BT_PFN"] " "; VIEW = ENVIRON["BT_VIEW"]; VHEADS = ENVIRON["BT_HEADS"]; FDEFS = ENVIRON["BT_FDEFS"]; ADEFS = ENVIRON["BT_ADEFS"]; DEFRE = ENVIRON["FNDEF"]; VNEST = ENVIRON["BT_NESTED"]; SCRF = ENVIRON["BT_SCRIPT"]; SHF = ENVIRON["BT_SHEADS"]; ODDF = ENVIRON["BT_ODD"]; CNT = ENVIRON["BT_CNT"]; NMS = ENVIRON["BT_NAMES"]; OUTRE = "^(" ENVIRON["BT_OUT"] ")$"; VRBRE = "^(" ENVIRON["BT_CHG"] ")$"; TCNRE = "^(" ENVIRON["BT_TCN"] ")$"; CHGL = ENVIRON["BT_CHG"]; TCNL = ENVIRON["BT_TCN"]; TRAPF = ENVIRON["BT_TRAPS"]; TLEV = ENVIRON["BT_TLEV"]; vfn = "-" }
 function mask(t,   i, n, c, q, sd, bq, out) {
   n = length(t); q = ""; sd = 0; bq = 0; out = ""
   for (i = 1; i <= n; i++) {
@@ -198,8 +226,10 @@ function dtrap(w,   v) {   # the probe pass: the first argument of `trap`, the a
 function darg(   a) {   # a word that is an argument of the simple command being read (dcmd = its name): `find ... -exec` and its three kin, `alias NAME=...`
   if (dcmd == "") return
   a = dtok; gsub(/["\047\\]/, "", a)
+  if (NMS != "") nargs(a)
   if (dcmd == "find" && a ~ /^-(exec|execdir|ok|okdir)$/) dbad2 = 1
   else if (dcmd == "alias" && index(a, "=") > 0) dbad2 = 1
+  if (NMS != "" && dcmd == "trap" && dtok !~ /^[0-9]*[<>]/ && ++trn == 1) tact(dtok)   # the shell scope: the action of a trap is read as code (tact)
   if (CMDS != "" && ++dtn == 1) { if (dcmd == "trap") dtrap(dtok); else if (dcmd == "vset" && dtok !~ /^[0-9]+$/) REC[++nrec] = "vset-argument" }   # the first argument of trap (above) and of vset (the number in the name of the file it writes: a pinned write below, so a call must hand it digits)
   if (WRF == "") return
   # the probe pass only (WRF): the files that cp, mv and tee write, as "kind<TAB>command number<TAB>word": every word of tee, and of cp and mv the last one (the row reads the last one). `-t DIR` names the destination before the
@@ -247,7 +277,145 @@ function dxarg(a) {   # a word after `xargs`: 1 = one of its options or the argu
 # script text, which runs to the delimiter or to the end of the string. sline() hands each of its lines to a second reading of this same program (shview: the lines of the file in one piece, no VIEW, no SCRF), with a segment number behind the function (a head and the line after a closing
 # brace begin a segment, where the state starts afresh, as the old reader had it by the function of the line), and the heads in it go to SHF. The second reading reads the lines as code (a quoted body too) and its verdicts join those of the first. A delimiter that is not a plain
 # name, bare or wholly in quotes goes to ODDF. CNT: a line that is empty or begins with a comment sign is read where a string or a body makes it code, and is not counted (the figure of rows 6d and 6e counts what it always counted).
-function rec(nm) { if (CMDS != "" && !dtexp && !dtglob) REC[++nrec] = nm }
+function rec(nm) { if ((CMDS != "" || NMS != "") && !dtexp && !dtglob) REC[++nrec] = nm }
+# NMS (BT_NAMES, the pass over the shell scope, shview): the names of the literal command words as they stand, for the rows 6g and 6h, one record per simple command, "NAME<TAB>file:line:function:text" (a name that holds an expansion or a glob is left to the rows 6d and 6e, a path stays a path, `!NAME` is a program after `command`). Besides the names it makes a few
+# records of its own, from the words of the command (nargs, dsys): "chg:iw", "chg:ip" and "chg:tc" when a word of the command is a changing verb (BT_CHG; for tc also a noun of BT_TCN), "chg:ifconfig" when ifconfig is given more than an interface (an option before it apart: -a, -s, -v), "sys:redirect", "sys:tee" and "sys:dd" when a redirection, tee or dd of= writes to a path of /sys, /proc/sys, /dev/tcp or /dev/udp, "snk:shell-c" for a shell with -c (any cluster of options that has a c in it), "snk:shell-file" at the first operand of a shell (a shell that has none reads its program from its standard input), "snk:find-exec" for find with -exec, -execdir, -ok or -okdir, "snk:interp-c" for an interpreter with -c, -e or -E, and "snk:exec-built" for an exec whose command word is built
+function nms(   j, k) {   # the n-th identical record of a line carries "#n" behind its name, so that the dedupe at the end of shview (the same line is read by two passes) does not make one of `sh "$0"; printf x | sh` out of two shells; the rows take the suffix off again
+  if (NMS == "") return
+  split("", occ)
+  for (j = 1; j <= nrec; j++) { k = REC[j]; print (++occ[k] > 1 ? k "#" occ[k] : k) "\t" $0 > NMS }
+}
+function dnorm(w,   v) { v = w; gsub(/["\047\\]/, "", v); return v }
+function syspath(w,   v) {   # a path of the kernel tunables or a device file: /sys, /proc/sys (also /proc/sysrq-trigger) and everything under /dev but null, zero, full, stdout, stderr, tty and fd/N (/dev/tcp/ and /dev/udp/ are the outward ones), read after the quotes, doubled slashes and /./ are gone
+  v = dnorm(w); gsub(/\/+/, "/", v)
+  while (v ~ /\/\.(\/|$)/) sub(/\/\.(\/|$)/, "/", v)
+  return (v ~ /^\/sys(\/|$)/ || v ~ /^\/proc\/sys/ || (v ~ /^\/dev\// && v !~ /^\/dev\/(null|zero|full|stdout|stderr|tty|fd\/[0-9]+)$/))
+}
+function dsys(   t, i, n, c, q, p) {   # the token that has just ended: a redirection (`>`, `>>`, `>|`, `<>`, outside quotes) writes to the rest of the token, or to the next token when this one ends there. A descriptor copy (`>&2`) names no file
+  if (sysn) { sysn = 0; if (syspath(dtok)) REC[++nrec] = "sys:redirect"; return }
+  t = dtok; n = length(t); q = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(t, i, 1)
+    if (q != "") { if (c == "\\" && q == "\"") i++; else if (c == q) q = ""; continue }
+    if (c == "\\") { i++; continue }
+    if (c == "\047" || c == "\"") { q = c; continue }
+    if (c == ">" || (c == "<" && substr(t, i + 1, 1) == ">")) {
+      p = i + 1; if (c == "<") p++
+      while (substr(t, p, 1) == ">" || substr(t, p, 1) == "|") p++
+      if (substr(t, p, 1) == "&") continue
+      if (p > n) { sysn = 1; return }
+      if (syspath(substr(t, p))) REC[++nrec] = "sys:redirect"
+      i = p - 1
+    }
+  }
+}
+function pfx(w, set,   n, i, v) {   # w is a non-empty prefix of a word of the `|` separated list set: iproute2 and BusyBox take every unambiguous prefix of a verb (`ip l s wlan1mon down`, `ip r d default`, `ip a a 192.0.2.1/24 dev wlan0`, `tc q a dev wlan0 root netem`), so such a word is read as the verb it can stand for
+  if (w == "" || w !~ /^[a-z]+$/) return 0
+  n = split(set, v, "|")
+  for (i = 1; i <= n; i++) if (index(v[i], w) == 1) return 1
+  return 0
+}
+function iwarg(a) {   # the words of an `iw` command, as a state machine (iws): 0 = before the selector, 1 = the next word is the name of what dev, phy, wiphy or wdev selected, 2 = the next word is the command, 3 = a command that only reads, 4 = a command that reads with one of a few words behind it (iwsub), 9 = red. iw matches its commands whole, so the commands that read are listed and every other one is red (`iw dev wlan0 switch channel 6`, `offchannel`, `roc`, `ocb join`, `auth`, `measurement ftm_request`, `vendor send`, `ap start`, `cac trigger`, `mpath new`, `mesh leave`, `wowlan enable`, `coalesce enable`, `reg reload`, and a command that an expansion makes)
+  if (iws == 3 || iws == 9) return
+  if (iws == 1) { iws = 2; return }
+  if (iws == 4) { iws = 3; if (a !~ iwsub) REC[++nrec] = "chg:iw"; return }
+  if (iws == 0 && a ~ /^-/) return
+  if (iws == 0 && a ~ /^(dev|phy|wiphy|wdev)$/) { iws = 1; return }
+  if (a ~ /^(info|link|scan|event|features|commands|help|version|list|channels|get)$/) { iws = 3; return }
+  if (a ~ /^(survey|station|mpath|mpp)$/) { iws = 4; iwsub = "^(dump|get)$"; return }
+  if (a == "reg") { iws = 4; iwsub = "^get$"; return }
+  if (a ~ /^(wowlan|coalesce)$/) { iws = 4; iwsub = "^show$"; return }
+  iws = 9; REC[++nrec] = "chg:iw"
+}
+function shpre(a) {   # a word of a shell command, read before the rule that counts the file operand: 1 = it is no program file. A shell is red unless it is given the script itself ("$0") and reads nothing else, so what matters here is only what could make "$0" look like the program file when it is not: the argument of -o, +o, -O, +O, --rcfile and --init-file (`sh -o "$0"`), a plus option (`sh +x`), and an operand after -s (`sh -s "$0"`: the program still comes from the standard input, the operands are its positional parameters). Any other operand is a program FILE: the text is in the file, which the script may have written (the row 6h pins the line)
+  if (sho) { sho = 0; return 1 }
+  if (a ~ /^-[A-Za-z]*c[A-Za-z]*$/) return 0
+  if (a ~ /^[-+][A-Za-z]*[oO]$/ || a ~ /^--(rcfile|init-file)$/) { sho = 1; return 1 }
+  if (a ~ /^\+/) return 1
+  if (a ~ /^-[A-Za-z]*s/) { shs = 1; return 0 }
+  if (a !~ /^-/ && shs) return 1
+  if (a !~ /^-/ && a != "$0" && ++shrun == 1) REC[++nrec] = "snk:run-file"
+  return 0
+}
+function ipre(a) {   # a word of an interpreter command (python, perl, lua, ruby, php, node), read before the rule below. The script operand is counted with the record the shells use ("snk:shell-file"), so that an interpreter with no script of its own, which reads its program from its standard input (`printf x | python3`, `python3 -`, `perl -`), is a hit of the row 6h, and an interpreter given a script FILE is one as well ("snk:run-file": the text is in the file). A module (`-m`, also in a cluster of options and glued to the option) and --version and --help count as the operand: they read no program; a module other than http.server is a "chg:module" for the names the rule below does not know (python3.11)
+  if (ipm) { ipm = 0; if (++ipops == 1) REC[++nrec] = "snk:shell-file"; if (a !~ /^http\.server$/ && dcmd ~ /^python[0-9]*\.[0-9.]+$/) REC[++nrec] = "chg:module"; return }
+  if (a ~ /^-[A-Za-z]*m$/) { ipm = 1; return }
+  if (a ~ /^-[A-Za-z]*m[A-Za-z_.]+$/) { if (++ipops == 1) REC[++nrec] = "snk:shell-file"; if (a !~ /m(http\.server|SimpleHTTPServer)$/) REC[++nrec] = "chg:module"; return }
+  if (a ~ /^-[A-Za-z]*[ceE]$/) { if (++ipops == 1) REC[++nrec] = "snk:shell-file"; if (dcmd ~ /^python[0-9]*\.[0-9.]+$/) REC[++nrec] = "snk:interp-c"; return }   # a program text on the command line (-c, -e, -E) is the program: no stdin reader, no script file (the word behind it is not counted); the names the rule below does not know (python3.11) are recorded here
+  if (a ~ /^--(version|help)$/ || a ~ /^-[VhvH?]$/) { if (++ipops == 1) REC[++nrec] = "snk:shell-file"; return }
+  if (a !~ /^-/ && ++ipops == 1) { REC[++nrec] = "snk:shell-file"; REC[++nrec] = "snk:run-file" }
+}
+function tline(v,   p) {   # hands the text of a trap action on to the reader (TRAPF) as a line of its own: "file:line:function@segment:text", the segment unique, so that the reader starts afresh with it
+  p = index($0, ":"); p += index(substr($0, p + 1), ":"); p += index(substr($0, p + 1), ":")
+  print substr($0, 1, p - 1) "@t" TLEV "." (++tseg) ":" v > TRAPF
+}
+function tact(w,   v, i, n, c, o) {   # the first argument of `trap` is shell text that runs when the signal comes, and a string is not read by the reader. A word that is a plain name, or one string in single or double quotes with nothing glued to it and on one line, is handed on to be read as code, so that what it runs is a command word of the scope like any other (a `curl` in an action is red on the row 6g, an `eval` on the row 6h). `-`, an empty string run nothing. Any other form (a glued string, an expansion, `--`, an option, a string over several lines) is an unlisted one: "snk:trap", pinned by the row 6h
+  if (TRAPF == "") return
+  if (w == "-" || w == "\047\047" || w == "\"\"") return
+  if (w ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { tline(w); return }
+  if (w ~ /^\047[^\047]*\047$/ && !dmulti) { tline(substr(w, 2, length(w) - 2)); return }
+  if (w ~ /^"([^"\\]|\\.)*"$/ && !dmulti) {
+    v = substr(w, 2, length(w) - 2); o = ""; n = length(v)
+    for (i = 1; i <= n; i++) { c = substr(v, i, 1); if (c == "\\" && substr(v, i + 1, 1) ~ /["$`\\]/) { i++; c = substr(v, i, 1) } o = o c }
+    tline(o); return }
+  REC[++nrec] = "snk:trap"
+}
+function nargs(a,   b) {   # an argument of the simple command being read (dcmd), for the records NMS makes of the words of a command; a redirection and its target are no argument
+  if (rdn) { rdn = 0; return }
+  if (a ~ /^[0-9]*(>>|>[|]|>&|<&|<|>|<>)$/) { rdn = 1; return }
+  if (a ~ /^[0-9]*[<>]/) return
+  if (dcmd ~ /^ip(link|addr|route|rule|neigh|tunnel)$/) dcmd = "ip"   # the BusyBox applets of ip (`iplink set wlan0 down` is `ip link set wlan0 down`)
+  if (dcmd == "iw") iwarg(a)
+  if ((dcmd == "ip" || dcmd == "tc" || dcmd == "bridge") && !ipr) { if (a ~ /^(show|list|lst|ls|get|help|monitor)$/) ipr = 1; else if (a ~ /\$/) REC[++nrec] = "chg:" dcmd }   # a word from an expansion before a verb that reads (`ip link "$v" wlan0 down`): the verb may be what it expands to, so it is red as iwarg has it for iw; after `show` an expansion is a name (`ip link show "$IF"`)
+  if (dcmd == "route" && a ~ /\$/) REC[++nrec] = "chg:route"   # route reads with options only (-n, -e, -A); an operand from an expansion may be add, del or flush
+  if (dcmd == "arp" && !ipr) { if (a ~ /^-[aenv]+$/) ipr = 1; else if (a ~ /\$/) REC[++nrec] = "chg:arp" }   # an expansion before a read option (-a, -n, -e, -v) may be -s, -d or -f
+  if (dcmd == "iwinfo" && a !~ /^-/) { ++ifc; if (a ~ /\$/ && (ifc >= 2 || dtok !~ /^"[^"]*"$/)) REC[++nrec] = "chg:iwinfo" }   # iwinfo DEVICE COMMAND: the device may be a quoted expansion ("$IF": the raw word, dtok, still has its quotes), the command may not, and an unquoted expansion may split into both
+  if (dcmd == "logger" && !ipr) { if (dato) dato = 0; else if (a == "--") ipr = 1; else if (a ~ /^-[tp]$/) dato = 1; else if (a ~ /\$/ && a !~ /^-[tp]./) REC[++nrec] = "chg:logger" }   # an expansion before `--` may be an option (-n HOST): only the tag and the priority (-t, -p) may come from one; the message goes after `--`
+  if (dcmd == "logread") { if (dato) dato = 0; else if (a ~ /^-[le]$/) dato = 1; else if (a ~ /\$/ && a !~ /^-[le]./) REC[++nrec] = "chg:logread" }   # only the count and the pattern (-l, -e) may come from an expansion; any other may be -r HOST PORT
+  if (dcmd == "iw" || dcmd == "ip" || dcmd == "tc" || dcmd == "bridge") { if (a ~ VRBRE || (dcmd != "iw" && pfx(a, CHGL)) || (dcmd == "tc" && (a ~ TCNRE || pfx(a, TCNL))) || (dcmd == "ip" && a ~ /^-(b|batch)$/) || (dcmd == "ip" && (a ~ /^--(b|ba|bat|batc|batch)$/ || a ~ /^-(ba|bat|batc)$/)) || (dcmd == "bridge" && a ~ /^--?(b|ba|bat|batc|batch)$/)) REC[++nrec] = "chg:" dcmd; return }   # `bridge` (iproute2) as `ip`: `bridge link set`, `bridge fdb add`, `bridge vlan del` and `bridge -batch FILE` change, `bridge link show` and `bridge monitor` read
+  if (dcmd == "route") { if (a ~ VRBRE) REC[++nrec] = "chg:route"; return }   # the routing table: `route add default gw X`, `route del`, `route flush` change it, `route -n` reads
+  if (dcmd == "arp") { if (a ~ /^-[A-Za-z]*[sdf]/) REC[++nrec] = "chg:arp"; return }   # `arp -s`, `-d` and `-f` change the table, `arp -a` and `-n` read
+  if (dcmd == "hostname") { if (a ~ /^-[A-Za-z]*F/ || a !~ /^-/) REC[++nrec] = "chg:hostname"; return }   # an operand or -F sets the name, `hostname -s` and `-f` read
+  if (dcmd == "tcpdump") { if (a ~ /^-[A-Za-z]*z$/ || a ~ /^--postrotate-command/) REC[++nrec] = "snk:tcpdump-z"; return }   # -z runs a program after a capture file is rotated (the collector uses tcpdump, and uses no -z)
+  if (dcmd == "tar") { if (a ~ /^--(checkpoint-action|to-command|use-compress-program|rsh-command|info-script|new-volume-script)/ || a ~ /^-[A-Za-z]*[FI]$/) REC[++nrec] = "snk:tar-exec"; return }   # tar options that run a program
+  if (dcmd == "sed") { if (a ~ /^-[A-Za-z]*i/ || a ~ /^--in-place/) sedi = 1; else if (sedi && syspath(a)) REC[++nrec] = "sys:sed"; return }   # sed -i writes the file it is given
+  if (dcmd == "truncate") { if (a !~ /^-/ && syspath(a)) REC[++nrec] = "sys:truncate"; return }
+  if (dcmd == "date") {   # the clock: -s, --set and an operand of digits or from an expansion (`date 102412002026`, `date "$zz"`) set it; +FORMAT, -u, -I and the like read. The argument of -d, -r, -f and -D is no operand
+    if (dato) { dato = 0; return }
+    if (a ~ /^-[A-Za-z]*[drfD]$/ || a ~ /^--(date|reference|file)$/) { dato = 1; return }
+    if (a ~ /^-[A-Za-z]*s/ || a ~ /^--s(e(t)?)?(=|$)/ || a ~ /^[0-9]/ || (a ~ /\$/ && a !~ /^\$[@*]$/)) REC[++nrec] = "chg:date"   # an operand of digits or from an expansion sets the clock; "$@" passes the arguments of a function on (the stand-ins of the self-tests: `command date "$@"`), and what it passes is not read
+    return }
+  if (dcmd == "logger") { if (a ~ /^-[A-Za-z]*n/ || a ~ /^--server/) REC[++nrec] = "chg:logger"; return }   # remote syslog (-n HOST)
+  if (dcmd == "logread") { if (a ~ /^-[A-Za-z]*r$/ || a ~ /^--remote/) REC[++nrec] = "chg:logread"; return }   # remote syslog (-r HOST PORT)
+  if (dcmd == "iwinfo") { if (a == "scan") REC[++nrec] = "chg:iwinfo"; return }   # an active scan; info, assoclist, freqlist and the others read
+  if (dcmd ~ /^(awk|gawk|mawk|nawk)$/) { if (a ~ /^-f/ || a ~ /^--file/) REC[++nrec] = "snk:awk-file"; return }   # an awk program that is read from a file: the text is in the file (the row 6h pins it)
+  if (dcmd ~ /^(flock|ionice|chrt|taskset|strace|ltrace|chroot|unshare|nsenter|setpriv|doas|su|runuser|watch|script|start-stop-daemon|cpulimit|chpst|setuidgid|envuidgid|envdir|softlimit)$/) {   # programs that run the command they are given: a word of the list among the arguments is that command (flock FILE curl, start-stop-daemon -x curl), and su, runuser and script -c take a command line as a string
+    if ((dcmd == "su" || dcmd == "runuser" || dcmd == "script") && a ~ /^-[A-Za-z]*c$/) REC[++nrec] = "snk:shell-c"
+    if ((dcmd == "flock" && a ~ /^-[A-Za-z]*c/) || (dcmd ~ /^(su|runuser|script)$/ && a ~ /^-[A-Za-z]*c./) || (dcmd ~ /^(su|runuser|script|flock)$/ && (a ~ /^--c(o(m(m(a(n(d)?)?)?)?)?)?(=|$)/ || a ~ /^--session-command/))) REC[++nrec] = "snk:shell-c"   # the other spellings of a command line given as a string: flock -c, a glued -cTEXT, --command, --command=TEXT and their abbreviations, --session-command
+    b = a; sub(/[ \t].*/, "", b); sub(/^.*\//, "", b)
+    if (b ~ OUTRE) REC[++nrec] = "chg:wrapped"
+    if (b ~ /^(sh|bash|ash|dash|ksh|zsh|busybox|python[0-9.]*|perl|lua|ruby|php|node|awk|gawk|mawk|nawk|find|xargs)$/) REC[++nrec] = "snk:wrapped"   # a program of the row 6h behind such a wrapper (`flock FILE sh -c ...`, `chroot DIR python3 -c ...`): its own words are arguments of the wrapper here, and a program text is run all the same
+    return
+  }
+  if (dcmd == "ifconfig") { if (ifc == 0 && (a == "-a" || a == "-s" || a == "-v")) return; if (++ifc == 2) REC[++nrec] = "chg:ifconfig"; return }
+  if (dcmd == "tee") { if (a !~ /^-/ && syspath(a)) REC[++nrec] = "sys:tee"; return }
+  if (dcmd ~ /^(cp|mv|install|ln)$/) {   # the destination of a copy, a move, an install or a link: any operand after the first, the one after -t, and --target-directory=
+    if (a ~ /^--target-directory=/) { if (syspath(substr(a, 20))) REC[++nrec] = "sys:cp"; return }
+    if (a ~ /^-/) { if (a ~ /^-[A-Za-z]*t$/ || a == "--target-directory") cpt = 1; return }
+    if (cpt) { cpt = 0; if (syspath(a)) REC[++nrec] = "sys:cp"; return }
+    if (++cpn >= 2 && syspath(a)) REC[++nrec] = "sys:cp"
+    return
+  }
+  if (dcmd == "dd") { if (a ~ /^of=/ && syspath(substr(a, 4))) REC[++nrec] = "sys:dd"; return }
+  if (dcmd == "find") { if (a ~ /^-(execdir|exec|okdir|ok)$/) REC[++nrec] = "snk:find-exec"; return }
+  if (dcmd ~ /^(sh|bash|ash|dash|ksh|zsh)$/) { if (shpre(a)) return; if (a ~ /^-[A-Za-z]*c[A-Za-z]*$/) REC[++nrec] = "snk:shell-c"; else if (a !~ /^-/ && ++shops == 1) REC[++nrec] = "snk:shell-file"; return }
+  if (dcmd ~ /^(python[0-9.]*|perl|lua|ruby|php|node)$/) ipre(a)
+  if (dcmd ~ /^(python|python2|python3|perl|lua|ruby|php|node)$/) {
+    if (a ~ /^-[A-Za-z]*[ceE]$/) REC[++nrec] = "snk:interp-c"
+    else if (pym) { pym = 0; if (a !~ /^http\.server$/) REC[++nrec] = "chg:module" }   # python -m MODULE runs the code of a module: only http.server is expected (row 6f reads where it is given its directory)
+    else if (a == "-m") pym = 1
+  }
+}
 function dcase(isc, w) {   # a token that has just ended at the level dsp (the other passes follow the top level only, 0): `case` as a command word opens the pattern, the next two words are its subject and `in`; `esac` closes it and ends its pattern
   if (dsp != 0 && CMDS == "") return
   if (isc) { ccase[dsp] = (w == "case"); if (w == "esac" && cdepth[dsp] > 0) { cdepth[dsp]--; cpat[dsp] = 0 }; return }
@@ -255,38 +423,54 @@ function dcase(isc, w) {   # a token that has just ended at the level dsp (the o
   if (ccase[dsp] == 2) { ccase[dsp] = 0; if (w == "in") { cdepth[dsp]++; cpat[dsp] = 1; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2 } }   # `case WORD in`: the first item begins here (what the line had flagged before it stays flagged)
 }
 function dxend() { if (dwr && dwc == "xargs") { dbad2 = 1; dwr = 0 } }   # `xargs` with no command of its own: it runs echo over what it reads (with -I its command would come from stdin)
-function dfin(   dn, ac) {   # the token that has just ended
+function dwopt(w, o) {   # an option of a wrapper that takes the next word as its argument (that word is no command): env -u NAME, sudo -u USER, stdbuf -o MODE, exec -a NAME, time -f FORMAT, and the long forms without an equals sign (--user root); nice -n, timeout -s and -k are read in dfin
+  if (w == "env") return (o ~ /^-[uC]$/ || o ~ /^--(unset|chdir|argv0)$/)
+  if (w == "sudo") return (o ~ /^-[ugChprtU]$/ || o ~ /^--(user|group|chdir|host|prompt|role|type|other-user|close-from)$/)
+  if (w == "stdbuf") return (o ~ /^-[ioe]$/ || o ~ /^--(input|output|error)$/)
+  if (w == "exec") return (o == "-a")
+  if (w == "time") return (o ~ /^-[fo]$/ || o ~ /^--(format|output)$/)
+  if (w == "timeout") return (o ~ /^--(signal|kill-after)$/)
+  if (w == "nice") return (o == "--adjustment")
+  return 0
+}
+function dfin(   dn, ac, bn) {   # the token that has just ended
   if (!dint) return
   dint = 0
+  if (NMS != "") dsys()
   if (wrd) { if (wrd == 1) WREC[++nwr] = ">\t0\t" dtok; wrd = 0; return }   # the word after a `>` (WRF, the probe pass only): where the redirection writes; after a `<` it names a file that is read
   if (drd) { drd = 0; return }
   if (!dtcs) { darg(); dcase(0, dtok); return }
   dn = dtok; gsub(/["\047\\]/, "", dn)   # quotes and backslashes in a name do not hide it (a quoted find, a split exec, a backslash before xargs)
+  wx = 0
   if (dwr) {
     if (dsk) { dsk = 0; return }
     if (dwc == "xargs" && dxarg(dn)) return
     if (dtok ~ /^-[vV]$/ && dwc == "command") { dcs = 0; dwr = 0; return }
     if (dtok ~ /^-[nsk]$/) { dsk = 1; return }
+    if (dwopt(dwc, dtok)) { dsk = 1; return }
     if (dtok ~ /^-/) return
     if (dwc == "timeout" && !dwd) { dwd = 1; return }
     if (dwc == "xargs" && (index(dn, "{}") > 0 || (dxr != "" && index(dn, dxr) > 0))) dbad2 = 1   # the command is the replacement string: it comes from stdin
-    ac = (dwc == "command"); dwr = 0   # the word after `command` is a program of the PATH, never a function of the file (recorded as !NAME)
+    ac = (dwc == "command"); dwr = 0; wx = dwxc   # the word after `command` is a program of the PATH, never a function of the file (recorded as !NAME); wx: an exec is among the wrappers before this word
   }
   if (dtok ~ /^(then|do|else|elif|if|while|until|!|\{|\})$/) return
-  if (dn ~ /^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/) { rec((ac ? "!" : "") dn); dwr = 1; dwc = dn; dwd = 0; dsk = 0; if (dn == "xargs") { dxo = ""; dxr = ""; dxe = 0 }; return }
+  bn = dn; sub(/^.*\//, "", bn)   # a wrapper is a wrapper by its name, also with a path (/usr/bin/env, /bin/busybox)
+  if (bn == "builtin") bn = "nohup"   # `builtin NAME` runs NAME (a shell without such a builtin runs nothing, but the word after it is read as the command all the same)
+  if (bn ~ /^(exec|command|nohup|setsid|nice|env|time|xargs|busybox|timeout|sudo|stdbuf)$/) { rec((ac ? "!" : "") dn); dwr = 1; dwc = bn; dwd = 0; dsk = 0; dwxc = (wx || bn == "exec"); if (bn == "xargs") { dxo = ""; dxr = ""; dxe = 0 }; return }
   if (dtok ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { if (WRF != "") WREC[++nwr] = "=\t0\t" dtok; return }
   if (dtok ~ /^[0-9]*[<>]/) { if (dtok ~ /^[0-9]*(>>|>[|]|>&|<&|<|>)$/) drd = 1; return }
+  if (NMS != "" && wx && (dtexp || (dtglob && dtok !~ /^\[\[?$/))) REC[++nrec] = "snk:exec-built"
   if (dtexp) dbad = 1
   if (dtglob && dtok !~ /^\[\[?$/) dbad2 = 1   # a glob in the command word: the name is whatever the directory holds when the line runs (`[` and `[[` are the test)
   rec((ac ? "!" : "") dn); sub(/^.*\//, "", dn); dcmd = dn; dcase(1, dn)
   if (dn == "cp" || dn == "mv" || dn == "tee") dwid = ++dwn   # the number tells the words of one command from those of another (darg)
-  dforv = (dn == "for"); dtn = 0
+  dforv = (dn == "for"); dtn = 0; ifc = 0; shops = 0; rdn = 0; cpn = 0; cpt = 0; pym = 0; iws = 0; sho = 0; shs = 0; shrun = 0; ipm = 0; ipops = 0; trn = 0; dato = 0; sedi = 0; ipr = 0
   dcs = 0; dwr = 0
 }
 function dpush(ty) { DST[++dsp] = ty; DSI[dsp] = dint; DSC[dsp] = dtcs; DSK[dsp] = dtok; DSE[dsp] = dtexp; DSS[dsp] = dcs; DSG[dsp] = dtglob; DSM[dsp] = dcmd; DSR[dsp] = wrd; DSW[dsp] = dwid; DSN[dsp] = dtn; dcmd = ""; wrd = 0; dwid = 0; ccase[dsp] = 0; cdepth[dsp] = 0; cpat[dsp] = 0; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2 }
 function dpop() { dint = DSI[dsp]; dtcs = DSC[dsp]; dtok = DSK[dsp]; dtexp = DSE[dsp]; dcs = DSS[dsp]; dtglob = DSG[dsp]; dcmd = DSM[dsp]; wrd = DSR[dsp]; dwid = DSW[dsp]; dtn = DSN[dsp]; dsp-- }
-function dtext(c) { if (!dint) { dint = 1; dtcs = dcs; dtok = ""; dtexp = 0; dtglob = 0 } dtok = dtok c }
-function dreset() { hbo = 0; hscr = 0; sstr = 0; dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; dtn = 0; split("", ccase); split("", cdepth); split("", cpat); split("", rmark); split("", pdb); split("", pdb2) }
+function dtext(c) { if (!dint) { dint = 1; dtcs = dcs; dtok = ""; dtexp = 0; dtglob = 0; dmulti = 0 } dtok = dtok c }
+function dreset() { ipr = 0; sysn = 0; rdn = 0; ifc = 0; shops = 0; cpn = 0; cpt = 0; pym = 0; iws = 0; sho = 0; shs = 0; shrun = 0; ipm = 0; ipops = 0; trn = 0; dato = 0; sedi = 0; dmulti = 0; dwxc = 0; hbo = 0; hscr = 0; sstr = 0; dcs = 1; dint = 0; dtcs = 0; dtok = ""; dtexp = 0; dtglob = 0; drd = 0; dwr = 0; dsk = 0; dwd = 0; dsp = 0; dcmd = ""; dxo = ""; dxr = ""; dxe = 0; wrd = 0; dwid = 0; dforv = 0; dtn = 0; split("", ccase); split("", cdepth); split("", cpat); split("", rmark); split("", pdb); split("", pdb2) }
 function sline(   h, nm, p) {   # the main pass (SCRF set): the current line belongs to a script text, handed on to the next reading with the number of its segment in the function field ("file:line:function@segment:text"). A segment begins at a function head and after a line that begins with a closing brace, as the functions of the earlier reader did, so that the state of the reader starts afresh there (a quote left open in one function does not swallow the next). The heads of such a text are listed (SHF) for the count of the first row
   h = (t ~ DEFRE)
   if (h && SHF != "") { nm = t; sub(/[ \t]*\(.*/, "", nm); print nm > SHF }
@@ -300,6 +484,7 @@ function hbody(t) {   # the main pass (CMDS empty): a line of the body of a here
   dyn(t)
   if (dbad) print $0 > BAD
   if (dbad2) print $0 > BAD2
+  nms()
 }
 function hend() { if (!hbo) return; hbo = 0; dsp = hbi; dpop(); DCONT = 0 }   # the delimiter line (or a function boundary) ends the body: back to the state the head line left
 function dhdword(u,   i, n, c, q, w) {   # the delimiter word of a here-document as the shell reads it: from u (the text after << and an optional -, blanks cut) up to the first unquoted blank or metacharacter, quotes and backslashes as they stand; "?" when a quote stays open on the line
@@ -353,7 +538,7 @@ function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl, l, wd) {
     if (c == "\"") { dtext(c); DST[++dsp] = "d"; continue }
     if (c == "#" && !dint) break
     if (c == " " || c == "\t") { dfin(); continue }
-    if (c == ";" || c == "|" || (c == "&" && substr(t, i - 1, 1) !~ /[<>]/)) { dfin(); dxend(); drd = 0; dwr = 0; wrd = 0; dcs = 1; if (c != "|") { bsep = dbad; bsep2 = dbad2; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2; if (dsp == 0 || CMDS != "") cpat[dsp] = (i > 1 && substr(t, i - 1, 1) == ";") }; continue }   # `;;` and `;&` end a case item and begin the next
+    if (c == ";" || (c == "|" && substr(t, i - 1, 1) != ">") || (c == "&" && substr(t, i - 1, 1) !~ /[<>]/)) { dfin(); dxend(); drd = 0; dwr = 0; wrd = 0; dcs = 1; if (c != "|") { bsep = dbad; bsep2 = dbad2; rmark[dsp] = nrec; pdb[dsp] = dbad; pdb2[dsp] = dbad2; if (dsp == 0 || CMDS != "") cpat[dsp] = (i > 1 && substr(t, i - 1, 1) == ";") }; continue }   # `;;` and `;&` end a case item and begin the next
     if (c == "<" && nx == "<" && substr(t, i + 2, 1) == "<") { dtext("<<<"); i += 2; continue }
     if (c == "<" && nx == "<") {   # a here-document: its delimiter word, for the caller
       u = substr(t, i + 2); DHDD = (substr(u, 1, 1) == "-"); if (DHDD) u = substr(u, 2)
@@ -382,7 +567,8 @@ function dyn(t,   i, n, c, top, bsep, bsep2, u, nx, cl, l, wd) {
     dtext(c); if (index("*?[", c) > 0) dtglob = 1
   }
   top = (dsp > 0) ? DST[dsp] : ""
-  if (top != "q" && top != "d" && top != "H") { dfin(); if (!DCONT && top != "A" && top != "a") { dxend(); dcs = 1; drd = 0; dwr = 0; wrd = 0 } }   # a newline ends a simple command, unless it is escaped or inside a quote
+  if ((top == "q" || top == "d") && dint) dmulti = 1   # a string that goes on over the end of the line: its text is more than the token holds (the newlines are not in it)
+  if (top != "q" && top != "d" && top != "H") { if (!DCONT) dfin(); if (!DCONT && top != "A" && top != "a") { dxend(); dcs = 1; drd = 0; dwr = 0; wrd = 0 } }   # a newline ends a simple command, unless it is escaped or inside a quote; an escaped newline takes no word with it (`cu\` and `rl` on two lines are the one word curl)
   return dbad
 }
 VIEW != "" {   # the probe pass (BT_VIEW, mode dyn): the input is every line of the file, "file:line:-:text", comment lines, empty lines and here-document bodies included, and one reader state runs through all of it. This prelude gives each line its function and passes it on to the rule below as "file:line:function:text". A line begins "clean" when nothing is open (no here-document body, no string, no substitution), and the line before did not end in a backslash; only a clean line can be a comment line (it begins with `#`), a function head (FNDEF) or the closing `}` of a function. Anywhere else (in a string that runs over several lines, in a here-document body, after a backslash) a line that looks like a comment, a head or a `}` is text or code like the others. The code lines (not an empty line, not a comment line) go to VIEW, the heads of clean lines to VHEADS
@@ -410,6 +596,7 @@ VIEW != "" {   # the probe pass (BT_VIEW, mode dyn): the input is every line of 
     if (dyn(t)) print $0 > BAD
     if (sstr) { sline(); if (dsp < sstr) sstr = 0 }
     if (dbad2) print $0 > BAD2
+    nms()
     if (CMDS != "") for (j = 1; j <= nrec; j++) print REC[j] "\t" $0 > CMDS
     if (WRF != "") for (j = 1; j <= nwr; j++) print WREC[j] "\t" $0 > WRF
     if (DHDW != "") { hd = DHDW; hdfn = fn; hddash = DHDD; hdq = !DHDB }
@@ -450,27 +637,41 @@ SCOPE='BEGIN { RE = ENVIRON["SCOPE_RE"]; NORM = ENVIRON["SCOPE_NORM"] }
 # UNMARK takes the segment number off the function field of a line of a script text ("file:line:function@segment:text" is "file:line:function:text" again)
 # shellcheck disable=SC2016   # awk program
 UNMARK='{ p = index($0, ":"); p += index(substr($0, p + 1), ":"); q = p + index(substr($0, p + 1), ":"); f = substr($0, p + 1, q - p - 1); sub(/@.*/, "", f); print substr($0, 1, p) f substr($0, q) }'
+# UNMARKN is UNMARK for the records of the names ("NAME<TAB>file:line:function@segment:text")
+# shellcheck disable=SC2016   # awk program
+UNMARKN='{ i = index($0, "\t"); nm = substr($0, 1, i); r = substr($0, i + 1); p = index(r, ":"); p += index(substr(r, p + 1), ":"); q = p + index(substr(r, p + 1), ":"); f = substr(r, p + 1, q - p - 1); sub(/@.*/, "", f); print nm substr(r, 1, p) f substr(r, q) }'
 shview() {
-  : > "$tmp/code"; : > "$tmp/fns"; : > "$tmp/nested"; : > "$tmp/dyn_bad"; : > "$tmp/dyn_bad2"; : > "$tmp/sheads"; : > "$tmp/odd"; _tot=0
+  : > "$tmp/code"; : > "$tmp/fns"; : > "$tmp/nested"; : > "$tmp/dyn_bad"; : > "$tmp/dyn_bad2"; : > "$tmp/sheads"; : > "$tmp/odd"; : > "$tmp/names"; _tot=0
   while IFS= read -r _f; do
     awk '{ print FILENAME ":" FNR ":-:" $0 }' "$_f" > "$tmp/vraw"
-    : > "$tmp/v1"; : > "$tmp/h1"; : > "$tmp/e1"; : > "$tmp/b1"; : > "$tmp/b2"; : > "$tmp/n1"; : > "$tmp/s1"; : > "$tmp/t1"
-    BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_VIEW="$tmp/v1" BT_HEADS="$tmp/h1" BT_NESTED="$tmp/e1" BT_FDEFS=/dev/null BT_ADEFS=/dev/null BT_SCRIPT="$tmp/s1" BT_SHEADS="$tmp/t1" BT_ODD="$tmp/odd" BT_CNT=1 awk -v BAD="$tmp/b1" -v BAD2="$tmp/b2" -v NREAD="$tmp/n1" "$BTSEG" "$tmp/vraw"
-    cat "$tmp/v1" >> "$tmp/code"; cat "$tmp/b1" >> "$tmp/dyn_bad"; cat "$tmp/b2" >> "$tmp/dyn_bad2"
+    : > "$tmp/v1"; : > "$tmp/h1"; : > "$tmp/e1"; : > "$tmp/b1"; : > "$tmp/b2"; : > "$tmp/n1"; : > "$tmp/s1"; : > "$tmp/t1"; : > "$tmp/m1"; : > "$tmp/tr1"; : > "$tmp/tr2"
+    BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_VIEW="$tmp/v1" BT_HEADS="$tmp/h1" BT_NESTED="$tmp/e1" BT_FDEFS=/dev/null BT_ADEFS=/dev/null BT_SCRIPT="$tmp/s1" BT_SHEADS="$tmp/t1" BT_ODD="$tmp/odd" BT_CNT=1 BT_NAMES="$tmp/m1" BT_CHG="$CHG_VERBS" BT_TCN="$TC_NOUNS" BT_OUT="$OUT_WORDS" BT_TRAPS="$tmp/tr1" BT_TLEV=0 awk -v BAD="$tmp/b1" -v BAD2="$tmp/b2" -v NREAD="$tmp/n1" "$BTSEG" "$tmp/vraw"
+    cat "$tmp/v1" >> "$tmp/code"; cat "$tmp/b1" >> "$tmp/dyn_bad"; cat "$tmp/b2" >> "$tmp/dyn_bad2"; cat "$tmp/m1" >> "$tmp/names"
     awk -v F="$_f" '{ print F ":" $0 }' "$tmp/h1" >> "$tmp/fns"; awk -v F="$_f" '{ print F ":" $0 }' "$tmp/e1" >> "$tmp/nested"
     _n=$(cat "$tmp/n1"); _tot=$((_tot + ${_n:-0}))
     cat "$tmp/t1" >> "$tmp/sheads"
     # the script texts of the file (from a function head at the start of a line in a here-document body or a string to its end) are read once more, as code, from their own file: the reader starts afresh at every segment (a function head, the line after a closing brace), as it did when
     # these texts were part of the file, so a nested here-document or string ends there and reads the rest as code, and there is no third reading
     if [ -s "$tmp/s1" ]; then
-      : > "$tmp/k1"; : > "$tmp/k2"; : > "$tmp/kn"
-      BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_ODD="$tmp/odd" BT_CNT=1 awk -v BAD="$tmp/k1" -v BAD2="$tmp/k2" -v NREAD="$tmp/kn" "$BTSEG" "$tmp/s1"
-      awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"
+      : > "$tmp/k1"; : > "$tmp/k2"; : > "$tmp/kn"; : > "$tmp/m2"
+      BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_ODD="$tmp/odd" BT_CNT=1 BT_NAMES="$tmp/m2" BT_CHG="$CHG_VERBS" BT_TCN="$TC_NOUNS" BT_OUT="$OUT_WORDS" BT_TRAPS="$tmp/tr2" BT_TLEV=s awk -v BAD="$tmp/k1" -v BAD2="$tmp/k2" -v NREAD="$tmp/kn" "$BTSEG" "$tmp/s1"
+      awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"; awk "$UNMARKN" "$tmp/m2" >> "$tmp/names"
       _n=$(cat "$tmp/kn"); _tot=$((_tot + ${_n:-0}))
     fi
+    # the action of every `trap` of the file (a plain name, or one string in single or double quotes: tact) is read once more as code, from a file of its own, up to three traps deep (a trap whose action sets a trap): its command words, the verdicts of the rows 6d and 6e
+    # and its sinks join those of the file; the lines are not counted among the code lines read (the figure of the rows 6d and 6e stays what it was). A trap more than three deep, or one whose action is any other form, is a record "snk:trap" of the row 6h.
+    cat "$tmp/tr1" "$tmp/tr2" > "$tmp/tin"; _lv=1
+    while [ -s "$tmp/tin" ] && [ "$_lv" -le 3 ]; do
+      : > "$tmp/tout"; : > "$tmp/k1"; : > "$tmp/k2"; : > "$tmp/kn"; : > "$tmp/m3"
+      BT_WRAP_RE='' BT_CMD_RE='' BT_MODE=dyn BT_SEG_FNS='*' BT_ODD="$tmp/odd" BT_CNT=1 BT_NAMES="$tmp/m3" BT_CHG="$CHG_VERBS" BT_TCN="$TC_NOUNS" BT_OUT="$OUT_WORDS" BT_TRAPS="$tmp/tout" BT_TLEV=$_lv awk -v BAD="$tmp/k1" -v BAD2="$tmp/k2" -v NREAD="$tmp/kn" "$BTSEG" "$tmp/tin"
+      awk "$UNMARK" "$tmp/k2" >> "$tmp/dyn_bad2"; awk "$UNMARK" "$tmp/k1" >> "$tmp/dyn_bad"; awk "$UNMARKN" "$tmp/m3" >> "$tmp/names"
+      cp "$tmp/tout" "$tmp/tin"; _lv=$((_lv + 1))
+    done
+    [ ! -s "$tmp/tin" ] || awk "$UNMARK" "$tmp/tin" | awk '{ print "snk:trap\t" $0 }' >> "$tmp/names"
   done < "$tmp/shfiles"
   awk '!seen[$0]++' "$tmp/dyn_bad" > "$tmp/dyn_bad.u"; mv "$tmp/dyn_bad.u" "$tmp/dyn_bad"
   awk '!seen[$0]++' "$tmp/dyn_bad2" > "$tmp/dyn_bad2.u"; mv "$tmp/dyn_bad2.u" "$tmp/dyn_bad2"
+  awk '!seen[$0]++' "$tmp/names" | awk -F'\t' -v OFS='\t' '{ sub(/#[0-9]+$/, "", $1); print }' > "$tmp/names.u"; mv "$tmp/names.u" "$tmp/names"
   printf '%s\n' "$_tot" > "$tmp/dyn_n"
 }
 scoped() { # scoped ERE → "file:line:function:text" over the code lines of the scope (ERE via ENVIRON: no awk -v escape mangling)
@@ -526,7 +727,7 @@ apcli_scan() { # the lines of apcli_ro that hold `_pineap`: $tmp/ap_bad = the on
 # 0 · fill probe: every "outside the allowlist" / "stray" row below reads its hits through scoped(); a file list that
 # lost a shell file, or a function head the awk no longer recognises, would turn those rows green by looking at
 # less. So the scope is checked by NAME and by a floor, not just counted.
-MIN_FNSCOPE=127  # functions recognised over the shell files: the heads the reader takes, $tmp/fns  (measured 291; the figure of the row is 294, the lines that have the form of a head: the other three are the stop_nc, guard and short in the script text of the here-document that writes the handler of starchorus-serve.sh, no function of the file, so the floor reads the 291; the floor is 0.1.1's 95 plus the 32 collector functions of the radio pair)
+MIN_FNSCOPE=127  # functions recognised over the shell files: the heads the reader takes, $tmp/fns  (measured 293; the figure of the row is 297, the lines that have the form of a head: the other four are the init, stop_nc, guard and short in the script text of the here-document that writes the handler of starchorus-serve.sh, no function of the file, so the floor reads the 293; the floor is 0.1.1's 95 plus the 32 collector functions of the radio pair)
 cut -d: -f2 "$tmp/fns" | LC_ALL=C sort -u > "$tmp/fnames"
 if [ "${1:-}" = --pending ]; then   # what is announced and not there yet (empty once the collector has the Bluetooth code)
   for f in $BT_FUNCS; do grep -qxF "$f" "$tmp/fnames" || case "$BT_NOT_YET" in *" $f "*) printf '%s\n' "$f" ;; esac; done
@@ -788,20 +989,71 @@ rowif "§14.6e command names from a glob, find -exec, xargs or alias: $(lines "$
 # 6f · the docroot of the page servers, anywhere in the shell scope (SECURITY.md, docs/architecture.md §14.6). Route A's servers (uhttpd, BusyBox httpd, python3's http.server) serve the directory they are given, and
 # the whole of STARCHORUS_DIR holds more than a browser should reach: settings.conf, the pid files, the logs, homing.target and, when /tmp has no room, cap/recon_copy.db (a copy of the recon database). They are given
 # $STARCHORUS_DIR/www, a directory that holds two symbolic links (index.html, starchorus.json) and nothing else. This row reads every code line of the scope (the view the rows above read: comments are not in it; every
-# line of a here-document body is, quoted delimiter or bare, because nothing is taken from a scan of the text here: a body that only prints such an argument is red as well, which errs on the safe side) and takes every
-# docroot argument whose ARG mentions STARCHORUS_DIR; ARG must be exactly "$STARCHORUS_DIR/www", with the quotes. A docroot argument is `-h ARG`, `--directory ARG` and `--directory=ARG` on any line, and on a line that
-# names a page server (uhttpd, httpd, http.server or python) also the spellings the programs accept: the argument glued to the option (`-h"$STARCHORUS_DIR"`), a cluster of options that ends in h (`-fh ARG`), python's
-# `-d ARG` and `-dARG`, and any abbreviation of the long option (`--dir ARG`, `--dir=ARG`). A line that names the whole directory, or the directory in any other form (`$STARCHORUS_DIR/www` unquoted, "${STARCHORUS_DIR}",
-# "$STARCHORUS_DIR"/www, a sub-directory), is red. ARG is the whole shell word: what is glued on after the closing quote belongs to it (`"$STARCHORUS_DIR/www"/..` and `"$STARCHORUS_DIR/www"'/..'` are
-# the whole directory, and red), and a line continued with a backslash is read together with the next one, so a page server named on the first line and `-d ARG` on the second count as one line.
+# line of a here-document body is, quoted delimiter or bare, because nothing is taken from a scan of the text here: a body that only prints such an argument is red as well, which errs on the safe side). On a line that names a
+# page server (uhttpd, httpd, http.server or python) and is not a message, EVERY docroot argument must be exactly "$STARCHORUS_DIR/www", with the quotes, whatever it names (`-h /root`, `-h .`, `-h "$d"`, `--directory /srv`); on any other
+# line only an argument that names STARCHORUS_DIR is a docroot argument, and it must be that. A docroot argument is `-h ARG`, `--directory ARG` and `--directory=ARG` on any line, and on a line that names a page server also the spellings the
+# programs accept: the argument glued to the option (`-h"$STARCHORUS_DIR"`), a cluster of options that ends in h (`-fh ARG`), python's `-d ARG` and `-dARG`, and any abbreviation of the long option (`--dir ARG`, `--dir=ARG`). A line that names the
+# whole directory, or the directory in any other form (`$STARCHORUS_DIR/www` unquoted, "${STARCHORUS_DIR}", "$STARCHORUS_DIR"/www, a sub-directory), is red. ARG is the whole shell word: what is glued on after the closing quote belongs to it
+# (`"$STARCHORUS_DIR/www"/..` and `"$STARCHORUS_DIR/www"'/..'` are the whole directory, and red), and a line continued with a backslash is read together with the next one, so a page server named on the first line and `-d ARG` on the second
+# count as one line. A LAUNCH with no docroot option at all is red as well: a line where uhttpd, httpd (also behind busybox) or python's `-m http.server` is the command of a simple command (after a separator, a keyword such as `if`, a wrapper such as
+# nice, setsid, exec, env, timeout, sudo or command, also with a path and with the options that take a word (`env -u NAME`, `timeout -s INT 5`), or a variable such as $NICE; the programs that run the command they are given (flock, ionice, chrt, taskset, chroot, start-stop-daemon -x, setpriv, unshare, nsenter, watch, doas, su,
+# runuser, strace, ltrace, script, cpulimit) are wrappers as well; python's options before `-m` (`-u`, `-B`) are no obstacle, and python takes `-m` in a cluster of options (`-Im`, `-um`) and glued to its module (`-mhttp.server`; `python2 -m SimpleHTTPServer` is a page server too); not an argument of `command -v`, `pidof` or `grep`) and gives it no
+# directory serves the current directory, or what its configuration file says (`-c FILE`, uhttpd's own default). The code of the line decides whether it has a docroot option: a trailing comment is cut first (from the first `#` that stands outside every quote and begins a word), so `uhttpd -f -p 1 # -h "$STARCHORUS_DIR/www"` is a launch with none. A
+# docroot option is looked for in each simple command on its own (launch(t, 1), since the third round of the review, 24 October 2026): a launch whose own command has none is red though another command of the line has one (`uhttpd -h "$STARCHORUS_DIR/www" & uhttpd -p 2`); a brace group
+# and a backtick expression end a command as a separator does (`{ uhttpd -p 1; }`, `x=\`uhttpd -p 1\``), a descriptor copy (`2>&1`) ends none, and a backtick that closes right after a docroot argument belongs to its word, so such a line is red (the safe side). A
+# message is a line that is an echo or a printf and nothing else runs on it (no `;`, `|` or `&` outside the quotes, no `$( )`, no backtick): the opkg hints of both payloads name a server and give it no directory.
 # The floor keeps the row from turning green because the lines went: 2 in the library payload (uhttpd, python3) and 3 in the root launcher (uhttpd, BusyBox httpd, python3).
-# NOT SEEN, and docs/architecture.md §14.6 and tools/README.md say so: a directory that reaches the argument through an alias (`d=$STARCHORUS_DIR; ... -h "$d"`), a server started from a program text that is built and then
-# run, a server given no directory at all (it then serves the current directory: `(cd "$STARCHORUS_DIR" && python3 -m http.server 1)`) or a relative directory such as `-h .` after a cd
-# into it (`cd "$STARCHORUS_DIR" && uhttpd -h .`), and a program that takes its docroot from somewhere else than these options (a configuration file).
+# NOT SEEN, and docs/architecture.md §14.6 and tools/README.md say so: a server started from a program text that is built and then run (row 6h pins where that happens) or by a name that is built (row 6d), a server that is not one of the three (lighttpd, nginx,
+# mini_httpd, thttpd and darkhttpd are names of OUT_WORDS since 26 October 2026, and red on row 6g whatever they are given; a server under a name of no list is green), a docroot option that a configuration file overrides (`-c FILE` given beside the right `-h`), and what the server does with the directory.
 # Nothing here reads what the server does with the directory; the links themselves are checked by the payload-ui rows (served-names, served-root).
 MIN_DOCROOT_LINES=5   # code lines with a docroot argument that names STARCHORUS_DIR (measured: 5; 2 in the library payload, 3 in the root launcher)
 # shellcheck disable=SC2016   # awk program
-DRAWK='BEGIN { RE1 = "(^|[ \t])(-h[ \t]+|--directory[ \t]+|--directory=)"                 # the plain spellings, on every line
+DRAWK='BEGIN { LAUNCH = "uhttpd|httpd|python" }   # the words a launch is looked for on a line that has one of them (launch() below reads the commands)
+function base(x,   b) { b = x; gsub(/["\047\\]/, "", b); if (b !~ /^(\/?[A-Za-z0-9_.+-]+\/)*[A-Za-z0-9_.+-]+$/) return ""; sub(/^.*\//, "", b); return b }   # the name of a word that is a plain command name or a path to one, without quotes and directory (an awk pattern such as !/httpd is none)
+function pymod(w, k, nw,   m) {   # python -m http.server after its options (-u, -B, -I ...); python accepts -m in a cluster of options (`-Im`, `-um`) and glued to its module (`-mhttp.server`), and `python2 -m SimpleHTTPServer` serves the directory as well
+  for (m = k; m < nw; m++) if (w[m] == "-m" && base(w[m + 1]) == "http.server") return 1
+  for (m = k; m <= nw; m++) {
+    if (m < nw && w[m] ~ /^-[A-Za-z]+m$/ && base(w[m + 1]) == "http.server") return 1
+    if (m < nw && w[m] ~ /^-[A-Za-z]*m$/ && base(w[m + 1]) == "SimpleHTTPServer") return 1
+    if (w[m] ~ /^-[A-Za-z]*m(http\.server|SimpleHTTPServer)$/) return 1
+  }
+  return 0
+}
+function cutc(s,   i, n, c, q) {   # the line without its trailing comment: the text from the first `#` that stands outside every quote and begins a word is cut; a docroot that only a comment names serves nothing
+  n = length(s); q = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (q != "") { if (c == "\\" && q == "\"") i++; else if (c == q) q = ""; continue }
+    if (c == "\\") { i++; continue }
+    if (c == "\"" || c == "\047") { q = c; continue }
+    if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;&|(]/)) return substr(s, 1, i - 1)
+  }
+  return s
+}
+function launch(t, nd,   ns, seg, i, nw, w, j, b, k, c, u, v) {   # a LAUNCH: uhttpd, httpd or python with -m http.server is the COMMAND of a simple command: the first word after a separator, a keyword, VAR=value and a redirection, or within twelve words behind a wrapper (nice, setsid, nohup, exec, env, time, timeout, sudo, stdbuf, busybox, command, builtin, also with a path and with the options that take a word: env -u NAME, timeout -s INT 5, sudo -u USER) or a variable such as $NICE; not an argument of `command -v`, `pidof` or `grep`
+  u = t; gsub(/[<>]&/, ">_", u); gsub(/>\|/, ">_", u)   # a descriptor copy (`2>&1`, `>&2`) and `>|` end no simple command
+  ns = split(u, seg, /[;&|()`]/)   # the simple commands of the line: a separator, a pipe, a subshell, a `$( )` and a backtick expression end one
+  for (i = 1; i <= ns; i++) {
+    if (nd) { v = seg[i]; gsub(/"([^"\\]|\\.)*"/, "Q", v); gsub(/\047[^\047]*\047/, "Q", v); if (match(v, RE2)) continue }   # nd: only a launch whose OWN simple command has no docroot option counts (one docroot on the line clears no other launch on it); the option stands outside every quote (a docroot option inside a single-quoted argument of another option is a string, and gives no directory)
+    nw = split(seg[i], w, /[ \t]+/)
+    j = 1
+    while (j <= nw && (w[j] == "" || w[j] ~ /^(then|do|else|elif|if|while|until|!|\{|\})$/ || w[j] ~ /^[A-Za-z_][A-Za-z0-9_]*=/ || w[j] ~ /^[0-9]*[<>]/)) j++
+    if (j > nw) continue
+    b = base(w[j])
+    if (b ~ /^(uhttpd|httpd)$/) return 1
+    if (b ~ /^python[0-9.]*$/ && pymod(w, j + 1, nw)) return 1
+    if (b ~ /^(nice|setsid|nohup|exec|env|time|timeout|sudo|stdbuf|busybox|command|builtin|flock|ionice|chrt|taskset|chroot|start-stop-daemon|setpriv|unshare|nsenter|watch|doas|su|runuser|strace|ltrace|script|cpulimit)$/ || w[j] ~ /^\$/) {
+      if (b == "command" && w[j + 1] ~ /^-[vV]$/) continue
+      for (k = j + 1; k <= nw && k <= j + 12; k++) {
+        c = base(w[k])
+        if (c ~ /^(uhttpd|httpd)$/) return 1
+        if (c ~ /^python[0-9.]*$/ && pymod(w, k + 1, nw)) return 1
+      }
+    }
+  }
+  return 0
+}
+BEGIN { RE1 = "(^|[ \t])(-h[ \t]+|--directory[ \t]+|--directory=)"                 # the plain spellings, on every line
   RE2 = "(^|[ \t])(-[A-Za-z]*[hd][ \t]*|--d[a-z]*([ \t]+|=))" }                           # all the spellings, on a line that names a page server
 function word(s,   w, c, e) {                                         # the whole shell word at the head of s: quoted parts and what is glued to them, up to a blank or ;&|)<>
   w = ""
@@ -814,16 +1066,24 @@ function word(s,   w, c, e) {                                         # the whol
   }
   return w
 }
-function one(rec, t,   hit, bad, re, rest, arg) {                     # one logical line: rec is its first record, t its text
-  hit = 0; bad = 0
-  re = (t ~ /uhttpd|httpd|http\.server|python/) ? RE2 : RE1
+function ismsg(t,   b) {                                              # a message: the line is an echo or printf and nothing else runs on it (no separator outside the quotes, no `$( )`, no backtick); the opkg hint lines name a server and give it no directory
+  if (t !~ /^[ \t]*(echo|printf)[ \t]/ || t ~ /`/ || t ~ /\$\(/) return 0
+  b = t; gsub(/"([^"\\]|\\.)*"/, "", b); gsub(/\047[^\047]*\047/, "", b)
+  return (b !~ /[;|]/ && b !~ /(^|[^<>])&/)
+}
+function one(rec, t,   hit, bad, re, rest, arg, found, srv, t0, c0) {         # one logical line: rec is its first record, t its text
+  hit = 0; bad = 0; found = 0; t0 = t; c0 = cutc(t)                    # c0: the line without its trailing comment
+  srv = (!ismsg(t) && t ~ /uhttpd|httpd|http\.server|python/)         # a line that names a page server and is no message: EVERY docroot argument on it counts, whatever it names
+  re = srv ? RE2 : RE1; if (srv && t ~ LAUNCH && launch(t)) hit = 1                # a launch with no docroot option at all (found stays 0) serves the current directory, or what its configuration file says: red below
   while (match(t, re)) {
     rest = substr(t, RSTART + RLENGTH); t = rest
     arg = word(rest)
-    if (index(arg, "STARCHORUS_DIR") == 0) continue
-    hit = 1
+    if (!srv && index(arg, "STARCHORUS_DIR") == 0) continue           # on the other lines only an argument that names STARCHORUS_DIR is a docroot argument
+    found = 1; hit = 1
     if (arg != "\"$STARCHORUS_DIR/www\"") bad = 1
   }
+  if (hit && !found) bad = 1; if (srv && t0 ~ LAUNCH && launch(c0, 1)) { hit = 1; bad = 1 }   # no docroot option on the line; and per simple command: a launch with no docroot option of its own is red though another command of the line has one (`uhttpd -h "$STARCHORUS_DIR/www" & uhttpd -p 2`)
+  if (found && srv && t0 ~ LAUNCH && launch(c0) && !match(c0, RE2)) bad = 1   # a launch in the code of the line with a docroot option only in its comment (`uhttpd -f -p 1 # -h "$STARCHORUS_DIR/www"`) serves the current directory
   if (hit) { n++; if (bad) print rec > BADS }
 }
 { t = $0
@@ -842,6 +1102,124 @@ ndrb=$(lines "$tmp/drbad")
 drok=0; [ "$ndrb" = 0 ] && [ "$ndr" -ge "$MIN_DOCROOT_LINES" ] && drok=1
 rowif "§14.6f docroot of the page servers: $ndr lines give a server a directory of STARCHORUS_DIR (≥ $MIN_DOCROOT_LINES), other than \"\$STARCHORUS_DIR/www\" $ndrb" [ "$drok" = 1 ]
 [ "$ndrb" = 0 ] || { show < "$tmp/drbad"; echo "    hint: a page server is to be given \"\$STARCHORUS_DIR/www\" (two links, nothing else), never the whole directory: change the line, or read it and change this row on purpose"; }
+
+# 6g · outward and state-changing programs, anywhere in the shell scope (SECURITY.md, docs/architecture.md §14.6). The rows above deny the programs that send, by name (TX_WORDS) and by the stack (BT_WORDS), and the device's own commands (SEC6_RE); the contract says more than that: Starchorus
+# sends nothing and changes the state of no radio and no controller, and a program that connects out (`curl`, `ping`, `ssh`, `nc HOST PORT`), installs (`opkg`), configures (`uci`, `wifi`, `sysctl`, `rfkill`, `nft`), switches a service or the device (`service`, `reboot`) or sets an interface
+# or a radio (`iw dev wlan0 set channel 6`, `ip link set wlan0 down`, `ifconfig wlan0 down`, `tc qdisc add`) was in no list for the shipped scripts: PNET_WORDS is read for tools/device-probe.sh only (row 7d). This row reads the LITERAL COMMAND WORDS of every shell file of the scope with the reader of row 7d
+# (BTSEG, mode dyn: a command word as the shell would find it, behind a wrapper such as `nice`, `exec`, `env`, `timeout N`, `busybox` or `xargs`, also with a path (/usr/bin/env) and with the options that take a word (`env -u NAME`, `sudo -u USER`, `stdbuf -o MODE`, `exec -a NAME`), after `VAR=value`, a redirection,
+# a pipe, `&&`, in a `$( )`, a backtick expression and a case arm, in the body of a here-document with a bare delimiter, and in the lower part of a script text; an escaped newline in the middle of a word joins the two lines; a comment, a string, the text of a here-document with a quoted delimiter and an awk or jq
+# program are text, and a word in them is none). It is red for a command whose name is one of OUT_WORDS (the name alone decides: `uci show` is red as well), for `iw` with any command but the ones that read (iwarg), for `ip`, `tc` and `bridge` (since 26 October 2026) with a word that is a changing verb or the beginning of one (CHG_VERBS; for `tc` also a noun of TC_NOUNS; `ip -batch` and `-ba`, `bridge -batch` and `-b`), for `date`, `logger`, `logread` and `iwinfo` with the options that set the clock, send the log out or scan, for a word from an expansion where a verb or an option can stand (since the third
+# round of the review: before a verb that reads for `ip` and `tc`, `ip link "$v" wlan0 down`; any operand of `route`; before a read option of `arp`; the command of `iwinfo` and an unquoted expansion as its device; before `--` for `logger`, its tag and priority apart; for `logread` all but the count and the pattern),
+# for the BusyBox applets iplink, ipaddr, iproute, iprule, ipneigh and iptunnel, which are read as `ip`, for `ifconfig` given more than an interface,
+# and, as the second small rule, for a redirection, `tee` or `dd of=` into /sys, /proc/sys, /dev/tcp or /dev/udp. `iw dev wlan0 info`, `iw dev wlan0 survey dump`, `ip link show` and `ifconfig wlan0` read and stay green. Three more things are red: a name of OUT_WORDS among the arguments of a program that runs the command it is
+# given (`flock FILE curl`, `start-stop-daemon -x curl`, `ionice`, `chroot`, `su -c`, `chpst`, `setuidgid`, `envuidgid`, `envdir`, `softlimit`...; `builtin NAME` is read as a wrapper), a start script by its path (/etc/init.d/NAME), and a command whose name is not spelled in one piece on its line (quotes or a backslash inside the word, `hci\` and `tool -i hci0 lescan` on two lines): the text rows above read each line
+# alone, and the reader has read a name they cannot. A name that holds an expansion or a glob is not a name this row can read: rows 6d and 6e list it (the listener of starchorus-serve.sh runs "$NC", which is row 6d's, and is no `nc` here).
+# Six lines of the collector are the monitor interface it makes and removes itself (SECURITY.md and docs/device-notes.md say so): `iw phy ... interface add ... type monitor` and the three `ip link set ... up` and `ifconfig ... up` that follow it in create_monitor, start_airodump and build_from_tcpdump,
+# and `iw dev ... del` in cleanup. They are pinned below, byte for byte with file, function and text (leading blanks cut), each once, as the lines of row 6d are: an edited pin, a vanished one and a copy of one are red, and MIN_6G_PINS keeps the row from turning green because the pins went.
+# NOT SEEN, and SECURITY.md says so: a program text that is built and then run (row 6h pins the places where that happens), a program whose name is in no list (OUT_WORDS names programs, it allows nothing: a program of the same kind under a name it lacks is green), a program that a function of the script is named like (`mail() { ...; }` is the function, the call of it is red as well), a redirection to a file the path of which an
+# expansion builds (`> "$SYSFS/flags"`), a `/sys` or `/proc/sys` path reached through a symbolic link or a cd, a program copied to a name of its own (`cp /usr/bin/curl /tmp/x; /tmp/x` is a command word `x`), what a program does with its arguments (`iw ... interface add` into the name of an existing interface), and the argument of a command
+# that is read in a single-quoted string (an `awk` program, `sh -c '...'`; the action of a `trap` is read as code since 24 October 2026: a plain name or one string on a line, up to three traps deep; any other form is a record of the row 6h). The mutation probe plants every word of the list and every verb in the collector (one per alternative: `alt out`, `alt chg`, `alt tcn`), a family of each in the payload of the library, the Overview, the listener and a helper, the forms of the reader, the
+# pins (edited, copied), and the controls (the six pins; the words in a comment, in a here-document text and in a string; `ip link show`, `iw dev wlan0 info`, `ifconfig wlan0`; reads from /sys; the probe's own tools/device-probe.sh, whose rows are 7d).
+MIN_6G_PINS=6      # the pins of the collector that the row finds a line for (measured: 6)
+MIN_6G_CMDS=5000   # command words the reader records over the scope (measured: 7465, a word counted as often as it stands on a line; this is the floor against a reader that reads less)
+cat > "$tmp/outpins" <<'OUTPINS'
+starchorus-collect.sh:create_monitor:if iw phy "$phy" interface add "$newif" type monitor >/dev/null 2>&1; then
+starchorus-collect.sh:create_monitor:have ip && ip link set "$newif" up 2>/dev/null
+starchorus-collect.sh:create_monitor:have ifconfig && ifconfig "$newif" up 2>/dev/null
+starchorus-collect.sh:start_airodump:have ip && ip link set "$MONIF" up 2>/dev/null
+starchorus-collect.sh:cleanup:if have iw; then iw dev "$MONIF" del 2>/dev/null; fi
+starchorus-collect.sh:build_from_tcpdump:have ip && ip link set "$MONIF" up 2>/dev/null
+OUTPINS
+# shellcheck disable=SC2016   # awk program
+awk -F'\t' -v W="$OUT_WORDS" 'BEGIN { RE = "^(" W ")$" }
+  { n = $1; sub(/^!/, "", n); r = substr($0, length($1) + 2); hit = 0
+    if (n ~ /^(chg|sys):/) hit = 1
+    else if (n ~ /^snk:/) next
+    else {
+      t = r; for (k = 0; k < 3; k++) t = substr(t, index(t, ":") + 1)
+      if (index(t, n) == 0) hit = 1   # the name is not spelled in one piece on its line (quotes or a backslash inside the word, a word that an escaped newline joins): the reader read it, the text rows would not
+      else if (n ~ /^\/etc\/(init|rc)\.d\//) hit = 1   # a start script is a service switch
+      else { sub(/[ \t].*/, "", n); sub(/^.*\//, "", n); if (n ~ RE) hit = 1 }   # a name with a blank in it (`env -S "curl x"`) is read by its first word
+    }
+    if (hit) print r }' "$tmp/names" | awk '!seen[$0]++' > "$tmp/g_hits"
+g_n=$(awk -F'\t' '$1 !~ /^(chg|sys|snk):/' "$tmp/names" | wc -l | tr -d ' ')
+: > "$tmp/g_new"; : > "$tmp/g_gone"
+g_p=$(pin_cmp "$tmp/g_hits" "$tmp/outpins" "$tmp/g_new" "$tmp/g_gone" 1)
+g_ok=0; [ ! -s "$tmp/g_new" ] && [ ! -s "$tmp/g_gone" ] && [ "$g_p" -ge "$MIN_6G_PINS" ] && [ "$g_n" -ge "$MIN_6G_CMDS" ] && g_ok=1
+rowif "§14.6g outward and state-changing programs: $(lines "$tmp/g_hits") lines name one ($g_n command words read, ≥ $MIN_6G_CMDS), pinned $g_p of $(lines "$tmp/outpins") (≥ $MIN_6G_PINS), not pinned $(lines "$tmp/g_new"), pins without a line $(lines "$tmp/g_gone")" [ "$g_ok" = 1 ]
+[ ! -s "$tmp/g_new" ] || { show < "$tmp/g_new"; echo "    hint: the command word of that line sends, installs, configures or sets something: if the collector is to do that, read the line and add it (file:function:text) to the pinned list of row 6g, with the reason in the comment of the row"; }
+[ ! -s "$tmp/g_gone" ] || { sed 's/^/    pin without a line: /' "$tmp/g_gone" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of row 6g with it"; }
+
+# 6h · program-text sinks, anywhere in the shell scope: the places where a program text is made or taken and run. Rows 6d and 6e read a command word that is built; nothing above reads a TEXT that is run (`eval "$x"`, `sh -c "$x"`, `printf ... | sh`, an awk `system()`, `. FILE`, `xargs`,
+# `find -exec`, `exec "$x"`), and a program that a text starts can be anything the rows above would deny by name. So each of them is pinned, as the lines of row 6d are: file, function and text, byte for byte (leading blanks cut), each once; a new one is red until someone has read it and added it.
+# The row reads the commands the way row 6g does (the reader of row 7d: comments, strings and the text of a here-document with a quoted delimiter are no commands, a word in them is none): `eval`, `ln`, `xargs`, `.` and `source` as command words, behind a wrapper, with a path, in quotes, across lines; a shell
+# (sh, bash, ash, dash, ksh, zsh) with -c in any cluster of options, one that has no file operand, which reads its program from its standard input (after a pipe, with -s and its operands, which are positional parameters, with the argument of -o or -O or --rcfile, with a here-document), and one that is given a FILE (`sh /tmp/x`, `exec sh F`: the
+# text is in the file, which the script may have written; "$0", the script itself, is the one exception, and five lines of the collector's self-test, which start the stand-in scripts it wrote, are pinned); `find` with -exec, -execdir, -ok or -okdir; su, runuser and script with -c (also glued, `-cTEXT`, and `--command`, `--command=` with their abbreviations and `--session-command`), flock with -c or --command, and `watch` and `run-parts` by name (watch runs its operands through a shell, run-parts every program of a directory); an interpreter (python, perl, lua, ruby, php, node) with -c, -e or -E, one with no script
+# (`printf x | python3`, `python3 -`: the program comes from its standard input) and one given a script FILE (`--version`, `--help` and a module, `-m`, also in a cluster and glued, are no program); `awk -f FILE`; and an `exec` whose command word is built. Four more rules read text: the awk function `system(` on a code line, an awk command pipe
+# (`"cmd" | getline`, `cmd |& getline`, `print x | "cmd"`), because an awk program is a single-quoted string that the reader does not read, and, for the action of every `trap`, the shell text that runs when the signal comes: a plain name or one string on a line is handed on and read as code, up to three traps deep, so that what it runs is a command word of the scope
+# (a `curl` in an action is red on the row 6g, an `eval` on this row, a built command word on the row 6d); any other form (a glued string, an expansion, `--`, an option, a string over several lines, a fourth trap in a trap) is a record of this row, and so a line. Five more: `tcpdump -z` (it runs a program after a capture file is rotated), the options of `tar` that run one (`--checkpoint-action`, `--to-command`, `-I`),
+# the dot commands of the sqlite3 shell that run one (`.shell`, `.system`: a text rule on the raw line), a program of this list behind a program that runs its operand (`flock FILE sh -c ...`, `chroot DIR python3 -c ...`, `start-stop-daemon -x /bin/sh`), and a command run by a PATH outside the system directories (`/tmp/x`, `./x`: the file may be a text that the script wrote; three lines of the
+# payloads that call the collector as `./starchorus-collect.sh` are pinned). `ln` is here because a link is the way to give a program a second name (`ln -s /usr/bin/hc?tool x`).
+# A pinned `eval` is READ, not proven safe: the four of the Overview (and of its library copy) put a record of the document into a variable name, which rests on the record framing and the canary rows of tools/regress.d/ingest-fuzz.sh; the pin only forces a review. The same holds for the self-test's `sh -c` stand-ins
+# (fixed texts) and the one `python3 -c` of json_ok (a fixed program).
+# NOT SEEN, and SECURITY.md says so: the program text itself (what a pinned line runs, and what a file holds that a pinned `sh FILE` runs); a copy of a program under another name (`cp /usr/bin/curl /tmp/x; /tmp/x` is a command word `x`, or a script written into a directory of the PATH and run by its name: the mutation probe holds the control `sink-limit-written-program`); an awk program that writes a file (`print 1 > "/sys/x"`: the control `out-ok-awk`); an awk command pipe whose command is a variable that is no `getline` (`print x | c`); a sed program that runs a command (GNU sed `e`, inside the single-quoted program: the control `sink-limit-sed-e`); a trap given by an expansion (its
+# line is a record of this row, and a built command word of row 6d); a sink spelled by a built word (row 6d); and a sink in the text of a here-document with a quoted delimiter, which is text like a string (the stand-ins of the collector's self-test are such texts: bt_tmo has an `exec "$@"` and bt_stub an
+# `ln -s` there, and a handler or a script that the text writes is read, as code, from its first function head on: tools/passivity-check.sh, script texts).
+cat > "$tmp/sinkpins" <<'SINKPINS'
+starchorus-collect.sh:selftest:sh -c 'exit 0' & dpid=$!; wait "$dpid" 2>/dev/null
+starchorus-collect.sh:selftest:sh -c 'mkdir "$1" && printf "%s\n" "$$" > "$1/pid"; sleep 3; printf "ZZZZZZ\tHolder\n" >> "$2"; rm -f "$1/pid"; rmdir "$1"' "$SELF_BASE" "$lk" "$OUI_CACHE" &
+starchorus-collect.sh:json_ok:elif have python3; then python3 -c 'import sys,json; json.load(sys.stdin)' >/dev/null 2>&1
+starchorus-display.sh:load:eval "R_$k=\$v N_$k=\$i"
+library/user/reconnaissance/starchorus/payload.sh:pl_web_prepare:ln -sf ../index.html "$pl_wd/index.html" 2>/dev/null && ln -sf ../starchorus.json "$pl_wd/starchorus.json" 2>/dev/null || pl_wok=0
+starchorus-collect.sh:selftest:sh -c 'sleep 2; exit 0' "$SELF_BASE" & spid=$!
+library/user/reconnaissance/starchorus/starchorus-display.sh:rec_lines:eval "rl_n=\${N_$1:-0} rl_v=\${R_$1-}"
+starchorus-display.sh:fetch:eval "fx_ck=\${CK_$1-} fx_out=\${CO_$1-} fx_vd=\${CV_$1-}"
+starchorus-collect.sh:selftest:sh -c 'exit 0' & dpid=$!; wait "$dpid" 2>/dev/null
+starchorus-collect.sh:selftest:sh -c 'sleep 6; exit 0' "$SELF_BASE" & lh=$!
+library/user/reconnaissance/starchorus/starchorus-display.sh:load:eval "R_$k=\$v N_$k=\$i"
+starchorus-collect.sh:selftest:sh -c 'sleep 5; exit 0' "$SELF_BASE" & fh=$!
+payload.sh:web_prepare:ln -sf ../index.html "$wd/index.html" 2>/dev/null && ln -sf ../starchorus.json "$wd/starchorus.json" 2>/dev/null || wok=0
+starchorus-display.sh:rec_lines:eval "rl_n=\${N_$1:-0} rl_v=\${R_$1-}"
+library/user/reconnaissance/starchorus/starchorus-display.sh:fetch:eval "fx_ck=\${CK_$1-} fx_out=\${CO_$1-} fx_vd=\${CV_$1-}"
+starchorus-collect.sh:selftest:sh -c 'exit 0' & dpid=$!; wait "$dpid" 2>/dev/null
+library/user/reconnaissance/starchorus/starchorus-display.sh:fetch:[ "$fx_key" = "$JSON|" ] || eval "CK_$1=\$fx_key CO_$1=\$fx_out CV_$1=\$fx_vd"
+starchorus-collect.sh:selftest:sh -c 'sleep 60; exit 0' "$SELF_BASE" & lh=$!
+starchorus-display.sh:fetch:[ "$fx_key" = "$JSON|" ] || eval "CK_$1=\$fx_key CO_$1=\$fx_out CV_$1=\$fx_vd"
+starchorus-collect.sh:selftest:sh -c 'exit 0' & dpid=$!; wait "$dpid" 2>/dev/null
+starchorus-collect.sh:selftest:eval "${ixd#*:}"
+starchorus-collect.sh:bt_selftest:sh "$BTS/$SELF_BASE" 2>/dev/null & BTS_OH=$!
+starchorus-collect.sh:selftest:( sh "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )
+starchorus-collect.sh:selftest:( sh "$tdir/own/airodump-ng" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
+starchorus-collect.sh:selftest:( ( cd "$klw/$1" && exec sh "$klw/$1/starchorus-collect.sh" $2 ) </dev/null >/dev/null 2>&1 & echo $! > "$klw/spawn.pid" )
+starchorus-collect.sh:selftest:( cd "$klw/d1" && exec sh "$klw/d1/starchorus-collect.sh" ) </dev/null >/dev/null 2>&1 & klch=$!
+library/user/reconnaissance/starchorus/payload.sh:pl_status:./starchorus-collect.sh --status 2>&1 | while IFS= read -r pl_sl; do ui_log "${pl_sl#\[starchorus\] }"; done
+library/user/reconnaissance/starchorus/payload.sh:pl_fast_stop:if [ "$ONDEV" = 1 ]; then ./starchorus-collect.sh --stop >/dev/null 2>&1; else ./starchorus-collect.sh --stop; fi
+payload.sh:-:./starchorus-collect.sh --stop
+SINKPINS
+scoped_n '(^|[^A-Za-z0-9_])system[[:space:]]*\(' > "$tmp/s_text"
+{
+  scoped '(^|[^A-Za-z0-9_])\.(shell|system)([[:space:]]|")'  # the dot commands of the sqlite3 shell that run a program (`.shell CMD`, `.system CMD`), given as an argument or in a here-document
+  scoped_n '\|&?[[:space:]]*getline'  # an awk command pipe: `"cmd" | getline`, `cmd | getline`, `cmd |& getline`
+  scoped '(^|[^A-Za-z0-9_])print[^|]*[^|]\|&?[[:space:]]*"[^$]'  # `print x | "cmd"` (the raw line: the quotes are in it); a pipe into a quoted word that begins with $ is the listener's "$NC", row 6d's
+} >> "$tmp/s_text"
+# shellcheck disable=SC2016   # awk program
+awk -F'\t' '{ p = $1; sub(/^!/, "", p); sub(/[ \t].*/, "", p); n = p; sub(/^.*\//, "", n); r = substr($0, length($1) + 2)
+    if ($1 !~ /^(snk|chg|sys):/ && p ~ /\// && p !~ /^\/(usr\/)?(local\/)?s?bin\/[^\/]+$/ && p !~ /^\/etc\/(init|rc)\.d\//) hit[r] = 1   # a program run by a path outside the system directories (`/tmp/x`, `./x`; a start script, /etc/init.d/NAME, is the row 6gs) -- the file may be a text that the script wrote
+    if (n ~ /^(sh|bash|ash|dash|ksh|zsh)$/) nsh[r]++
+    if (n ~ /^(python[0-9.]*|perl|lua|ruby|php|node)$/) nsh[r]++   # an interpreter counts like a shell: no script operand (and no -c, -e, -m ...) means the program comes from its standard input
+    if ($1 == "snk:shell-file") nop[r]++
+    if ($1 ~ /^snk:/ && $1 != "snk:shell-file") hit[r] = 1
+    if (n ~ /^(eval|ln|xargs|\.|source)$/) hit[r] = 1
+    if (n ~ /^(watch|run-parts)$/) hit[r] = 1   # watch runs its operands through a shell (sh -c), run-parts every program a directory holds
+    seen[r] = 1 }
+  END { for (r in seen) if (hit[r] || nsh[r] > nop[r]) print r }' "$tmp/names" > "$tmp/s_names"
+cat "$tmp/s_text" "$tmp/s_names" | awk '!seen[$0]++' > "$tmp/s_hits"
+: > "$tmp/s_new"; : > "$tmp/s_gone"
+s_p=$(pin_cmp "$tmp/s_hits" "$tmp/sinkpins" "$tmp/s_new" "$tmp/s_gone" 1)
+s_ok=0; [ ! -s "$tmp/s_new" ] && [ ! -s "$tmp/s_gone" ] && s_ok=1
+rowif "§14.6h program-text sinks: $(lines "$tmp/s_hits") lines hold one (as commands $(lines "$tmp/s_names"), system( $(lines "$tmp/s_text")), pinned $s_p of $(lines "$tmp/sinkpins"), not pinned $(lines "$tmp/s_new"), pins without a line $(lines "$tmp/s_gone")" [ "$s_ok" = 1 ]
+[ ! -s "$tmp/s_new" ] || { show < "$tmp/s_new"; echo "    hint: the line makes or runs a program text (eval, a shell with -c, reading its input or given a file, an interpreter with no script or given a file, system(), an awk command pipe or awk -f, xargs, find -exec, exec of a built word, ln, . FILE, a trap action in an unlisted form): read what it runs, then add the line (file:function:text) to the pinned list of row 6h"; }
+[ ! -s "$tmp/s_gone" ] || { sed 's/^/    pin without a line: /' "$tmp/s_gone" | cut -c1-200; echo "    hint: a pinned line changed or went: change the pinned list of row 6h with it"; }
 
 # 7b · recon.db is only ever READ, and read-only (SECURITY.md, first permitted way): every sqlite3 CALL outside
 # selftest() carries -readonly. `have sqlite3` is a presence test, not a call. The floor keeps the row from turning

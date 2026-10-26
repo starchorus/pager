@@ -111,6 +111,9 @@ fi
 # The per-connection handler: HTTP request on stdin, response on stdout (wired to nc by the FIFO loop).
 cat > "$HANDLER" <<'HANDLER_EOF'
 #!/bin/sh
+init() {   # does nothing and is never called: a function head, so that tools/passivity-check.sh reads the lines below as code
+    :
+}
 DIR="__DIR__"
 PORT=__PORT__
 CR=$(printf '\r')

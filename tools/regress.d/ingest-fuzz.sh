@@ -6,6 +6,11 @@
 #                 poisoned Object.prototype, an unescaped SSID in the tooltip/detail/#source-desc, and the display script echoing SSID text
 #                 into a shell (the canary proof has its own positive control: an injectable stand-in must create the file with the very same
 #                 payloads, so the proof cannot be void). Anchors: all 7 classes, >= FUZ_MIN_MUTANTS, every sink driven, the masked text FOUND.
+#                 Also (section 5b): a place in the page that runs text as code or reaches out of it by a name the sink list above does not hold
+#                 (eval(, new Function, Function(, setTimeout or setInterval with a string, setAttribute('on…'), document.write, insertAdjacentHTML,
+#                 .outerHTML =, srcdoc, javascript:, an inline on…= attribute in a markup string, import(, postMessage, the word eval as any identifier
+#                 (window.eval, (0, eval)(…)), createElement('script') and createContextualFragment, a bracket name such as self["eval"], and the constructor route
+#                 ([].constructor.constructor("…")(), also as ["constructor"], which reaches Function without spelling it; since 24 October 2026)): none stands today, one would be red.
 # NEGATIVE PROBE: a page copy with `esc = String` (the SSID lands as an <img> in the panel) and with the null-entry skip removed from
 #                 normalizeDoc => red; as the standing row "sensor bites" below (copy under out/); an empty mutant list => red.
 #                 Generator ignores the seed => row 1 red (payload compared without the seed field); page copies with
@@ -15,16 +20,19 @@
 #                 => display row red; canary file created before the verdict => display row "CREATED". Relative TMPDIR (out/x)
 #                 without the absolute-path check => display row red "control 0 of N" (after the cd the control puts the file
 #                 elsewhere), with it a fallback to /tmp and green; a generator copy without the backtick family under a short TMPDIR =>
-#                 display row red "2/3 families" (the count alone would stay green, 10 of 15 texts).
+#                 display row red "2/3 families" (the count alone would stay green, 10 of 15 texts). The zero list of section 5b is read against a
+#                 copy of the page with one planted line per word (the row 'page zero list sensor bites'): a word whose expression no longer finds
+#                 its own line is red.
 # NOT PROVEN:     sinks outside the list below (a new assignment => row red, add a driver); behaviour in real browsers
 #                 and on the device (there only the output under jq, never a collector); only ~30 s of observation per run. Limit of the
 #                 static ratchet: it does not see sinks whose name is computed at run time (x[a + b] = ...); moreover
-#                 every word innerHTML outside // comments is an assignment or red (multi-line, Object.assign). Nor does the ratchet
-#                 see the other ways of running text as code: eval(, new Function(, setAttribute('on...'), setTimeout
-#                 or setInterval with a string (the page has 0 such places, measured with
-#                 `grep -cE 'eval *\(|new +Function|Function *\(' starchorus.html`; they are in no zero list, so a new place would stay
-#                 green here). The canary proof holds for three payloads ($( ), backticks, breaking out of quotes), not for
-#                 every shell syntax, and only for the Overview under this machine's shell.
+#                 every word innerHTML outside // comments is an assignment or red (multi-line, Object.assign). The other ways of running
+#                 text as code (eval(, new Function(, setAttribute('on...'), setTimeout or setInterval with a string, javascript:, an inline
+#                 on...= attribute in a markup string, import(, postMessage) are in the zero list of section 5b (row 'page zero list'), each
+#                 with a planted copy that must be counted; that list reads the text of the page, so it does not see a name that is put together
+#                 at run time (`window['ev' + 'al']`), a handler attribute that two strings make (`'<a ' + 'onclick=…'`), or a string that is
+#                 handed to a function of the page which later runs it. The canary proof holds for three payloads ($( ), backticks, breaking
+#                 out of quotes), not for every shell syntax, and only for the Overview under this machine's shell.
 # Sourced by tools/regress.sh with cwd = repo root; two Chrome runs (the drop-in's wall time is in out/PREFIX-timing.txt;
 # row names carry no seconds). Only FUZ_* names are set.
 # Own directory: one mktemp -d under $TMPDIR (or /tmp; absolute path only), removed at the end of this file; nothing else outside the repo is touched.
@@ -239,6 +247,51 @@ FUZ_IK=0; ge "$FUZ_IN" 1 && le "$FUZ_IN" "$FUZ_INNER_MAX" && [ "$FUZ_IT" = "$FUZ
 rowif "innerHTML sinks: $FUZ_IN assignments (1..$FUZ_INNER_MAX) into {${FUZ_IT% }} = driven + static + known-open lists (open, not driven: ${FUZ_OFN% }), $FUZ_IWD words outside comments, $FUZ_IX other markup sinks (want 0)" [ "$FUZ_IK" = 1 ]
 [ "$FUZ_IK" = 1 ] || echo "    innerHTML words outside comments: $FUZ_IWD, assignments: $FUZ_IN (a word that is no plain assignment: multi-line, Object.assign, a read: look at it)"
 [ "$FUZ_IK" = 1 ] || echo "    lists: {${FUZ_IW% }} (a target that is new needs a driver in tools/evals/ingest-fuzz.js, then FUZ_SINKS_DRIVEN; one that is gone, also from FUZ_SINKS_OPEN: remove it); other sinks $FUZ_IX"
+
+# ---- 5b. the page's zero list: the ways of running text as code, or of reaching out of the page, that no part of the page uses today (measured: 0 each).
+# One word per line (name, extended regular expression, a line that has it); every count on the page must be 0, and the same count on a copy of the page with that
+# one line planted must be 1: a regular expression that went blind (a typo, a boundary that excludes the line) is red, not green. A line is counted wherever it
+# stands (comments and strings too: a word in a comment is a word to read). The copies are plain text; nothing in them is run.
+FUZ_ZQ="[\"'\`]"
+FUZ_ZT=$(printf '\t')
+cat > "out/$P-fuzz-zero.txt" <<ZEND
+eval(	(^|[^A-Za-z0-9_.\$])eval[[:space:]]*\(	var zz = eval("1");
+new Function	(^|[^A-Za-z0-9_\$])new[[:space:]]+Function	var zz = new Function("return 1");
+Function(	(^|[^A-Za-z0-9_\$])Function[[:space:]]*\(	var zz = Function("return 1")();
+setTimeout string	setTimeout[[:space:]]*\([[:space:]]*$FUZ_ZQ	setTimeout("zz()", 1);
+setInterval string	setInterval[[:space:]]*\([[:space:]]*$FUZ_ZQ	setInterval("zz()", 1);
+setAttribute on	setAttribute[[:space:]]*\([[:space:]]*${FUZ_ZQ}[oO][nN]	zz.setAttribute("onclick", "zz()");
+document.write	document\.write	document.write("zz");
+insertAdjacentHTML	insertAdjacentHTML	zz.insertAdjacentHTML("beforeend", "zz");
+.outerHTML =	\.outerHTML[[:space:]]*=[^=]	zz.outerHTML = "zz";
+srcdoc	srcdoc	zz.srcdoc = "zz";
+javascript:	javascript:	var zz = "javascript:zz()";
+inline on...=	<[A-Za-z][^<>]*[[:space:]][oO][nN][a-zA-Z]+[[:space:]]*=	var zz = '<a onclick="zz()">x</a>';
+import(	(^|[^A-Za-z0-9_\$.])import[[:space:]]*\(	var zz = import("zz.js");
+postMessage	postMessage	window.postMessage("zz", "*");
+eval identifier	(^|[^A-Za-z0-9_\$])eval([^A-Za-z0-9_\$]|\$)	var zz = (0, eval)("1");
+eval member	(^|[^A-Za-z0-9_\$])eval([^A-Za-z0-9_\$]|\$)	var zz = window.eval("1");
+createElement script	createElement[[:space:]]*\([[:space:]]*${FUZ_ZQ}[sS][cC][rR][iI][pP][tT]	var zz = document.createElement("script");
+createContextualFragment	createContextualFragment	var zz = document.createRange().createContextualFragment("zz");
+bracket name	\[[[:space:]]*${FUZ_ZQ}(eval|Function|write|writeln|setTimeout|setInterval|postMessage)${FUZ_ZQ}[[:space:]]*\]	var zz = self["eval"]("1");
+constructor call	\.constructor[[:space:]]*\(	var zz = [].constructor.constructor("return 1")();
+constructor bracket	\[[[:space:]]*${FUZ_ZQ}constructor${FUZ_ZQ}[[:space:]]*\]	var zz = []["constructor"]["constructor"]("return 1")();
+ZEND
+FUZ_ZN=0; FUZ_ZH=0; FUZ_ZB=0; FUZ_ZP=0; FUZ_ZL=""
+while IFS="$FUZ_ZT" read -r FUZ_ZW FUZ_ZR FUZ_ZLN; do
+  FUZ_ZN=$((FUZ_ZN + 1))
+  FUZ_ZC=$(grep -cE "$FUZ_ZR" "$H"); FUZ_ZH=$((FUZ_ZH + FUZ_ZC))
+  [ "$FUZ_ZC" = 0 ] || FUZ_ZL="$FUZ_ZL [$FUZ_ZW: $FUZ_ZC]"
+  { cat "$H"; printf '%s\n' "$FUZ_ZLN"; } > "out/$P-fuzz-zero.html"
+  FUZ_ZC=$(grep -cE "$FUZ_ZR" "out/$P-fuzz-zero.html")
+  if [ "$FUZ_ZC" = 1 ]; then FUZ_ZP=$((FUZ_ZP + 1)); else FUZ_ZB=$((FUZ_ZB + 1)); echo "    zero list sensor: a page with the line '$FUZ_ZLN' counts $FUZ_ZC for $FUZ_ZW (want 1)"; fi
+done < "out/$P-fuzz-zero.txt"
+rm -f "out/$P-fuzz-zero.html"
+FUZ_ZOK=0; [ "$FUZ_ZH" = 0 ] && ge "$FUZ_ZN" 21 && FUZ_ZOK=1
+rowif "page zero list: $FUZ_ZN words (eval(, new Function, Function(, setTimeout and setInterval with a string, setAttribute on…, document.write, insertAdjacentHTML, .outerHTML =, srcdoc, javascript:, inline on…=, import(, postMessage, eval as any identifier (window.eval, (0, eval)), createElement('script'), createContextualFragment, a bracket name, the constructor route), $FUZ_ZH lines hold one (want 0)" [ "$FUZ_ZOK" = 1 ]
+[ "$FUZ_ZOK" = 1 ] || echo "    lines per word:${FUZ_ZL:- none}  (the page runs no text as code and posts no message; a new place needs a driver and a reason, then this list)"
+FUZ_ZSOK=0; [ "$FUZ_ZP" = "$FUZ_ZN" ] && [ "$FUZ_ZB" = 0 ] && ge "$FUZ_ZN" 21 && FUZ_ZSOK=1
+rowif "page zero list sensor bites: a page with one planted line per word is counted $FUZ_ZP of $FUZ_ZN times (want all, exactly once)" [ "$FUZ_ZSOK" = 1 ]
 
 # ---- 6. clean up: the own canary directory (only what mktemp made above; the pattern keeps a broken variable away from anything else)
 case $FUZ_CD in */starchorus-fuzz.??????) rm -rf "$FUZ_CD" ;; esac
