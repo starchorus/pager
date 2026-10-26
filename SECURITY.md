@@ -238,8 +238,11 @@ panel, or `STARCHORUS.clearLocalData()`, deletes them all in one call. There are
 Text that comes from the air or from a file (SSIDs, security texts, source and centre labels, aliases, notes, tags) goes through one function of the page before it is shown or stored. It removes the control
 characters below U+0020 and U+007F, the C1 controls (U+0080 to U+009F), the zero-width characters and direction marks (U+200B to U+200F), the embeddings and overrides (U+202A to U+202E:
 U+202E would make what follows it read backwards, so that a network could be drawn under another name), the invisible operators and isolates (U+2060 to U+2069) and U+FEFF; the range
-U+2060 to U+2069 also takes U+2065, which no character uses. All of it is still escaped on display, and the text is cut to its length limit after the removal. As of 24 October 2026
-this is checked in the page's DOM text (tooltip and detail sheet) in headless Chrome; no other browser was tried. The collector's own handling of such characters is not part of this note.
+U+2060 to U+2069 also takes U+2065, which no character uses. All of it is still escaped on display, and the text is cut to its length limit after the removal. A network name that
+lost characters this way is marked: its tooltip and its detail sheet read `invisible characters removed`, and the observations count such names under Look-alike, so that a name
+which resembles another only because of what was removed can be told from it by the mark and by its BSSID. U+200C and U+200D (the joiners) fall under the range, so an emoji
+sequence or a Persian or Indic name with a joiner is drawn as its parts, with the same mark. As of 24 October 2026 the removal is checked in the page's DOM text (tooltip and
+detail sheet) in headless Chrome, as of 26 October 2026 the marks too; no other browser was tried. The collector's own handling of such characters is not part of this note.
 
 In `sessionStorage`, each theme has a flag `starchorus.introShown.<theme>` (`"1"`) so that the
 introduction runs only once per session; it disappears with the tab.
