@@ -2906,7 +2906,7 @@ characters, measured on 21 October 2026 (`docs/device-notes.md`, M6: a 50-digit 
 fallback for a shorter line (the figure leaves the summary, the hub row reads 'Bluetooth (23)') is therefore not needed and not built. M6 has passed; whether the Bluetooth setting goes
 on by default is a question of the load it adds (`docs/device-notes.md` section 6a) and the owner's choice, and the release pass does not switch it on by itself.
 
-**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 625,000 bytes,
+**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 625,000 bytes, 650,000 since 0.2.5,
 and the pair was held to the share of that which the rest of the release left it). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
 there, and no row proves them:
 

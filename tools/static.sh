@@ -184,7 +184,7 @@ MAX_PAIR_BYTES=14000      # what the pair may add to it
 MAX_SCOPE_BYTES=12000     # what the Scope (the phone-mode fan) may add
 MAX_ALERTS_BYTES=1200     # what the alerts' ring and legend may add
 MAX_SCOPE_BT_BYTES=200    # the Scope's fifth lane (Bluetooth marks, radio-pair spec 3.6): counted inside the pair's 14,000, not the Scope's 12,000; scope.sh admits it in its own size row and the total below is unchanged
-MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 624346 (624562 until 24 October 2026), under the release cap of 625000
+MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 624346 (624562 until 24 October 2026), under the release cap of 650000 (625000 until 26 October 2026)
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.

@@ -105,10 +105,10 @@ for n, lim in LIM.items():
 m = re.search(r'    case "traffic": \{.*?\n    \}\n', t, re.S)
 b = len(m.group(0).encode()) if m else -1
 if not 0 < b <= 600: bad.append("traffic bake %d/600" % b)
-print("ok:%d" % len(t.encode()) if not bad and len(t.encode()) <= 625000 else "bad: %s page %d" % (",".join(bad), len(t.encode())))
+print("ok:%d" % len(t.encode()) if not bad and len(t.encode()) <= 650000 else "bad: %s page %d" % (",".join(bad), len(t.encode())))
 PY
 )
-rowif "radio: page size: normBt 900, rebuildBt 1800, drawBt 700, btTip 500, pkRate 680, drawActivity 600, the traffic bake 600 bytes, the page <= 625000 [$RP_FNB]" [ "${RP_FNB%%:*}" = ok ]
+rowif "radio: page size: normBt 900, rebuildBt 1800, drawBt 700, btTip 500, pkRate 680, drawActivity 600, the traffic bake 600 bytes, the page <= 650000 [$RP_FNB]" [ "${RP_FNB%%:*}" = ok ]
 
 # ---- Bluetooth: ingest. Nine addresses fold into six marks (three rotating Maker A addresses in ring 1 are ONE mark, two without a company
 # in ring 2 are ONE, the public and the static address are marks of their own), every mark sits at the radius of its signal on the shared

@@ -22,7 +22,7 @@
 
 PHN_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED"
 PHN_RDY='window.STARCHORUS && document.fonts.status === "loaded" && STARCHORUS.stats().apsTotal > 0 && STARCHORUS.stats().sourceKind !== "demo"'   # --ready: the fonts are in and the capture is loaded; the --wait beside it stays the ceiling
-PHN_MAXB=625000   # bytes: the size the page may reach (wc -c starchorus.html); 0.2's cap, raised from 620000 for the Scope and the alerts
+PHN_MAXB=650000   # bytes: the size the page may reach (wc -c starchorus.html); 650000 since 26 October 2026 on the owner's word, for 0.2.5's mark on names and the fixes after the switch audit (0.2's cap was 625000, raised from 620000 for the Scope and the alerts)
 # shared helpers inside every eval: visible, rect, pairwise overlap of the phone chrome, tap targets under 44 px, overflow
 PHN_JS='const E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).visibility!=="hidden"&&R(e).width>0,
 ovl=()=>{const L=["bar","sheet","classbar-top","classbar-bot","dtg","panels-pill"].map(E).filter(vis),o=[];for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=R(L[i]),b=R(L[j]),w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);if(w>0.5&&h>0.5)o.push(L[i].id+"/"+L[j].id)}return o},
