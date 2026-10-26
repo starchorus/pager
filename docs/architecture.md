@@ -127,7 +127,7 @@ fragment. The hook checks; it never rebuilds. A merge conflict in `starchorus.ht
 | `<!-- ==== 17 PASTE DIALOG ==== -->` | **`#paste-wrap` > `#paste-box`** (`h3` 'Load a starchorus.json capture', explanatory text **verbatim** with 'Everything runs in your browser — nothing is uploaded.'), **`#paste-ta`**, **`#paste-err`**, **`#paste-cancel`**, **`#paste-ok`** ('Render'). |
 | `<!-- ==== 17b EXPORT DIALOG … ==== -->` | `#export-wrap` > `#export-box` (`role="dialog"`): format choice `#export-fmt` (JSON, CSV, SITREP; it takes the focus when the dialogue opens and gives it up when the dialogue closes, so that the keys work at once), `#export-ta` (`aria-label="Export text"`), `#export-png`, buttons Copy/Print/Snapshot; `#export-printable` for printing. Local only, nothing is uploaded (§8.12). |
 | `<!-- ==== 18 INTRO ==== -->` | `#intro` > `pre#intro-text`, `button#intro-skip` ('SKIP ▮'). |
-| `<!-- ==== 19 HELP ==== -->` | `#help.panel` (`hidden`, `role="dialog"`, `aria-label="Keyboard shortcuts"`) > `h3`, `dl#help-list` (built by `buildHelp()` from `KEYS`), one `p` (PMF, §8.3), `button#help-close`. On a desktop it sits 96 px above the bottom and is at most `100vh − 112px` high, scrolling inside itself (`overflow-y: auto`); in the phone sheet it has no cap. Opened with `?` or `STARCHORUS.setToggles({help:true})`; closes with `Esc`, `?` or `#help-close`. |
+| `<!-- ==== 19 HELP ==== -->` | `#help.panel` (`hidden`, `role="dialog"`, `aria-label="Keyboard shortcuts"`) > `h3`, `dl#help-list` (built by `buildHelp()` from `KEYS`), one `p` (PMF, §8.3), `button#help-close`. On a desktop it sits 96 px above the bottom and is at most `100vh − 112px` high, a flex column in which the list scrolls (`overflow-y: auto`) and the heading, the PMF line and `#help-close` stay in view; in the phone sheet it has no cap (the sheet's own `#sheet-close` closes it there). Opened with `?` or `STARCHORUS.setToggles({help:true})`; closes with `Esc`, `?` or `#help-close`. |
 
 ### 1.3 JavaScript (one `<script>`, IIFE, `"use strict"`)
 
@@ -1253,7 +1253,7 @@ order, is decided by `labelCandidateList()` (theme-free): not hidden, SSID known
 hover 3 / pinned 2, then `rssi·alphaDraw`. Fonts, grid, text budget and `maxLabels` then decide only **which**
 candidates are drawn (`labels()` is an ordered subsequence of `STARCHORUS.labelCandidates()`). Hidden APs never
 (§8.5). Text = `strokeText` in `surface.base` + `fillText` (legible over glows); capitals according to `font.transform`, the
-band suffix from `ENCODING.band.suffix` in all themes. The vendor line (§8.7) counts as a rectangle of its own.
+band suffix from `ENCODING.band.suffix` in all themes. An AP's vendor line (§8.7) shares the rectangle of its label (two rows); a client's vendor line is a rectangle of its own.
 
 **Cursor and labels toggle.** The cursor (themes with `motion.cursorBlinkMs > 0`) sits at the locked or hovered
 label (at most one per frame, hover wins); if that label was not drawn, there is no cursor. It appears as
@@ -1494,9 +1494,9 @@ Rhythm: motion.logonCharMs per character (WarGames/Foundation voice 28–58 ms s
 Timing (D13): the overlay appears at once; typing starts from the first completed poll (success, 404 or network error →
 releaseLogon()), after 1 s at the latest. Each line is computed when its typing begins and then frozen, so that the mode line
 names the source that the first poll delivered.
-Skip: click/tap/key/"SKIP ▮"/STARCHORUS.skipIntro() → skipLogon() FIRST writes the complete text of all lines into
+Skip: a click or tap on `#intro` or on "SKIP ▮" (`#intro-skip`), or STARCHORUS.skipIntro() → skipLogon() FIRST writes the complete text of all lines into
 #intro-text, then class .out, then display:none. The sky keeps running behind it (poll, ingest, layout, render) – a pure
-overlay. After the logon, renderSourceTruth() keeps the hidden #intro-text current.
+overlay. No key skips the typed logon as such (a key ends only the `coalesce` intro); a theme switch (`T`) ends the outgoing intro, logon included (D13). After the logon, renderSourceTruth() keeps the hidden #intro-text current.
 ```
 Section 39 contains no theme ID check; the call goes via `THEME.motion.introStyle`, the voice via `THEME.copy`.
 `grep -c "MODE: RX ONLY — NOTHING IS TRANSMITTED"` = 1 (the one constant `COPY_RX_MODE`). The classification bar
@@ -1605,7 +1605,7 @@ Badge to the SE of the star: `clientCount` (only > 0), 9 px `ink.secondary` on a
 in 3D with fog alpha, not at LOD 3; in the label grid as a rectangle of its own; subject to the text budget §6.6 (priority after
 the AP labels). **Vendor on the label** (`#t-vendor`, `S.ui.vendor`, persisted): second line in `ink.secondary` below the
 SSID label for **APs** and for **pinned/hovered/locked clients** ('3c:22:fb:…:a1 · Apple'; randomised →
-'randomised'); the bubble counter gets the top vendor as a second line. On collision only the vendor line is dropped.
+'randomised'); a bubble counter has no vendor line (its top vendors are in its tooltip and detail sheet, §4.6). An AP's label and its vendor line are offered to the grid as one rectangle of two rows (the vendor line below the SSID; above the star, the whole rectangle moves up so that the vendor line sits next to the star); where that finds no room the label is placed alone and only the vendor line is dropped. The second row takes grid cells, so a vendor line that fits can still push a later, lower-ranked name (with its badge) or a group label out of the grid, most often on the phone (at 390 × 844 in 2D the device fixture loses its group label in two of the three themes, the many-clients fixture one badge of three); the label and the vendor line both start at the rectangle's left edge, so a vendor name wider than the SSID moves the label off the centre of the star. A pinned, hovered or locked client's vendor line is placed after the labels of the locked, hovered and pinned APs and before every other AP label (it ranks with the forced nodes, §6.6). An AP's vendor line takes a slot of the text budget (§6.6) last of all: only while the labels, the badges and the group labels still to come keep theirs. The reserve is conservative: it counts a badge for every candidate, drawn or not, so a slot can stay unused.
 
 ### 8.8 Logical AP grouping
 
@@ -1842,8 +1842,8 @@ playback is a view: no model advances, polls are recorded and shown after 'Back 
 | Watch | `#t-obs`, `#t-baseline` (+ `#baseline-set`, `#baseline-clear`), `#t-inv`, `#btn-export` | `W`, `B`, `I` | Observations, baseline diff, inventory (drawers, §8.11/§8.12), export dialogue | yes (toggles) |
 | Analyse | `#t-air`, `#t-time`, `#t-rec` | `Q`, `J`, `H` | Air quality, signal over time, recording/playback (§8.13) | no |
 | Look | `#t-theme` | `T` | cycles through the three themes; text = name of the next theme; `applyTheme()` | yes |
-| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides the four orbit arrows of `#cam` | yes |
-| Look | `#t-rotate` | `R` | Auto-rotation (effective only in 3D) | yes |
+| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides the four orbit arrows of `#cam` and `#t-rotate` | yes |
+| Look | `#t-rotate` | `R` | Auto-rotation (3D only: the button is hidden in 2D, like the orbit arrows) | yes |
 | Look | `#t-spin` | `S` | Sky rotation about the observer (§4.2a), 2D and 3D, default on | yes |
 | Look | `#t-crt` | `C` | Scanlines + vignette + persistence; visible only with `crt.userToggle` | yes |
 | Look | `#t-panels` ('Hide panels'), `#panels-pill` | `U` | Hide panels (§9.8): the sky alone; the pill (dot + chip) brings them back | yes |
@@ -2001,7 +2001,7 @@ on 'Live', and while it stays silent the chip turns 'Offline'. The only network 
 `T` theme · `V` 2D/3D · `R` rotation · `S` sky rotation · `C` CRT · `Space` pause · `L` labels · `O` orbits · `K` links ·
 `A` aggregation · `E` vendor · `N` nebula · `G` groups · `D` device links · `M` ESS merge · `P` probe orbits ·
 `W` Observations · `I` inventory · `B` baseline diff · `F` homing meter · `Q` air quality · `J` signal over time ·
-`H` recording/playback · `Y` channel view (Bars → Spectrum → Waterfall) · `1/2/3` band filter · arrows/`+`/`−`/`0` camera
+`H` recording/playback · `Y` channel view (Bars → Spectrum → Waterfall) · `1/2/3` band filter · arrows/`+` (or `=`)/`−`/`0` camera
 or 2D zoom · `[`/`]` step through pinned nodes (opens the detail) · `Esc` (§9.1) · `?` shortcut overlay · `Tab` through all
 buttons, `Enter`/`Space` on a focused button (native activation only) · `←/→/Home/End` on the focused
 `canvas#detail-spark` (§8.1) · `U` hide or show the panels (§9.8) · `X` Random: one node per cloud → one by one → hidden (§8.8a) ·
