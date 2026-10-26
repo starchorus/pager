@@ -73,6 +73,7 @@
 #sheet #masthead .motto { display: block; }
 #sheet #masthead :is(.badge, .lamps, .plotclock) { position: relative; inset: auto; display: inline-flex; margin: 8px 8px 0 0; vertical-align: middle; }   /* relative: the dial needs it */
 #sheet :is(#detail-title, #detail-close, #help > h3, #help-close) { display: none; }   /* the head has them */
+#sheet #help dl { overflow: visible; }   /* the sheet scrolls, not the list */
 #sheet canvas#detail-spark { width: 100%; }
 #sheet #legend > div { overflow: visible; margin: 0; padding: 0; }   /* the legend and drawer bodies */
 #sheet #legend > #inv-body { overflow-x: auto; }

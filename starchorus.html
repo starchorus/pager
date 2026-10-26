@@ -451,13 +451,13 @@ b { font-weight: 600; }
 #detail canvas#detail-spark { display: block; width: 240px; height: 64px; margin: 6px 0 2px; }
 canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 
-#help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); overflow-y: auto; z-index: 40; padding: 12px 16px 12px; }
+#help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); display: flex; flex-direction: column; z-index: 40; padding: 12px 16px 12px; }
 #help h3 { margin: 0 0 8px; font-size: var(--size-title); font-weight: 600; }
-#help dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: var(--size-hud); }
+#help dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; min-height: 0; overflow-y: auto; font-size: var(--size-hud); }
 #help dt { margin: 0; } #help dd { margin: 0; color: var(--ink-secondary); }
 #help p { margin: 8px 0 0; font-size: var(--size-hud); color: var(--ink-secondary); }
 #help kbd { font-family: var(--font-mono); font-size: 10px; color: var(--ink-primary); border: 1px solid var(--line-hairline); border-radius: 3px; padding: 0 4px; text-transform: none; }
-#help-close { margin-top: 10px; }
+#help-close { margin-top: 10px; align-self: flex-start; }
 
 /* ==== 06 CHANNEL BAR ==== */
 #chanbar { bottom: var(--lay-chan-b, calc(var(--chrome-bot) + 20px)); left: var(--lay-chan-x, 50%); transform: translateX(-50%); height: 78px; width: var(--lay-chan-w, min(640px, 60vw)); padding: 6px 10px; }
@@ -564,6 +564,7 @@ canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
 #sheet #masthead .motto { display: block; }
 #sheet #masthead :is(.badge, .lamps, .plotclock) { position: relative; inset: auto; display: inline-flex; margin: 8px 8px 0 0; vertical-align: middle; }   /* relative: the dial needs it */
 #sheet :is(#detail-title, #detail-close, #help > h3, #help-close) { display: none; }   /* the head has them */
+#sheet #help dl { overflow: visible; }   /* the sheet scrolls, not the list */
 #sheet canvas#detail-spark { width: 100%; }
 #sheet #legend > div { overflow: visible; margin: 0; padding: 0; }   /* the legend and drawer bodies */
 #sheet #legend > #inv-body { overflow-x: auto; }
@@ -853,8 +854,10 @@ const KEYS = [
   { key: "1 / 2 / 3 / 4", desc: "Band filter 2.4 / 5 / 6 GHz · Bluetooth" },
   { key: "← → ↑ ↓", desc: "Orbit camera (3D)" },
   { key: "+ / −", desc: "Zoom (3D) · zoom around the device (2D)" },
+  { key: "=", desc: "Zoom in, like +" },
   { key: "0", desc: "Reset camera and 2D zoom" },
   { key: "[ / ]", desc: "Cycle through pinned nodes (opens detail)" },
+  { key: "Enter", desc: "Show a selected random cloud's addresses" },
   { key: "Esc", desc: "Close dialogue / help / detail, clear hover" },
   { key: "?", desc: "Keyboard shortcuts overlay", btn: "t-help" },
 ];
@@ -5347,9 +5350,37 @@ function drawHud() {
   const cand = S.ui.labels ? labelCandidateList(devCarrier) : [];   // L / #t-labels off = no AP labels, facets, ×n, vendor lines, badges or cursor; core text, 3D ring posts, group labels (G) and glyph sprites stay
   const lod = S.perf.lod;
   const maxL = phoneOn ? RENDER.mobile.maxLabels : RENDER.maxLabels[lod][is3d ? 1 : 0];
-  let apLabels = 0, cursorAt = null;
-  const font = TD.fontLabel;
-  for (const ap of cand) {
+  // vendor label for pinned / hovered / locked clients (§8.7), toggle-gated (E) and a node label (L), after the forced APs (§6.6)
+  let cvDone = !(S.ui.vendor && S.ui.labels && anyForced());
+  const cvLines = () => {
+    cvDone = true;
+    S.clients.forEach(c => {
+      if (budget <= 0) return;
+      if (c.target !== 1 || c.alphaDraw <= 0.3) return;
+      if (c.bubble != null && c.bubbleBlend >= 0.5) return;
+      if (!isForced(c.id) || !onSky(c.sx, c.sy, c.px)) return;
+      const vt = c.randomized ? "randomised" : c.vendor; if (!vt) return;
+      const vw = textWidth(ctx, font, vt);
+      const vq = place([[c.sx - vw / 2, c.sy + c.px + 4]], vw, 12);
+      if (!vq) return;
+      ctx.font = font; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.secondary;
+      fT(ctx, vt, vq[0], vq[1] + 10, true); budget--; labelsDrawn++;
+      S.labelsList.push({ id: c.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
+    });
+  };
+  let apLabels = 0, cursorAt = null, res = 0;
+  const font = TD.fontLabel, wb = a => a.clientCount > 0 && lod < 3 && !scopeOn;
+  const gfont = "400 10px " + THEME.font.ui, hg = S.hover ? (S.aps.get(S.hover) || {}).groupKey : null, glist = [];
+  if (S.ui.groups && !trans && !scopeOn) {
+    S.groups.forEach(g => { if (g.members.length < 2 || isEssFoldedSet(g.key)) return; const forced = g.key === hg; if (g.members.length < 3 && !forced) return; glist.push({ g, forced }); });
+    glist.sort((a, b) => (b.forced - a.forced) || (b.g.members.length - a.g.members.length));
+  }
+  if (S.ui.vendor) {   // §6.6: slots kept for badges and groups
+    res = Math.min(glist.length, RENDER.maxGroupLabels[view]); cand.forEach(a => { res += wb(a); });
+  }
+  for (const [ci, ap] of cand.entries()) {
+    if (!cvDone && !isForced(ap.id)) cvLines();
+    res -= wb(ap);
     if (budget <= 0) break;
     const forced = isForced(ap.id);
     if (apLabels >= maxL && !forced) continue;
@@ -5362,8 +5393,10 @@ function drawHud() {
     const enc = ENCODING.band[ap.band]; if (enc && !carrier && !scopeOn) text += " · " + enc.suffix;   // device label: bands shown as facets instead
     const w = textWidth(ctx, font, text), px = ap.px;
     const nFacet = carrier ? dev.bands.filter(b => b !== "unknown").length : 0, ext = carrier ? 5 + nFacet * 7 + 20 : 0;   // facets + ×n ride in the label's own rectangle
-    const positions = [[ap.sx - (w + ext) / 2, ap.sy - px - 14], [ap.sx - (w + ext) / 2, ap.sy + px + 6], [ap.sx + px + 6, ap.sy - 6]];
-    const placed = place(positions, w + ext, 12);
+    const rest = Math.min(cand.length - 1 - ci, forced ? 99 : maxL - apLabels - 1);
+    const vt = S.ui.vendor && ap.vendor && budget > rest + 1 + res + wb(ap) ? ap.vendor : "", vw = vt ? textWidth(ctx, font, vt) : 0, rw = Math.max(w + ext, vw);   // §8.7: one rectangle
+    const at = (cw, up) => [[ap.sx - cw / 2, ap.sy - px - up], [ap.sx - cw / 2, ap.sy + px + 6], [ap.sx + px + 6, ap.sy - 6]], vb = vt ? place(at(rw, 26), rw, 24) : null;
+    const positions = at(w + ext, 14), placed = vb || (() => { const placed = place(positions, w + ext, 12); return placed; })();
     if (!placed) { collisions++; continue; }
     ctx.font = font; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = forced ? THEME.ink.primary : THEME.ink.secondary;
     fT(ctx, text, placed[0], placed[1] + 10, true); budget--; apLabels++; labelsDrawn++;
@@ -5376,13 +5409,9 @@ function drawHud() {
       blitFixed(ctx, getSprite("devcount", "secondary", dev.memberIds.length, "sharp"), fx + 7, fy);
       S.labelsList.push({ id: dev.id, kind: "counter", text: "×" + dev.memberIds.length, x: r3(fx + 7), y: r3(fy) });
     }
-    if (S.ui.vendor && ap.vendor && budget > 0) {
-      const vt = ap.vendor, vw = textWidth(ctx, font, vt);
-      const vq = place([[placed[0], placed[1] + 12]], vw, 12);
-      if (vq) {
-        ctx.fillStyle = THEME.ink.secondary; fT(ctx, vt, vq[0], vq[1] + 10, true); budget--;
-        S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
-      }
+    if (vb) {
+      ctx.fillStyle = THEME.ink.secondary; fT(ctx, vt, placed[0], placed[1] + 22, true); budget--;
+      S.labelsList.push({ id: ap.id, kind: "vendor", text: vt, x: r3(placed[0]), y: r3(placed[1] + 12), w: r3(vw) });
     }
     if (ap.clientCount > 0 && lod < 3 && budget > 0 && !scopeOn) {
       const bt = String(ap.clientCount), bf = TD.fontMonoSmall, bx = ap.sx + px + 2, by = ap.sy + px + 2;
@@ -5394,29 +5423,9 @@ function drawHud() {
       }
     }
   }
-  // vendor label for pinned / hovered / locked clients (§8.7), toggle-gated (E) and a node label (L)
-  if (S.ui.vendor && S.ui.labels && anyForced()) {
-    const cfont = TD.fontLabel;
-    S.clients.forEach(c => {
-      if (budget <= 0) return;
-      if (c.target !== 1 || c.alphaDraw <= 0.3) return;
-      if (c.bubble != null && c.bubbleBlend >= 0.5) return;
-      if (!isForced(c.id) || !onSky(c.sx, c.sy, c.px)) return;
-      const vt = c.randomized ? "randomised" : c.vendor; if (!vt) return;
-      const vw = textWidth(ctx, cfont, vt);
-      const vq = place([[c.sx - vw / 2, c.sy + c.px + 4]], vw, 12);
-      if (!vq) return;
-      ctx.font = cfont; ctx.strokeStyle = THEME.surface.base; ctx.fillStyle = THEME.ink.secondary;
-      fT(ctx, vt, vq[0], vq[1] + 10, true); budget--; labelsDrawn++;
-      S.labelsList.push({ id: c.id, kind: "vendor", text: vt, x: r3(vq[0]), y: r3(vq[1]), w: r3(vw) });
-    });
-  }
+  if (!cvDone) cvLines();
   // group labels at the constellation centroid (§8.6): ≥3 members, or any member hovered/locked
-  if (S.ui.groups && !trans && !scopeOn) {
-    const gfont = "400 10px " + THEME.font.ui, hg = S.hover ? (S.aps.get(S.hover) || {}).groupKey : null;
-    const glist = [];
-    S.groups.forEach(g => { if (g.members.length < 2 || isEssFoldedSet(g.key)) return; const forced = g.key === hg; if (g.members.length < 3 && !forced) return; glist.push({ g, forced }); });
-    glist.sort((a, b) => (b.forced - a.forced) || (b.g.members.length - a.g.members.length));
+  if (glist.length) {
     let gDrawn = 0; const gMax = RENDER.maxGroupLabels[view];
     for (const { g, forced } of glist) {
       if (budget <= 0 || (gDrawn >= gMax && !forced)) continue;
@@ -5697,6 +5706,7 @@ function updateControlsLook() {
   const tv = el("t-view"); if (tv) tv.textContent = S.ui.view === "3d" ? "2D" : "3D";
   const flat = S.ui.view !== "3d"; el("cam").classList.toggle("flat", flat);
   for (const k of ["left", "right", "up", "down"]) { const b = el("cam-" + k); if (b) b.hidden = flat; }   // 2D: only +, − and reset
+  el("t-rotate").hidden = flat;   // the auto-rotation is 3D only
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
@@ -5745,7 +5755,7 @@ function renderInv() {
   const ta = el("lib-ta"), msg = el("lib-msg");
   if (ta) ta.addEventListener("keydown", (e) => e.stopPropagation());
   const li = el("lib-import"), le = el("lib-export");
-  if (li) li.addEventListener("click", () => { const r = libraryImport(ta.value); msg.textContent = r.added + " set, " + r.rules + " rule(s)" + (r.message ? " · " + r.message : ""); });
+  if (li) li.addEventListener("click", () => { const r = libraryImport(ta.value); el("lib-msg").textContent = r.added + " set, " + r.rules + " rule(s)" + (r.message ? " · " + r.message : ""); });
   if (le) le.addEventListener("click", () => { ta.value = libraryExport(); msg.textContent = "Exported: observed keys (APs and stations)."; });
 }
 function renderHome() {
@@ -6043,6 +6053,7 @@ function renderObs() {
   const cl = el("obs-clear"); if (cl) cl.addEventListener("click", () => clearLocalData());
 }
 function clearLocalData() {   // P8: every starchorus.* key, in one call (SECURITY.md §4 lists them)
+  setToggle("baselineDiff", false);   // first: it saves the ui key, which the loop then removes
   for (const k of [STORAGE_KEY, IDENTITY_KEY, BASELINE_KEY, WATCH_KEY, LIB_KEY, NOTES_KEY]) safeStorage.remove(k);
   S.identity.clear(); S.baseline = null; S.watch = []; S.obsWatchSeen = new Set(); S.rules = []; S.notes.clear(); recClear();   // the recording is memory only, but "clear" means clear
   baselineRecompute(); obsCompute(); renderObs(); S.dirty = true; return true;

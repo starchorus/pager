@@ -79,8 +79,10 @@ const KEYS = [
   { key: "1 / 2 / 3 / 4", desc: "Band filter 2.4 / 5 / 6 GHz · Bluetooth" },
   { key: "← → ↑ ↓", desc: "Orbit camera (3D)" },
   { key: "+ / −", desc: "Zoom (3D) · zoom around the device (2D)" },
+  { key: "=", desc: "Zoom in, like +" },
   { key: "0", desc: "Reset camera and 2D zoom" },
   { key: "[ / ]", desc: "Cycle through pinned nodes (opens detail)" },
+  { key: "Enter", desc: "Show a selected random cloud's addresses" },
   { key: "Esc", desc: "Close dialogue / help / detail, clear hover" },
   { key: "?", desc: "Keyboard shortcuts overlay", btn: "t-help" },
 ];

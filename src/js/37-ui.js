@@ -71,6 +71,7 @@ function updateControlsLook() {
   const tv = el("t-view"); if (tv) tv.textContent = S.ui.view === "3d" ? "2D" : "3D";
   const flat = S.ui.view !== "3d"; el("cam").classList.toggle("flat", flat);
   for (const k of ["left", "right", "up", "down"]) { const b = el("cam-" + k); if (b) b.hidden = flat; }   // 2D: only +, − and reset
+  el("t-rotate").hidden = flat;   // the auto-rotation is 3D only
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
@@ -119,7 +120,7 @@ function renderInv() {
   const ta = el("lib-ta"), msg = el("lib-msg");
   if (ta) ta.addEventListener("keydown", (e) => e.stopPropagation());
   const li = el("lib-import"), le = el("lib-export");
-  if (li) li.addEventListener("click", () => { const r = libraryImport(ta.value); msg.textContent = r.added + " set, " + r.rules + " rule(s)" + (r.message ? " · " + r.message : ""); });
+  if (li) li.addEventListener("click", () => { const r = libraryImport(ta.value); el("lib-msg").textContent = r.added + " set, " + r.rules + " rule(s)" + (r.message ? " · " + r.message : ""); });
   if (le) le.addEventListener("click", () => { ta.value = libraryExport(); msg.textContent = "Exported: observed keys (APs and stations)."; });
 }
 function renderHome() {
@@ -417,6 +418,7 @@ function renderObs() {
   const cl = el("obs-clear"); if (cl) cl.addEventListener("click", () => clearLocalData());
 }
 function clearLocalData() {   // P8: every starchorus.* key, in one call (SECURITY.md §4 lists them)
+  setToggle("baselineDiff", false);   // first: it saves the ui key, which the loop then removes
   for (const k of [STORAGE_KEY, IDENTITY_KEY, BASELINE_KEY, WATCH_KEY, LIB_KEY, NOTES_KEY]) safeStorage.remove(k);
   S.identity.clear(); S.baseline = null; S.watch = []; S.obsWatchSeen = new Set(); S.rules = []; S.notes.clear(); recClear();   // the recording is memory only, but "clear" means clear
   baselineRecompute(); obsCompute(); renderObs(); S.dirty = true; return true;

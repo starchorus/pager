@@ -220,7 +220,8 @@ rowif "page size $PHN_SZ bytes ≤ $PHN_MAXB" [ "$PHN_SZ" -le "$PHN_MAXB" ]
 PHN_K=$(awk '/^const KEYS = \[/,/^\];/' "$H" | grep -o 'key: "[^"]*"' | sed 's/key: "\(.*\)"/\1/' | tr '\n' ' ')
 PHN_KB=$(awk '/^const KEYS = \[/,/^\];/' "$H" | grep -cE 'key: "F",.*btn: "t-home"|key: "U",.*btn: "t-panels"|key: "\?",.*btn: "t-help"')
 PHN_KA=$(grep -c '^  q: () => setDx("air"), .*u: () => setPanels(!S.ui.panels),$' "$H")
-rowif "keys: the old list plus U after B, X after A and Z after U (the Scope, regress.d/scope.sh), F and ? bound to #t-home and #t-help ($PHN_KB/3), KEY_ACT.u ($PHN_KA)" [ "$PHN_K/$PHN_KB/$PHN_KA" = "T V R S C Space L O K A X E N G D M P W I F Q J H Y B U Z 1 / 2 / 3 / 4 ← → ↑ ↓ + / − 0 [ / ] Esc ? /3/1" ]
+# 26 October 2026: "=" (after "+ / −") and "Enter" (before "Esc") joined the list, two keys the handler already had and the help did not say; the figure below is the list as it stands
+rowif "keys: the old list plus U after B, X after A and Z after U (the Scope, regress.d/scope.sh), F and ? bound to #t-home and #t-help ($PHN_KB/3), KEY_ACT.u ($PHN_KA)" [ "$PHN_K/$PHN_KB/$PHN_KA" = "T V R S C Space L O K A X E N G D M P W I F Q J H Y B U Z 1 / 2 / 3 / 4 ← → ↑ ↓ + / − = 0 [ / ] Enter Esc ? /3/1" ]
 PHN_TF=0; for PHN_FN in phoneLayout skyBox phDetailDetent applyPhone; do PHN_N=$(awk -v FN="$PHN_FN" '$0 ~ ("^function " FN "\\(") , /^}/' "$H" | grep -cE 'THEME|[^A-Za-z]TD\.|[^A-Za-z]TK[^A-Za-z]'); PHN_TF=$((PHN_TF + PHN_N)); done
 PHN_FC=$(grep -cE '^function (phoneLayout|skyBox|phDetailDetent|applyPhone)\(' "$H")
 rowif "phone pass theme-free: phoneLayout, skyBox, phDetailDetent, applyPhone ($PHN_FC functions, token reads $PHN_TF)" [ "$PHN_FC/$PHN_TF" = 4/0 ]

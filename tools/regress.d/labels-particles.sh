@@ -102,6 +102,105 @@ case "$LBL_VBUD" in
   *) row "labels: fillText+cursor field-probes" FAIL; echo "    $(printf '%s' "${LBL_VBUD:-no-value}" | cut -c1-200)" ;;
 esac
 
+# ---- labels (5), 26 October 2026: the vendor line under an AP's label (§8.7). Before, the line was offered to the grid inside the cells its own label had taken and
+# never appeared; now label and vendor line are one rectangle of two rows (at the same three places, the first one raised by the extra row), the label alone where that
+# finds no room. devices.json (vendors on most of its APs), 3 themes x 2D/3D, the switch off and on, then the device labels (facets, x n) in 2D. Per snapshot: the
+# fillText count, the AP labels, the vendor lines, whether every vendor line is an AP's and sits 12 px under its label, the overlapping pairs among the boxes
+# (labels, vendor lines, badges, groups, clouds), a digest of the rounded label positions (2D; 3D keeps a little time-dependent jitter), and facets+counters/vendor lines on a carrier.
+# The figures with the switch off are those of the page before the change (measured on a copy of 16d7e07), so "nothing moves with the switch off" is a comparison, not a claim.
+LBL_EVVEN='(async()=>{const o=[],ids=new Set(STARCHORUS.nodes("ap").map(n=>n.id));
+const snap=async(tag,on,dev)=>{STARCHORUS.setToggles({vendor:on});await STARCHORUS.wait(120);STARCHORUS.frame();
+const L=STARCHORUS.labels(),ft=STARCHORUS.perf().drawCalls.fillText,lab=L.filter(l=>l.kind==="label"&&!l.sprite),ven=L.filter(l=>l.kind==="vendor"),yok=ven.every(x=>lab.some(l=>l.id===x.id&&Math.abs(x.y-l.y-12)<0.01)),apok=ven.every(x=>ids.has(x.id));
+const bx=L.filter(l=>l.w&&["label","vendor","badge","group","cloud"].includes(l.kind));let ovl=0;for(let i=0;i<bx.length;i++)for(let j=i+1;j<bx.length;j++){const a=bx[i],b=bx[j];if(a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+12&&b.y<a.y+12)ovl++}
+const dig=lab.reduce((a,l)=>(a*131+Math.round(l.x)*7+Math.round(l.y)*13+l.id.charCodeAt(l.id.length-1))%1000003,7);
+const fc=L.filter(l=>l.kind==="facet"||l.kind==="counter").length,cv=ven.filter(x=>L.some(l=>l.kind==="facet"&&l.id===x.id)).length;
+o.push([tag,on?"on":"off",ft,lab.length,ven.length,yok,apok,ovl,tag[0]==="2"?dig:"-",dev?fc+"/"+cv:"-"].join(" "));};
+for(const v of ["2d","3d"])for(const th of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(th);STARCHORUS.setView(v);await STARCHORUS.wait(1400);for(const on of [false,true])await snap(v+"/"+th,on,false);}
+STARCHORUS.setTheme("foundation");STARCHORUS.setView("2d");await STARCHORUS.wait(1400);STARCHORUS.setToggles({deviceLinks:true});await STARCHORUS.wait(1400);for(const on of [false,true])await snap("2d/devices",on,true);
+STARCHORUS.setToggles({vendor:false,deviceLinks:false});return o.join("\n")})()'
+LBL_VEN_OFF='2d/foundation off 18 17 0 true true 0 996561 -
+2d/wargames off 17 17 0 true true 0 910672 -
+2d/whitehall off 18 17 0 true true 0 443419 -
+3d/foundation off 13 11 0 true true 0 - -
+3d/wargames off 13 11 0 true true 0 - -
+3d/whitehall off 13 11 0 true true 0 - -
+2d/devices off 12 11 0 true true 0 555469 9/0'
+# the page of the sensor: the rectangle is never offered, which is what the old code amounted to (its vendor box could not be placed)
+python3 - "$H" "out/$P-lbl-ven-old.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+a = 'vb = vt ? place(at(rw, 26), rw, 24) : null;'
+if s.count(a) != 1: s += "\n<!-- the vendor rectangle was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a, 'vb = null;'))
+PY
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-ven" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVVEN" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+LBL_HK=$H; H="out/$P-lbl-ven-old.html"
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-ven-o" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVVEN" >/dev/null 2>&1
+H=$LBL_HK
+LBL_VV=$(evalv "out/$P-lbl-ven.json" 1); LBL_VE=$(evalv "out/$P-lbl-ven.json" 2); LBL_VO=$(evalv "out/$P-lbl-ven-o.json" 1)
+LBL_VOFF=$(printf '%s\n' "$LBL_VV" | grep ' off ')
+LBL_VON=$(printf '%s\n' "$LBL_VV" | awk '$2=="on"{n++; cap=($1 ~ /^3d/)?24:30; if ($3<=cap && $5>=1 && $6=="true" && $7=="true" && $8==0) ok++} END{print ok+0 "/" n+0}')
+LBL_VCAR=$(printf '%s\n' "$LBL_VV" | awk '$1=="2d/devices"{ if ($2=="off") split($10,a,"/"); else split($10,b,"/") } END{print (a[1]==b[1] && a[1]>0 && b[2]>0) ? "kept/" b[2] : "BROKEN/" a[1] ":" b[1] ":" b[2]}')
+rowif "labels: the vendor line under an AP's label (Vendor on, devices.json, 3 themes x 2D/3D): every snapshot has vendor lines, each one an AP's and 12 px under its label, none overlaps another box, the fillText count stays in the budget [$LBL_VON]" [ "$LBL_VON/$LBL_VE" = "7/7/0" ]
+rowif "labels: with the vendor switch off the page is as it was: fillText counts, label counts and (2D) the digest of the label positions equal the figures measured on the page before the change [$(printf '%s' "$LBL_VOFF" | tr '\n' ';')]" [ "$LBL_VOFF" = "$LBL_VEN_OFF" ]
+rowif "labels: a device label keeps its facets and x n with the vendor line (the same facets and counters on and off, and a carrier with a vendor line under it: $LBL_VCAR)" [ "${LBL_VCAR%/*}" = kept ]
+LBL_VOLD=$(printf '%s\n' "$LBL_VO" | awk '$2=="on"{n++; v+=$5} END{print v+0 "/" n+0}')
+rowif "labels: the sensor bites: a copy that never offers the rectangle (the old behaviour) has no vendor line in any of the seven snapshots with the switch on [$LBL_VOLD], and the same figures with it off" [ "$LBL_VOLD/$(printf '%s\n' "$LBL_VO" | grep ' off ')" = "0/7/$LBL_VEN_OFF" ]
+
+# ---- labels (6), 26 October 2026: what the vendor lines must leave to others (§6.6: forced nodes, group labels and badges rank above an AP's vendor line). devices.json,
+# 1440 x 900, Vendor on. (a) each client pinned in turn must show its own vendor line, 2D and 3D: the page before the change gave 0000101111011 (2D, 8 of 13) and
+# 0000100001000 (3D) because the AP vendor lines had spent the 2D budget and the AP labels held the cells; a client's line is now placed after the forced AP labels and before the others.
+# (b) in 2D, three themes, devices.json and many-clients.json: the group labels and the badges with the switch on equal those with it off (the vendor lines had taken
+# the group label's slot, 1 -> 0, in two themes of devices.json and in all three of many-clients.json). The sensor copy offers no rectangle's reserve and no early client line.
+LBL_EVPIN='(async()=>{const o=[];for(const v of ["2d","3d"]){STARCHORUS.setTheme("foundation");STARCHORUS.setView(v);STARCHORUS.setToggles({vendor:true});await STARCHORUS.wait(1400);const ids=STARCHORUS.nodes("client").map(n=>n.id);let s="";for(const id of ids){STARCHORUS.pin(id,true);await STARCHORUS.wait(120);STARCHORUS.frame();s+=STARCHORUS.labels().some(l=>l.kind==="vendor"&&l.id===id)?"1":"0";STARCHORUS.pin(id,false)}await STARCHORUS.wait(100);STARCHORUS.frame();o.push(v+" "+s+" "+STARCHORUS.perf().drawCalls.fillText)}STARCHORUS.setToggles({vendor:false});return o.join(";")})()'
+LBL_EVGB='(async()=>{const o=[],c=()=>{const L=STARCHORUS.labels();return [L.filter(l=>l.kind==="group").length,L.filter(l=>l.kind==="badge").length]};STARCHORUS.setView("2d");for(const th of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(th);const r=[];for(const on of [false,true]){STARCHORUS.setToggles({vendor:on});await STARCHORUS.wait(1300);STARCHORUS.frame();r.push(c())}o.push(r[0][0]+"/"+r[1][0]+"g"+r[0][1]+"/"+r[1][1]+"b")}STARCHORUS.setToggles({vendor:false});return o.join(" ")})()'
+python3 - "$H" "out/$P-lbl-ven-res.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+a = ['budget > rest + 1 + res + wb(ap)', 'if (!cvDone && !isForced(ap.id)) cvLines();']
+if any(s.count(x) != 1 for x in a): s += "\n<!-- the reserve or the client vendor line was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a[0], 'budget > rest + 1').replace(a[1], ''))
+PY
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" --eval "$LBL_EVGB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-m" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+LBL_HK=$H; H="out/$P-lbl-ven-res.html"
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-o" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" --eval "$LBL_EVGB" >/dev/null 2>&1
+runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-mo" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+H=$LBL_HK
+LBL_RP=$(evalv "out/$P-lbl-res.json" 1); LBL_RD=$(evalv "out/$P-lbl-res.json" 2); LBL_RM=$(evalv "out/$P-lbl-res-m.json" 1); LBL_RE=$(evalv "out/$P-lbl-res.json" 3)
+LBL_ROP=$(evalv "out/$P-lbl-res-o.json" 1); LBL_ROD=$(evalv "out/$P-lbl-res-o.json" 2); LBL_ROM=$(evalv "out/$P-lbl-res-mo.json" 1)
+LBL_RPK=$(printf '%s' "$LBL_RP" | tr ';' '\n' | awk '{n=gsub(/1/,"1",$2); if (n==13 && $2 !~ /0/ && $3<=(($1=="2d")?30:24)) ok++} END{print ok+0 "/" NR}')
+LBL_RGB=$(printf '%s %s\n' "$LBL_RD" "$LBL_RM" | tr ' ' '\n' | awk '{split($0,a,"g"); sub(/b$/,"",a[2]); split(a[1],g,"/"); split(a[2],b,"/"); if (g[1]==g[2] && b[1]==b[2]) ok++} END{print ok+0 "/" NR}')
+rowif "labels: Vendor on keeps what outranks it: each of the 13 clients pinned in turn shows its vendor line, 2D and 3D, inside the budget [$LBL_RPK; before the change 2D 0000101111011, 3D 0000100001000]" [ "$LBL_RPK/$LBL_RE" = "2/2/0" ]
+rowif "labels: Vendor on keeps what outranks it: the group labels and the badges equal those with it off (2D, 1440 x 900, 3 themes, devices.json and many-clients.json) [$LBL_RGB: $LBL_RD | $LBL_RM]" [ "$LBL_RGB" = "6/6" ]
+LBL_ROPK=$(printf '%s' "$LBL_ROP" | tr ';' '\n' | awk '{n=gsub(/1/,"1",$2); if (n==13) ok++} END{print ok+0}')
+LBL_ROGB=$(printf '%s %s\n' "$LBL_ROD" "$LBL_ROM" | tr ' ' '\n' | awk '{split($0,a,"g"); sub(/b$/,"",a[2]); split(a[1],g,"/"); split(a[2],b,"/"); if (g[1]==g[2] && b[1]==b[2]) ok++} END{print ok+0 "/" NR}')
+LBL_RBITE=no; [ "$LBL_ROGB" != "6/6" ] && LBL_RBITE=yes
+rowif "labels: the sensor bites: a copy without the reserve and without the early client line loses client vendor lines ($LBL_ROPK of 2 snapshots complete) and group labels or badges ($LBL_ROGB equal)" [ "$LBL_ROPK/$LBL_RBITE" = "0/yes" ]
+
+# ---- labels (7), 26 October 2026: a forced AP's name outranks a pinned client's vendor line (§6.6: locked -> hover -> pinned). devices.json, 1440 x 900, 2D, Vendor on:
+# AP ...bb:12 locked and client ...20:31 pinned, the AP keeps its label (the page before the change drew it); then each client pinned in turn with the AP nearest to it on
+# screen locked, the locked labels missing (0/13 on the page before the change) and the client vendor lines drawn. The sensor copy places the client lines ahead of every AP label.
+LBL_EVLK='(async()=>{const o=[];STARCHORUS.setTheme("foundation");STARCHORUS.setView("2d");STARCHORUS.setToggles({vendor:true});await STARCHORUS.wait(1400);
+const one=async(a,c)=>{STARCHORUS.select(a);STARCHORUS.pin(c,true);await STARCHORUS.wait(150);STARCHORUS.frame();const L=STARCHORUS.labels(),r=[L.some(l=>l.kind==="label"&&l.id===a),L.some(l=>l.kind==="vendor"&&l.id===c)];STARCHORUS.pin(c,false);STARCHORUS.deselect();return r};
+o.push((await one("44:4e:6d:aa:bb:12","3c:22:fb:10:20:31"))[0]);let miss=0,cv=0,n=0;
+for(const c of STARCHORUS.nodes("client")){const s=STARCHORUS.nodeScreen(c.id);if(!s)continue;const p=STARCHORUS.nodes("ap").filter(a=>a.visible).sort((a,b)=>Math.hypot(a.sx-s.sx,a.sy-s.sy)-Math.hypot(b.sx-s.sx,b.sy-s.sy))[0].id;n++;const q=await one(p,c.id);miss+=!q[0];cv+=q[1]}
+STARCHORUS.setToggles({vendor:false});return o[0]+" "+miss+"/"+n+" "+cv})()'
+python3 - "$H" "out/$P-lbl-lk-old.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+a = 'if (!cvDone && !isForced(ap.id)) cvLines();'
+if s.count(a) != 1: s += "\n<!-- the client vendor line's place was not found exactly once -->\n"
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a, 'if (!cvDone) cvLines();'))
+PY
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-lk" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVLK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+LBL_HK=$H; H="out/$P-lbl-lk-old.html"
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-lk-o" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVLK" >/dev/null 2>&1
+H=$LBL_HK
+LBL_LKV=$(evalv "out/$P-lbl-lk.json" 1); LBL_LKE=$(evalv "out/$P-lbl-lk.json" 2); LBL_LKO=$(evalv "out/$P-lbl-lk-o.json" 1)
+rowif "labels: Vendor on, AP ...bb:12 locked and client ...20:31 pinned: the AP keeps its label; each client pinned with its nearest AP locked loses no locked label (base 0/13) [label, missing, client lines: $LBL_LKV]" [ "${LBL_LKV%% *}/$(printf '%s' "$LBL_LKV" | cut -d' ' -f2)/$LBL_LKE" = "true/0/13/0" ]
+rowif "labels: the sensor bites: a copy that places the client vendor lines ahead of every AP label drops the locked AP's label [$LBL_LKO]" [ "${LBL_LKO%% *}" = false ]
+
 # ---- particles: one run carries all five particle rows. The document comes from fetch('starchorus.json') inside
 # the eval (test code, not page code -- the page still has exactly one fetch), with the same label and
 # mode as the boot poll, so setSource() reports "unchanged".

@@ -329,3 +329,56 @@ runq demo "$OPS_Q" "out/$P-ops-csv-n2" --wait 2 --ready --fps 0 --eval-timeout 9
 H=$OPS_HK
 OPS_CN1=$(evalv "out/$P-ops-csv-n1.json" 1); OPS_CN2=$(evalv "out/$P-ops-csv-n2.json" 1)
 rowif "export CSV: the controls bite: without the cell fix the formula names, the alias and the probe read raw [$OPS_CN1], without the focus call the focus stays outside the dialogue [$OPS_CN2]" [ "$OPS_CN1/$OPS_CN2" = "0000111100110|1/1111111111111|0" ]
+
+# ---- 0.2.5, 26 October 2026: five small defects of the controls (the audit of every control, 26 October). One run reads B1 (the library's Import says what it
+# did: #lib-msg is the node that is in the document after the click, and its text is the message), B3 (#t-rotate is hidden in 2D and shown in 3D, and back),
+# B4 (Clear local data switches the baseline toggle and its button off, and leaves no starchorus.* key behind) and B5 (the help lists Enter and =); B2 (the
+# help's Close button inside the viewport) is read at two sizes. Each has a sensor: a copy of the page with the old code reads the figure the defect gave.
+OPS_EVU='(async()=>{const o={},E=(i)=>document.getElementById(i),shown=(e)=>!e.hidden&&getComputedStyle(e).display!=="none",R=E("t-rotate");
+o.b3=[shown(R)];STARCHORUS.setView("3d");await STARCHORUS.wait(400);o.b3.push(shown(R));STARCHORUS.setView("2d");await STARCHORUS.wait(400);o.b3.push(shown(R));o.b3=o.b3.join();
+const id=STARCHORUS.nodes("ap")[0].id;STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(200);
+E("lib-ta").value=id+" friend\nde:ad:be:ef:00:99 neutral";E("lib-import").click();const m=E("lib-msg");o.b1=[document.contains(m),m.textContent].join("|");STARCHORUS.setToggles({inventory:false});
+const dts=Array.from(document.querySelectorAll("#help-list dt")).map(d=>d.textContent);o.b5=[dts.indexOf("Enter")>=0,dts.indexOf("=")>=0,dts.indexOf("+ / −")<dts.indexOf("="),dts.indexOf("Enter")<dts.indexOf("Esc")].join();
+STARCHORUS.setBaseline();STARCHORUS.setToggles({baselineDiff:true});const bt=E("t-baseline"),on=[STARCHORUS.getToggles().baselineDiff,bt.getAttribute("aria-pressed")].join();
+STARCHORUS.clearLocalData();o.b4=[on,STARCHORUS.getToggles().baselineDiff,bt.getAttribute("aria-pressed"),bt.classList.contains("on"),Object.keys(localStorage).filter(k=>k.indexOf("starchorus.")===0).length].join("|");
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
+OPS_EVH='(async()=>{const o=[],E=(i)=>document.getElementById(i),inside=(e)=>{const b=e.getBoundingClientRect();return b.width>0&&b.top>=0&&b.left>=0&&b.bottom<=innerHeight&&b.right<=innerWidth};
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);STARCHORUS.setToggles({help:true});await STARCHORUS.wait(300);
+const dl=E("help-list"),dt=dl.querySelectorAll("dt"),first=dt[0],last=dt[dt.length-1],box=(e)=>e.getBoundingClientRect();
+dl.scrollTop=0;const top=box(first).top>=box(dl).top-1;dl.scrollTop=dl.scrollHeight;const end=box(last).bottom<=box(dl).bottom+1;
+const c=E("help-close"),near=getComputedStyle(c).display==="none"?inside(E("sheet-close")):inside(c);
+o.push([t,near,top&&end].join(":"));STARCHORUS.setToggles({help:false});}
+return o.join(",")})()'
+runq demo "$OPS_Q" "out/$P-ops-ctl" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVU" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-help-d" --wait 2 --ready --fps 0 --width 1440 --height 900 --eval-timeout 90 --eval "$OPS_EVH" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-help-m" --wait 2 --ready --fps 0 --mobile --width 390 --height 844 --eval-timeout 90 --eval "$OPS_EVH" --eval "$OPS_EVU" >/dev/null 2>&1
+python3 - "$H" "out/$P-ops-ctl-old.html" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+back = [('el("lib-msg").textContent = r.added', 'msg.textContent = r.added'),
+  ('  el("t-rotate").hidden = flat;   // the auto-rotation is 3D only\n', ''),
+  ('  setToggle("baselineDiff", false);   // first: it saves the ui key, which the loop then removes\n', ''),
+  ('  { key: "=", desc: "Zoom in, like +" },\n', ''),
+  ('  { key: "Enter", desc: "Show a selected random cloud\'s addresses" },\n', ''),
+  ('max-height: calc(100vh - 112px); display: flex; flex-direction: column; z-index: 40;', 'max-height: calc(100vh - 112px); overflow-y: auto; z-index: 40;'),
+  ('margin: 0; min-height: 0; overflow-y: auto; font-size', 'margin: 0; font-size')]
+for a, b in back:
+    if s.count(a) != 1:
+        s += "\n<!-- a fix was not found exactly once -->\n"; break
+    s = s.replace(a, b)
+open(sys.argv[2], "w", encoding="utf-8").write(s)
+PY
+OPS_HK=$H; H="out/$P-ops-ctl-old.html"
+runq demo "$OPS_Q" "out/$P-ops-ctl-o1" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVU" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-help-o" --wait 2 --ready --fps 0 --width 1440 --height 900 --eval-timeout 90 --eval "$OPS_EVH" >/dev/null 2>&1
+H=$OPS_HK
+OPS_U=$(evalv "out/$P-ops-ctl.json" 1 | ops_nj); OPS_UO=$(evalv "out/$P-ops-ctl-o1.json" 1 | ops_nj)
+OPS_HD=$(evalv "out/$P-ops-help-d.json" 1); OPS_HM=$(evalv "out/$P-ops-help-m.json" 1); OPS_HO=$(evalv "out/$P-ops-help-o.json" 1); OPS_UM=$(evalv "out/$P-ops-help-m.json" 2 | ops_nj)
+OPS_UOS=$(printf '%s' "$OPS_UO" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["b1"].split("|",1)[1].startswith("1 set"),d["b3"],d["b4"],d["b5"])' 2>/dev/null)
+OPS_UW='{"b1":"true|1 set, 0 rule(s) · 1 rejected: not observed","b3":"false,true,false","b4":"true,true|false|false|false|0","b5":"true,true,true,true","errors":0}'
+OPS_UWN=$(printf '%s' "$OPS_UW" | ops_nj)
+rowif "controls (26 October 2026): after a DOM-driven Import #lib-msg is in the document and says '1 set, 0 rule(s) · 1 rejected: not observed'; #t-rotate is hidden in 2D, shown in 3D and hidden again in 2D; Clear local data turns baselineDiff and the button off and leaves no starchorus.* key; the help lists = after + / − and Enter before Esc [$OPS_U]" [ "$OPS_U" = "$OPS_UWN" ]
+rowif "controls: the same on a phone (390 x 844, touch): Import, Rotate in the sheet's controls, Clear local data and the help list [$OPS_UM]" [ "$OPS_UM" = "$OPS_UWN" ]
+rowif "controls: the sensor bites: a copy of the page with the old code (the message written to the rebuilt panel's old node, no hiding of Rotate, no reset of the baseline toggle, no Enter and = in the help) reads Import-message-fixed/Rotate/baseline/help = [$OPS_UOS]" [ "$OPS_UOS" = "False true,true,true true,true|true|true|true|0 false,false,false,true" ]
+rowif "help (26 October 2026): #help-close is inside the viewport at 1440 x 900 in all three themes, and on a phone at 390 x 844 (where the sheet's own close stands in for it), and the whole list can be scrolled to, first entry to last [desktop $OPS_HD; phone $OPS_HM]" [ "$OPS_HD/$OPS_HM" = "foundation:true:true,wargames:true:true,whitehall:true:true/foundation:true:true,wargames:true:true,whitehall:true:true" ]
+rowif "help: the sensor bites: a copy with the old style (the whole panel scrolls, the button below the list) has #help-close outside the viewport at 1440 x 900 [$OPS_HO]" [ "$OPS_HO" = "foundation:true:true,wargames:false:true,whitehall:false:true" ]
