@@ -302,8 +302,8 @@ return [cell(1,2)===A+T+"=1+1",cell(2,2)==="\""+A+R+"=2\"",cell(3,2)==="plain"].
 python3 - "$H" "out/$P-ops-csv-loose.html" "out/$P-ops-csv-loose-nofix.html" <<'PY'
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
-strip = 'String(x).replace(/[\\x00-\\x1f\\x7f]/g, "")'
-loose = 'String(x).replace(/[\\x00-\\x08\\x0a-\\x0c\\x0e-\\x1f\\x7f]/g, "")'
+strip = 'String(x).replace(/[\\x00-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2069\\ufeff]/g, "")'
+loose = 'String(x).replace(/[\\x00-\\x08\\x0a-\\x0c\\x0e-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2069\\ufeff]/g, "")'
 new_q = 'const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\\t\\r-]/.test(s) && !isFinite(s) ? "\'" + s : s; return /[",\\r\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
 old_q = 'const q = (v) => { const t = v == null ? "" : String(v); return /[",\\n]/.test(t) ? \'"\' + t.replace(/"/g, \'""\') + \'"\' : t; };'
 if s.count(strip) != 1 or s.count(new_q) != 1:
