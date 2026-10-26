@@ -39,7 +39,9 @@ The collector and the Overview run on the device (OpenWrt, BusyBox). Contributio
 code must:
 
 - **work with POSIX and BusyBox `ash`**: no bashisms, no GNU-only flags. Check against
-  `busybox ash -n` and real BusyBox `awk`.
+  `busybox ash -n` and real BusyBox `awk`. The regression run also parses every shell file of the scope, `tools/*.sh`
+  and `tools/regress.d/*.sh` under `dash -n` (`tools/regress.d/shell-dialect.sh`): nearer to `ash` than the shell of a
+  development machine, but not the same, and it runs nothing.
 - **be clean under `shellcheck -s sh`** (`disable` directives with a stated reason are fine).
 - **keep `sh starchorus-collect.sh --selftest` and `sh starchorus-display.sh --selftest` green.**
   New functions get a self-test case with embedded sample data (no real device needed).
