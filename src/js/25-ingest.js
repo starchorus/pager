@@ -144,7 +144,7 @@ function ingest(doc, opts = {}) {
       n.ssidKnown = a.ssid; n.hidden = false;
     } else if (n.ssidKnown == null) n.hidden = true;
     n.seen = true;
-    n.ssid = a.ssid; n.band = a.band; n.bandF = a.bandF ?? bandOf(a.band, a.freq, null); n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;   // bandF: band/freq only (the demo skips normalizeDoc)
+    n.ssid = a.ssid; n.hid = !!a.hid; n.band = a.band; n.bandF = a.bandF ?? bandOf(a.band, a.freq, null); n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;   // bandF: band/freq only (the demo skips normalizeDoc)
     n.security = a.security; n.sec = secClass(a.security, a.akm, a.cipher);
     n.akm = a.akm; n.cipher = a.cipher; n.auth = a.auth; n.respondedSsids = a.responded_ssids; n.packets = a.packets;
     n.vendor = a.vendor; n.rate = a.rate; n.width = a.width; n.last_seen = a.last_seen; n.phy = a.phy; n.caps = a.caps; n.beacons = a.beacons;

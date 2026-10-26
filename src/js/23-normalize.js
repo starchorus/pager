@@ -117,7 +117,7 @@ function normalizeDoc(raw) {
     let cipher = null;   // optional, APs only
     if (isObj(a.cipher)) cipher = { group: typeof a.cipher.group === "string" ? stripCtl(a.cipher.group, 16) : null, pairwise: strs(a.cipher.pairwise, 8, 16) || [] };
     let resp = numOrNull(a.responded_ssids); resp = resp != null && resp >= 2 ? Math.round(resp) : null;
-    const ap = { bssid, ssid: stripCtl(a.ssid, 32), channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
+    const ap = { bssid, ssid: stripCtl(a.ssid, 32), hid: stripN > 0, channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
       security: stripCtl(a.security, 48), vendor, rate: numOrNull(a.rate), width, last_seen: numOrNull(a.last_seen), phy, caps,
       beacons: numOrNull(a.beacons), packets: numOrNull(a.packets), akm: strs(a.akm, 12, 24), cipher, auth: strs(a.auth, 6, 16), responded_ssids: resp, clients: [] };
     const cl = Array.isArray(a.clients) ? a.clients : [];

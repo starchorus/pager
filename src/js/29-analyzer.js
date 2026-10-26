@@ -280,6 +280,7 @@ function obsCompute() {
   c = cnt(n => n.band === "2.4" && n.channel != null && ![1, 6, 11].includes(n.channel)); if (c) add("c-chan", "Configuration", c + " 2.4 GHz network(s) on channels other than 1, 6 and 11");
   if (S.crowding.level >= 4) add("c-crowd", "Configuration", "the busiest channel is crowded (level " + S.crowding.level + " of 5)");
   c = cnt(n => n.hidden); if (c) add("c-hidden", "Configuration", c + " network(s) without a broadcast SSID");
+  c = cnt(n => n.hid); if (c) add("c-hid", "Look-alike", c + " SSID(s) carried invisible characters (removed)");
   c = cnt(n => n.sec === "wpa3-transition"); if (c) add("c-trans", "Configuration", c + " network(s) in WPA3/WPA2 transition mode");
   c = cnt(n => n.sec === "tkip-weak"); if (c) add("c-tkip", "Configuration", c + " network(s) that still use TKIP");
   let mob = 0; S.aps.forEach(n => { if (n.target === 1 && n.mobile) mob++; }); if (mob) add("c-mobile", "Configuration", "mobile hotspots: " + mob);

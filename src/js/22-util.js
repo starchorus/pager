@@ -79,7 +79,8 @@ function sessionFlag(name, set) {
   } catch (e) { return false; }
 }
 const r3 = (v) => (typeof v === "number" && Number.isFinite(v)) ? Math.round(v * 1000) / 1000 : v;
-function stripCtl(x, max) { return x == null ? "" : String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, "").slice(0, max); }
+let stripN = 0;   // what the last stripCtl removed (the name's hid mark)
+function stripCtl(x, max) { if (x == null) return ""; const t = String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, ""); stripN = String(x).length - t.length; return t.slice(0, max); }
 const plu = (n, w) => `${n} ${w}${n - 1 ? "s" : ""}`;
 function numOrNull(x) { if (x === null || x === undefined || x === "" || typeof x === "boolean") return null; const v = +x; return Number.isFinite(v) ? v : null; }
 const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);

@@ -674,7 +674,7 @@ function showTip(n) {
     if (macs) html += '<div class="grid">' + kv("MACs", macs, "v mono") + '</div>';
   } else if (n.kind === "ap") {
     const al = aliasOf(n.id), name = al ? '<div class="ssid">' + esc(al) + '</div>' : n.hidden ? '<div class="ssid hidden">(hidden SSID)</div>' : '<div class="ssid">' + esc(n.ssidKnown || n.ssid) + '</div>';
-    html += name + '<div class="sub">' + esc(n.bssid) + (al && !n.hidden ? " · " + esc(n.ssidKnown || n.ssid) : "") + '</div><div class="grid">';
+    html += name + '<div class="sub">' + esc(n.bssid) + (al && !n.hidden ? " · " + esc(n.ssidKnown || n.ssid) : "") + (n.hid ? " · invisible characters removed" : "") + '</div><div class="grid">';
     html += kv("Vendor", esc(n.vendor || "—"), "v mono") + kv("Band", bandChip(n.band) + apChan(n)) + kv("Signal", esc(fmtSignal(n.rssi)));
     if (n.freshTier != null) html += kv("Heard", esc(ENCODING.fresh.words[n.freshTier]));
     html += kv("Security", esc(n.security || ENCODING.security[n.sec].label)) + kv("Clients", n.clientCount);
@@ -777,6 +777,7 @@ function openDetail(id) {
     title = n.hidden ? "(hidden SSID)" : (n.ssidKnown || n.ssid || "(hidden SSID)");
     detailTitle.textContent = title;
     body += row("BSSID", esc(n.bssid), "mono");
+    if (n.hid) body += row("SSID", "invisible characters removed");
     body += row("Vendor", esc(n.vendor || "—"));
     body += row("Band", esc(fmtBand(n.band)));
     body += row("Channel", n.channel != null ? String(n.channel) : "—");

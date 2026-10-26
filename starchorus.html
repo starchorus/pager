@@ -1367,7 +1367,8 @@ function sessionFlag(name, set) {
   } catch (e) { return false; }
 }
 const r3 = (v) => (typeof v === "number" && Number.isFinite(v)) ? Math.round(v * 1000) / 1000 : v;
-function stripCtl(x, max) { return x == null ? "" : String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, "").slice(0, max); }
+let stripN = 0;   // what the last stripCtl removed (the name's hid mark)
+function stripCtl(x, max) { if (x == null) return ""; const t = String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, ""); stripN = String(x).length - t.length; return t.slice(0, max); }
 const plu = (n, w) => `${n} ${w}${n - 1 ? "s" : ""}`;
 function numOrNull(x) { if (x === null || x === undefined || x === "" || typeof x === "boolean") return null; const v = +x; return Number.isFinite(v) ? v : null; }
 const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
@@ -1491,7 +1492,7 @@ function normalizeDoc(raw) {
     let cipher = null;   // optional, APs only
     if (isObj(a.cipher)) cipher = { group: typeof a.cipher.group === "string" ? stripCtl(a.cipher.group, 16) : null, pairwise: strs(a.cipher.pairwise, 8, 16) || [] };
     let resp = numOrNull(a.responded_ssids); resp = resp != null && resp >= 2 ? Math.round(resp) : null;
-    const ap = { bssid, ssid: stripCtl(a.ssid, 32), channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
+    const ap = { bssid, ssid: stripCtl(a.ssid, 32), hid: stripN > 0, channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
       security: stripCtl(a.security, 48), vendor, rate: numOrNull(a.rate), width, last_seen: numOrNull(a.last_seen), phy, caps,
       beacons: numOrNull(a.beacons), packets: numOrNull(a.packets), akm: strs(a.akm, 12, 24), cipher, auth: strs(a.auth, 6, 16), responded_ssids: resp, clients: [] };
     const cl = Array.isArray(a.clients) ? a.clients : [];
@@ -1803,7 +1804,7 @@ function ingest(doc, opts = {}) {
       n.ssidKnown = a.ssid; n.hidden = false;
     } else if (n.ssidKnown == null) n.hidden = true;
     n.seen = true;
-    n.ssid = a.ssid; n.band = a.band; n.bandF = a.bandF ?? bandOf(a.band, a.freq, null); n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;   // bandF: band/freq only (the demo skips normalizeDoc)
+    n.ssid = a.ssid; n.hid = !!a.hid; n.band = a.band; n.bandF = a.bandF ?? bandOf(a.band, a.freq, null); n.channel = a.channel; n.freq = a.freq; n.rssi = a.rssi;   // bandF: band/freq only (the demo skips normalizeDoc)
     n.security = a.security; n.sec = secClass(a.security, a.akm, a.cipher);
     n.akm = a.akm; n.cipher = a.cipher; n.auth = a.auth; n.respondedSsids = a.responded_ssids; n.packets = a.packets;
     n.vendor = a.vendor; n.rate = a.rate; n.width = a.width; n.last_seen = a.last_seen; n.phy = a.phy; n.caps = a.caps; n.beacons = a.beacons;
@@ -3125,6 +3126,7 @@ function obsCompute() {
   c = cnt(n => n.band === "2.4" && n.channel != null && ![1, 6, 11].includes(n.channel)); if (c) add("c-chan", "Configuration", c + " 2.4 GHz network(s) on channels other than 1, 6 and 11");
   if (S.crowding.level >= 4) add("c-crowd", "Configuration", "the busiest channel is crowded (level " + S.crowding.level + " of 5)");
   c = cnt(n => n.hidden); if (c) add("c-hidden", "Configuration", c + " network(s) without a broadcast SSID");
+  c = cnt(n => n.hid); if (c) add("c-hid", "Look-alike", c + " SSID(s) carried invisible characters (removed)");
   c = cnt(n => n.sec === "wpa3-transition"); if (c) add("c-trans", "Configuration", c + " network(s) in WPA3/WPA2 transition mode");
   c = cnt(n => n.sec === "tkip-weak"); if (c) add("c-tkip", "Configuration", c + " network(s) that still use TKIP");
   let mob = 0; S.aps.forEach(n => { if (n.target === 1 && n.mobile) mob++; }); if (mob) add("c-mobile", "Configuration", "mobile hotspots: " + mob);
@@ -6298,7 +6300,7 @@ function showTip(n) {
     if (macs) html += '<div class="grid">' + kv("MACs", macs, "v mono") + '</div>';
   } else if (n.kind === "ap") {
     const al = aliasOf(n.id), name = al ? '<div class="ssid">' + esc(al) + '</div>' : n.hidden ? '<div class="ssid hidden">(hidden SSID)</div>' : '<div class="ssid">' + esc(n.ssidKnown || n.ssid) + '</div>';
-    html += name + '<div class="sub">' + esc(n.bssid) + (al && !n.hidden ? " · " + esc(n.ssidKnown || n.ssid) : "") + '</div><div class="grid">';
+    html += name + '<div class="sub">' + esc(n.bssid) + (al && !n.hidden ? " · " + esc(n.ssidKnown || n.ssid) : "") + (n.hid ? " · invisible characters removed" : "") + '</div><div class="grid">';
     html += kv("Vendor", esc(n.vendor || "—"), "v mono") + kv("Band", bandChip(n.band) + apChan(n)) + kv("Signal", esc(fmtSignal(n.rssi)));
     if (n.freshTier != null) html += kv("Heard", esc(ENCODING.fresh.words[n.freshTier]));
     html += kv("Security", esc(n.security || ENCODING.security[n.sec].label)) + kv("Clients", n.clientCount);
@@ -6401,6 +6403,7 @@ function openDetail(id) {
     title = n.hidden ? "(hidden SSID)" : (n.ssidKnown || n.ssid || "(hidden SSID)");
     detailTitle.textContent = title;
     body += row("BSSID", esc(n.bssid), "mono");
+    if (n.hid) body += row("SSID", "invisible characters removed");
     body += row("Vendor", esc(n.vendor || "—"));
     body += row("Band", esc(fmtBand(n.band)));
     body += row("Channel", n.channel != null ? String(n.channel) : "—");

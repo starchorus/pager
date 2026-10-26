@@ -126,7 +126,8 @@ FUZ_CTLJS='(()=>{const BAD=/[\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\uf
 const raw="A\u202eB\u200bC\u0085D\u200fE\u2066F\u2069G\ufeffH\u2060I\u202aJ\u202dK\u2064L\u0090M\u007fN\u200cO\u2065P",want="ABCDEFGHIJKLMNOP";
 const id="02:00:00:00:0c:01",id2="02:00:00:00:0c:02",o={};
 const legit="Caf\u00e9 \u65e5\u672c\u8a9e \u0395\u03bb\u03ac\u03b4\u03b1 \u05e9\u05dc \u0645\u0631 \ud83d\ude00 a\u00a0b";   /* 27 UTF-16 units: inside the 32 an SSID may have */
-STARCHORUS.load({source:"recon-db",generated:100,aps:[{bssid:id,ssid:raw,band:"2.4",channel:6,freq:2437,rssi:-50,security:"WPA2"},{bssid:id2,ssid:legit,band:"5",channel:36,freq:5180,rssi:-60,security:"WPA2"}],unassociated:[]},"ctl");
+const doc=(g)=>({source:"recon-db",generated:g,aps:[{bssid:id,ssid:raw,band:"2.4",channel:6,freq:2437,rssi:-50,security:"WPA2"},{bssid:id2,ssid:legit,band:"5",channel:36,freq:5180,rssi:-60,security:"WPA2"}],unassociated:[]});
+STARCHORUS.load(doc(100),"ctl");STARCHORUS.load(doc(105),"ctl");   /* two captures: the observation needs its dwell */
 o.err=STARCHORUS.errors().length;
 const ap=JSON.parse(STARCHORUS.exportText("json")).aps.find(a=>a.bssid===id);o.node=ap?ap.ssid:null;
 STARCHORUS.hoverNode(id);const tip=document.getElementById("tip").innerText;STARCHORUS.hoverNode(null);
@@ -134,6 +135,10 @@ STARCHORUS.select(id);const det=document.getElementById("detail-title").innerTex
 const ap2=JSON.parse(STARCHORUS.exportText("json")).aps.find(a=>a.bssid===id2);o.legitOk=!!ap2&&ap2.ssid===legit;
 STARCHORUS.hoverNode(id2);o.legitTip=document.getElementById("tip").innerText.indexOf(legit.replace(/\u00a0/g," "))>=0||document.getElementById("tip").innerText.indexOf(legit)>=0;STARCHORUS.hoverNode(null);
 o.nodeOk=o.node===want;o.tipHas=tip.indexOf(want)>=0;o.tipBad=BAD.test(tip);o.detHas=det.indexOf(want)>=0;o.detBad=BAD.test(det);
+/* the trick is told: tooltip and detail of the stripped name say so, the observations count it, the legitimate name carries no such mark */
+o.tipMark=tip.indexOf("invisible characters removed")>=0;o.detMark=det.indexOf("invisible characters removed")>=0;
+o.obsMark=STARCHORUS.observations().some(x=>x.group==="Look-alike"&&/1 SSID\(s\) carried invisible characters \(removed\)/.test(x.text));
+STARCHORUS.hoverNode(id2);o.legitNoMark=document.getElementById("tip").innerText.indexOf("invisible characters")<0;STARCHORUS.hoverNode(null);
 delete o.node;return JSON.stringify(o)})()'
 FUZ_CQ="?poll=0&spin=0&intro=0&debug=1"
 runq demo "$FUZ_CQ" "out/$P-fuzz-ctl" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
@@ -150,11 +155,11 @@ FUZ_HKEEP=$H; H=$FUZ_CPG
 runq demo "$FUZ_CQ" "out/$P-fuzz-ctl-old" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
 H=$FUZ_HKEEP
 FUZ_CO=$(evalv "out/$P-fuzz-ctl-old.json" 1)
-FUZ_CWANT='{"err":0,"legitOk":true,"legitTip":true,"nodeOk":true,"tipHas":true,"tipBad":false,"detHas":true,"detBad":false}'
+FUZ_CWANT='{"err":0,"legitOk":true,"legitTip":true,"nodeOk":true,"tipHas":true,"tipBad":false,"detHas":true,"detBad":false,"tipMark":true,"detMark":true,"obsMark":true,"legitNoMark":true}'
 FUZ_OOK=0; [ "$FUZ_CV" = "$FUZ_CWANT" ] && [ "$FUZ_CN" = 1 ] && FUZ_OOK=1
-rowif "ingest fuzz: an SSID with C1 controls, zero-width characters, direction marks, U+202E and the other overrides, isolates and U+FEFF is stored and drawn without them (node, tooltip and detail sheet read as DOM text); the page holds the one expression once [$FUZ_CV]" [ "$FUZ_OOK" = 1 ]
+rowif "ingest fuzz: an SSID with C1 controls, zero-width characters, direction marks, U+202E and the other overrides, isolates and U+FEFF is stored and drawn without them (node, tooltip and detail sheet read as DOM text), and says so: tooltip, detail row and an observation name the removal, the legitimate name beside it carries no mark; the page holds the one expression once [$FUZ_CV]" [ "$FUZ_OOK" = 1 ]
 FUZ_BK=0
-case $FUZ_CO in '{"err":0,"legitOk":true,"legitTip":true,"nodeOk":false,"tipHas":false,"tipBad":true,"detHas":false,"detBad":true}') FUZ_BK=1 ;; esac
+case $FUZ_CO in '{"err":0,"legitOk":true,"legitTip":true,"nodeOk":false,"tipHas":false,"tipBad":true,"detHas":false,"detBad":true,"tipMark":true,"detMark":true,"obsMark":true,"legitNoMark":true}') FUZ_BK=1 ;; esac   # the old class still drops U+007F, so the marks stand there too
 [ "$FUZ_CD2" = 1 ] || FUZ_BK=0
 rowif "ingest fuzz sensor bites: a page copy with the earlier expression [\\x00-\\x1f\\x7f] (differs in $FUZ_CD2 line) draws the overrides and the zero-width characters: RED [$FUZ_CO]" [ "$FUZ_BK" = 1 ]
 [ "$FUZ_POK" = 1 ] || echo "    target lines esc $FUZ_E, null-skip $FUZ_N, changed lines $FUZ_D"
