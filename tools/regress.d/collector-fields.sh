@@ -10,6 +10,8 @@
 # on the device's driver, `wifi_device.packets`, the output formats of the AP-service CLI, own BSSIDs beyond the interface MACs.
 
 CFL_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+CFL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # ---- fixture = generator output
 python3 tools/gen-testdata.py --secsuite --out "out/$P-secsuite.json" 2>/dev/null
@@ -31,7 +33,7 @@ const ap=STARCHORUS.node("02:00:5e:b0:00:04");o.apKeys=["akm","cipher","auth","r
 const txt=await (async()=>document.body.innerText+" "+[...document.querySelectorAll("[title]")].map(e=>e.title).join(" "))();
 o.ownLeak=/00:c0:ca:98:76:54|my-own-net/i.test(txt+JSON.stringify(STARCHORUS.stats())+JSON.stringify(STARCHORUS.skyStats()));
 return JSON.stringify(o);})()'
-runq "$F/secsuite.json" "$CFL_Q" "out/$P-cfl-suite" --wait 3 --fps 0 --eval "$CFL_EV" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/secsuite.json" "$CFL_Q" "out/$P-cfl-suite" --wait 3 --fps 0 --ready "$CFL_RDY" --eval "$CFL_EV" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_O=$(evalv "out/$P-cfl-suite.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":")))' 2>/dev/null); CFL_OE=$(evalv "out/$P-cfl-suite.json" 2)
 CFL_OW='{"apKeys":"akm,cipher,auth,respondedSsids,packets","clientKeys":"none","clientPackets":null,"hop":"{\"channels\":11,\"busy\":11}","legend":"open:1,wep:1,wpa:-,wpa2:2,wpa3:1,owe:1,enterprise:2,wpa3-transition:1,tkip-weak:2,unknown:-","own":"{\"bssids\":1,\"ssids\":1}","ownLeak":false,"owe":"true,true","resp":true,"sae":"true,true,true","sec":"{\"open\":1,\"wep\":1,\"wpa\":0,\"wpa2\":2,\"wpa3\":1,\"owe\":1,\"enterprise\":2,\"wpa3-transition\":1,\"tkip-weak\":2,\"unknown\":0}"}'
 CFL_OW=$(printf '%s' "$CFL_OW" | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":")))' 2>/dev/null)
@@ -44,7 +46,7 @@ fi
 
 # ---- a second capture of the same secsuite (new generated, nothing changed) is no change: the class comes from label AND akm/cipher on both sides
 CFL_EVC='(async()=>{await STARCHORUS.wait(600);const d=await fetch("starchorus.json").then(r=>r.json());const a=JSON.parse(JSON.stringify(d));a.generated=d.generated+5;STARCHORUS.load(d,"twice");STARCHORUS.load(a,"twice");const e=STARCHORUS.stats().events;return [e.captureSeq,e.arrived,e.departed,e.changed,e.cues].join("/");})()'
-runq "$F/secsuite.json" "$CFL_Q" "out/$P-cfl-same" --wait 2 --fps 0 --eval "$CFL_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/secsuite.json" "$CFL_Q" "out/$P-cfl-same" --wait 2 --fps 0 --ready "$CFL_RDY" --eval "$CFL_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_C=$(evalv "out/$P-cfl-same.json" 1); CFL_CE=$(evalv "out/$P-cfl-same.json" 2)
 if [ "$CFL_C" = 2/0/0/0/0 ] && [ "$CFL_CE" = 0 ]; then row "collector fields: an unchanged second capture is no change (classes from akm/cipher stay stable) [$CFL_C]" PASS
 else row "collector fields: an unchanged second capture is no change (classes from akm/cipher stay stable) [$CFL_C]" FAIL; fi
@@ -54,7 +56,7 @@ CFL_EVL='(async()=>{
 const ap=(n,sec,extra)=>Object.assign({bssid:"02:00:00:00:04:"+String(n).padStart(2,"0"),ssid:"l"+n,band:"2.4",channel:6,rssi:-60,security:sec},extra||{});
 const cls=(sec,extra)=>{STARCHORUS.load({source:"recon-db",generated:1789300000,aps:[ap(1,sec,extra)]},"cls"+Math.random().toString(36).slice(2));return STARCHORUS.node("02:00:00:00:04:01").sec;};
 return JSON.stringify([cls("WPA2/PSK/CCMP"),cls("WPA2/PSK/TKIP"),cls("WPA2/PSK/TKIP,CCMP"),cls("OWE"),cls("WPA3"),cls("WPA2/WPA3"),cls("WPA3-Enterprise"),cls("Secured"),cls("Open"),cls("WPA3",{akm:["owe"]}),cls("WPA2",{akm:["psk","sae"]}),cls("WPA3/SAE PSK/CCMP"),cls("WPA3/SAE/CCMP")]);})()'
-runq demo "$CFL_Q" "out/$P-cfl-lbl" --wait 2 --fps 0 --eval "$CFL_EVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-lbl" --wait 2 --fps 0 --ready --eval "$CFL_EVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_L=$(evalv "out/$P-cfl-lbl.json" 1); CFL_LE=$(evalv "out/$P-cfl-lbl.json" 2)
 CFL_LW='["wpa2","tkip-weak","wpa2","owe","wpa3","wpa3-transition","enterprise","wpa","open","owe","wpa3-transition","wpa3-transition","wpa3"]'
 if [ "$CFL_L" = "$CFL_LW" ] && [ "$CFL_LE" = 0 ]; then row "collector fields: label-only classification (airodump strings, akm overrides) [$CFL_L]" PASS
@@ -74,7 +76,7 @@ await STARCHORUS.wait(600);const o=[];
 for(let i=1;i<=9;i++){const id="02:00:00:00:05:0"+i,n=STARCHORUS.node(id);STARCHORUS.select(id);const d=document.getElementById("detail-body"),m=d.innerText.match(/PMF\s*([^\n]*)/);
  o.push([n.pmf,m?m[1].trim():null,!!d.querySelector("span.est[title]"),n.band].join("/"));}
 STARCHORUS.deselect();o.push(document.getElementById("help").textContent.includes("Protected Management Frames"));return JSON.stringify(o);})()'
-runq demo "$CFL_Q" "out/$P-cfl-pmf" --wait 2 --fps 0 --eval "$CFL_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmf" --wait 2 --fps 0 --ready --eval "$CFL_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_P=$(evalv "out/$P-cfl-pmf.json" 1); CFL_PE=$(evalv "out/$P-cfl-pmf.json" 2); CFL_PS=$(grep -c 'Protected Management Frames' starchorus.html)
 CFL_EVH='(async()=>{const T0=STARCHORUS.getTheme(),n=[],b=[],bad=[],long="PMF, in the detail of an access point: Protected Management Frames (802.11w), derived from the security class or the 6 GHz band.";
 STARCHORUS.setToggles({help:true});
@@ -85,9 +87,9 @@ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);awa
  if(!(a>=1&&a<=2))bad.push(t+" paragraph "+a+" lines");if(!(c>=3))bad.push(t+" counter reads "+c+" for the long sentence");
  if(innerWidth>720){const b=document.getElementById("help").getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)bad.push(t+" help box "+Math.round(b.top)+" to "+Math.round(b.bottom)+" of "+innerHeight);}}
 STARCHORUS.setToggles({help:false});STARCHORUS.setTheme(T0);return (bad.length?"BAD "+bad.join("; "):"ok")+" [lines "+n.join(",")+"; long sentence "+b.join(",")+"]";})()'
-runq demo "$CFL_Q" "out/$P-cfl-pmfh-d" --width 1440 --height 900 --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
-runq demo "$CFL_Q" "out/$P-cfl-pmfh-p" --width 375 --height 812 --mobile --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
-runq demo "$CFL_Q" "out/$P-cfl-pmfh-s" --width 1000 --height 500 --wait 3 --fps 0 --eval "$CFL_EVH" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-d" --width 1440 --height 900 --wait 3 --fps 0 --ready --eval "$CFL_EVH" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-p" --width 375 --height 812 --mobile --wait 3 --fps 0 --ready --eval "$CFL_EVH" >/dev/null 2>&1
+runq demo "$CFL_Q" "out/$P-cfl-pmfh-s" --width 1000 --height 500 --wait 3 --fps 0 --ready --eval "$CFL_EVH" >/dev/null 2>&1
 CFL_HD=$(evalv "out/$P-cfl-pmfh-d.json" 1); CFL_HP=$(evalv "out/$P-cfl-pmfh-p.json" 1); CFL_HS=$(evalv "out/$P-cfl-pmfh-s.json" 1)
 CFL_PW='["yes (derived)/yes (derived)/true/5","yes (derived)/yes (derived)/true/2.4","yes (derived)/yes (derived)/true/6","yes (derived)/yes (derived)/true/6","unknown/unknown/true/5","unknown/unknown/true/5","unknown/unknown/true/5","unknown/unknown/true/6","unknown/unknown/true/5",true]'
 case $CFL_HD in ok\ *) CFL_HDO=1 ;; *) CFL_HDO=0 ;; esac; case $CFL_HP in ok\ *) CFL_HPO=1 ;; *) CFL_HPO=0 ;; esac; case $CFL_HS in ok\ *) CFL_HSO=1 ;; *) CFL_HSO=0 ;; esac
@@ -96,7 +98,7 @@ else row "PMF derived (err ${CFL_PE:-?}, spelt out ${CFL_PS:-?}x, help lines des
 
 # ---- older documents run unchanged (no akm/channels/own_*): stats keys, no hop, empty own
 CFL_EVO='(async()=>{await STARCHORUS.wait(800);const s=STARCHORUS.stats();return JSON.stringify([s.hop,s.own,Object.keys(s.security).length]);})()'
-runq "$F/legacy.json" "$CFL_Q" "out/$P-cfl-legacy" --wait 2 --fps 0 --eval "$CFL_EVO" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/legacy.json" "$CFL_Q" "out/$P-cfl-legacy" --wait 2 --fps 0 --ready "$CFL_RDY" --eval "$CFL_EVO" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CFL_G=$(evalv "out/$P-cfl-legacy.json" 1); CFL_GE=$(evalv "out/$P-cfl-legacy.json" 2)
 if [ "$CFL_G" = '[null,{"bssids":0,"ssids":0},10]' ] && [ "$CFL_GE" = 0 ]; then row "collector fields: a document without the optional collector fields still loads: hop null, own empty, 10 classes [$CFL_G]" PASS
 else row "collector fields: a document without the optional collector fields still loads: hop null, own empty, 10 classes [$CFL_G]" FAIL; fi

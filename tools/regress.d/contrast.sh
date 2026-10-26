@@ -18,7 +18,7 @@ CTR_EV2='(function(){const r=STARCHORUS.contrast([["#ffffff","#000000"],["#77777
 # ring pixels: scan the column 2 px left of the centre upward; each ring crossing must carry the theme's
 # line.ring RGB (tolerance 6/255, alpha >= 0.45 of the token alpha -- 1-px rings are antialiased).
 CTR_EV3='(function(){const I=STARCHORUS._internals;if(!I)return "no-debug";const bad=[];for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);STARCHORUS.frame();const s=String(I.THEMES[t].line.ring||""),h=/^#([0-9a-f]{6})$/i.exec(s),q=/^rgba?\(([^)]+)\)$/.exec(s);let c=null;if(h){const n=parseInt(h[1],16);c=[n>>16&255,n>>8&255,n&255,1]}else if(q){const v=q[1].split(",").map(Number);c=[v[0],v[1],v[2],v.length>3?v[3]:1]}if(!c){bad.push(t+":no-line.ring");continue}const x=innerWidth/2-2,cy=innerHeight/2;let hit=0,prev=false;for(let y=0;y<=cy;y++){const p=STARCHORUS.pixel("bg",x,y),m=p.a>=0.45*c[3]*255&&Math.abs(p.r-c[0])<=6&&Math.abs(p.g-c[1])<=6&&Math.abs(p.b-c[2])<=6;if(m&&!prev)hit++;prev=m}if(hit!==I.LAYOUT.rings.length)bad.push(t+":"+hit+"/"+I.LAYOUT.rings.length)}STARCHORUS.setTheme("foundation");return bad.length?bad.join(","):"ok"})()'
-runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast" --fps 0 --wait 3 \
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast" --fps 0 --wait 3 --ready \
   --eval "$CTR_EV1" --eval "$CTR_EV2" --eval "$CTR_EV3" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CTR_V1=$(evalv "out/$P-contrast.json" 1); CTR_V2=$(evalv "out/$P-contrast.json" 2)
 CTR_V3=$(evalv "out/$P-contrast.json" 3); CTR_ERR=$(evalv "out/$P-contrast.json" 4)
@@ -55,7 +55,7 @@ rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P)
 # the rows CTR_EV1 above already requires to pass. A mark too dark for the ground fails the same API, so the row can bite.
 CTR_EVB='(function(){const o=[];for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);const r=STARCHORUS.contrast().filter(p=>p.fg==="render.btMark");o.push(r.length===1&&r[0].bg==="surface.base"&&r[0].min===3&&r[0].pass?r[0].ratio:"bad:"+JSON.stringify(r))}
 const dark=STARCHORUS.contrast([["#2a1020","surface.base",3]],"foundation")[0].pass;STARCHORUS.setTheme("foundation");return o.join("/")+"|"+dark})()'
-runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-bt" --fps 0 --wait 2 --eval "$CTR_EVB" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-bt" --fps 0 --wait 2 --ready --eval "$CTR_EVB" >/dev/null 2>&1
 CTR_B=$(evalv "out/$P-contrast-bt.json" 1)
 rowif "contrast (radio pair): render.btMark on surface.base is a pair of its own, minimum 3, passing in all 3 themes (7.18 / 8.05 / 3.94), and a too-dark mark fails the same API [$CTR_B]" [ "$CTR_B" = "7.18/8.05/3.94|false" ]
 
@@ -77,7 +77,7 @@ for(const t of ["foundation","wargames","whitehall"]){
  const band=[...document.querySelectorAll("[data-band]")].filter(b=>b.classList.contains("on")&&!b.hidden).map(b=>getComputedStyle(b)),tl=e("t-labels"),tog=getComputedStyle(tl);
  o.push(tl.classList.contains("on")&&band.length>=3&&band.every(c=>c.backgroundColor===c.borderTopColor&&c.backgroundColor!==tog.backgroundColor)?"1":"0:"+t+":bands")}
 return o.join(",")})()'
-runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open" --fps 0 --wait 2 --ready --eval-timeout 90 --eval "$CTR_EVD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CTR_D=$(evalv "out/$P-contrast-open.json" 1); CTR_DE=$(evalv "out/$P-contrast-open.json" 2)
 rowif "contrast: an open Air / Time / Record button (keys Q, J, H) has label against fill >= 4.5 in all 3 themes, and the band buttons keep their fills [$CTR_D]" [ "$CTR_D/$CTR_DE" = "1,1,1,1,1,1,1,1,1,1,1,1/0" ]
 # the control: a page copy whose rule is the old `.btn.toggle.on` must read red on all nine buttons
@@ -89,7 +89,7 @@ s = s.replace(new, ".btn.toggle.on { background") if s.count(new) == 1 else s + 
 open(sys.argv[2], "w", encoding="utf-8").write(s)
 PY
 CTR_HK=$H; H="out/$P-contrast-open-nofix.html"   # runq serves $H: point it at the copy for this one call, then put it back
-runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-n" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-n" --fps 0 --wait 2 --ready --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
 H=$CTR_HK
 CTR_DN=$(evalv "out/$P-contrast-open-n.json" 1)
 CTR_DNR=$(printf '%s' "$CTR_DN" | tr ',' '\n' | grep -c '^0:[a-z]*[qjh]:1\.')
@@ -104,7 +104,7 @@ s = s.replace(new, ".btn.on:not([data-x]) { background") if s.count(new) == 1 el
 open(sys.argv[2], "w", encoding="utf-8").write(s)
 PY
 CTR_HK=$H; H="out/$P-contrast-open-allon.html"
-runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-a" --fps 0 --wait 2 --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0&debug=1" "out/$P-contrast-open-a" --fps 0 --wait 2 --ready --eval-timeout 90 --eval "$CTR_EVD" >/dev/null 2>&1
 H=$CTR_HK
 CTR_DA=$(evalv "out/$P-contrast-open-a.json" 1)
 CTR_DAB=$(printf '%s' "$CTR_DA" | tr ',' '\n' | grep -c '^0:[a-z]*:bands$')

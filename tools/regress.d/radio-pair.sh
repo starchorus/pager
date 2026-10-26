@@ -21,10 +21,19 @@
 
 RP_FX="$F/radio-pair.json"
 RP_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready for the runs whose eval loads what it reads or reads only what stands right after the boot (counts, texts, DOM, positions after settle(), data-derived rates), and
+# whose own sleeps carry the fades; the page's age at the first read does not enter a figure. Not reduced motion (RP_EV_RM): it compares marks between frames of the boot
+# layout, so it keeps the whole wait. A run on a served fixture is ready when the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame,
+# so a count would be met at once); the demo run takes the bare --ready.
+RP_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
+RP_READY_RUNS=" ing fill id void cell drawn rank key tip host ord abs sky demo rate cue bud apart exp mut-angle mut-hysteresis mut-hop mut-twosamples mut-floor mut-stale mut-fresh mut-rank "
 rp_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 # rp_run NAME EVAL_FILE_TEXT [FIXTURE] [QUERY] [cdp args]: one run, the value of the eval (normalised JSON) in RP_V and the page's error count in RP_E
 rp_run() {
   _rp_n=$1; _rp_e=$2; _rp_f=${3:-$RP_FX}; _rp_q=${4:-$RP_Q}; if [ $# -ge 4 ]; then shift 4; else shift $#; fi
+  case $RP_READY_RUNS in
+    *" $_rp_n "*) if [ "$_rp_f" = demo ]; then set -- "$@" --ready; else set -- "$@" --ready "$RP_RDY"; fi ;;
+  esac
   runq "$_rp_f" "$_rp_q" "out/$P-rp-$_rp_n" --fps 0 --wait 3 --eval-timeout 120 --eval "$_rp_e" --eval "STARCHORUS.errors().length" "$@" >/dev/null 2>&1
   RP_V=$(evalv "out/$P-rp-$_rp_n.json" 1 | rp_nj); RP_E=$(evalv "out/$P-rp-$_rp_n.json" 2)
 }
@@ -402,7 +411,7 @@ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);STA
  STARCHORUS.hover(5,5);add(document.body.innerText);for(const e of document.querySelectorAll("[title],[aria-label]")){add(e.getAttribute("title"));add(e.getAttribute("aria-label"));}STARCHORUS.openDrawer("air");await sleep(200);add(document.getElementById("air-body").innerText);}
 for(const f of ["json","csv","sitrep"])add(STARCHORUS.exportText(f));
 return [...seen].join("\n");})()'
-runq "$RP_FX" "$RP_Q" "out/$P-rp-txt" --fps 0 --wait 3 --eval-timeout 120 --eval "$RP_EV_TXT" >/dev/null 2>&1
+runq "$RP_FX" "$RP_Q" "out/$P-rp-txt" --fps 0 --wait 3 --ready "$RP_RDY" --eval-timeout 120 --eval "$RP_EV_TXT" >/dev/null 2>&1
 evalv "out/$P-rp-txt.json" 1 > "out/$P-rp-txt.txt"
 RP_TN=$(wc -l < "out/$P-rp-txt.txt" | tr -d ' ')
 RP_TH=$(python3 - "out/$P-rp-txt.txt" "$RP_P10_RE" <<'PY'

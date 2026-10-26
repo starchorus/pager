@@ -66,7 +66,7 @@ o.aliasIn=(find(SA)||{}).alias;                      // alias exported (like an 
 o.noteText=/secret note text/.test(STARCHORUS.exportText("json")+STARCHORUS.exportText("csv")+STARCHORUS.exportText("sitrep"));   // note TEXT never exported
 o.err=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$SOU_Q" "out/$P-sou-exp" --wait 2 --fps 0 --eval "$SOU_EV1" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$SOU_Q" "out/$P-sou-exp" --wait 2 --fps 0 --ready --eval "$SOU_EV1" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SOU_E=$(evalv "out/$P-sou-exp.json" 1 | sou_nj); SOU_EE=$(evalv "out/$P-sou-exp.json" 2)
 SOU_EW='{"aliasIn":"laptop-A","assocH":null,"assocN":"02:00:00:00:31:01","assocO":null,"err":0,"free":null,"nStations":4,"noteText":false,"ownAsParent":false}'
 if [ "$SOU_E" = "$SOU_EW" ] && [ "$SOU_EE" = 0 ]; then
@@ -101,7 +101,7 @@ fi
 # Red if: a threat word (the regex of neutral-language.sh) appears in json/csv/sitrep or the display Stations LOG on any client-bearing fixture.
 SOU_RE='(evil[ -]?twin|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth flood)'
 SOU_EVP='(()=>[STARCHORUS.exportText("json"),STARCHORUS.exportText("csv"),STARCHORUS.exportText("sitrep")].join("\n"))()'
-runq "$F/many-clients.json" "$SOU_Q" "out/$P-sou-p10" --wait 3 --fps 0 --eval "$SOU_EVP" >/dev/null 2>&1
+runq "$F/many-clients.json" "$SOU_Q" "out/$P-sou-p10" --wait 3 --fps 0 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --eval "$SOU_EVP" >/dev/null 2>&1
 SOU_XP=$(python3 -c 'import json,sys,re;t=json.load(open(sys.argv[1]))["eval"][0]["value"];print(1 if re.search(sys.argv[2],t,re.I) else 0)' "out/$P-sou-p10.json" "$SOU_RE" 2>/dev/null)
 SOU_PGP=$(printf '%s\n' "$SOU_PGO" | grep -ciE "$SOU_RE")
 if [ "$SOU_XP" = 0 ] && [ "$SOU_PGP" = 0 ]; then

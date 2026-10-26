@@ -31,6 +31,8 @@
 
 AL_FX="$F/alerts.json"; AL_T="out/$P-al"; mkdir -p "$AL_T"
 AL_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready for a run on the served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+AL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # ---- R1 the fixture and the validator
 python3 tools/gen-testdata.py --alerts --out "$AL_T/gen.json" 2>/dev/null
@@ -149,7 +151,7 @@ o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 # al_legend PAGE PREFIX: the legend eval on PAGE (the page, or a planted copy); the value comes back in AL_L, the keys without the words in AL_LN
 al_legend() {
   AL_HK=$H; H=$1   # runq serves $H: point it at the copy for this one call, then put it back
-  runq "$AL_FX" "$AL_Q" "$2" --fps 0 --wait 3 --eval-timeout 60 --eval "$AL_EVL" >/dev/null 2>&1
+  runq "$AL_FX" "$AL_Q" "$2" --fps 0 --wait 3 --ready "$AL_RDY" --eval-timeout 60 --eval "$AL_EVL" >/dev/null 2>&1
   H=$AL_HK
   AL_L=$(evalv "$2.json" 1)
   AL_LN=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; d=json.load(sys.stdin); d.pop("text",None); print(json.dumps(d,separators=(",",":"),sort_keys=True))' 2>/dev/null)
@@ -208,7 +210,7 @@ rowif "alerts: with the alert drawn the page makes no request but GET to its own
 # ---- R10 the colour role: the alert colour is red and apart from the three bands and from selection in every theme (tools/check-colors.py, spec 14.4). The validator runs
 # on the live token sets; three mutations must each turn it red for the alert role: Foundation's alert in its amber alarm colour, Whitehall's in the 5 GHz band colour, and
 # WarGames' without the token. The counts are pinned: 18 checks of the role (3 themes x hue, 3 bands, 2 selection tokens) and a green validator on the real tokens.
-runq demo "$AL_Q" "$AL_T/themes" --wait 1 --fps 0 --eval 'JSON.stringify(STARCHORUS._internals.THEMES)' >/dev/null 2>&1
+runq demo "$AL_Q" "$AL_T/themes" --wait 1 --fps 0 --ready --eval 'JSON.stringify(STARCHORUS._internals.THEMES)' >/dev/null 2>&1
 AL_CC=$(python3 -B - "$AL_T/themes.json" <<'PY'
 import json, subprocess, sys, tempfile
 d = json.load(open(sys.argv[1])); t = json.loads(d["eval"][0]["value"])

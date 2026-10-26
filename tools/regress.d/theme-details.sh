@@ -7,6 +7,9 @@
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only TDT_* globals are set.
 
 TDT_Q="?poll=0&spin=0&intro=0&debug=1&autolod=0"
+# --ready on the runs that read a loaded capture or a static answer: the fonts are loaded, the capture is in and a frame has been painted after both (--wait stays the ceiling);
+# the runs that watch the intro, the caption or the dust keep their fixed wait
+TDT_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.stats().apsTotal > 0 && STARCHORUS.stats().sourceKind !== "demo"))))'
 tdt_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 
 # ---- D13 + the three intro styles. The flag key carries the theme id, so each theme still introduces itself
@@ -85,7 +88,7 @@ o.off=(function(){const d=[].slice.call(dom).filter(function(e){return !e.classL
 o.other=["foundation","whitehall"].map(function(t){STARCHORUS.setTheme(t);STARCHORUS.openDrawer("air");
  return STARCHORUS.lampStrip().shown+":"+document.querySelectorAll("#lamp-strip .lamps i").length}).join(",");
 STARCHORUS.setTheme("wargames");o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-probes.json" "$TDT_Q&theme=wargames" "out/$P-tdt-lamp" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 90 --eval "$TDT_EVL" >/dev/null 2>&1
+runq "$F/field-probes.json" "$TDT_Q&theme=wargames" "out/$P-tdt-lamp" --width 1440 --height 900 --wait 3 --ready "$TDT_RDY" --fps 0 --eval-timeout 90 --eval "$TDT_EVL" >/dev/null 2>&1
 TDT_L=$(evalv "out/$P-tdt-lamp.json" 1 | tdt_nj)
 # field-probes has 60 access points: 48 lamps, 12 dropped; 24 of the 60 were heard in the last minute and
 # 21 of those fall among the 48 drawn lamps (the caption counts the population, the DOM shows the drawn view). The lit lamp
@@ -111,7 +114,7 @@ STARCHORUS.hoverNode(null);STARCHORUS.setTheme("foundation");
 o.sameRows=keys.foundation===keys.wargames&&keys.wargames===keys.whitehall;
 o.rows=keys.whitehall;o.cols=[cols.foundation,cols.wargames,cols.whitehall].join("/");
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-probes.json" "$TDT_Q" "out/$P-tdt-tip" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 90 --eval "$TDT_EVP" >/dev/null 2>&1
+runq "$F/field-probes.json" "$TDT_Q" "out/$P-tdt-tip" --width 1440 --height 900 --wait 3 --ready "$TDT_RDY" --fps 0 --eval-timeout 90 --eval "$TDT_EVP" >/dev/null 2>&1
 TDT_T=$(evalv "out/$P-tdt-tip.json" 1 | tdt_nj)
 TDT_TW=$(printf '%s' '{"cols":"2/2/4","errors":0,"plaque_foundation":"off","plaque_wargames":"off","plaque_whitehall":"on","rows":"Vendor|Band|Signal|Heard|Security|Clients|Group|Device","sameRows":true}' | tdt_nj)
 if [ "$TDT_T" = "$TDT_TW" ]; then
@@ -154,7 +157,7 @@ else
   row "Foundation: lit dust + slab chrome + caption" FAIL; echo "    got:  $TDT_F"; echo "    want: $TDT_FW"
 fi
 # the bronze is an ornament: it must keep ΔE ≥ 8 to the alarm colour, so gold still means alarm alone (theme-foundation.sh)
-runq demo "$TDT_Q" "out/$P-tdt-themes" --wait 1 --fps 0 --eval "JSON.stringify(STARCHORUS._internals.THEMES)" >/dev/null 2>&1
+runq demo "$TDT_Q" "out/$P-tdt-themes" --wait 1 --ready --fps 0 --eval "JSON.stringify(STARCHORUS._internals.THEMES)" >/dev/null 2>&1
 TDT_DE=$(python3 - "out/$P-tdt-themes.json" <<'PY'
 import importlib.util, sys
 s = importlib.util.spec_from_file_location("cc", "tools/check-colors.py"); cc = importlib.util.module_from_spec(s); s.loader.exec_module(cc)

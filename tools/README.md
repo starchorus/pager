@@ -282,7 +282,8 @@ runq "$F/devices.json" "?intro=0&poll=0&spin=0" out/click --fps 0 \
 `--eval "$EV_THAW"`. `--eval-timeout` (30 s) applies per eval; `--step` runs after the `--eval`s and
 before the screenshot.
 A site that needs the page booted and nothing else passes `--ready` (or `--ready EXPR` for a condition of its own, say
-`STARCHORUS.stats().apsTotal > 0`): the run goes on as soon as it holds and `--wait` becomes the ceiling. A site that depends
+`window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'` for "the fixture is in"; a count of access points is no such condition, the
+built-in demo sky is ingested synchronously at boot and already has eleven): the run goes on as soon as it holds and `--wait` becomes the ceiling. A site that depends
 on time passing (an animation, a poll count, the fps pass) keeps the plain wait.
 
 ## Limits: what the nets do not see

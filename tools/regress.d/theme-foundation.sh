@@ -5,6 +5,8 @@
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only TFD_* globals are set.
 
 TFD_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready: the fonts are loaded, the capture is in and a frame has been painted after both (--wait stays the ceiling); the demo runs use the bare form
+TFD_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.stats().apsTotal > 0 && STARCHORUS.stats().sourceKind !== "demo"))))'
 tfd_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 
 # ---- dust cohesion = freshness; the core, the radius and the hit-test do not change; dawn/dusk rotate the dust
@@ -25,7 +27,7 @@ const dig=async(rad,label)=>{P.spiral.dawnRad=rad;STARCHORUS.load({source:"recon
 const d1=await dig(1.4,"dawn1"),d0=await dig(0,"dawn0"),d1b=await dig(1.4,"dawn1b");
 o.dawn=[d1!==d0,d1===d1b].join();P.spiral.dawnRad=1.4;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TFD_Q" "out/$P-tfd-dust" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TFD_EVD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TFD_Q" "out/$P-tfd-dust" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TFD_EVD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TFD_D=$(evalv "out/$P-tfd-dust.json" 1 | tfd_nj); TFD_DE=$(evalv "out/$P-tfd-dust.json" 2)
 TFD_DW=$(printf '%s' '{"alpha":true,"aps":"1111","cohTok":"{\"scale\":[1,1.3,1.7,2.3],\"alpha\":[1,0.85,0.65,0.45]}","dawn":"true,true","errors":0,"hit":"true,true,true,true","off":"1,1,1,1|1,1,1,1","px":true,"radius":true,"ratio":true}' | tfd_nj)
 if [ "$TFD_D" = "$TFD_DW" ] && [ "$TFD_DE" = 0 ]; then
@@ -54,7 +56,7 @@ STARCHORUS.setReducedMotion(true);o.beatRm=await beat(312.5);STARCHORUS.setReduc
 STARCHORUS.setTheme("wargames");o.beatWg=await beat(312.5);STARCHORUS.setTheme("whitehall");o.beatWh=await beat(312.5);STARCHORUS.setTheme("foundation");
 o.hz=TH.render.coreBeat.hz<=1;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TFD_Q" "out/$P-tfd-grid" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TFD_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TFD_Q" "out/$P-tfd-grid" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TFD_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TFD_P=$(evalv "out/$P-tfd-grid.json" 1 | tfd_nj); TFD_PE=$(evalv "out/$P-tfd-grid.json" 2)
 TFD_PW=$(printf '%s' '{"aura":"none","beat":"1,1.07,0.93,1","beatRm":1,"beatWg":1,"beatWh":1,"errors":0,"goldAlarm":true,"api":"undefined","fdGrid":"0,0","goldUi":"none","grid":"dotStepPx+spokes,dotStepPx+spokes,dotStepPx+spokes","hz":true}' | tfd_nj)
 if [ "$TFD_P" = "$TFD_PW" ] && [ "$TFD_PE" = 0 ]; then
@@ -92,7 +94,7 @@ o.line3=/differ from the usual picture|differs from the usual picture/.test(STAR
 STARCHORUS.setTheme("wargames");STARCHORUS.openDrawer("air");await STARCHORUS.wait(200);o.wg=[!!document.getElementById("compendium"),!!document.getElementById("vault")].join();
 STARCHORUS.setTheme("whitehall");await STARCHORUS.wait(200);o.wh=[!!document.getElementById("compendium"),!!document.getElementById("vault")].join();STARCHORUS.setTheme("foundation");
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/many-clients.json" "$TFD_Q" "out/$P-tfd-comp" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TFD_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/many-clients.json" "$TFD_Q" "out/$P-tfd-comp" --width 1440 --height 900 --wait 2 --ready "$TFD_RDY" --fps 0 --eval-timeout 120 --eval "$TFD_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TFD_C=$(evalv "out/$P-tfd-comp.json" 1 | tfd_nj); TFD_CE=$(evalv "out/$P-tfd-comp.json" 2)
 TFD_CW=$(printf '%s' '{"big":"true,true","dom":"true|true|Compendium of the Local Sky|Vault","errors":0,"line3":true,"macLike":false,"names":false,"p10":false,"small":"true,true","vault":"[[\"2.4\",6,\"up\"]]","vaultText":"true,false","wg":"false,false","wh":"false,false"}' | tfd_nj)
 if [ "$TFD_C" = "$TFD_CW" ] && [ "$TFD_CE" = 0 ]; then
@@ -137,8 +139,8 @@ const e=(i)=>document.getElementById(i),w=STARCHORUS.wait,o=[];
 const t=e("t-agg").title;o.push(STARCHORUS.stats().forcedAgg===true&&/ \[A\]$/.test(t)?1:"0:"+t);
 STARCHORUS.setToggles({agg:false});await w(200);o.push(e("t-agg").classList.contains("forced")&&/ \[A\]$/.test(e("t-agg").title)?1:"0:forced class");
 o.push(STARCHORUS.errors().length);return o.join()})()'
-runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small" --wait 2 --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
-runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced" --wait 3 --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
+runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small" --wait 2 --ready "$TFD_RDY" --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
+runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced" --wait 3 --ready "$TFD_RDY" --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
 TFD_S=$(evalv "out/$P-tfd-small.json" 1); TFD_FS=$(evalv "out/$P-tfd-forced.json" 1)
 rowif "page: one network reads '1 AP' (source line, Air drawer), the export text has a name, the mode chip is a status region, the Bubbles title ends in [A], and the sheet closes on a network that left but stays on one that is there [$TFD_S]" [ "$TFD_S" = "1,1,1,1,1,1,1,1,0" ]
 rowif "page: the Bubbles button on a forced capture (field-scale.json): title ends in [A], class .forced when the bubbles are off (and none on a small capture, run 1) [$TFD_FS]" [ "$TFD_FS" = "1,1,0" ]
@@ -159,8 +161,8 @@ for new, old in pairs:
 open(sys.argv[2], "w", encoding="utf-8").write(s)
 PY
 TFD_HK=$H; H="out/$P-tfd-nofix.html"   # runq serves $H: point it at the copy for these calls, then put it back
-runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small-n" --wait 2 --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
-runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced-n" --wait 3 --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
+runq "$F/single-ap.json" "$TFD_Q" "out/$P-tfd-small-n" --wait 2 --ready "$TFD_RDY" --fps 0 --eval-timeout 90 --eval "$TFD_EVS" >/dev/null 2>&1
+runq "$F/field-scale.json" "$TFD_Q" "out/$P-tfd-forced-n" --wait 3 --ready "$TFD_RDY" --fps 0 --eval-timeout 90 --eval "$TFD_EVF" >/dev/null 2>&1
 H=$TFD_HK
 TFD_SN=$(evalv "out/$P-tfd-small-n.json" 1); TFD_FN=$(evalv "out/$P-tfd-forced-n.json" 1)
 TFD_SNB=$(printf '%s' "$TFD_SN" | tr ',' '\n' | grep -c '^0:'); TFD_FNB=$(printf '%s' "$TFD_FN" | tr ',' '\n' | grep -c '^0:')

@@ -22,7 +22,7 @@ TSC_EVB="(function(){const T=STARCHORUS._internals.THEMES,f=(o,p,a)=>{for(const 
 TSC_EVC="(function(){const T=STARCHORUS._internals.THEMES;T.foundation.k04={a:1,b:[1,2]};T.wargames.k04={a:1,b:3};T.whitehall.k04={c:1};const m=STARCHORUS.themeAudit(true);delete T.foundation.k04;delete T.wargames.k04;delete T.whitehall.k04;return JSON.stringify({f:m.missing.foundation,w:m.missing.wargames,h:m.missing.whitehall,k:m.kinds,e:m.errors})+'|'+STARCHORUS.themeAudit(true).errors})()"
 TSC_WANT='{"f":["k04.c"],"w":["k04.c"],"h":["k04.a","k04.b"],"k":["k04.b array/number/-"],"e":5}|0'
 TSR_EVS="(function(){const I=STARCHORUS._internals;return ['foundation','wargames','whitehall'].every(id=>{const t=I.THEMES[id];return !('coreRadiusPx' in t.rssi)&&!('fogNearAlpha' in t.depth)&&!('fogFarAlpha' in t.depth)&&!('sizeFarFactor' in t.depth)})&&Array.isArray(I.LAYOUT.coreRadiusPx)&&I.LAYOUT.coreRadiusPx[1]===I.LAYOUT.basePxMaxCore&&I.CFG3D.fogFarAlpha===0.33&&I.CFG3D.sizeFarFactor===0.58})()"
-runq demo "?intro=0&poll=0&debug=1" "out/$P-tsc" --fps 0 \
+runq demo "?intro=0&poll=0&debug=1" "out/$P-tsc" --fps 0 --ready \
   --eval "$TSC_EVA" --eval "$TSC_EVB" --eval "$TSC_EVC" --eval "$TSR_EVS" --eval "JSON.stringify(STARCHORUS.themeAudit())" >/dev/null 2>&1
 TSC_A=$(evalv "out/$P-tsc.json" 1); TSC_B=$(evalv "out/$P-tsc.json" 2); TSC_C=$(evalv "out/$P-tsc.json" 3)
 TSR_S=$(evalv "out/$P-tsc.json" 4); TSC_AUDIT=$(evalv "out/$P-tsc.json" 5)

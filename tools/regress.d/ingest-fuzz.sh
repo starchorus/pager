@@ -47,6 +47,7 @@ FUZ_SINKS_OPEN="ab=renderAir (Air drawer) ib=renderInv (inventory) hb=renderHome
 FUZ_KNOWN_OPEN='4:top.generated:*e+308|page|generated beyond +-8.64e12 s: setSourcePanel calls new Date(generated*1000).toISOString(), RangeError after ingest already replaced the display, so load() reports an error for a document it took'
 FUZ_JS=$(cat "$R/tools/evals/ingest-fuzz.js")
 FUZ_Q="?poll=0&spin=0&intro=0&debug=1&fixed=$STARCHORUS_FIXED"
+FUZ_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 # The canary is the file an injected `touch` would create. The payloads carry its path UNQUOTED, and this repo lives under
 # ".../Application Support/...": with a space in the path `touch A B/c` splits into several arguments, the file could never appear
 # at the expected path and "canary untouched" would stay green whatever the display script does. So the file gets its
@@ -84,7 +85,7 @@ rowif "fuzz-doc.py: same seed same bytes, other seed other payload, refuses a sp
 [ "$FUZ_GOK" = 1 ] || echo "    generator rc $FUZ_G1/$FUZ_G2/$FUZ_G3 (want 0/0/0), rc for a path with a space $FUZ_G4 (want 2), seed changes payload: $FUZ_SD, canary $FUZ_CAN, $FUZ_SUM"
 
 # ---- 2. the run: main (every mutant, 2D then 3D, the sinks) and big (class 7 alone, explicit timeout: a hang only hits it)
-runq "out/$P-fuzz.json" "$FUZ_Q" "out/$P-fuzz" --wait 2 --fps 0 --eval-timeout 120 \
+runq "out/$P-fuzz.json" "$FUZ_Q" "out/$P-fuzz" --wait 2 --fps 0 --ready "$FUZ_RDY" --eval-timeout 120 \
   --eval "$FUZ_JS(\"main\")" --eval "$FUZ_JS(\"big\")" > "out/$P-fuzz.txt" 2>&1; FUZ_RC=$?
 printf '%s\n' "$FUZ_KNOWN_OPEN" > "out/$P-fuzz-open.txt"
 FUZ_V=$(fuzz_verdict "out/$P-fuzz.json" run "$FUZ_MIN_MUTANTS" "$FUZ_MIN_ANCHORS" "out/$P-fuzz-open.txt"); FUZ_VC=$?
@@ -111,7 +112,7 @@ sed 's/^const esc = (s) => String(s)\.replace.*$/const esc = (s) => String(s);/'
 FUZ_D=$(diff "$H" "$FUZ_PG" | grep -c '^<')
 python3 -B tools/fuzz-doc.py --classes 3,6 --canary "$FUZ_CAN" --out "out/$P-fuzz-probe.json" > /dev/null 2>&1
 FUZ_HKEEP=$H; H=$FUZ_PG   # runq serves $H: point it at the copy for this one call, then put it back
-runq "out/$P-fuzz-probe.json" "$FUZ_Q" "out/$P-fuzz-probe" --wait 2 --fps 0 --eval-timeout 120 \
+runq "out/$P-fuzz-probe.json" "$FUZ_Q" "out/$P-fuzz-probe" --wait 2 --fps 0 --ready "$FUZ_RDY" --eval-timeout 120 \
   --eval "$FUZ_JS(\"main\")" --eval "$FUZ_JS(\"big\")" > "out/$P-fuzz-probe.txt" 2>&1
 H=$FUZ_HKEEP
 FUZ_PV=$(fuzz_verdict "out/$P-fuzz-probe.json" probe 0 0 -); FUZ_PC=$?
@@ -141,7 +142,7 @@ o.obsMark=STARCHORUS.observations().some(x=>x.group==="Look-alike"&&/1 SSID\(s\)
 STARCHORUS.hoverNode(id2);o.legitNoMark=document.getElementById("tip").innerText.indexOf("invisible characters")<0;STARCHORUS.hoverNode(null);
 delete o.node;return JSON.stringify(o)})()'
 FUZ_CQ="?poll=0&spin=0&intro=0&debug=1"
-runq demo "$FUZ_CQ" "out/$P-fuzz-ctl" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
+runq demo "$FUZ_CQ" "out/$P-fuzz-ctl" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
 FUZ_CV=$(evalv "out/$P-fuzz-ctl.json" 1)
 FUZ_NEWC='[\x00-\x1f\x7f-\x9f'
 for FUZ_r in 200b:200f 202a:202e 2060:2069; do FUZ_NEWC="$FUZ_NEWC"'\u'"${FUZ_r%:*}"'-\u'"${FUZ_r#*:}"; done
@@ -152,7 +153,7 @@ FUZ_CPG="out/$P-fuzz-ctl-old.html"
 FUZ_A=$FUZ_NEWC FUZ_B=$FUZ_OLDC awk '{ i = index($0, ENVIRON["FUZ_A"]); if (i) $0 = substr($0, 1, i - 1) ENVIRON["FUZ_B"] substr($0, i + length(ENVIRON["FUZ_A"])) } { print }' "$H" > "$FUZ_CPG"
 FUZ_CD2=$(diff "$H" "$FUZ_CPG" | grep -c '^<')
 FUZ_HKEEP=$H; H=$FUZ_CPG
-runq demo "$FUZ_CQ" "out/$P-fuzz-ctl-old" --wait 2 --fps 0 --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
+runq demo "$FUZ_CQ" "out/$P-fuzz-ctl-old" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$FUZ_CTLJS" >/dev/null 2>&1
 H=$FUZ_HKEEP
 FUZ_CO=$(evalv "out/$P-fuzz-ctl-old.json" 1)
 FUZ_CWANT='{"err":0,"legitOk":true,"legitTip":true,"nodeOk":true,"tipHas":true,"tipBad":false,"detHas":true,"detBad":false,"tipMark":true,"detMark":true,"obsMark":true,"legitNoMark":true}'

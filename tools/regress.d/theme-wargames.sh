@@ -8,6 +8,8 @@
 # Everything theme-specific is a token (render.phosphor, render.recvRing, render.arrivalArcs, chrome.badge/crowdSign/lamps, copy.*); the other two themes carry the same keys switched off.
 
 TWG_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready: the fonts are loaded, the capture is in and a frame has been painted after both (--wait stays the ceiling); the demo runs use the bare form; the logon run keeps its fixed wait
+TWG_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.nodes("ap").length > 0 && STARCHORUS.stats().sourceKind !== "demo"))))'
 twg_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 
 # ---- vector-faithful marks: bundled ring strokes (field-probes <= 30), sprite cap kept, rings still drawn
@@ -15,7 +17,7 @@ TWG_EVS='(async()=>{
 await STARCHORUS.wait(1500);const o={};STARCHORUS.setFixedTime(9000000);
 for(const t of ["wargames","foundation","whitehall"]){STARCHORUS.setTheme(t);STARCHORUS.frame();const d=STARCHORUS.perf().drawCalls;o[t]=[d.stroke,STARCHORUS.stats().sprites<=128].join(":");}
 STARCHORUS.setTheme("wargames");STARCHORUS.frame();o.err=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/field-probes.json" "$TWG_Q&theme=wargames" "out/$P-twg-stroke" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 90 --eval "$TWG_EVS" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/field-probes.json" "$TWG_Q&theme=wargames" "out/$P-twg-stroke" --width 1440 --height 900 --wait 3 --ready "$TWG_RDY" --fps 0 --eval-timeout 90 --eval "$TWG_EVS" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWG_S=$(evalv "out/$P-twg-stroke.json" 1 | twg_nj); TWG_SE=$(evalv "out/$P-twg-stroke.json" 2)
 TWG_SOK=$(printf '%s' "$TWG_S" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(all(int(d[t].split(":")[0]) <= 30 and d[t].split(":")[1] == "true" for t in ("wargames","foundation","whitehall")) and d["err"] == 0)' 2>/dev/null)
 if [ "$TWG_SOK" = True ] && [ "$TWG_SE" = 0 ]; then row "WarGames: vector-faithful marks: ring/tick strokes bundled, drawCalls.stroke on field-probes ≤ 30 in every theme, sprite cap kept [$(printf '%s' "$TWG_S" | cut -c1-90)]" PASS
@@ -35,7 +37,7 @@ o.tiers=[1,2,3,4].map(n=>STARCHORUS.node(id(n)).freshTier).join("");
 const s1=STARCHORUS.nodeScreen(id(1)),n1=STARCHORUS.node(id(1));let ring=0;for(let r=n1.px+1;r<n1.px+8;r+=0.5)if(STARCHORUS.pixel("sky",s1.sx+r,s1.sy).a>100)ring++;o.ring=ring>0;
 const TH=STARCHORUS._internals.THEMES;o.tokens=["wargames","foundation","whitehall"].map(k=>TH[k].render.phosphor.enabled+"/"+TH[k].render.recvRing.enabled+"/"+TH[k].render.arrivalArcs).join(" ");o.sprites=STARCHORUS.stats().sprites<=128;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TWG_Q&theme=wargames" "out/$P-twg-ph" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TWG_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TWG_Q&theme=wargames" "out/$P-twg-ph" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TWG_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWG_P=$(evalv "out/$P-twg-ph.json" 1 | twg_nj); TWG_PE=$(evalv "out/$P-twg-ph.json" 2)
 TWG_PW=$(printf '%s' '{"errors":0,"order":true,"ring":true,"sprites":true,"tiers":"0123","tokens":"true/true/true false/false/false false/false/false"}' | twg_nj)
 if [ "$TWG_P" = "$TWG_PW" ] && [ "$TWG_PE" = 0 ]; then
@@ -66,7 +68,7 @@ const CX=Math.round(innerWidth/2),CY=Math.round(innerHeight/2);let hit=0;for(let
 STARCHORUS.setReducedMotion(true);await at(T+900);live(mk(130,5));o.rm=[STARCHORUS.recvRing().active,arcs()].join();STARCHORUS.setReducedMotion(false);
 STARCHORUS.setTheme("foundation");await at(T+1000);live(mk(140,6));o.found=[STARCHORUS.recvRing().active,arcs()].join();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TWG_Q&theme=wargames" "out/$P-twg-arr" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TWG_EVA" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TWG_Q&theme=wargames" "out/$P-twg-arr" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TWG_EVA" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWG_A=$(evalv "out/$P-twg-arr.json" 1 | twg_nj); TWG_AE=$(evalv "out/$P-twg-arr.json" 2)
 TWG_AW=$(printf '%s' '{"arcLater":0,"arcNow":1,"arcSame":0,"arr0":"true,18.5,0.9,1","errors":0,"first":"false,0","found":"false,0","mid":"14.5,10.527,false","ringPix":true,"rm":"false,0","same":"false,0"}' | twg_nj)
 if [ "$TWG_A" = "$TWG_AW" ] && [ "$TWG_AE" = 0 ]; then
@@ -102,7 +104,7 @@ STARCHORUS.setTheme("foundation");STARCHORUS.openDrawer("air");await STARCHORUS.
 STARCHORUS.setTheme("whitehall");await STARCHORUS.wait(150);o.whitehall=[STARCHORUS.badge().shown,STARCHORUS.lamps().shown,!!document.getElementById("crowd-sign")].join();
 STARCHORUS.openDrawer(null);STARCHORUS.setTheme("wargames");
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TWG_Q&theme=wargames" "out/$P-twg-badge" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 120 --eval "$TWG_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TWG_Q&theme=wargames" "out/$P-twg-badge" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TWG_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWG_B=$(evalv "out/$P-twg-badge.json" 1 | twg_nj); TWG_BE=$(evalv "out/$P-twg-badge.json" 2)
 TWG_BW=$(printf '%s' '{"act":"true:Active scan:active","actTitle":"Active scan · iw-scan-ACTIVE","demo":"true:Simulation:demo","dom":"2|5|capture counter, binary 5","errors":0,"foundation":"false,false,false,none","frozen":"true,true,1","lamps":"5 00000101 false","live":"true:Live RX:live","none":"true:No feed:none","rec":"true:Recorded:recorded","sign":"5|true|derived from channel overlap · not a security assessment|none|none","signAria":"Channel crowding 2 of 5","stale":"true:Stale:stale|true","whitehall":"false,false,false"}' | twg_nj)
 if [ "$TWG_B" = "$TWG_BW" ] && [ "$TWG_BE" = 0 ]; then
@@ -134,7 +136,7 @@ fi
 # ---- D15 with the masthead badge and lamps (WarGames, three viewports), static rows
 eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
 for TWG_VP in 1440x900 1280x800 1000x640; do
-  runq "$F/field-probes.json" "$TWG_Q&theme=wargames" "out/$P-twg-d15-$TWG_VP" --width "${TWG_VP%x*}" --height "${TWG_VP#*x}" --wait 4 --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "$TWG_Q&theme=wargames" "out/$P-twg-d15-$TWG_VP" --width "${TWG_VP%x*}" --height "${TWG_VP#*x}" --wait 4 --ready "$TWG_RDY" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   TWG_OV=$(evalv "out/$P-twg-d15-$TWG_VP.json" 1); TWG_OVE=$(evalv "out/$P-twg-d15-$TWG_VP.json" 2)
   if [ "$TWG_OV" = 0 ] && [ "$TWG_OVE" = 0 ]; then row "WarGames: D15 overlap 0 with badge and lamps $TWG_VP (err ${TWG_OVE:-?}) [$(printf '%s' "$TWG_OV" | cut -c1-60)]" PASS
   else row "WarGames: D15 overlap 0 with badge and lamps $TWG_VP (err ${TWG_OVE:-?}) [$(printf '%s' "$TWG_OV" | cut -c1-60)]" FAIL; fi

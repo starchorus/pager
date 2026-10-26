@@ -38,7 +38,7 @@ STARCHORUS.load(doc(700,[ap(1,1,-50),ap(2,1,-55),ap(3,6,-60),ap(4,6,-52),ap(5,6,
 const aq=STARCHORUS.airQuality();o.air=[aq.level===STARCHORUS.stats().crowding,["quiet","light","moderate","busy","very busy"][aq.level-1]===aq.word,aq.bands["2.4"].quietest.ch,aq.bands["2.4"].top[0].ch,aq.bands["6"]===null,aq.bands["5"].aps].join();
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$CHT_Q" "out/$P-cht-chan" --wait 2 --fps 0 --eval-timeout 90 --eval "$CHT_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CHT_Q" "out/$P-cht-chan" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$CHT_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CHT_C=$(evalv "out/$P-cht-chan.json" 1 | cht_nj); CHT_CE=$(evalv "out/$P-cht-chan.json" 2)
 CHT_CW=$(printf '%s' "{\"air\":\"true,true,11,6,true,1\",\"beacon\":\"$CHT_BEACON\",\"dfs\":\"$CHT_DFS\",\"errors\":0,\"hover\":\"true,true,true\",\"noMac\":true,\"peak\":\"-40 -40 -40 -40 -40 -40 -40 -40 -40 -40 -40 -40 -40 -70 -70\",\"r6\":\"2,-55,2,1,2,true,20\"}" | cht_nj)
 if [ "$CHT_C" = "$CHT_CW" ] && [ "$CHT_CE" = 0 ]; then
@@ -89,7 +89,7 @@ o.tt=/Signal over time/i.test(document.getElementById("time-body").innerText)&&!
 STARCHORUS.openDrawer(null);
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$CHT_Q" "out/$P-cht-time" --wait 2 --fps 0 --eval-timeout 120 --eval "$CHT_EVT" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CHT_Q" "out/$P-cht-time" --wait 2 --fps 0 --ready --eval-timeout 120 --eval "$CHT_EVT" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CHT_T=$(evalv "out/$P-cht-time.json" 1 | cht_nj); CHT_TE=$(evalv "out/$P-cht-time.json" 2)
 CHT_TW=$(CHT_PYT="$CHT_PYT" python3 -c 'import json,os;print(json.dumps({"above":1,"cleared":None,"enter":-66,"errors":0,"gap":10,"keep":"-7,true","meta":"720,false,5,2,12","pinned":"03","tab":os.environ["CHT_PYT"],"thr":"-60,-20,-100,,,-60","top3":"03,02,01","tt":True},sort_keys=True,separators=(",",":"),ensure_ascii=False))')
 if [ "$CHT_T" = "$CHT_TW" ] && [ "$CHT_TE" = 0 ]; then
@@ -137,7 +137,7 @@ STARCHORUS.load(mk(1),"c1",{mode:"live"});STARCHORUS.load(mk(2),"c1",{mode:"live
 STARCHORUS.load(mk(3),"c2",{mode:"live"});STARCHORUS.clearLocalData();o.clr2=STARCHORUS.recording().count;
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$CHT_Q" "out/$P-cht-rec" --wait 2 --fps 0 --eval-timeout 120 --eval "$CHT_EVR" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CHT_Q" "out/$P-cht-rec" --wait 2 --fps 0 --ready --eval-timeout 120 --eval "$CHT_EVR" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CHT_R=$(evalv "out/$P-cht-rec.json" 1 | cht_nj); CHT_RE=$(evalv "out/$P-cht-rec.json" 2)
 CHT_RW=$(CHT_BIGMAX="$CHT_BIGMAX" python3 -c 'import json,os;print(json.dumps({"aps":"4444455555","back":"3050,5,Live,false,false","big":os.environ["CHT_BIGMAX"]+",true","bytesOk":True,"cap":120,"chip":"Live,Recorded,live,off,true","clr":"true,0,false","clr2":0,"count":10,"errors":0,"events":"11,0,0,0","exit":True,"faded":True,"gens":"3000-3045","keys":0,"last":"[9,5,1]","newSrc":1,"noMac":True,"noPending":"3050,true,0,11","poll":"true,11,1,3015","replay":"{\"active\":true,\"index\":3,\"count\":10,\"generated\":3015,\"buffered\":0,\"playing\":false}","rules":"0","same":True,"same2":True,"view":"3015,4,01,02,03,04,-57,11"},sort_keys=True,separators=(",",":"),ensure_ascii=False))')
 if [ "$CHT_R" = "$CHT_RW" ] && [ "$CHT_RE" = 0 ]; then
@@ -189,7 +189,7 @@ for(const [d,idb] of [["air","air-body"],["time","time-body"],["rec","rec-body"]
 STARCHORUS.openDrawer(null);o.p10=bad;
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$CHT_Q" "out/$P-cht-ui" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 180 --eval "$CHT_EVU" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CHT_Q" "out/$P-cht-ui" --width 1440 --height 900 --wait 2 --fps 0 --ready --eval-timeout 180 --eval "$CHT_EVU" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 CHT_U=$(evalv "out/$P-cht-ui.json" 1 | cht_nj); CHT_UE=$(evalv "out/$P-cht-ui.json" 2)
 CHT_UW=$(printf '%s' '{"btn":"time>legend","chanVisible":true,"differ":"true,true,true","errors":0,"excl":"air,false","h":"rec,true","help":"true,true,true,true","homing":"home","homing2":"air,air","j":"time,false,true","live":"false,5045","modes":"bars:bars:true spectrum:spectrum:true waterfall:waterfall:true bars:bars","obs":"obs","obs2":"air,false","off":"legend","p10":0,"play":"0,true,true","q":"air,true,false","ring2d":"true,true","ring3d":true,"ringGone":true,"start":"legend","wf":"1/6/11,36/100,0,10","wfEmpty":true}' | cht_nj)
 if [ "$CHT_U" = "$CHT_UW" ] && [ "$CHT_UE" = 0 ]; then
@@ -201,9 +201,11 @@ fi
 
 # ---- D15: the three drawers keep the edge panels apart
 eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
+eval "$(grep '^EDG_RDY=' tools/regress.d/edge-layout.sh)"
+CHT_RDY=$EDG_RDY   # the fonts are loaded, the served capture has replaced the built-in sky and a frame has been painted (the overlap reads font metrics)
 for CHT_VP in 1440x900 1000x640; do
   for CHT_D in air time rec; do
-    runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-cht-d15$CHT_D-$CHT_VP" --width "${CHT_VP%x*}" --height "${CHT_VP#*x}" --wait 4 --fps 0 --eval "(async()=>{STARCHORUS.openDrawer('$CHT_D');await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+    runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-cht-d15$CHT_D-$CHT_VP" --width "${CHT_VP%x*}" --height "${CHT_VP#*x}" --wait 4 --fps 0 --ready "$CHT_RDY" --eval "(async()=>{STARCHORUS.openDrawer('$CHT_D');await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
     CHT_OV=$(evalv "out/$P-cht-d15$CHT_D-$CHT_VP.json" 2); CHT_OVE=$(evalv "out/$P-cht-d15$CHT_D-$CHT_VP.json" 3)
     if [ "$CHT_OV" = 0 ] && [ "$CHT_OVE" = 0 ]; then row "channel/time drawers: D15 overlap 0 with the $CHT_D drawer open $CHT_VP (err ${CHT_OVE:-?}) [$(printf '%s' "$CHT_OV" | cut -c1-60)]" PASS
     else row "channel/time drawers: D15 overlap 0 with the $CHT_D drawer open $CHT_VP (err ${CHT_OVE:-?}) [$(printf '%s' "$CHT_OV" | cut -c1-60)]" FAIL; fi
@@ -227,7 +229,7 @@ rowif "P8 SECURITY.md says the recording, the histories and the threshold are me
 # stands 42, 36, 24 and 15 px high (the shares 0.28, 0.24, 0.16 and 0.10 over the largest, one scale across the bands), a share too small to see keeps 2 px
 # and an empty channel none, and a document without activity draws nothing (the same columns as with the array removed). Only a drawn height is measured: no row here claims the title, the tooltip or the Air line.
 CHT_EVW='(async()=>{const I=STARCHORUS._internals,S=I.S,sleep=STARCHORUS.wait,o={};await sleep(800);const fx=await (await fetch("starchorus.json")).json(),G=fx.generated;const cv=document.getElementById("chan"),box=document.getElementById("chanbar");const ld=(m,g)=>{const d=JSON.parse(JSON.stringify(fx));d.generated=g;d.bluetooth=[];if(m)m(d);return STARCHORUS.load(d,"rp-whisk");};const cssW=box.clientWidth-20,dpr=cv.width/cssW*1,segW=(cssW-32)/3,top=12,botY=54,ch=STARCHORUS.channels();const col=(band,c)=>{const keys=Object.keys(ch[band]).map(Number).sort((a,b)=>a-b),ci=keys.indexOf(c),bi=["2.4","5","6"].indexOf(band),x0=bi*(segW+16),cx=Math.round((x0+ci*(segW/keys.length)+segW/keys.length/2)*dpr);  const g=cv.getContext("2d"),px=[];for(let y=0;y<cv.height;y++){const q=g.getImageData(cx,y,1,1).data;px.push(q[0]+","+q[1]+","+q[2]+","+q[3]);}return px;};const cols=()=>[["2.4",1],["2.4",6],["5",36],["5",100]].map(([b,c])=>col(b,c));ld(null,G);await sleep(300);const A=cols();o.drawn=STARCHORUS.stats().activity.channels;o.max=STARCHORUS.stats().activity.max;ld(d=>{delete d.activity;},G+30);await sleep(300);const Bn=cols();o.none=STARCHORUS.stats().activity.channels;const h=A.map((a,i)=>{let n=0;for(let y=0;y<a.length;y++)if(a[y]!==Bn[i][y])n++;return n;});o.heights=h;ld(d=>{d.activity=[{freq:2412,share:0.28},{freq:5500,share:0.001}];},G+60);await sleep(300);const C=cols();const h2=C.map((a,i)=>{let n=0;for(let y=0;y<a.length;y++)if(a[y]!==Bn[i][y])n++;return n;});o.floor=h2;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-cht-whisk" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 90 --eval "$CHT_EVW" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-cht-whisk" --width 1440 --height 900 --wait 3 --fps 0 --ready "$CHT_RDY" --eval-timeout 90 --eval "$CHT_EVW" >/dev/null 2>&1
 CHT_W=$(evalv "out/$P-cht-whisk.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":")))' 2>/dev/null)
 CHT_WW='{"drawn":6,"errors":0,"floor":[42,0,0,2],"heights":[42,36,24,15],"max":0.28,"none":0}'
 rowif "channel/time (radio pair): the whiskers stand 42/36/24/15 px for the shares 0.28/0.24/0.16/0.10 on one scale across the bands, a share too small to see keeps the 2 px floor, an empty channel has none, a document without activity draws none [$CHT_W]" [ "$CHT_W" = "$CHT_WW" ]

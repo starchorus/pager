@@ -28,14 +28,15 @@ else
   row "cdp.py --ready (bare): met, fonts loaded, STARCHORUS there" FAIL; echo "    met=$CDR_M after=$CDR_A fonts=$CDR_F starchorus=$CDR_S"
 fi
 
-# ---- 2. a data expression: false while the capture is not yet loaded, true once the boot poll has applied it
+# ---- 2. a data expression: false while the capture is not yet loaded, true once the boot poll has applied it. The page ingests its built-in demo sky
+# synchronously at boot, before the boot poll, so a count of access points is true at once; what tells the capture from the demo is sourceKind.
 runq "$F/few-clients.json" "?poll=0&spin=0&intro=0" "out/$P-cdr-data" --fps 0 --wait 6 \
-  --ready "window.STARCHORUS && STARCHORUS.stats().apsTotal > 0" --eval "STARCHORUS.stats().apsTotal" >/dev/null 2>&1
-CDR_M=$(cdr_ready "out/$P-cdr-data.json" met); CDR_A=$(cdr_ready "out/$P-cdr-data.json" after); CDR_N=$(evalv "out/$P-cdr-data.json" 1)
-if [ "$CDR_M" = true ] && ge "${CDR_N:-0}" 1; then
-  row "cdp.py --ready EXPR: the capture is loaded (apsTotal $CDR_N) after ${CDR_A} s" PASS
+  --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --eval "STARCHORUS.stats().apsTotal" --eval "STARCHORUS.stats().sourceKind" >/dev/null 2>&1
+CDR_M=$(cdr_ready "out/$P-cdr-data.json" met); CDR_A=$(cdr_ready "out/$P-cdr-data.json" after); CDR_N=$(evalv "out/$P-cdr-data.json" 1); CDR_K=$(evalv "out/$P-cdr-data.json" 2)
+if [ "$CDR_M" = true ] && ge "${CDR_N:-0}" 1 && [ "$CDR_K" != demo ]; then
+  row "cdp.py --ready EXPR: the capture is loaded, not the demo (apsTotal $CDR_N, source $CDR_K) after ${CDR_A} s" PASS
 else
-  row "cdp.py --ready EXPR: the capture is loaded" FAIL; echo "    met=$CDR_M after=$CDR_A apsTotal=$CDR_N"
+  row "cdp.py --ready EXPR: the capture is loaded, not the demo" FAIL; echo "    met=$CDR_M after=$CDR_A apsTotal=$CDR_N source=$CDR_K"
 fi
 
 # ---- 3. an expression that never comes true: the ceiling (1 s) is kept within 0.6 s, probes were made, the evals still run

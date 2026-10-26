@@ -13,6 +13,8 @@
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only DSP_* globals are set.
 
 DSP_Q="?poll=0&spin=0&intro=0&debug=1"
+# --ready for a run on a served document: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once); every eval then waits its own 0.9 s
+DSP_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 # the page's busiest channel (crowdingOf, via airQuality) as the display script prints it; the fixture loop below asks for it too (eval 2)
 DSP_BZE='(async()=>{await STARCHORUS.wait(900);const b=STARCHORUS.airQuality().busiest;return b?b.band+" GHz ch "+b.channel:"";})()'
 DSP_PG() { STARCHORUS_DISPLAY_PLAIN=1 sh "$R/starchorus-display.sh" --once "$1" "$2" 2>&1; }
@@ -34,7 +36,7 @@ dsp_airp() { DSP_PG air "$1" | awk '
 DSP_BAD=0; DSP_N=0; DSP_SHOW=""
 for DSP_J in "$F"/*.json; do
   DSP_B=$(basename "$DSP_J" .json); DSP_N=$((DSP_N + 1))
-  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding,s.randomisedFree,s.clouds]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
+  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding,s.randomisedFree,s.clouds]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
   DSP_PAGE=$(evalv "out/$P-dsp-$DSP_B.json" 1 | python3 -c 'import json,sys;print(" ".join(str(x) for x in json.load(sys.stdin)))' 2>/dev/null)
   DSP_OUT=$(DSP_PG summary "$DSP_J")
   DSP_DISP=$(printf '%s\n' "$DSP_OUT" | awk '
@@ -91,7 +93,7 @@ DSP_BZN=0; DSP_BZBAD=0; DSP_BZSHOW=""; DSP_BZE0=0
 for DSP_J in "$F"/*.json "$DSP_TD"/*.json; do
   DSP_B=$(basename "$DSP_J" .json); DSP_BZN=$((DSP_BZN + 1))
   case $DSP_J in
-    "$DSP_TD"/*) runq "$DSP_J" "$DSP_Q" "out/$P-dspbz-$DSP_B" --wait 2 --fps 0 --eval-timeout 60 --eval "$DSP_BZE" --eval "$DSP_AQE" >/dev/null 2>&1
+    "$DSP_TD"/*) runq "$DSP_J" "$DSP_Q" "out/$P-dspbz-$DSP_B" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval "$DSP_BZE" --eval "$DSP_AQE" >/dev/null 2>&1
                 DSP_BPG=$(evalv "out/$P-dspbz-$DSP_B.json" 1) ;;
     *)          DSP_BPG=$(evalv "out/$P-dsp-$DSP_B.json" 2) ;;   # already asked in the fixture loop above
   esac
@@ -480,7 +482,7 @@ for DSP_J in "$F"/*.json; do
 done
 for DSP_J in "$DSP_RD"/*.json; do
   DSP_B=$(basename "$DSP_J" .json)
-  runq "$DSP_J" "$DSP_Q" "out/$P-dsprd-$DSP_B" --wait 2 --fps 0 --eval-timeout 60 --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
+  runq "$DSP_J" "$DSP_Q" "out/$P-dsprd-$DSP_B" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
   dsp_rd_one "$DSP_B" "$DSP_J" "$(evalv "out/$P-dsprd-$DSP_B.json" 1)" "$(evalv "out/$P-dsprd-$DSP_B.json" 2)"
 done
 DSP_RO=$(python3 -B -I "$DSP_RD/oracle.py" "$DSP_RMAN" 2>&1)

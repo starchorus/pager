@@ -15,6 +15,8 @@ SRC_CLAIM='rx only|nothing (is )?transmitted|never transmits|nothing sent|receiv
 SRC_ACT='ACTIVE SCAN · the collector sent probe requests'
 SRC_ACTRE='ACTIVE SCAN [·-] the collector sent probe requests'   # Whitehall's teleprinter has no middle dot (ITA2), it types a hyphen; the display script is checked with the literal form
 SRC_Q="?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0"
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+SRC_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # every claim surface of one theme: body text, all [title], meta description, logon lines + #intro-text,
 # both classbar lines. Returns "<sourceKind> <claim hits> <themes carrying the ACTIVE line> <chips>".
@@ -43,24 +45,24 @@ SRC_EVL='(()=>{const t=document.getElementById("intro-text").textContent;return 
 # (measured: 0 chars with the gate, 13 without it). The only row that uses runq's --delay.
 SRC_EVG='[document.getElementById("intro-text").textContent.length,STARCHORUS.stats().introShown].join("/")'
 
-runq "$F/active.json" "$SRC_Q" "out/$P-src-active" --wait 3 --fps 0 \
+runq "$F/active.json" "$SRC_Q" "out/$P-src-active" --wait 3 --fps 0 --ready "$SRC_RDY" \
   --eval "$SRC_EVC" --eval "$SRC_EVN" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SRC_A=$(evalv "out/$P-src-active.json" 1)
 SRC_AN=$(evalv "out/$P-src-active.json" 2)
 SRC_AE=$(evalv "out/$P-src-active.json" 3)
 
-runq "$F/field-probes.json" "$SRC_Q" "out/$P-src-passive" --wait 3 --fps 0 \
+runq "$F/field-probes.json" "$SRC_Q" "out/$P-src-passive" --wait 3 --fps 0 --ready "$SRC_RDY" \
   --eval "$SRC_EVC" --eval "$SRC_EVS" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SRC_P=$(evalv "out/$P-src-passive.json" 1)
 SRC_PS=$(evalv "out/$P-src-passive.json" 2)
 SRC_PE=$(evalv "out/$P-src-passive.json" 3)
 
-runq "$F/empty-none.json" "$SRC_Q" "out/$P-src-none" --wait 2 --fps 0 \
+runq "$F/empty-none.json" "$SRC_Q" "out/$P-src-none" --wait 2 --fps 0 --ready "$SRC_RDY" \
   --eval "$SRC_EVN" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SRC_NN=$(evalv "out/$P-src-none.json" 1)
 SRC_NE=$(evalv "out/$P-src-none.json" 2)
 
-runq demo "?debug=1&poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0" "out/$P-src-demo" --wait 2 --fps 0 \
+runq demo "?debug=1&poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0" "out/$P-src-demo" --wait 2 --fps 0 --ready \
   --eval "$SRC_EVD" --eval "$SRC_EVT" --eval "$SRC_EVI" --eval "$SRC_EVH" --eval "$SRC_EVK" \
   --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SRC_D=$(evalv "out/$P-src-demo.json" 1)
@@ -136,7 +138,7 @@ fi
 # lines reads 62, so the one path that the pin took up is the Scope's and the count sees it
 sed '/^    scope: { strip: \[/d' "$H" > "out/$P-src-noscope.html"
 SRC_KH=$H; H="out/$P-src-noscope.html"   # runq serves $H: point it at the copy for this one call, then put it back
-runq demo "?debug=1&poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0" "out/$P-src-noscope" --wait 2 --fps 0 --eval "$SRC_EVK" >/dev/null 2>&1
+runq demo "?debug=1&poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0" "out/$P-src-noscope" --wait 2 --fps 0 --ready --eval "$SRC_EVK" >/dev/null 2>&1
 H=$SRC_KH
 SRC_K2=$(evalv "out/$P-src-noscope.json" 1)
 SRC_KD=$(diff "$H" "out/$P-src-noscope.html" | grep -c '^<')

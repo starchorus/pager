@@ -23,7 +23,7 @@ if [ "$DBN_NR" = 1 ] && [ -z "$DBN_NEG" ]; then row "spec binding: spec-sync.py 
 else row "spec binding: spec-sync.py notices a changed token (negative control, exit $DBN_NR = 1)" FAIL; fi
 
 # every STARCHORUS function is named in §10 (from "## 10." to "## 11.")
-runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-dbn-api" --wait 1 --fps 0 --eval 'JSON.stringify(Object.keys(STARCHORUS).filter(k=>k!=="_internals"&&k!=="version"))' >/dev/null 2>&1
+runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-dbn-api" --wait 1 --fps 0 --ready --eval 'JSON.stringify(Object.keys(STARCHORUS).filter(k=>k!=="_internals"&&k!=="version"))' >/dev/null 2>&1
 DBN_API=$(evalv "out/$P-dbn-api.json" 1)
 awk '/^## 10\. /{f=1} /^## 11\. /{f=0} f' "$DBN_SPEC" > "$DBN_T/s10.txt"
 cat > "$DBN_T/miss.py" <<'PY'

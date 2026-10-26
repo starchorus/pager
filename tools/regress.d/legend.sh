@@ -14,7 +14,9 @@
 
 LEG_EVDOM='(function(){var o=[];o.push(document.querySelector("#leg-open .cnt").textContent);STARCHORUS.setTheme("wargames");o.push(getComputedStyle(document.getElementById("leg-arc")).display!=="none");STARCHORUS.setTheme("foundation");o.push(getComputedStyle(document.getElementById("leg-arc")).display!=="none");STARCHORUS.setView("3d");o.push(getComputedStyle(document.getElementById("leg-height")).display!=="none");STARCHORUS.setView("2d");return o.join("/")})()'
 LEG_EVL=$(cat "$R/tools/evals/legend-truth.js")
-runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "out/$P-legend" --fps 0 --wait 3 \
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+LEG_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
+runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "out/$P-legend" --fps 0 --wait 3 --ready "$LEG_RDY" \
   --eval "$LEG_EVDOM" --eval "$LEG_EVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 LEG_VDOM=$(evalv "out/$P-legend.json" 1)
 LEG_VL=$(evalv "out/$P-legend.json" 2)
@@ -63,7 +65,7 @@ ld(d=>{d.bluetooth=[];},G+30);o.btEmpty=vis();ld(null,G+40);
 const lp=(pk,g)=>ld(d=>{d.unassociated.forEach(u=>{if(u.mac===A)u.packets=pk;else delete u.packets;});},g,"rp-leg2");
 lp(1000,G+100);o.cue0=vis();lp(1100,G+140);await sleep(300);o.cue1=vis();lp(50,G+180);await sleep(300);o.cue2=vis();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-legend-radio" --fps 0 --wait 3 --eval-timeout 120 --eval "$LEG_EVR" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-legend-radio" --fps 0 --wait 3 --ready "$LEG_RDY" --eval-timeout 120 --eval "$LEG_EVR" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 LEG_R=$(evalv "out/$P-legend-radio.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null); LEG_RE=$(evalv "out/$P-legend-radio.json" 2)
 LEG_RW='{"again":"110","bars":"110","btEmpty":"010","btOff":"010|rings = received signal (dBm), not range · direction is not measured","btOn":"110|true","cue0":"110","cue1":"111","cue2":"110","errors":0,"noActivity":"100","spectrum":"100","start":"110","sw_foundation":true,"sw_wargames":true,"sw_whitehall":true,"waterfall":"100"}'
 if [ "$LEG_R" = "$LEG_RW" ] && [ "$LEG_RE" = 0 ]; then
@@ -75,6 +77,6 @@ fi
 # collapses it there; at 560 px it is shown) takes the activity row with it
 LEG_EVC='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(1800);const row=()=>STARCHORUS.legendRows().find(r=>r.kind==="activity").visible,bar=()=>document.getElementById("chanbar").hidden;
 o.open=[bar(),row()].join("/");STARCHORUS.select("02:00:00:00:01:01");await sleep(300);STARCHORUS.frame();o.sel=[bar(),row()].join("/");STARCHORUS.deselect();await sleep(300);o.closed=[bar(),row()].join("/");return JSON.stringify(o)})()'
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-legend-collapse" --width 1000 --height 560 --fps 0 --wait 3 --eval-timeout 60 --eval "$LEG_EVC" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-legend-collapse" --width 1000 --height 560 --fps 0 --wait 3 --ready "$LEG_RDY" --eval-timeout 60 --eval "$LEG_EVC" >/dev/null 2>&1
 LEG_C=$(evalv "out/$P-legend-collapse.json" 1)
 rowif "legend (radio pair): the activity row hides with the collapsed bar (1000x560, a detail sheet open) and returns with it [$LEG_C]" [ "$LEG_C" = '{"open":"false/true","sel":"true/false","closed":"false/true"}' ]

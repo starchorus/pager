@@ -6,6 +6,9 @@
 #   budget goes to strings that vary -- access point names, vendor names, group keys.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only TXB_* globals are set.
 
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (a count of access points would be met at once, the built-in sky has some)
+TXB_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
+
 txb_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 
 # ---- the payoff, measured the same way tools/regress.sh measures the stress budget: every visible AP pinned,
@@ -51,7 +54,7 @@ const s=STARCHORUS.labels().filter(l=>l.id==="__center__")[0];o.short=[s?s.sprit
 STARCHORUS.load(doc("This device with an unreasonably long operator label"),"long");await STARCHORUS.wait(300);STARCHORUS.frame();
 const g=STARCHORUS.labels().filter(l=>l.id==="__center__")[0];o.long=[g?g.sprite:"missing",STARCHORUS.perf().drawCalls.fillText];
 o.text=g?g.text:"";o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq demo "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-txb-guard" --width 1440 --height 900 --wait 3 --fps 0 --eval-timeout 90 --eval "$TXB_EVG" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-txb-guard" --width 1440 --height 900 --wait 3 --fps 0 --ready --eval-timeout 90 --eval "$TXB_EVG" >/dev/null 2>&1
 TXB_G=$(evalv "out/$P-txb-guard.json" 1 | txb_nj)
 # the short label is baked and costs no slot (1 fillText = the one AP name); the long one is not baked and
 # costs one (2 fillText), and either way the string itself is printed untransformed (D16).
@@ -83,7 +86,7 @@ o.diverge=Math.abs(hudScale-sky)>0.01;o.hud=Math.round(hudScale*100)/100;o.sky=M
 o.n=txt.length;o.allAtHudScale=txt.length>0&&txt.every(function(v){return Math.abs(v.dpr-hudScale)<0.01});
 o.bitmapMatches=txt.every(function(v){return v.c.width===Math.ceil(v.w*hudScale)});
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-txb-dpr" --width 1440 --height 900 --wait 4 --fps 0 --scale 2 --eval-timeout 90 --eval "$TXB_EVD" >/dev/null 2>&1
+runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-txb-dpr" --width 1440 --height 900 --wait 4 --fps 0 --scale 2 --ready "$TXB_RDY" --eval-timeout 90 --eval "$TXB_EVD" >/dev/null 2>&1
 TXB_D=$(evalv "out/$P-txb-dpr.json" 1 | txb_nj)
 TXB_DW=$(printf '%s' '{"allAtHudScale":true,"bitmapMatches":true,"diverge":true,"errors":0,"hud":1.5,"n":1,"sky":1.25}' | txb_nj)
 if [ "$TXB_D" = "$TXB_DW" ]; then
@@ -98,7 +101,7 @@ rowif "text budget: the bake scale follows the destination canvas ($TXB_S5) and 
 # ---- 0.2, the radio pair: the Bluetooth layer takes no text budget (tests/fixtures/radio-pair.json with 40 fixed-address marks added). With the layer on, off and on again, in 2D and 3D
 # (the 3D turn stopped: it would change which names fit between two readings), the unbaked entries of labels(), the counted fillText and the set of AP label ids are identical, and no mark carries a tag.
 TXB_EVB='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(1500);const fx=await (await fetch("starchorus.json")).json(),G=fx.generated;const d=JSON.parse(JSON.stringify(fx));d.generated=G+10;d.bluetooth=[];for(let i=0;i<40;i++)d.bluetooth.push({addr:"02:00:00:00:05:"+(i+16).toString(16),addr_type:"public",rssi:-45-i,reports:1+i%4,last_seen:G+5,company:65535,company_name:"Maker "+"AB"[i%2]});STARCHORUS.load(d,"rp-tb");STARCHORUS.setToggles({rotate:false});const snap=()=>{STARCHORUS.frame();const L=STARCHORUS.labels();return JSON.stringify([L.filter(l=>!l.sprite).map(l=>l.kind+"|"+(l.text||l.id||"")).sort(),STARCHORUS.perf().drawCalls.fillText,L.filter(l=>l.kind==="label").map(l=>l.id).sort()])};o.marks=STARCHORUS.stats().bluetooth.marks;o.tags=0;o.same={};o.nonEmpty={};for(const v of ["2d","3d"]){STARCHORUS.setView(v);await sleep(3000);const r=[]; for(const bt of [true,false,true]){STARCHORUS.setToggles({bands:{bt}});await sleep(900);r.push(snap());} o.same[v]=r[0]===r[1]&&r[1]===r[2];o.nonEmpty[v]=JSON.parse(r[0])[2].length;o["ft"+v]=JSON.parse(r[0])[1];o.tags+=STARCHORUS.labels().filter(l=>/bt|tag/.test(l.kind)).length;}o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-txb-bt" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 120 --eval "$TXB_EVB" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-txb-bt" --width 1440 --height 900 --wait 4 --fps 0 --ready "$TXB_RDY" --eval-timeout 120 --eval "$TXB_EVB" >/dev/null 2>&1
 TXB_B=$(evalv "out/$P-txb-bt.json" 1 | txb_nj)
 TXB_BW=$(printf '%s' '{"marks":40,"tags":0,"same":{"2d":true,"3d":true},"nonEmpty":{"2d":9,"3d":10},"ft2d":8,"ft3d":9,"errors":0}' | txb_nj)
 if [ "$TXB_B" = "$TXB_BW" ]; then

@@ -21,6 +21,8 @@ ORD_MIN_LISTS=15   # lists with n >= 5 that get shuffled: the row below names th
 ORD_KNOWN_OPEN=''
 ORD_JS=$(cat "$R/tools/evals/order-invariance.js")
 ORD_Q="?poll=0&spin=0&intro=0&debug=1&fixed=$STARCHORUS_FIXED"
+# --ready for the served runs: the boot poll has answered (the bundle is no capture, so the page leaves the built-in sky for sourceKind none; the eval then empties the maps and loads each document itself), and the field-scale run also has its free stations
+ORD_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # ---- 1. the bundle (its own file name: runq writes its REPORT to PREFIX.json, which must not be the bundle): every fixture of tests/fixtures as it is, under order.NAME (the carrier itself is a valid empty document)
 python3 -B - "$F" "out/$P-order-bundle.json" <<'PYEND'
@@ -35,7 +37,7 @@ ORD_ND=$(find "$F" -maxdepth 1 -name '*.json' | wc -l | tr -d ' ')
 
 # ---- 2. the run: every fixture, reference twice + 10 permutations, in ONE eval; then the verdict
 printf '%s\n' "$ORD_KNOWN_OPEN" > "out/$P-order-open.txt"
-runq "out/$P-order-bundle.json" "$ORD_Q" "out/$P-order" --wait 2 --fps 0 --eval-timeout 180 --eval "$ORD_JS(\"run\")" > "out/$P-order.txt" 2>&1; ORD_RC=$?
+runq "out/$P-order-bundle.json" "$ORD_Q" "out/$P-order" --wait 2 --fps 0 --ready "$ORD_RDY" --eval-timeout 180 --eval "$ORD_JS(\"run\")" > "out/$P-order.txt" 2>&1; ORD_RC=$?
 ORD_V=$(order_verdict "out/$P-order.json" run "$ORD_MIN_LISTS" "out/$P-order-open.txt"); ORD_VC=$?
 tm_note "eval order-invariance run" "$(report_secs "out/$P-order.json" 1)"   # the eval's own clock: timing file, not the row name
 ORD_OK=0; [ "$ORD_VC" = 0 ] && [ "$ORD_RC" = 0 ] && [ "${ORD_NF:-0}" = "$ORD_ND" ] && ge "$ORD_NF" "$MIN_FIXTURES" && ORD_OK=1
@@ -58,7 +60,7 @@ PYEND
 # 40 s on a slow machine), then until the free stations stand still too (the first layout is not held: after the capped
 # relaxation and detrap it still glides for about 3 s; < 0.05 px in 0.5 s, at most 20 s), poll, compare after 0.5 s.
 ORD_STILL='(async()=>{let last=-1;for(let k=0;k<40;k++){const it=STARCHORUS.layoutInfo().iterations;if(it===last)break;last=it;await STARCHORUS.wait(1000);}const P=()=>{const m=new Map();for(const n of STARCHORUS.nodes("free"))m.set(n.id,[n.sx,n.sy]);return m;};for(let q=0;q<40;q++){const s0=P();await STARCHORUS.wait(500);const s1=P();let mv=0;for(const [k,v] of s0){const w=s1.get(k);if(w)mv=Math.max(mv,Math.hypot(w[0]-v[0],w[1]-v[1]));}if(mv<0.05)break;}const a=P(),i0=STARCHORUS.layoutInfo().iterations;const pr=await STARCHORUS.pollNow();if(!pr||!pr.ok||a.size<1000)return "not tested: poll ok "+(pr&&pr.ok)+", "+a.size+" free stations (want >= 1000)";await STARCHORUS.wait(500);const b=P(),i1=STARCHORUS.layoutInfo().iterations;let mx=0;for(const [k,v] of a){const w=b.get(k);if(w)mx=Math.max(mx,Math.hypot(w[0]-v[0],w[1]-v[1]));}return i0+"/"+i1+"/"+a.size+"/"+mx.toFixed(1);})()'
-runq "$F/field-scale.json" "?poll=0&spin=0&intro=0" "out/$P-order-still" --wait 2 --fps 0 --eval-timeout 90 \
+runq "$F/field-scale.json" "?poll=0&spin=0&intro=0" "out/$P-order-still" --wait 2 --fps 0 --ready "$ORD_RDY && STARCHORUS.nodes('free').length > 0" --eval-timeout 90 \
   --eval "$ORD_STILL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 ORD_SV=$(evalv "out/$P-order-still.json" 1); ORD_SE=$(evalv "out/$P-order-still.json" 2)
 ORD_SI0=${ORD_SV%%/*}; ORD_SR=${ORD_SV#*/}; ORD_SI1=${ORD_SR%%/*}; ORD_SM=${ORD_SV##*/}
@@ -80,7 +82,7 @@ sed 's/^  const shuffle = .*$/  const shuffle = (a, rnd) => a.slice();/' "$R/too
 ORD_D1=$(diff "$H" "$ORD_PG" | grep -c '^<'); ORD_D2=$(diff "$R/tools/evals/order-invariance.js" "$ORD_PJ" | grep -c '^<')
 ORD_JSB=$(cat "$ORD_PJ")
 ORD_HKEEP=$H; H=$ORD_PG   # runq serves $H: point it at the copy for this one call, then put it back
-runq "out/$P-order-bundle.json" "$ORD_Q" "out/$P-order-probe" --wait 2 --fps 0 --eval-timeout 180 --eval "$ORD_JS(\"run\")" --eval "$ORD_JSB(\"mixer\")" > "out/$P-order-probe.txt" 2>&1
+runq "out/$P-order-bundle.json" "$ORD_Q" "out/$P-order-probe" --wait 2 --fps 0 --ready "$ORD_RDY" --eval-timeout 180 --eval "$ORD_JS(\"run\")" --eval "$ORD_JSB(\"mixer\")" > "out/$P-order-probe.txt" 2>&1
 H=$ORD_HKEEP
 ORD_PV=$(order_verdict "out/$P-order-probe.json" probe "$ORD_MIN_LISTS" -); ORD_PC=$?
 ORD_MV=$(order_verdict "out/$P-order-probe.json" mixerprobe "$ORD_MIN_LISTS" -); ORD_MC=$?

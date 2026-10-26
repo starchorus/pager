@@ -61,7 +61,7 @@ STARCHORUS.load(mk(105,[ap(A,"a")],[{mac:C,rssi:-60}]),"stl-gate");   // D is go
 o.baseSt=STARCHORUS.setIdentity(D,"neutral");            // a baseline station is still observed -> re-assignable
 o.err=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$STL_Q" "out/$P-stl-gate" --wait 2 --fps 0 --eval "$STL_EV1" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$STL_Q" "out/$P-stl-gate" --wait 2 --fps 0 --ready --eval "$STL_EV1" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 STL_G=$(evalv "out/$P-stl-gate.json" 1 | stl_nj); STL_GE=$(evalv "out/$P-stl-gate.json" 2)
 STL_GW='{"baseSt":"neutral","beforeBase":"friend","dual":"ap","dualId":"hostile","err":0,"identAp":"neutral","identSt":"friend","unheard":"1 rejected: not observed"}'
 if [ "$STL_G" = "$STL_GW" ] && [ "$STL_GE" = 0 ]; then
@@ -119,7 +119,7 @@ o.friendSt=STARCHORUS.identity(st[0].mac)+"/"+STARCHORUS.identitySource(st[0].ma
 o.bulkHostile=STARCHORUS.libraryAssign("hostile",{});                                   // suspect via bulk reaches the 8 stations too
 STARCHORUS.clearLocalData();o.err=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$STL_Q" "out/$P-stl-rule" --wait 2 --fps 0 --eval "$STL_EV3" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$STL_Q" "out/$P-stl-rule" --wait 2 --fps 0 --ready --eval "$STL_EV3" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 STL_U=$(evalv "out/$P-stl-rule.json" 1 | stl_nj); STL_UE=$(evalv "out/$P-stl-rule.json" 2)
 # bulkFriend = 10 (2 AP + 8 st); bulkHostile = 10 (band 2.4 matches all, vendor null matches all) -> suspect assigned in bulk
 STL_UW='{"bulkFriend":10,"bulkHostile":10,"err":0,"friendSt":"friend/manual","ruleAdded":"1/ok","ruleHits":8,"ruleSrc":"rule-matched"}'
@@ -162,7 +162,7 @@ o.refuseNew=STARCHORUS.libraryImport(many[5049].mac+" friend").message;   // a f
 o.reAssignOk=STARCHORUS.setIdentity(many[0].mac,"friend");          // an EXISTING key can still be re-set (not a new key)
 o.err=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$STL_Q" "out/$P-stl-cap" --wait 2 --fps 0 --eval-timeout 150 --eval "$STL_EV4" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$STL_Q" "out/$P-stl-cap" --wait 2 --fps 0 --ready --eval-timeout 150 --eval "$STL_EV4" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 STL_C=$(evalv "out/$P-stl-cap.json" 1 | stl_nj); STL_CE=$(evalv "out/$P-stl-cap.json" 2)
 STL_CW='{"err":0,"present":true,"reAssignOk":"friend","refuseNew":"1 rejected","set":5000,"size":5000}'
 # LOAD side: pre-seed 5050 identity entries, reload, and read back the clamped size. Single quotes are literal inside

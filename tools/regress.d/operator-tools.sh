@@ -86,7 +86,7 @@ STARCHORUS.setToggles({inventory:false});const a0=STARCHORUS.nodes("ap")[0].id;S
 d0.generated+=5;STARCHORUS.load(d0,"again");await STARCHORUS.wait(200);const ni2=document.querySelector("#detail-body #nt-n");o.keepNote=[ni2.value,document.activeElement===ni2].join();STARCHORUS.deselect();
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-inv" --wait 3 --fps 0 --eval-timeout 90 --eval "$OPS_EVI" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-inv" --wait 3 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval-timeout 90 --eval "$OPS_EVI" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_I=$(evalv "out/$P-ops-inv.json" 1 | ops_nj); OPS_IE=$(evalv "out/$P-ops-inv.json" 2)
 OPS_IW=$(printf '%s' '{"all":25,"apiBand5":12,"aps":25,"band5":12,"bulkFriend":12,"bulkOther":"unknown","bulkShown":12,"cap":300,"capNote":true,"chips":"14 SSIDs|25 APs|216 stations (count only)|75 randomised|17 channels|25 of 25 shown","drawer":"inv","drawerOff":"legend","errors":0,"keepLib":"02:00:00:00:00:00 friend,true","keepNote":"typing,true","legendHidden":"none","noStationMac":true,"rowSelect":true,"rows":25,"sortFlip":true}' | ops_nj)
 if [ "$OPS_I" = "$OPS_IW" ] && [ "$OPS_IE" = 0 ]; then
@@ -127,7 +127,7 @@ o.txtOwn=/mine|iPhone of X|da:bb:cc:00:07:03|02:00:00:00:07:02/.test(STARCHORUS.
 o.txtSta=/3c:22:fb:10:20:99/.test(STARCHORUS.exportText("json")+STARCHORUS.exportText("csv")+STARCHORUS.exportText("sitrep"));
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-exp" --wait 3 --fps 0 --eval-timeout 90 --eval "$OPS_EVX" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-exp" --wait 3 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval-timeout 90 --eval "$OPS_EVX" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_X=$(evalv "out/$P-ops-exp.json" 1 | ops_nj); OPS_XE=$(evalv "out/$P-ops-exp.json" 2)
 OPS_XW='{"apKeys":"bssid,ssid,band,channel,security,class,rssi,heard","apsAll":true,"assocColo":true,"csvHead":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","csvRows":243,"det":"true,true","dialog":"{\"open\":true,\"ta\":true,\"csv\":true,\"sitrep\":true,\"png\":true,\"printed\":1,\"printable\":true,\"esc\":true,\"closed\":true}","errors":0,"footers":"true,true,2","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding","mobile":1,"nAps":25,"own":"02:00:00:00:07:01","sitrepHead":"SITREP · Starchorus / Starchorus · passive observation · not a government system · no official marking","stationCounts":"{\"free\":180,\"associated\":36}","stationLeak":true,"txtOwn":false,"txtSta":true}'
 if [ "$OPS_X" = "$OPS_XW" ] && [ "$OPS_XE" = 0 ]; then
@@ -163,7 +163,7 @@ o.close=STARCHORUS.openHoming(false);o.drawerOff=document.documentElement.datase
 window.dispatchEvent(new KeyboardEvent("keydown",{key:"f"}));o.keyOn=document.documentElement.dataset.drawer;window.dispatchEvent(new KeyboardEvent("keydown",{key:"f"}));o.keyOff=document.documentElement.dataset.drawer;
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$OPS_Q" "out/$P-ops-home" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVH" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-home" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVH" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_H=$(evalv "out/$P-ops-home.json" 1 | ops_nj); OPS_HE=$(evalv "out/$P-ops-home.json" 2)
 OPS_HW='{"bar":true,"client":"20:31/-40/-40","close":false,"coarse":true,"decay":"-48...-70","down":"08:01/-70/-48","drawer":"home,false","drawerOff":"legend","emptyNote":true,"errors":0,"first":"08:01/-60/-60","junk":"none","keyOff":"legend","keyOn":"home","meter":"-52 dBm (63 %, good)","none":"none","open":true,"own":"none","retarget":"08:02/-52/-50","sameGen":"08:01/-20/-55","tone":"false","unknown":"none","up":"08:01/-48/-48"}'
 if [ "$OPS_H" = "$OPS_HW" ] && [ "$OPS_HE" = 0 ]; then
@@ -186,23 +186,23 @@ document.getElementById("t-inv").click();o.btn=document.documentElement.dataset.
 // the typing fields keep letters away from the hotkeys
 STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(200);const ta=document.getElementById("lib-ta");ta.focus();ta.dispatchEvent(new KeyboardEvent("keydown",{key:"i",bubbles:true}));o.typing=STARCHORUS.getToggles().inventory;
 return JSON.stringify(o);})()'
-runq demo "$OPS_Q" "out/$P-ops-keys" --wait 2 --fps 0 --eval "$OPS_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-keys" --wait 2 --ready --fps 0 --eval "$OPS_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_K=$(evalv "out/$P-ops-keys.json" 1 | ops_nj); OPS_KE=$(evalv "out/$P-ops-keys.json" 2)
 OPS_KW=$(printf '%s' '{"start":"false,legend","on":"true,inv","persisted":true,"off":"false,legend","buttons":"true,true","help":"true,true","btn":"inv","typing":true}' | ops_nj)
 if [ "$OPS_K" = "$OPS_KW" ] && [ "$OPS_KE" = 0 ]; then row "operator keys I/F, buttons, help entries; typing in the library box does not fire hotkeys [$OPS_K]" PASS
 else row "operator keys I/F, buttons, help entries; typing in the library box does not fire hotkeys [$OPS_K]" FAIL; fi
-runq demo "$OPS_Q&inv=1" "out/$P-ops-query" --wait 2 --fps 0 --eval "JSON.stringify([STARCHORUS.getToggles().inventory,document.documentElement.dataset.drawer])" >/dev/null 2>&1
+runq demo "$OPS_Q&inv=1" "out/$P-ops-query" --wait 2 --ready --fps 0 --eval "JSON.stringify([STARCHORUS.getToggles().inventory,document.documentElement.dataset.drawer])" >/dev/null 2>&1
 OPS_QV=$(evalv "out/$P-ops-query.json" 1)
 rowif "inventory: ?inv=1 overrides the start state [$OPS_QV]" [ "$OPS_QV" = '[true,"inv"]' ]
 
 # ---- D15: inventory drawer (widest content) and homing drawer keep the edge panels apart, three viewports of the core rows are unchanged
 eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
 for OPS_VP in 1440x900 1000x640; do
-  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&inv=1" "out/$P-ops-d15i-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&inv=1" "out/$P-ops-d15i-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   OPS_OV=$(evalv "out/$P-ops-d15i-$OPS_VP.json" 1); OPS_OVE=$(evalv "out/$P-ops-d15i-$OPS_VP.json" 2)
   if [ "$OPS_OV" = 0 ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the inventory drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
   else row "operator drawers: D15 overlap 0 with the inventory drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" FAIL; fi
-  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-ops-d15h-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --fps 0 --eval "(async()=>{STARCHORUS.openHoming(true);await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-ops-d15h-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval "(async()=>{STARCHORUS.openHoming(true);await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   OPS_OV=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 2); OPS_OVE=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 3)
   if [ "$OPS_OV" = 0 ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the homing drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
   else row "operator drawers: D15 overlap 0 with the homing drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" FAIL; fi
@@ -249,7 +249,7 @@ STARCHORUS.load(mk(105,["WPA2","Open","WPA3"]),"g");await STARCHORUS.wait(1200);
 STARCHORUS.load(mk(110,["WPA3","WPA3","WPA3"]),"g");await STARCHORUS.wait(1200);STARCHORUS.frame();o.allWpa3=lab();
 STARCHORUS.load(mk(115,["WPA2","WPA2/TKIP","WPA2"]),"g");await STARCHORUS.wait(1200);STARCHORUS.frame();o.tkip=lab();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$OPS_Q" "out/$P-ops-grp" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVG" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-grp" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVG" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_G=$(evalv "out/$P-ops-grp.json" 1 | ops_nj); OPS_GE=$(evalv "out/$P-ops-grp.json" 2)
 OPS_GW=$(printf '%s' '{"g0":"grpnet:3","plain":"grpnet","open":"grpnet !","allWpa3":"grpnet","tkip":"grpnet ~","errors":0}' | ops_nj)
 if [ "$OPS_G" = "$OPS_GW" ] && [ "$OPS_GE" = 0 ]; then row "constellation label carries its weakest member (open -> !, TKIP -> ~, WPA2/WPA3 nothing) [$OPS_G]" PASS
@@ -276,7 +276,7 @@ const r=[cell(1,2)===A+"=1+1",cell(2,2)===A+"@SUM(A1)",cell(3,2)===A+"-2+3",cell
 document.getElementById("btn-export").click();await STARCHORUS.wait(100);
 const foc=document.getElementById("export-box").contains(document.activeElement)?1:0;document.getElementById("export-close").click();
 return r+"|"+foc;})()'
-runq demo "$OPS_Q" "out/$P-ops-csv" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-csv" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_C=$(evalv "out/$P-ops-csv.json" 1); OPS_CE=$(evalv "out/$P-ops-csv.json" 2)
 rowif "export CSV: names that start with = + - @ get a leading apostrophe (a probe and an alias too), a number stays a number, comma and quote cases as before [$OPS_C]" [ "$OPS_C/$OPS_CE" = "1111111111111|1/0" ]
 # negative controls: a copy of the page without the fix of the cell (the old q) must read red on the first four, "-Infinity", the alias and the probe, and a copy without the focus call red on the focus
@@ -316,16 +316,16 @@ open(sys.argv[2], "w", encoding="utf-8").write(a)
 open(sys.argv[3], "w", encoding="utf-8").write(b)
 PY
 OPS_HK=$H; H="out/$P-ops-csv-loose.html"
-runq demo "$OPS_Q" "out/$P-ops-csv-l1" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-csv-l1" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
 H="out/$P-ops-csv-loose-nofix.html"
-runq demo "$OPS_Q" "out/$P-ops-csv-l2" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-csv-l2" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVT" >/dev/null 2>&1
 H=$OPS_HK
 OPS_L1=$(evalv "out/$P-ops-csv-l1.json" 1); OPS_L2=$(evalv "out/$P-ops-csv-l2.json" 1)
 rowif "export CSV: a leading TAB gets its apostrophe and a leading CR gets it and is quoted (on a copy whose stripCtl lets both through) [$OPS_L1], and the copy with the old cell code reads both raw [$OPS_L2]" [ "$OPS_L1/$OPS_L2" = "111/001" ]
 OPS_HK=$H; H="out/$P-ops-csv-nofix.html"   # runq serves $H: point it at a copy for one call, then put it back
-runq demo "$OPS_Q" "out/$P-ops-csv-n1" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-csv-n1" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
 H="out/$P-ops-csv-nofocus.html"
-runq demo "$OPS_Q" "out/$P-ops-csv-n2" --wait 2 --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
+runq demo "$OPS_Q" "out/$P-ops-csv-n2" --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$OPS_EVC" >/dev/null 2>&1
 H=$OPS_HK
 OPS_CN1=$(evalv "out/$P-ops-csv-n1.json" 1); OPS_CN2=$(evalv "out/$P-ops-csv-n2.json" 1)
 rowif "export CSV: the controls bite: without the cell fix the formula names, the alias and the probe read raw [$OPS_CN1], without the focus call the focus stays outside the dialogue [$OPS_CN2]" [ "$OPS_CN1/$OPS_CN2" = "0000111100110|1/1111111111111|0" ]

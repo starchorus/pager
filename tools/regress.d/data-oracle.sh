@@ -20,11 +20,13 @@ ORC_KNOWN_OPEN=''
 ORC_JS=$(cat "$R/tools/evals/data-oracle.js")
 ORC_Q="?poll=0&spin=0&intro=0&debug=1&fixed=$STARCHORUS_FIXED"
 ORC_B="out/$P-oracle-bundle.json"
+# --ready: the boot poll has answered (the bundle is no capture, so the page leaves the built-in sky for sourceKind none); the eval then empties the page state and loads each document itself
+ORC_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 printf '%s\n' "$ORC_KNOWN_OPEN" > "out/$P-oracle-open.txt"
 
 # ---- 1. the run: the bundle (fixtures + hand documents) in ONE eval, then the judge
 python3 -B tools/data-oracle.py bundle "$F" "$ORC_B"
-runq "$ORC_B" "$ORC_Q" "out/$P-oracle" --wait 2 --fps 0 --eval-timeout 120 --eval "$ORC_JS(\"run\")" > "out/$P-oracle.txt" 2>&1; ORC_RC=$?
+runq "$ORC_B" "$ORC_Q" "out/$P-oracle" --wait 2 --fps 0 --ready "$ORC_RDY" --eval-timeout 120 --eval "$ORC_JS(\"run\")" > "out/$P-oracle.txt" 2>&1; ORC_RC=$?
 ORC_V=$(python3 -B tools/data-oracle.py judge "out/$P-oracle.json" "$ORC_B" "$H" "out/$P-oracle-open.txt" run); ORC_VC=$?
 # The number of fixtures the judge compared is counted here a second time, from the directory (the judge has its own floor, MIN_FIXTURES): a bundle
 # that loses fixtures reads "5 fixtures" while the directory has more, and the line is red.
@@ -82,7 +84,7 @@ sed -e "s/$ORC_L1.*\$/    \/\/ (locally administered exclusion removed by the pr
     -e 's/^  const clients = free + assoc;$/  const clients = free + assoc + probing;/' "$H" > "$ORC_PG"
 ORC_D=$(diff "$H" "$ORC_PG" | grep -c '^<')
 ORC_HKEEP=$H; H=$ORC_PG   # runq serves $H: point it at the copy for this one call, then put it back
-runq "$ORC_B" "$ORC_Q" "out/$P-oracle-probe" --wait 2 --fps 0 --eval-timeout 120 --eval "$ORC_JS(\"run\")" > "out/$P-oracle-probe.txt" 2>&1
+runq "$ORC_B" "$ORC_Q" "out/$P-oracle-probe" --wait 2 --fps 0 --ready "$ORC_RDY" --eval-timeout 120 --eval "$ORC_JS(\"run\")" > "out/$P-oracle-probe.txt" 2>&1
 H=$ORC_HKEEP
 ORC_PV=$(python3 -B tools/data-oracle.py judge "out/$P-oracle-probe.json" "$ORC_B" "$H" - probe); ORC_PC=$?
 ORC_POK=0; [ "$ORC_E1" = 1 ] && [ "$ORC_E2" = 1 ] && [ "$ORC_E3" = 1 ] && [ "$ORC_D" = 3 ] && [ "$ORC_PC" = 0 ] && ORC_POK=1

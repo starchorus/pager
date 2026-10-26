@@ -37,7 +37,7 @@ const many=[];for(let i=0;i<600;i++)many.push({bssid:"02:00:0a:"+(i>>8).toString
 STARCHORUS.load(mk(300,many,{}),"many");o.cap=STARCHORUS.setBaseline();o.stored=Object.keys(JSON.parse(localStorage.getItem("starchorus.baseline.v1")).aps).length;
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$OBV_Q" "out/$P-obv-model" --wait 2 --fps 0 --eval-timeout 90 --eval "$OBV_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OBV_Q" "out/$P-obv-model" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$OBV_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OBV_B=$(evalv "out/$P-obv-model.json" 1 | obv_nj); OBV_BE=$(evalv "out/$P-obv-model.json" 2)
 OBV_BW=$(printf '%s' '{"chg":"channel:6>11,security:wpa2>wpa3","chgTotal":2,"detail":"ch 6 → 11 · security wpa2 → wpa3","setN":6,"gone":"0/2/0/2","ghostRow":"true","noHop":"0/0/0/0","oneCh":"0/1/0/1","newOwn":"1/2/0/2","changedRow":"0/0/1/0","diffOff":"0/0/0/0","mobChg":0,"mobEv":0,"mobNode":true,"mobBase":"02:00:00:00:05:01","cap":500,"stored":500,"errors":0}' | obv_nj)
 if [ "$OBV_B" = "$OBV_BW" ] && [ "$OBV_BE" = 0 ]; then
@@ -76,7 +76,7 @@ o.watchStored=localStorage.getItem("starchorus.watch.v1");
 STARCHORUS.clearLocalData();o.cleared=Object.keys(localStorage).filter(k=>k.indexOf("starchorus.")===0).join(",")||"none";
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$OBV_Q" "out/$P-obv-obs" --wait 2 --fps 0 --eval-timeout 90 --eval "$OBV_EVO" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OBV_Q" "out/$P-obv-obs" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$OBV_EVO" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OBV_O=$(evalv "out/$P-obv-obs.json" 1 | obv_nj); OBV_OE=$(evalv "out/$P-obv-obs.json" 2)
 OBV_OW=$(printf '%s' '{"c1":0,"same":0,"c2":7,"n":9,"groups":"Look-alike,Responders,Configuration","look":true,"cfg":true,"p10":false,"noFriend":false,"watch":"watched SSID present: cafe","lost":"false,false,true","mobileExcluded":true,"panel":"true/none/on","panelOff":"true/true","watchStored":"[\"cafe\",\"nothere\"]","cleared":"none","errors":0}' | obv_nj)
 if [ "$OBV_O" = "$OBV_OW" ] && [ "$OBV_OE" = 0 ]; then
@@ -96,19 +96,21 @@ o.buttons=["t-obs","t-baseline","baseline-set","baseline-clear"].map(i=>!!docume
 o.help=/Observations/.test(document.getElementById("help-list").innerText)&&/Baseline diff/.test(document.getElementById("help-list").innerText);
 key("w");key("b");o.back=[STARCHORUS.getToggles().observations,STARCHORUS.getToggles().baselineDiff].join();
 return JSON.stringify(o);})()'
-runq demo "$OBV_Q" "out/$P-obv-keys" --wait 2 --fps 0 --eval "$OBV_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$OBV_Q" "out/$P-obv-keys" --wait 2 --fps 0 --ready --eval "$OBV_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OBV_K=$(evalv "out/$P-obv-keys.json" 1 | obv_nj); OBV_KE=$(evalv "out/$P-obv-keys.json" 2)
 OBV_KW=$(printf '%s' '{"start":"false,false","afterKeys":"true,true","persisted":"true,true","buttons":"true,true,true,true","help":true,"back":"false,false"}' | obv_nj)
 if [ "$OBV_K" = "$OBV_KW" ] && [ "$OBV_KE" = 0 ]; then row "observation keys W/B toggle, persist as booleans, buttons and help entries exist [$OBV_K]" PASS
 else row "observation keys W/B toggle, persist as booleans, buttons and help entries exist [$OBV_K]" FAIL; fi
-runq demo "$OBV_Q&obs=1&baseline=1" "out/$P-obv-query" --wait 2 --fps 0 --eval "JSON.stringify([STARCHORUS.getToggles().observations,STARCHORUS.getToggles().baselineDiff,document.documentElement.dataset.obs])" >/dev/null 2>&1
+runq demo "$OBV_Q&obs=1&baseline=1" "out/$P-obv-query" --wait 2 --fps 0 --ready --eval "JSON.stringify([STARCHORUS.getToggles().observations,STARCHORUS.getToggles().baselineDiff,document.documentElement.dataset.obs])" >/dev/null 2>&1
 OBV_QV=$(evalv "out/$P-obv-query.json" 1)
 rowif "observations: ?obs=1&baseline=1 override the start state [$OBV_QV]" [ "$OBV_QV" = '[true,true,"on"]' ]
 
 # ---- D15: the observations drawer and the taller controls keep the edge panels apart (field-probes, three themes, three viewports, drawer on)
 eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
+eval "$(grep '^EDG_RDY=' tools/regress.d/edge-layout.sh)"
+OBV_RDY=$EDG_RDY   # the fonts are loaded, the served capture has replaced the built-in sky and a frame has been painted (the overlap reads font metrics)
 for OBV_VP in 1440x900 1000x640; do
-  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&obs=1&baseline=1" "out/$P-obv-d15-$OBV_VP" --width "${OBV_VP%x*}" --height "${OBV_VP#*x}" --wait 4 --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&obs=1&baseline=1" "out/$P-obv-d15-$OBV_VP" --width "${OBV_VP%x*}" --height "${OBV_VP#*x}" --wait 4 --fps 0 --ready "$OBV_RDY" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   OBV_OV=$(evalv "out/$P-obv-d15-$OBV_VP.json" 1); OBV_OVE=$(evalv "out/$P-obv-d15-$OBV_VP.json" 2)
   if [ "$OBV_OV" = 0 ] && [ "$OBV_OVE" = 0 ]; then row "observations: D15 overlap 0 with the observations drawer open $OBV_VP (err ${OBV_OVE:-?}) [$(printf '%s' "$OBV_OV" | cut -c1-60)]" PASS
   else row "observations: D15 overlap 0 with the observations drawer open $OBV_VP (err ${OBV_OVE:-?}) [$(printf '%s' "$OBV_OV" | cut -c1-60)]" FAIL; fi

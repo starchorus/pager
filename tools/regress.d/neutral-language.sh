@@ -31,11 +31,14 @@ PY
 # One eval: returns "#grabs tag,tag,…" + the de-duplicated text lines of every grab.
 NTL_EVP10='(async()=>{const T0=STARCHORUS.getTheme(),seen=new Set(),tags=[];const add=s=>{for(const l of String(s==null?"":s).split("\n")){const t=l.trim();if(t)seen.add(t)}};const grab=tag=>{tags.push(tag);add(document.body.innerText);const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentNode.nodeName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});while(w.nextNode())add(w.currentNode.nodeValue);document.querySelectorAll("[title],[aria-label],[placeholder],[alt],meta[content]").forEach(e=>{for(const a of ["title","aria-label","placeholder","alt","content"])add(e.getAttribute(a))});add(document.title)};const byRssi=(a,b)=>(b.rssi??-999)-(a.rssi??-999)||(a.id<b.id?-1:1);for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await STARCHORUS.wait(50);STARCHORUS.frame();grab(t);const pick=[["ap",STARCHORUS.nodes("ap").sort(byRssi)[0]],["assoc",STARCHORUS.nodes("assoc")[0]],["free",STARCHORUS.nodes("free")[0]],["bubble",STARCHORUS.nodes("bubble")[0]]];for(const [k,n] of pick){if(!n)continue;STARCHORUS.select(n.id);if(k!=="bubble")STARCHORUS.hoverNode(n.id);await STARCHORUS.wait(20);STARCHORUS.frame();grab(t+":"+k);STARCHORUS.hoverNode(null);STARCHORUS.deselect()}const ch=STARCHORUS.channels();for(const b of ["2.4","5","6"])for(const c of Object.keys(ch[b]||{}))add(STARCHORUS.hoverChannel(b,c))}STARCHORUS.setTheme(T0);STARCHORUS.frame();return "#grabs "+tags.join(",")+"\n"+[...seen].join("\n")})()'
 
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+NTL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
+NTL_RDD='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS))))'   # the demo run has no capture to wait for: this is what a bare --ready asks
 NTL_BAD=""; NTL_GR=""
 for NTL_RUN in demo:wargames active:whitehall devices:foundation field-probes:whitehall alerts:wargames; do
   NTL_FX=${NTL_RUN%%:*}; NTL_TH=${NTL_RUN#*:}
-  if [ "$NTL_FX" = demo ]; then NTL_SRC=demo; else NTL_SRC="$F/$NTL_FX.json"; fi
-  runq "$NTL_SRC" "?poll=0&spin=0&theme=$NTL_TH" "out/$P-p10-$NTL_FX" --wait 4 --fps 0 \
+  if [ "$NTL_FX" = demo ]; then NTL_SRC=demo; NTL_RD=$NTL_RDD; else NTL_SRC="$F/$NTL_FX.json"; NTL_RD=$NTL_RDY; fi
+  runq "$NTL_SRC" "?poll=0&spin=0&theme=$NTL_TH" "out/$P-p10-$NTL_FX" --wait 4 --fps 0 --ready "$NTL_RD" \
     --eval "STARCHORUS.skipIntro()" --eval "$NTL_EVP10" >/dev/null 2>&1
   evalv "out/$P-p10-$NTL_FX.json" 2 > "out/$P-p10-$NTL_FX.txt"
   NTL_G=$(sed -n '1s/^#grabs //p' "out/$P-p10-$NTL_FX.txt" | tr ',' '\n' | grep -c .)
@@ -118,7 +121,7 @@ STARCHORUS.load({source:"recon-db",generated:1789300000,aps:[{bssid:"02:00:00:00
 await STARCHORUS.wait(600);const o=[],g=(id)=>(document.getElementById(id).innerText.match(/Probes\s*([^\n]*)/)||[])[1];
 for(let i=1;i<=3;i++){const id="3c:22:fb:00:06:0"+i;STARCHORUS.hoverNode(id);const t=g("tip-body");STARCHORUS.hoverNode(null);STARCHORUS.select(id);o.push(t+" | "+g("detail-body"));}
 STARCHORUS.deselect();return JSON.stringify(o);})()'
-runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-ntl-probes" --wait 2 --fps 0 --eval "$NTL_EVW" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-ntl-probes" --wait 2 --fps 0 --ready --eval "$NTL_EVW" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 NTL_W=$(evalv "out/$P-ntl-probes.json" 1); NTL_WE=$(evalv "out/$P-ntl-probes.json" 2)
 NTL_WW='["named probe: Cafe | named probe: Cafe (heard probe requests, rx only)","named probes: Cafe, Lab-Net | named probes: Cafe, Lab-Net (heard probe requests, rx only)","no named probe heard | no named probe heard"]'
 if [ "$NTL_W" = "$NTL_WW" ] && [ "$NTL_WE" = 0 ]; then row "probe wording on the page: tooltip and detail of a station with one probe, with two, and with none" PASS

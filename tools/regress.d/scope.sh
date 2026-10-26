@@ -35,6 +35,10 @@ SCP_T="out/$P-scp"; mkdir -p "$SCP_T"
 SCP_BASE=610563   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4: 610,779), lowered by 617 on 24 October 2026 by the owner, on purpose, with BASE_PAGE_BYTES in tools/static.sh: the 14 unread chart tokens left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), and the pooled ceiling (this base + 13,400 = 623,562) leaves 62 bytes where it left 18 (445 under MAX_PAGE_BYTES in tools/static.sh); they are held for two later items, a longer stripCtl (about 60) and a stepped pulse (about 30), which together need about 90 and do not fit as planned; raised by 401 on 26 October 2026 with BASE_PAGE_BYTES for the invisible-characters mark
 SCP_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED&debug=1&scope=1"
 SCP_LQ="?poll=0&spin=0&intro=0&debug=1&scope=1"   # the live clock
+# --ready: the fonts are loaded, the capture is in and a frame has been painted after both (the layout rows read font metrics and the loaded stations; the --wait of each run stays the ceiling).
+# scp_run adds it to every run on a frozen clock (?fixed=), whose state does not depend on how long the page has run; the frame-cost runs keep the whole wait (a page that has only just booted
+# is the colder one), and so do the live-clock rows (idle, reduced motion, Bluetooth lane, ESS merge: what fades, ages or settles) and the runs with steps.
+SCP_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.stats().sourceKind !== "demo"))))'
 SCP_FNS="scopeGeom scopePlace scopeStep scopeWantsFrame drawScopeBg scopeWave drawScope applyScope renderScope"
 
 # ---- static: anchors, no token read in the theme-free code, no transmit, clock or random in the Scope's code, the page's size share
@@ -267,7 +271,9 @@ PY
 scp_j() { python3 -B "$SCP_T/judge.py" "$@" 2>&1 | head -n 1; }   # scp_j CHECK ARGS...: ok, or what is wrong
 scp_ev() { evalv "$1" 1; }
 # scp_run NAME 'EVAL' FIXTURE QUERY WIDTH HEIGHT [more cdp args]: one run of the page (the page served is $H) -> out/$P-scp-NAME.json
-scp_run() { _sr_n=$1; _sr_e=$2; _sr_f=$3; _sr_q=$4; _sr_w=$5; _sr_h=$6; shift 6; runq "$_sr_f" "$_sr_q" "$SCP_T-$_sr_n" --width "$_sr_w" --height "$_sr_h" --mobile --wait 2 --fps 0 --eval-timeout 90 --eval "$_sr_e" "$@" >/dev/null 2>&1; }
+scp_run() { _sr_n=$1; _sr_e=$2; _sr_f=$3; _sr_q=$4; _sr_w=$5; _sr_h=$6; shift 6
+  case $_sr_q in *fixed=*) case $_sr_n in bench*) ;; *) set -- "$@" --ready "$SCP_RDY" ;; esac ;; esac
+  runq "$_sr_f" "$_sr_q" "$SCP_T-$_sr_n" --width "$_sr_w" --height "$_sr_h" --mobile --wait 2 --fps 0 --eval-timeout 90 --eval "$_sr_e" "$@" >/dev/null 2>&1; }
 scp_row() {   # scp_row LABEL RESULT: PASS iff the judge said "ok"
   if [ "$2" = ok ]; then row "$1" PASS; else row "$1" FAIL; echo "    $2" | cut -c1-400; fi
 }
@@ -522,18 +528,18 @@ for SCP_Z in 390x844 375x812 430x932 812x375; do
 done
 
 # ---- default off, the button (44 px, in the sheet's row), click, key Z, the sky's controls at rest, the key's help line; the wide desktop has none
-scp_run toggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844
+scp_run toggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844 --ready "$SCP_RDY"
 SCP_R=$(scp_j toggle "$(scp_ev "$SCP_T-toggle.json")")
 scp_row "scope: off by default; #t-scope is 44x44 in #sheet-row; a click and Z turn it on and off (strip and foot shown, the sky's counts, 3D button and layers rest), saved at once; the key is in the help [Z]" "$SCP_R"
-scp_run deskoff "$SCP_EVD" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 1440 900 --wait 2
+scp_run deskoff "$SCP_EVD" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 1440 900 --wait 2 --ready "$SCP_RDY"
 SCP_R1=$(scp_j desk "$(scp_ev "$SCP_T-deskoff.json")" "off,off,false,none,none,none|off,off,false,none,none,none")
-runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1" "$SCP_T-desk" --width 1440 --height 900 --wait 2 --fps 0 --eval "$SCP_EVD" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1" "$SCP_T-desk" --width 1440 --height 900 --wait 2 --fps 0 --ready "$SCP_RDY" --eval "$SCP_EVD" >/dev/null 2>&1
 SCP_R2=$(scp_j desk "$(scp_ev "$SCP_T-desk.json")" "off,off,true,none,none,none|off,off,true,none,none,none")
 SCP_D=$(python3 -B -c 'import json,sys; d=json.loads(sys.argv[1]); print(d["boot"] + " " + d["z"])' "$(scp_ev "$SCP_T-desk.json")" 2>&1)
 rowif "scope: the wide desktop (1440x900) has no Scope: the button, strip and foot are not shown, ?scope=1 changes nothing and Z does nothing ($SCP_D)" [ "$SCP_R1/$SCP_R2" = ok/ok ]
-runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1&phone=1" "$SCP_T-deskp" --width 1440 --height 900 --wait 2 --fps 0 --eval "$SCP_EVD" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1&phone=1" "$SCP_T-deskp" --width 1440 --height 900 --wait 2 --fps 0 --ready "$SCP_RDY" --eval "$SCP_EVD" >/dev/null 2>&1
 SCP_DP=$(python3 -B -c 'import json,sys; d=json.loads(sys.argv[1]); print(d["boot"] + " " + d["z"] + " " + str(d["errors"]))' "$(scp_ev "$SCP_T-deskp.json")" 2>&1)
-runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1&phone=0" "$SCP_T-ph0" --width 390 --height 844 --mobile --wait 2 --fps 0 --eval "$SCP_EVD" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1&scope=1&phone=0" "$SCP_T-ph0" --width 390 --height 844 --mobile --wait 2 --fps 0 --ready "$SCP_RDY" --eval "$SCP_EVD" >/dev/null 2>&1
 SCP_P0=$(python3 -B -c 'import json,sys; d=json.loads(sys.argv[1]); print(d["boot"] + " " + str(d["errors"]))' "$(scp_ev "$SCP_T-ph0.json")" 2>&1)
 rowif "scope: ?phone=1 on a wide window shows it (on,on,true,flex,grid,grid), Z saves false there; ?phone=0 beats ?scope=1 on a phone [$SCP_DP / $SCP_P0]" [ "$SCP_DP/$SCP_P0" = "on,on,true,flex,grid,grid on,off,false,flex,none,none 0/off,off,true,none,none,none 0" ]
 
@@ -710,7 +716,7 @@ scp_mut lanes 's/ls\[a.band in ls ? a.band : (SC.unk = true, "6")\].push(a)/ls["
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlane "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j geom "$(scp_ev "$SCP_T-mlane.json")" 20)" != ok ] || SCP_MB="$SCP_MB lanes"; }
 # no key Z
 scp_mut nokey 's/^KEY_ACT.z = .*$/KEY_ACT.z = () => {};/' || SCP_MB="$SCP_MB nokey(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mtoggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844; [ "$(scp_j toggle "$(scp_ev "$SCP_T-mtoggle.json")")" != ok ] || SCP_MB="$SCP_MB nokey"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mtoggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844 --ready "$SCP_RDY"; [ "$(scp_j toggle "$(scp_ev "$SCP_T-mtoggle.json")")" != ok ] || SCP_MB="$SCP_MB nokey"; }
 # no snow
 scp_mut nosnow 's/^  if (lv !== "live") {$/  if (false) {/' || SCP_MB="$SCP_MB nosnow(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlive "$SCP_EVL" "$F/devices.json" "$SCP_Q&theme=wargames" 390 844; [ "$(scp_j live "$(scp_ev "$SCP_T-mlive.json")")" != ok ] || SCP_MB="$SCP_MB nosnow"; }
@@ -746,7 +752,7 @@ scp_mut nudge 's/ \&\& l.k1 - l.k0 > 2 \* f \/ t//' || SCP_MB="$SCP_MB nudge(no 
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")" != ok ] || SCP_MB="$SCP_MB nudge"; }
 # a legend row of a kind the legend check does not know, and one that never shows
 scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP_MB="$SCP_MB legendkind(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --ready "$SCP_RDY" --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
 scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")" != ok ] || SCP_MB="$SCP_MB legendrow"; }
 # a folded ESS member that a tap in the Scope skips again, and the count badge drawn in the Scope again

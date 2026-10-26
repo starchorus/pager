@@ -7,6 +7,8 @@
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only TWH_* globals are set.
 
 TWH_Q="?poll=0&spin=0&intro=0&debug=1&theme=whitehall"
+# --ready: the fonts are loaded, the capture is in and a frame has been painted after both (--wait stays the ceiling); the demo runs use the bare form; the logon run keeps its fixed wait
+TWH_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.nodes("ap").length > 0 && STARCHORUS.stats().sourceKind !== "demo"))))'
 twh_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 
 # ---- the exercise banner: text per source kind, every line ends with the disclaimer, no "SIMULATED" on real data, visible in Whitehall only
@@ -27,7 +29,7 @@ const vis=()=>[getComputedStyle(document.getElementById("classbar-top")).display
 o.wh=vis();STARCHORUS.setTheme("wargames");o.wg=vis();STARCHORUS.setTheme("foundation");o.fd=vis();STARCHORUS.setTheme("whitehall");
 o.rule=getComputedStyle(document.documentElement).getPropertyValue("--banner-rule").trim();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$TWH_Q" "out/$P-twh-banner" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$TWH_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$TWH_Q" "out/$P-twh-banner" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$TWH_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWH_B=$(evalv "out/$P-twh-banner.json" 1 | twh_nj); TWH_BE=$(evalv "out/$P-twh-banner.json" 2)
 TWH_BW=$(printf '%s' '{"errors":0,"fd":"none,none","rule":"#7a1414","sim":"demo","st":"{\"demo\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"SIMULATED PLOTS · PASSIVE RECEIVE ONLY · NOT A GOVERNMENT SYSTEM\",true,true],\"live\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"REAL-WORLD DATA · NOT EXERCISE PLAY · RECON-DB · LIVE · NOT A GOVERNMENT SYSTEM\",true,true],\"recorded\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"REAL-WORLD DATA · NOT EXERCISE PLAY · AIRODUMP-CSV · RECORDED · NOT A GOVERNMENT SYSTEM\",true,true],\"active\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"ACTIVE SCAN · THE COLLECTOR SENT PROBE REQUESTS · IW-SCAN-ACTIVE · NOT A GOVERNMENT SYSTEM\",true,true],\"none\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"ENDEX · NO FEED · NOT A GOVERNMENT SYSTEM\",true,true],\"sanitised\":[\"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM\",\"REAL-WORLD DATA · NOT EXERCISE PLAY · RECONDBX · RECORDED · NOT A GOVERNMENT SYSTEM\",true,true]}","top":"EXERCISE – EXERCISE – EXERCISE · NOT A GOVERNMENT SYSTEM","wg":"none,none","wh":"block,block"}' | twh_nj)
 if [ "$TWH_B" = "$TWH_BW" ] && [ "$TWH_BE" = 0 ]; then
@@ -63,7 +65,7 @@ const tb=document.getElementById("tote");o.dom=[tb.hidden,tb.querySelectorAll(".
 o.lampOn=[...tb.querySelectorAll(".lamp.on")].map(e=>e.textContent).join("");
 STARCHORUS.setTheme("wargames");await STARCHORUS.wait(100);o.wg=document.getElementById("tote").hidden;STARCHORUS.setTheme("whitehall");
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/aged.json" "$TWH_Q" "out/$P-twh-tote" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$TWH_EVT" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/aged.json" "$TWH_Q" "out/$P-twh-tote" --width 1440 --height 900 --wait 2 --ready "$TWH_RDY" --fps 0 --eval-timeout 90 --eval "$TWH_EVT" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWH_T=$(evalv "out/$P-twh-tote.json" 1 | twh_nj); TWH_TE=$(evalv "out/$P-twh-tote.json" 2)
 TWH_TW=$(TWH_PYT="$TWH_PYT" python3 -c 'import json,os;print(json.dumps({"dom":"false,12,4,5","errors":0,"labels":"HEARD/RECENT/FADING/ON RECORD","lampOn":"4222","model":os.environ["TWH_PYT"],"sum":True,"wg":True},sort_keys=True,separators=(",",":"),ensure_ascii=False))')
 if [ "$TWH_T" = "$TWH_TW" ] && [ "$TWH_TE" = 0 ]; then
@@ -126,7 +128,7 @@ o.newGone=ringN(idN)===0;
 // U1 = no: the sky still turns in Whitehall (spin on by default)
 o.spin=[STARCHORUS.getToggles().spin,STARCHORUS._internals.THEMES.whitehall.motion.autoRotateRadPerS>0].join();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "?poll=0&debug=1&intro=0&theme=whitehall" "out/$P-twh-clock" --width 1440 --height 900 --wait 1 --fps 0 --eval-timeout 120 --eval "$TWH_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "?poll=0&debug=1&intro=0&theme=whitehall" "out/$P-twh-clock" --width 1440 --height 900 --wait 1 --ready --fps 0 --eval-timeout 120 --eval "$TWH_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWH_C=$(evalv "out/$P-twh-clock.json" 1 | twh_nj); TWH_CE=$(evalv "out/$P-twh-clock.json" 2)
 TWH_CWB='{"clock":"","errors":0,"fd":true,"hand":"rotate(280deg)|sector clock, period 10 of 12","newGone":true,"newPlot":"true,true,true","spin":"true,true","tok":"#8a4a44,#a08a4a,#4a6a8f","undated":",none","vars":"#8a4a44,#a08a4a,#4a6a8f","wg":true,"wgRing":"true","whOwn":"true,true,true"}'
 TWH_CW=$(printf '%s' "$TWH_CWB" | TWH_PYC="$TWH_PYC" python3 -c 'import json,os,sys;w=json.load(sys.stdin);w["clock"]=json.dumps(json.loads(os.environ["TWH_PYC"]),separators=(",",":"));print(json.dumps(w,sort_keys=True,separators=(",",":"),ensure_ascii=False))')
@@ -140,7 +142,7 @@ fi
 # ---- D15 with the sector clock and the tote lamps (Whitehall, three viewports), static rows
 eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
 for TWH_VP in 1440x900 1280x800 1000x640; do
-  runq "$F/field-probes.json" "$TWH_Q" "out/$P-twh-d15-$TWH_VP" --width "${TWH_VP%x*}" --height "${TWH_VP#*x}" --wait 4 --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "$TWH_Q" "out/$P-twh-d15-$TWH_VP" --width "${TWH_VP%x*}" --height "${TWH_VP#*x}" --wait 4 --ready "$TWH_RDY" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   TWH_OV=$(evalv "out/$P-twh-d15-$TWH_VP.json" 1); TWH_OVE=$(evalv "out/$P-twh-d15-$TWH_VP.json" 2)
   if [ "$TWH_OV" = 0 ] && [ "$TWH_OVE" = 0 ]; then row "Whitehall: D15 overlap 0 with clock, tote lamps and banners $TWH_VP (err ${TWH_OVE:-?}) [$(printf '%s' "$TWH_OV" | cut -c1-60)]" PASS
   else row "Whitehall: D15 overlap 0 with clock, tote lamps and banners $TWH_VP (err ${TWH_OVE:-?}) [$(printf '%s' "$TWH_OV" | cut -c1-60)]" FAIL; fi
@@ -165,7 +167,7 @@ o.faces=[...document.fonts].filter(f=>f.family.replace(/["\x27]/g,"")==="Starcho
 let src="";for(const sh of document.styleSheets){try{for(const r of sh.cssRules){if(r.type===CSSRule.FONT_FACE_RULE&&/Starchorus Sans/.test(r.style.getPropertyValue("font-family"))&&r.style.getPropertyValue("font-weight")==="400")src=r.style.getPropertyValue("src")}}catch(e){}}
 o.ctl=null;if(src){const f=new FontFace("Starchorus Probe",src,{weight:"400"});await f.load();document.fonts.add(f);o.ctl=adv("400 20px \"Starchorus Probe\"");document.fonts.delete(f)}
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq demo "$TWH_Q" "out/$P-twh-dot" --width 1000 --height 640 --wait 2 --fps 0 --eval-timeout 60 --eval "$TWH_EVD" >/dev/null 2>&1
+runq demo "$TWH_Q" "out/$P-twh-dot" --width 1000 --height 640 --wait 2 --ready --fps 0 --eval-timeout 60 --eval "$TWH_EVD" >/dev/null 2>&1
 TWH_D=$(evalv "out/$P-twh-dot.json" 1)
 TWH_DV=$(printf '%s' "$TWH_D" | python3 -c 'import json,sys
 try: o=json.load(sys.stdin)

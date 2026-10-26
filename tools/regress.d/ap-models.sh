@@ -37,7 +37,8 @@ const win=JSON.parse(JSON.stringify(doc));win.center.max_age=120;STARCHORUS.load
 const whole=JSON.parse(JSON.stringify(doc));whole.center.max_age=0;STARCHORUS.load(whole,"maxage0");o.whole=STARCHORUS.legendRows().filter(r=>/^fresh/.test(r.kind)).map(r=>r.visible?1:0).join("");
 const nogen=JSON.parse(JSON.stringify(doc));delete nogen.generated;STARCHORUS.load(nogen,"nogen");o.nogen=JSON.stringify(STARCHORUS.stats().fresh)+"/"+STARCHORUS.legendRows().filter(r=>/^fresh/.test(r.kind)).map(r=>r.visible?1:0).join("");
 return JSON.stringify(o);})()'
-runq "$F/aged.json" "$APM_Q" "out/$P-apm-fresh" --wait 3 --fps 0 --eval "$APM_EVF" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+APM_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"   # the served capture has replaced the built-in sky (whose apsTotal is above 0 from the first frame)
+runq "$F/aged.json" "$APM_Q" "out/$P-apm-fresh" --wait 3 --fps 0 --ready "$APM_RDY" --eval "$APM_EVF" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 APM_FR=$(evalv "out/$P-apm-fresh.json" 1)
 APM_FRE=$(evalv "out/$P-apm-fresh.json" 2)
 APM_FR_ALL=$(printf '%s' "$APM_FR" | python3 -c '
@@ -102,7 +103,7 @@ for(const t of ["wargames","whitehall"]){STARCHORUS.setTheme(t);await STARCHORUS
  STARCHORUS.select("02:00:00:00:02:01");const dt=getComputedStyle(document.getElementById("detail-title")).textTransform+"/"+document.getElementById("detail-title").textContent;STARCHORUS.deselect();
  o[t]={ssid:/MixedCase Net/.test(L),centre:/Mixed Case Centre/.test(L),tip:cs,detail:dt};}   // the vendor line is drawn but not listed by labels(): the static row below covers it
 STARCHORUS.pin("02:00:00:00:02:01",false);STARCHORUS.setToggles({vendor:false});STARCHORUS.setTheme("foundation");return JSON.stringify(o);})()'
-runq demo "$APM_Q" "out/$P-apm-run" --wait 2 --fps 0 --eval-timeout 90 \
+runq demo "$APM_Q" "out/$P-apm-run" --wait 2 --fps 0 --ready --eval-timeout 90 \
   --eval "$APM_EVE" --eval "$APM_EVD" --eval "$APM_EVG" --eval "$APM_EVU" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 APM_E=$(evalv "out/$P-apm-run.json" 1); APM_D=$(evalv "out/$P-apm-run.json" 2); APM_G=$(evalv "out/$P-apm-run.json" 3 | apm_nj)
 APM_U=$(evalv "out/$P-apm-run.json" 4 | apm_nj); APM_RE=$(evalv "out/$P-apm-run.json" 5)
@@ -136,7 +137,7 @@ STARCHORUS.load(mk(302,big()),"sky2");for(let g=303;g<312;g++)STARCHORUS.load(mk
 out.cell=document.getElementById("n-crowd").textContent+"|"+/crowding \d\/5/.test(document.getElementById("n-crowd").title);
 const voices=[];for(const th of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(th);voices.push(document.getElementById("n-crowd").title.split(" · ")[0]);}STARCHORUS.setTheme("foundation");out.voice=voices.join("/");
 return JSON.stringify(out);})()'
-runq demo "$APM_Q" "out/$P-apm-sky" --wait 2 --fps 0 --eval-timeout 90 --eval "$APM_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$APM_Q" "out/$P-apm-sky" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$APM_EVK" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 APM_K=$(evalv "out/$P-apm-sky.json" 1 | apm_nj); APM_KE=$(evalv "out/$P-apm-sky.json" 2)
 APM_KW=$(printf '%s' '{"adopted":"15/1/","cell":"1|true","crowd":"1:1 2:2 3:2 4:3 6:4 7:4 10:5","first":"8/1/","gate":"true/34/true/<5/<5","ids":"clean","keys":"n,ok,minN,band,security,hidden,crowding,deviations,ref","moved":"1/0//r1","second":"9/1/2.4:6up","small":"false/8/","voice":"Compendium/SKY SUMMARY/SITREP","warm":"7/1/"}' | apm_nj)
 if [ "$APM_K" = "$APM_KW" ] && [ "$APM_KE" = 0 ]; then
@@ -173,7 +174,7 @@ if [ "$APM_TO" -ge 1 ] && [ "$APM_FE" = 1 ]; then row "poll deadline: AbortContr
 else row "poll deadline: AbortController in tryPoll ($APM_TO), fetch still once ($APM_FE)" FAIL; fi
 
 # ---- colour roles §4.1: tools/check-colors.py on the live token sets of all three themes
-runq demo "$APM_Q" "out/$P-apm-themes" --wait 1 --fps 0 --eval "JSON.stringify(STARCHORUS._internals.THEMES)" >/dev/null 2>&1
+runq demo "$APM_Q" "out/$P-apm-themes" --wait 1 --fps 0 --ready --eval "JSON.stringify(STARCHORUS._internals.THEMES)" >/dev/null 2>&1
 APM_CC=$(python3 tools/check-colors.py "out/$P-apm-themes.json" 2>&1 | tail -1)
 APM_CS=$(python3 tools/check-colors.py --selftest 2>&1 | tail -1)
 APM_CN=$(printf '%s' "$APM_CC" | sed -n 's/^check-colors: \([0-9]*\) checks, \([0-9]*\) FAIL.*/\1\/\2/p')
@@ -235,7 +236,7 @@ for(const t of ["wargames","whitehall"]){STARCHORUS.setTheme(t);await STARCHORUS
 STARCHORUS.setTheme("foundation");STARCHORUS.frame();o.square=K().some(k=>/\|coreSquare\|/.test(k));o.hollow=K().some(k=>/\|client\|client\|\d+\|rnd$/.test(k));
 STARCHORUS.setTheme("wargames");STARCHORUS.frame();o.crossX=K().some(k=>/\|clientCross\|client\|\d+\|L\dx$/.test(k));o.crossPlain=K().some(k=>/\|clientCross\|client\|\d+\|L\d$/.test(k));
 STARCHORUS.setTheme("foundation");return JSON.stringify(o);})()'
-runq demo "$APM_Q" "out/$P-apm-marks" --wait 2 --fps 0 --eval-timeout 90 --eval "$APM_EVM" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$APM_Q" "out/$P-apm-marks" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$APM_EVM" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 APM_M=$(evalv "out/$P-apm-marks.json" 1 | apm_nj); APM_ME=$(evalv "out/$P-apm-marks.json" 2)
 APM_MW=$(printf '%s' '{"crossPlain":true,"crossX":true,"hollow":true,"square":true,"wargames_gap":"true,true","wargames_id":true,"wargames_pin":true,"wargames_sel":true,"whitehall_gap":"true,true","whitehall_id":true,"whitehall_pin":true,"whitehall_sel":true}' | apm_nj)
 if [ "$APM_M" = "$APM_MW" ] && [ "$APM_ME" = 0 ]; then

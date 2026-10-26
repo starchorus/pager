@@ -83,7 +83,7 @@ STARCHORUS.load({source:"recon-db",generated:1000,center:{label:"x"},aps:[{bssid
 o.fresh=[STARCHORUS.node(FC).freshTier===0,STARCHORUS.node(FA).freshTier===0].join(",");
 o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq "$F/many-clients.json" "$SIN_Q" "out/$P-sin-behave" --wait 3 --fps 0 --eval "$SIN_EV" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/many-clients.json" "$SIN_Q" "out/$P-sin-behave" --wait 3 --fps 0 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --eval "$SIN_EV" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SIN_B=$(evalv "out/$P-sin-behave.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":")))' 2>/dev/null)
 SIN_BE=$(evalv "out/$P-sin-behave.json" 2)
 SIN_BW=$(python3 -c '

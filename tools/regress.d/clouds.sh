@@ -31,6 +31,7 @@
 
 CLD_FX="$F/clouds.json"; CLD_T="out/$P-cld"; mkdir -p "$CLD_T"
 CLD_Q="?poll=0&spin=0&intro=0"
+CLD_RDY="window.STARCHORUS && STARCHORUS.stats().randomised > 0"   # a --ready condition: the capture is loaded and its randomised addresses are in
 cld_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 cld_dsp() { STARCHORUS_DISPLAY_PLAIN=1 sh "$1" --once "$2" "$3" 2>&1; }
 
@@ -75,7 +76,7 @@ w = json.load(open(sys.argv[1]))["want"]
 try: g = json.loads(sys.stdin.read())
 except ValueError: print("0|none"); sys.exit()
 print("%d|%s" % (g == w, ",".join(str(n) for n in sorted((k["n"] for k in g["clouds"]), reverse=True))))' "$CLD_T/truth.json" 2>/dev/null; }
-runseq "$CLD_FX" "$CLD_T/m3" --eval "$CLD_EVM" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runseq "$CLD_FX" "$CLD_T/m3" --eval "$CLD_EVM" --eval "STARCHORUS.errors().length" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_M3=$(cld_m3 "$CLD_T/m3.json"); CLD_M3E=$(evalv "$CLD_T/m3.json" 2)
 rowif "clouds: clouds.json = its ground truth: 1 cloud of 121 (120 + 1 joined, 30 bursts about every 47 s, -29 dBm, -34 to -28), 140 randomised, 139 free, 18 loose outside ($CLD_M3, errors ${CLD_M3E:-?})" [ "${CLD_M3%%|*}/$CLD_M3E" = "1/0" ]
 [ "${CLD_M3%%|*}" = 1 ] || echo "    got: $(evalv "$CLD_T/m3.json" 1 | cut -c1-600)"
@@ -89,7 +90,7 @@ STARCHORUS.load(doc,"cld-order-0");const ref=sig(),out=[];
 for(const seed of [11,23,37,51,73]){const d=JSON.parse(JSON.stringify(doc)),r=mb(seed),u=d.unassociated;for(let i=u.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=u[i];u[i]=u[j];u[j]=t;}
 const moved=u.some((x,i)=>x.mac!==doc.unassociated[i].mac);STARCHORUS.load(d,"cld-order-"+seed);out.push((sig()===ref)+"/"+moved);}
 return JSON.parse(ref).length+":"+out.join(" ")+":"+STARCHORUS.errors().length;})()'
-runq "$CLD_FX" "$CLD_Q" "$CLD_T/ord" --wait 2 --fps 0 --eval "$CLD_EV4" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q" "$CLD_T/ord" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV4" >/dev/null 2>&1
 CLD_O=$(evalv "$CLD_T/ord.json" 1)
 rowif "clouds: order invariance, 5 shuffles of unassociated[]: same ids, members, centre ($CLD_O)" [ "$CLD_O" = "1:true/true true/true true/true true/true true/true:0" ]
 
@@ -130,7 +131,7 @@ const hh=STARCHORUS.hist(id);o.hist=hh?hh.n:null;
 await at(T+33000);live(D[31]);one();o.gone=[STARCHORUS.clouds().length,String(STARCHORUS.node("da:c5:00:00:22:00").cloud)].join();
 await at(T+34000);live(D[32]);o.genuine=[STARCHORUS.stats().events.newInClouds,STARCHORUS.stats().events.newStations,STARCHORUS.recvRing().active].join();
 STARCHORUS.load(D[24],"cld-r5-fresh");o.fresh=STARCHORUS.clouds().length;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$CLD_Q&theme=wargames" "$CLD_T/r5" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV5" >/dev/null 2>&1
+runq demo "$CLD_Q&theme=wargames" "$CLD_T/r5" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$CLD_EV5" >/dev/null 2>&1
 CLD_R5=$(evalv "$CLD_T/r5.json" 1 | python3 -c '
 import json, sys
 try: o = json.loads(sys.stdin.read())
@@ -161,9 +162,9 @@ for(let i=0;i<3;i++){document.body.dispatchEvent(new KeyboardEvent("keydown",{ke
 STARCHORUS.setToggles({random:"x"});o.invalid=STARCHORUS.getToggles().random;
 o.help=E("help-list").textContent.indexOf("Randomised addresses: one node per cloud · one by one · hidden (cycles)")>=0;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$CLD_FX" "$CLD_Q" "$CLD_T/sw" --wait 2 --fps 0 --eval "$CLD_EV6" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q" "$CLD_T/sw" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV6" >/dev/null 2>&1
 CLD_EV6Q='(async()=>{await STARCHORUS.wait(400);const st0=(STARCHORUS.storageDump()||{}).random,m=STARCHORUS.getToggles().random,h=STARCHORUS.stats().randomHidden;STARCHORUS.setToggles({labels:false});await STARCHORUS.wait(400);const st1=(STARCHORUS.storageDump()||{}).random;STARCHORUS.setToggles({random:"cloud"});await STARCHORUS.wait(400);return [m,h,String(st0),String(st1),String((STARCHORUS.storageDump()||{}).random)].join("|")})()'
-runq "$CLD_FX" "$CLD_Q&random=hide" "$CLD_T/swq" --wait 2 --fps 0 --eval "$CLD_EV6Q" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q&random=hide" "$CLD_T/swq" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV6Q" >/dev/null 2>&1
 CLD_S6=$(evalv "$CLD_T/sw.json" 1 | cld_nj); CLD_S6Q=$(evalv "$CLD_T/swq.json" 1)
 CLD_W6=$(python3 -c '
 import json
@@ -187,7 +188,7 @@ const rnd=new Set(STARCHORUS.nodes("client").filter(n=>{const x=STARCHORUS.node(
 o.visible=[rnd.size,STARCHORUS.nodes("client").filter(n=>rnd.has(n.id)&&n.visible).length].join();
 const ok=(h)=>h===null||(!rnd.has(h)&&String(h).indexOf("rc:")!==0);o.hit=[ok(STARCHORUS.hitTest(mpos[0],mpos[1])),ok(STARCHORUS.hitTest(pos[0],pos[1]))].join();
 o.cell=document.getElementById("n-cl").textContent+" | "+document.getElementById("n-cl").title;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$CLD_FX" "$CLD_Q" "$CLD_T/hide" --wait 2 --fps 0 --eval "$CLD_EV7" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q" "$CLD_T/hide" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV7" >/dev/null 2>&1
 CLD_S7=$(evalv "$CLD_T/hide.json" 1 | cld_nj)
 CLD_W7=$(printf '%s' '{"cell":"23 | 21 free · 2 associated · 140 randomised, 121 of them in 1 cloud · 139 hidden","counts":"23,21,2,139,140,139,1,0,0,29","errors":0,"hit":"true,true","legend":"140","locked":"null","lockedShow":true,"visible":"139,0"}' | cld_nj)
 rowif "clouds: hidden: 23 visible (21 free, 2 associated), 139 hidden, legend still 140, none drawn or hit, the locked one let go, no probe orbit" [ "$CLD_S7" = "$CLD_W7" ]
@@ -200,7 +201,7 @@ STARCHORUS.setToggles({random:"show"});await W(2500);const s=STARCHORUS.stats();
 const r=STARCHORUS.nodes("client").filter(n=>{const x=STARCHORUS.node(n.id);return x.randomized&&(x.free||x.affinity)});
 o.show=[s.affinity,s.nodes,s.forcedAgg,STARCHORUS.nodes("cloud").filter(n=>n.visible).length,r.length,r.filter(n=>n.visible).length,STARCHORUS.layoutInfo().clusterCount].join();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$CLD_FX" "$CLD_Q&agg=0" "$CLD_T/show" --wait 2 --fps 0 --eval "$CLD_EV8" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q&agg=0" "$CLD_T/show" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV8" >/dev/null 2>&1
 CLD_S8=$(evalv "$CLD_T/show.json" 1 | cld_nj)
 CLD_W8=$(printf '%s' '{"cloud":"0,48,false","errors":0,"show":"3,168,false,0,139,139,0"}' | cld_nj)
 rowif "clouds: one by one: no cloud, 139 randomised drawn, 3 probe orbits (0 folded), 168 nodes against 48 ($CLD_S8)" [ "$CLD_S8" = "$CLD_W8" ]
@@ -221,7 +222,7 @@ const ft=STARCHORUS.perf().drawCalls.fillText,ftL=L.filter(l=>!l.sprite&&["label
 STARCHORUS.setToggles({random:"show"});STARCHORUS.frame();const fs=STARCHORUS.perf().drawCalls.fillText;STARCHORUS.setToggles({random:"cloud"});STARCHORUS.frame();
 o[t+"/"+v]=[ks.length,tag.length,tag.length?tag[0].text:"",tag.length?tag[0].sprite:false,Tg?!hit(Tg,C):false,!hit(Gl,C),v==="3d"||d>=inner-10-0.01,ft===ftL&&ft<=fs,mv].join();}
 STARCHORUS.setTheme("foundation");STARCHORUS.setView("2d");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$CLD_FX" "$QS_SEQ&debug=1" "$CLD_T/draw" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV9" >/dev/null 2>&1
+runq "$CLD_FX" "$QS_SEQ&debug=1" "$CLD_T/draw" --width 1440 --height 900 --wait 2 --ready "$CLD_RDY" --fps 0 --eval-timeout 90 --eval "$CLD_EV9" >/dev/null 2>&1
 CLD_S9=$(evalv "$CLD_T/draw.json" 1 | cld_nj)
 CLD_W9=$(python3 -c '
 import json
@@ -248,8 +249,8 @@ const A=new Set(STARCHORUS.nodes("client").filter(n=>{const x=STARCHORUS.node(n.
 const inter=(R)=>STARCHORUS.bubbles().reduce((a,b)=>a+b.members.filter(m=>R.has(m)).length,0);
 for(const [m,R] of [["cloud",M],["hide",A],["show",M]]){STARCHORUS.setToggles({random:m});await W(2500);o[m]=[STARCHORUS.bubbles().length>0,inter(R)>0,STARCHORUS.stats().forcedAgg,M.size>0].join();}
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$CLD_FX" "$CLD_Q&agg=1" "$CLD_T/bub" --wait 2 --fps 0 --eval "$CLD_EV10" >/dev/null 2>&1
-runq "$CLD_T/dense.json" "$CLD_Q&agg=1" "$CLD_T/bubd" --wait 3 --fps 0 --eval-timeout 60 --eval "$CLD_EV10" >/dev/null 2>&1
+runq "$CLD_FX" "$CLD_Q&agg=1" "$CLD_T/bub" --wait 2 --ready "$CLD_RDY" --fps 0 --eval "$CLD_EV10" >/dev/null 2>&1
+runq "$CLD_T/dense.json" "$CLD_Q&agg=1" "$CLD_T/bubd" --wait 3 --ready "$CLD_RDY" --fps 0 --eval-timeout 60 --eval "$CLD_EV10" >/dev/null 2>&1
 CLD_S10="$(evalv "$CLD_T/bub.json" 1 | cld_nj) $(evalv "$CLD_T/bubd.json" 1 | cld_nj)"
 CLD_W10="$(printf '%s' '{"cloud":"false,false,false,true","errors":0,"hide":"false,false,false,true","show":"true,true,false,true"}' | cld_nj) $(printf '%s' '{"cloud":"true,false,true,true","errors":0,"hide":"true,false,true,true","show":"true,true,true,true"}' | cld_nj)"
 rowif "clouds: no cloud member in a bubble while shown, no randomised free address while hidden (bubbles on; forced with 700 more stations), one by one the members are" [ "$CLD_S10" = "$CLD_W10" ]
@@ -294,7 +295,7 @@ PY
 CLD_EV11='(async()=>{const D='"$(cat "$CLD_T/edocs.json" 2>/dev/null || echo '[]')"',o=[];await STARCHORUS.wait(300);
 for(let i=0;i<D.length;i++){STARCHORUS.load(D[i][1],"cld-edge-"+i);const s=STARCHORUS.stats();o.push([s.randomisedFree,s.clouds,STARCHORUS.clouds().map(c=>[c.n,c.bursts,c.core]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2])]);}
 return JSON.stringify(o);})()'
-runq demo "$CLD_Q" "$CLD_T/edge" --wait 1 --fps 0 --eval "$CLD_EV11" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$CLD_Q" "$CLD_T/edge" --wait 1 --ready --fps 0 --eval "$CLD_EV11" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 sed -n "/^JQLIB='/,/^'$/p" starchorus-display.sh | sed "1s/^JQLIB='//; \$s/^'$//" > "$CLD_T/jqlib.jq"
 : > "$CLD_T/edge-jq.txt"; : > "$CLD_T/edge-dsp.txt"
 for CLD_E in "$CLD_T"/edoc-[0-9]*.json; do
@@ -440,7 +441,7 @@ print(";".join(s for _, s in sorted(out)))' 2>/dev/null
 }
 cld_mix() {   # cld_mix KIND -> "page|jq|Overview's (N random, K clouds)"
   python3 tools/gen-testdata.py --clouds "$1" --out "$CLD_T/mixdoc-$1.json" 2>/dev/null
-  runseq "$CLD_T/mixdoc-$1.json" "$CLD_T/mix-$1" --eval "$CLD_EVMIX" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runseq "$CLD_T/mixdoc-$1.json" "$CLD_T/mix-$1" --eval "$CLD_EVMIX" --eval "STARCHORUS.errors().length" --ready "$CLD_RDY" >/dev/null 2>&1
   _cm_p=$(evalv "$CLD_T/mix-$1.json" 1 | cld_sigpy); _cm_e=$(evalv "$CLD_T/mix-$1.json" 2)
   _cm_j=$(jq -c "$(cat "$CLD_T/jqlib.jq") clouds | [.clouds[] | [.n, .core, .nb, .cad, .ids]]" "$CLD_T/mixdoc-$1.json" 2>/dev/null | cld_sigpy)
   _cm_o=$(cld_dsp starchorus-display.sh summary "$CLD_T/mixdoc-$1.json" | python3 -c '
@@ -481,7 +482,7 @@ for(const [drift,sd] of [[6,1],[10,2]]){const ALL=device(rngOf(4242),drift,sd);l
   const c=STARCHORUS.clouds();if(c.length!==1)multi++;c.forEach(k=>ids.add(k.id));const big=c.length?c[0].n:0;if(prev!=null)step=Math.max(step,Math.abs(big-prev));prev=big;}
  out.push([drift,multi,ids.size,step<=30]);}
 return JSON.stringify({runs:out,errors:STARCHORUS.errors().length});})()'
-runq demo "$CLD_Q" "$CLD_T/polls" --width 1000 --height 640 --wait 1 --fps 0 --eval-timeout 300 --eval "$CLD_EV33" >/dev/null 2>&1
+runq demo "$CLD_Q" "$CLD_T/polls" --width 1000 --height 640 --wait 1 --ready --fps 0 --eval-timeout 300 --eval "$CLD_EV33" >/dev/null 2>&1
 CLD_R33=$(evalv "$CLD_T/polls.json" 1 | cld_nj)
 rowif "clouds: 220 captures of a device whose signal moves 6 and 10 dB in the hour: a cloud on every poll, never two, one id for all 220, no step over 30 addresses ($CLD_R33)" [ "$CLD_R33" = '{"errors":0,"runs":[[6,0,1,true],[10,0,1,true]]}' ]
 
@@ -493,7 +494,7 @@ o.row=[...document.querySelectorAll("#detail-body tr")].filter(r=>r.textContent.
 o.est=JSON.parse(STARCHORUS.exportText("json")).clouds[0].estimate;
 const d=await (await fetch("starchorus.json",{cache:"no-store"})).json();for(let i=0;i<3;i++){d.generated+=30;STARCHORUS.load(d,"cld-obs");await W(100);}
 o.obs=STARCHORUS.observations().map(x=>x.text).filter(t=>t.includes("randomised addresses in"));o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runseq "$CLD_T/mixdoc-same.json" "$CLD_T/mixed" --eval "$CLD_EV28" >/dev/null 2>&1
+runseq "$CLD_T/mixdoc-same.json" "$CLD_T/mixed" --eval "$CLD_EV28" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_R28=$(evalv "$CLD_T/mixed.json" 1 | cld_nj)
 rowif "clouds: a cloud of mixed rhythm hedges: sheet 'Possibly one or more nearby devices ... no one rhythm', Rhythm row 'no one rhythm', observation and export 'possibly one or more nearby devices' ($CLD_R28)" [ "$CLD_R28" = '{"cl":[1,48,true],"errors":0,"est":"possibly one or more nearby devices changing their address; not a device count","lead":"Possibly one or more nearby devices changing their address: the same signal, heard in bursts that keep no one rhythm.","obs":["612 randomised addresses in 1 cloud: possibly one or more nearby devices changing their address"],"row":"Rhythmno one rhythm · 153 bursts"}' ]
 
@@ -523,7 +524,7 @@ CLD_EV20='(async()=>{const D='"$(cat "$CLD_T/r20-caps.json" 2>/dev/null || echo 
 await STARCHORUS.wait(500);for(let j=0;j<D.length;j++){await at(T+1000*(j+1));STARCHORUS.load(D[j],"cld-r20",{mode:"live"});
 o.rows.push(STARCHORUS.clouds().map(c=>[c.id.slice(3,7),c.members.filter(m=>m.startsWith("da:c6:a1")).length,c.members.filter(m=>m.startsWith("da:c6:b1")).length,c.kept?1:0]));}
 const sg=()=>JSON.stringify(STARCHORUS.clouds().map(c=>c.members.slice().sort().join(",")).sort()),run=sg();STARCHORUS.load(D[D.length-1],"cld-r20-fresh");o.same=run===sg();o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$CLD_Q&theme=wargames" "$CLD_T/r20" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV20" >/dev/null 2>&1
+runq demo "$CLD_Q&theme=wargames" "$CLD_T/r20" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$CLD_EV20" >/dev/null 2>&1
 cld_v20() { evalv "$1" 1 | python3 -c '
 import json, sys
 try: o = json.loads(sys.stdin.read())
@@ -554,7 +555,7 @@ await STARCHORUS.wait(500);for(let j=0;j<D.length;j++){await at(T+1000*(j+1));ST
 const c=STARCHORUS.clouds()[0],id=c.id;STARCHORUS.pin(id,true);o.before=[c.n,STARCHORUS.hist(id).n,STARCHORUS.clouds()[0].pinned];
 STARCHORUS.setFixedTime(null);const r=STARCHORUS.replay(0);o.replay=[r.active,r.index,STARCHORUS.clouds().length];await STARCHORUS.wait(3000);o.during=[STARCHORUS.clouds().length,STARCHORUS.nodes("cloud").length];
 STARCHORUS.replayExit();await STARCHORUS.wait(800);const k=STARCHORUS.clouds()[0];o.after=k?[k.id===id,k.n,STARCHORUS.hist(k.id).n,k.pinned]:null;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$CLD_Q&theme=wargames" "$CLD_T/r21" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV21" >/dev/null 2>&1
+runq demo "$CLD_Q&theme=wargames" "$CLD_T/r21" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$CLD_EV21" >/dev/null 2>&1
 CLD_R21=$(evalv "$CLD_T/r21.json" 1 | cld_nj)
 rowif "clouds: a replay is a view: replay(0) on the empty first capture shows no cloud, Back to live brings the same cloud back (id, 12 samples, pin) ($CLD_R21)" [ "$CLD_R21" = '{"after":[true,84,12,true],"before":[84,12,true],"during":[0,0],"errors":0,"replay":[true,0,0]}' ]
 
@@ -571,7 +572,7 @@ json.dump([doc(10, 600), doc(28, 100)], open(sys.argv[1] + "/r22-caps.json", "w"
 PY
 CLD_EV22='(async()=>{const D='"$(cat "$CLD_T/r22-caps.json" 2>/dev/null || echo '[]')"',o={};await STARCHORUS.wait(500);STARCHORUS.load(D[0],"cld-r22");o.c1=STARCHORUS.clouds().length;STARCHORUS.setBaseline();STARCHORUS.setToggles({baselineDiff:true});
 STARCHORUS.load(D[1],"cld-r22");const b=STARCHORUS.baseline();o.c2=[STARCHORUS.clouds().length,STARCHORUS.clouds()[0].n];o.base=[b.sizeCl,b.newCl,b.goneCl,b.ghostsCl].join();o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq demo "$CLD_Q" "$CLD_T/r22" --wait 2 --fps 0 --eval "$CLD_EV22" >/dev/null 2>&1
+runq demo "$CLD_Q" "$CLD_T/r22" --wait 2 --ready --fps 0 --eval "$CLD_EV22" >/dev/null 2>&1
 CLD_R22=$(evalv "$CLD_T/r22.json" 1 | cld_nj)
 rowif "clouds: baseline diff: 10 baselined stations taken into a cloud are not gone, no ghost, none new ($CLD_R22)" [ "$CLD_R22" = '{"base":"10,0,0,0","c1":0,"c2":[1,28],"errors":0}' ]
 
@@ -579,7 +580,7 @@ rowif "clouds: baseline diff: 10 baselined stations taken into a cloud are not g
 CLD_EV23='(async()=>{const d=await (await fetch("starchorus.json",{cache:"no-store"})).json(),o={};d.center.own_bssids=["da:c1:00:a1:05:01"];STARCHORUS.load(d,"cld-own");
 const c=STARCHORUS.clouds()[0],s=STARCHORUS.stats(),J=JSON.parse(STARCHORUS.exportText("json"));o.cloud=[c.n,c.core,c.members.includes("da:c1:00:a1:05:01")];o.stats=[s.inClouds,s.clouds];
 o.export=[J.clouds[0].addresses,J.stations.filter(x=>x.cloud).length,J.station_counts.in_clouds];o.own=STARCHORUS.node("da:c1:00:a1:05:01").cloud;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runseq "$CLD_FX" "$CLD_T/own" --eval "$CLD_EV23" >/dev/null 2>&1
+runseq "$CLD_FX" "$CLD_T/own" --eval "$CLD_EV23" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_R23=$(evalv "$CLD_T/own.json" 1 | cld_nj)
 CLD_R23J=$(jq -c "$(cat "$CLD_T/jqlib.jq") .center.own_bssids = [\"da:c1:00:a1:05:01\"] | clouds | [.rnd, (.clouds | length), .clouds[0].n]" "$CLD_FX" 2>/dev/null)
 rowif "clouds: an own transmitter among the members is left out: cloud 120 (core 119), export 120 = 120 = 120, the address single; the Overview's rule 120 ($CLD_R23; $CLD_R23J)" [ "$CLD_R23/$CLD_R23J" = '{"cloud":[120,119,false],"errors":0,"export":[120,120,120],"own":null,"stats":[120,1]}/[139,1,120]' ]
@@ -595,11 +596,11 @@ const csv=STARCHORUS.exportText("csv").trim().split("\n"),head=csv[0].split(",")
 o.csv=[head[head.length-1],[...new Set(rows.map(r=>r.split(",").length))].join(),rows.length,idc.length,[...new Set(idc)].length,idc[0].slice(0,3)];
 const d=await (await fetch("starchorus.json",{cache:"no-store"})).json();for(let i=0;i<3;i++){d.generated+=30;STARCHORUS.load(d,"cld-obs");await W(100);}
 o.obs=STARCHORUS.observations().map(x=>x.text).filter(t=>t.includes("randomised addresses in"));o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runseq "$CLD_FX" "$CLD_T/nums" --eval "$CLD_EV24" >/dev/null 2>&1
+runseq "$CLD_FX" "$CLD_T/nums" --eval "$CLD_EV24" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_R24=$(evalv "$CLD_T/nums.json" 1 | cld_nj)
 CLD_EV24B='(async()=>{const W=STARCHORUS.wait,o={};STARCHORUS.setToggles({observations:true});const d=await (await fetch("starchorus.json",{cache:"no-store"})).json();for(let i=0;i<3;i++){d.generated+=30;STARCHORUS.load(d,"cld-obs");await W(100);}
 o.obs=STARCHORUS.observations().map(x=>x.text).filter(t=>t.includes("randomised addresses in"));o.leg=document.getElementById("leg-random-cl").textContent;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runseq "$CLD_T/twolevels.json" "$CLD_T/nums2" --eval "$CLD_EV24B" >/dev/null 2>&1
+runseq "$CLD_T/twolevels.json" "$CLD_T/nums2" --eval "$CLD_EV24B" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_R24B=$(evalv "$CLD_T/nums2.json" 1 | cld_nj)
 rowif "clouds: the numbers beside a cloud: stations chip 162 in every mode, legend ' · 121 in 1 cloud' (' · 48 in 2 clouds'), CSV cloud column on 121 rows, observation texts for 1 and 2 clouds ($CLD_R24; $CLD_R24B)" [ "$CLD_R24/$CLD_R24B" = '{"csv":["cloud","14",168,121,1,"rc:"],"errors":0,"inv":["cloud: 162 | 140 randomised · 121 in 1 cloud","show: 162 | 140 randomised · 121 in 1 cloud","hide: 162 | 140 randomised · 121 in 1 cloud"],"legend":" · 121 in 1 cloud","obs":["121 randomised addresses in 1 cloud: probably one nearby device changing its address"]}/{"errors":0,"leg":" · 48 in 2 clouds","obs":["48 randomised addresses in 2 clouds: possibly one or more nearby devices changing their address"]}' ]
 
@@ -617,18 +618,18 @@ cld_sizes() { evalv "$1" 1 | python3 -c 'import json,sys;print(",".join(str(n) f
 CLD_EVSZ='JSON.stringify(STARCHORUS.clouds().map(c=>c.n))'
 cld_probe() {   # cld_probe SCENARIO -> the signature of the page $H on it
   case $1 in
-    fx) runseq "$CLD_FX" "$CLD_T/mut" --eval "$CLD_EVM" >/dev/null 2>&1; _cp=$(cld_m3 "$CLD_T/mut.json"); printf '%s\n' "${_cp#*|}" ;;
-    crowd|two|wide|dense|drift|three|long|pair|wander) runseq "$CLD_T/mixdoc-$1.json" "$CLD_T/mut" --eval "$CLD_EVSZ" >/dev/null 2>&1; cld_sizes "$CLD_T/mut.json" ;;
-    nogen) runseq "$CLD_T/nogen.json" "$CLD_T/mut" --eval "$CLD_EVSZ" >/dev/null 2>&1; cld_sizes "$CLD_T/mut.json" ;;
-    r5) runq demo "$CLD_Q&theme=wargames" "$CLD_T/mut" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV5" >/dev/null 2>&1
+    fx) runseq "$CLD_FX" "$CLD_T/mut" --eval "$CLD_EVM" --ready "$CLD_RDY" >/dev/null 2>&1; _cp=$(cld_m3 "$CLD_T/mut.json"); printf '%s\n' "${_cp#*|}" ;;
+    crowd|two|wide|dense|drift|three|long|pair|wander) runseq "$CLD_T/mixdoc-$1.json" "$CLD_T/mut" --eval "$CLD_EVSZ" --ready "$CLD_RDY" >/dev/null 2>&1; cld_sizes "$CLD_T/mut.json" ;;
+    nogen) runseq "$CLD_T/nogen.json" "$CLD_T/mut" --eval "$CLD_EVSZ" --ready "$CLD_RDY" >/dev/null 2>&1; cld_sizes "$CLD_T/mut.json" ;;
+    r5) runq demo "$CLD_Q&theme=wargames" "$CLD_T/mut" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$CLD_EV5" >/dev/null 2>&1
         evalv "$CLD_T/mut.json" 1 | python3 -c 'import json,sys;o=json.loads(sys.stdin.read());print("n[23]=%s kept[23]=%s" % (o["n"][23], o["kept"][23]))' 2>/dev/null ;;
-    sheet) runseq "$CLD_T/mixdoc-same.json" "$CLD_T/mut" --eval "$CLD_EV28" >/dev/null 2>&1
+    sheet) runseq "$CLD_T/mixdoc-same.json" "$CLD_T/mut" --eval "$CLD_EV28" --ready "$CLD_RDY" >/dev/null 2>&1
         evalv "$CLD_T/mut.json" 1 | python3 -c 'import json,sys;print(json.loads(sys.stdin.read())["lead"][:24])' 2>/dev/null ;;
-    r21) runq demo "$CLD_Q&theme=wargames" "$CLD_T/mut" --width 1440 --height 900 --wait 2 --fps 0 --eval-timeout 90 --eval "$CLD_EV21" >/dev/null 2>&1
+    r21) runq demo "$CLD_Q&theme=wargames" "$CLD_T/mut" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 90 --eval "$CLD_EV21" >/dev/null 2>&1
         evalv "$CLD_T/mut.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.loads(sys.stdin.read())["after"],separators=(",",":")))' 2>/dev/null ;;
-    r22) runq demo "$CLD_Q" "$CLD_T/mut" --wait 2 --fps 0 --eval "$CLD_EV22" >/dev/null 2>&1
+    r22) runq demo "$CLD_Q" "$CLD_T/mut" --wait 2 --ready --fps 0 --eval "$CLD_EV22" >/dev/null 2>&1
         evalv "$CLD_T/mut.json" 1 | python3 -c 'import json,sys;print(json.loads(sys.stdin.read())["base"])' 2>/dev/null ;;
-    own) runseq "$CLD_FX" "$CLD_T/mut" --eval "$CLD_EV23" >/dev/null 2>&1
+    own) runseq "$CLD_FX" "$CLD_T/mut" --eval "$CLD_EV23" --ready "$CLD_RDY" >/dev/null 2>&1
         evalv "$CLD_T/mut.json" 1 | python3 -c 'import json,sys;print(json.dumps(json.loads(sys.stdin.read())["cloud"],separators=(",",":")))' 2>/dev/null ;;
   esac
 }

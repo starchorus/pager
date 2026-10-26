@@ -10,9 +10,12 @@
 # fades and easing keep running. The particle run pins &autolod=0 so that CPU load from a parallel Chrome
 # cannot flip the LOD particle tier (which refills the pool once) in the middle of a measurement.
 
+# --ready for a run on a served fixture: the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame, so a count would be met at once)
+LBL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
+
 # ---- labels (1): L off = no AP labels at all, not even forced ones; the core text (__center__) stays
 LBL_EVLAB="(async()=>{let ok=true;const det={};for(const th of ['wargames','whitehall','foundation'])for(const v of ['2d','3d']){STARCHORUS.setTheme(th);STARCHORUS.setView(v);await STARCHORUS.wait(1300);STARCHORUS.setToggles({labels:true,vendor:true});const ap=STARCHORUS.nodes('ap').filter(n=>n.visible).sort((a,b)=>b.rssi-a.rssi)[0];STARCHORUS.pin(ap.id,true);STARCHORUS.hoverNode(ap.id);STARCHORUS.frame();const on=STARCHORUS.labels().filter(l=>l.kind==='label'&&l.id!=='__center__').length;STARCHORUS.setToggles({labels:false});STARCHORUS.frame();const L=STARCHORUS.labels();const off=L.filter(l=>l.id!=='__center__'&&['label','vendor','badge','facet','cursor'].includes(l.kind)).length;const c=L.some(l=>l.id==='__center__');det[th+'-'+v]=[on,off,c];if(!(on>0&&off===0&&c))ok=false;STARCHORUS.pin(ap.id,false);STARCHORUS.hoverNode(null);STARCHORUS.setToggles({labels:true,vendor:false});}return JSON.stringify({ok,det})})()"
-runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1" "out/$P-lbl-labels" --wait 3 --fps 0 \
+runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1" "out/$P-lbl-labels" --wait 3 --fps 0 --ready "$LBL_RDY" \
   --eval "$LBL_EVLAB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 LBL_VLAB=$(evalv "out/$P-lbl-labels.json" 1)
 LBL_ELAB=$(evalv "out/$P-lbl-labels.json" 2)
@@ -64,7 +67,7 @@ esac
 # Proof on the sprite cache: applyTheme clears it, so every theme is measured on its own bake set.
 LBL_EVRING="(async()=>{const out={};for(const th of ['wargames','whitehall','foundation']){STARCHORUS.setTheme(th);await STARCHORUS.wait(700);STARCHORUS.frame();const keys=[...STARCHORUS._internals.spriteCache.keys()].map(k=>k.split('|'));const cl=STARCHORUS.nodes('client').filter(n=>n.visible&&!n.bubble).map(n=>STARCHORUS.node(n.id));out[th]=[cl.filter(x=>x.affinity).length,cl.filter(x=>!x.free&&!x.affinity).length,keys.filter(p=>p[1].indexOf('client')===0&&['b24','b5','b6','unknown'].includes(p[2])).length]}return JSON.stringify(out)})()"
 for LBL_FX in field-probes few-clients; do
-  runq "$F/$LBL_FX.json" "?poll=0&spin=0&intro=0&autolod=0&debug=1" "out/$P-lbl-ring-$LBL_FX" --wait 3 --fps 0 \
+  runq "$F/$LBL_FX.json" "?poll=0&spin=0&intro=0&autolod=0&debug=1" "out/$P-lbl-ring-$LBL_FX" --wait 3 --fps 0 --ready "$LBL_RDY" \
     --eval "$LBL_EVRING" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 done
 LBL_RA=$(evalv "out/$P-lbl-ring-field-probes.json" 1)
@@ -87,7 +90,7 @@ fi
 # flagged ones must still be there (otherwise "moved to a sprite" would be indistinguishable from "lost").
 # The all-theme/all-fixture budget rows live in tools/regress.sh; this one adds the cursor invariant.
 LBL_EVBUD="(async()=>{const K=['label','ring','vendor','badge','group','cursor'];let worst={'2d':0,'3d':0},inv=true,cur=0,baked=0;for(const th of ['wargames','whitehall','foundation'])for(const v of ['2d','3d']){STARCHORUS.setTheme(th);STARCHORUS.setView(v);await STARCHORUS.wait(1300);for(const vend of [false,true]){STARCHORUS.setToggles({vendor:vend});const ap=STARCHORUS.nodes('ap').filter(n=>n.visible&&!STARCHORUS.node(n.id).hidden).sort((a,b)=>b.rssi-a.rssi)[0];STARCHORUS.select(ap.id);await STARCHORUS.wait(v==='3d'?1300:50);STARCHORUS.hoverNode(ap.id);STARCHORUS.frame();const ft=STARCHORUS.perf().drawCalls.fillText,L=STARCHORUS.labels();worst[v]=Math.max(worst[v],ft);const H=L.filter(l=>K.includes(l.kind));if(ft!==H.filter(l=>!l.sprite).length||H.filter(l=>l.sprite).length===0)inv=false;baked+=H.filter(l=>l.sprite).length;cur+=L.filter(l=>l.kind==='cursor').length;STARCHORUS.deselect();STARCHORUS.hoverNode(null);}}STARCHORUS.setToggles({vendor:false});return JSON.stringify({ok:worst['2d']<=30&&worst['3d']<=24&&inv&&cur>0&&baked>0,worst,inv,cursorFrames:cur,baked})})()"
-runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-bud" --wait 3 --fps 0 \
+runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-bud" --wait 3 --fps 0 --ready "$LBL_RDY" \
   --eval "$LBL_EVBUD" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 LBL_VBUD=$(evalv "out/$P-lbl-bud.json" 1)
 LBL_EBUD=$(evalv "out/$P-lbl-bud.json" 2)

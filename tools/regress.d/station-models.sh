@@ -70,7 +70,7 @@ SMD_EVF='(async()=>{const o={};
 o.ap=STARCHORUS.stats().fresh;o.cl=STARCHORUS.stats().freshClients;
 o.tiers=STARCHORUS.nodes("client").map(n=>n.id).sort().map(id=>{const t=STARCHORUS.node(id).freshTier;return t==null?"u":String(t)}).join("");
 return JSON.stringify(o);})()'
-runq "$F/aged.json" "$SMD_Q" "out/$P-smd-fresh" --wait 3 --fps 0 --eval "$SMD_EVF" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/aged.json" "$SMD_Q" "out/$P-smd-fresh" --wait 3 --fps 0 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --eval "$SMD_EVF" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SMD_FR=$(evalv "out/$P-smd-fresh.json" 1 | smd_nj); SMD_FRE=$(evalv "out/$P-smd-fresh.json" 2)
 SMD_COVER=$(printf '%s' "$SMD_PY" | python3 -c 'import json,sys;c=json.load(sys.stdin)["cl"];print(int(all(v>0 for v in c.values())))' 2>/dev/null)
 if [ -n "$SMD_PY" ] && [ "$SMD_FR" = "$SMD_PY" ] && [ "$SMD_FRE" = 0 ] && [ "$SMD_COVER" = 1 ]; then
@@ -113,7 +113,7 @@ STARCHORUS.load(mk(6000,g45,{channels:hop}),"m1gcap");STARCHORUS.setBaseline();
 STARCHORUS.load(mk(6005,[],{channels:hop}),"m1gcap");const bb=STARCHORUS.baseline();o.ghostCap=[bb.sizeCl,bb.goneCl,bb.ghostsCl].join("/");
 STARCHORUS.clearLocalData();o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$SMD_Q" "out/$P-smd-seq" --wait 2 --fps 0 --eval "$SMD_EVS" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$SMD_Q" "out/$P-smd-seq" --wait 2 --fps 0 --ready --eval "$SMD_EVS" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SMD_S=$(evalv "out/$P-smd-seq.json" 1 | smd_nj); SMD_SE=$(evalv "out/$P-smd-seq.json" 2)
 SMD_SQ=$(printf '%s' "$SMD_S" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("seq",""))' 2>/dev/null)
 SMD_SQW="1/0/0 | 2/1/1 | true,false | 2/1/1 | 1/0/0"
@@ -170,7 +170,7 @@ STARCHORUS.load({source:"recon-db",generated:4020,aps:[{bssid:X,ssid:"was-a-stat
 o.apKeep=[STARCHORUS.hist(X)!==null,(STARCHORUS.hist(X)||{samples:[]}).samples.length,cnt(Ff)].join("/");
 STARCHORUS.clearLocalData();o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
-runq demo "$SMD_Q" "out/$P-smd-cap" --wait 2 --fps 0 --eval-timeout 150 --eval "$SMD_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq demo "$SMD_Q" "out/$P-smd-cap" --wait 2 --fps 0 --ready --eval-timeout 150 --eval "$SMD_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 SMD_C=$(evalv "out/$P-smd-cap.json" 1 | smd_nj); SMD_CE=$(evalv "out/$P-smd-cap.json" 2)
 SMD_CW='{"apKeep":"true/2/2400","baseCl":"2000/2000/-79","errors":0,"firstKept":"true,true,false","histA":2400,"noThrash":"1200/0/1200","oldestFirst":"0/0/1100/1300","setAp":0}'
 if [ "$SMD_C" = "$SMD_CW" ] && [ "$SMD_CE" = 0 ]; then

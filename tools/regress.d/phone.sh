@@ -21,6 +21,7 @@
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only PHN_* globals are set.
 
 PHN_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED"
+PHN_RDY='window.STARCHORUS && document.fonts.status === "loaded" && STARCHORUS.stats().apsTotal > 0 && STARCHORUS.stats().sourceKind !== "demo"'   # --ready: the fonts are in and the capture is loaded; the --wait beside it stays the ceiling
 PHN_MAXB=625000   # bytes: the size the page may reach (wc -c starchorus.html); 0.2's cap, raised from 620000 for the Scope and the alerts
 # shared helpers inside every eval: visible, rect, pairwise overlap of the phone chrome, tap targets under 44 px, overflow
 PHN_JS='const E=i=>document.getElementById(i),R=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).visibility!=="hidden"&&R(e).width>0,
@@ -43,13 +44,13 @@ E("btn-export").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(30
 document.body.dispatchEvent(new KeyboardEvent("keydown",{key:"u",ctrlKey:true,bubbles:true}));o.ctrl=STARCHORUS.getToggles().panels;
 document.body.dispatchEvent(new KeyboardEvent("keydown",{key:"u",bubbles:true}));await W(350);o.back=[STARCHORUS.getToggles().panels,vis(E("controls")),vis(E("panels-pill"))].join();
 o.help=/Hide or show the panels/.test(E("help-list").textContent)&&E("t-panels").title.indexOf("[U]")>0;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-desk" --width 1440 --height 900 --wait 4 --fps 0 --eval "$PHN_EVD" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-desk" --width 1440 --height 900 --wait 4 --ready "$PHN_RDY" --fps 0 --eval "$PHN_EVD" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-desk.json" 1)
 PHN_W='{"mode":"off,0,true","sky":true,"corner":true,"hidden":"false,none,true,true,true,false","saved":false,"detail":true,"dialog":true,"ctrl":false,"back":"true,true,false","help":true,"errors":0}'
 rowif "desktop: no phone chrome or --ph-*, sky on the viewport centre, #t-panels in its corner; U hides every panel but the detail and the dialogues, keeps every box, shows the pill = chip, is saved, Ctrl+U is the browser's" [ "$PHN_V" = "$PHN_W" ]
 [ "$PHN_V" = "$PHN_W" ] || { echo "    got:  ${PHN_V:-no-value}"; echo "    want: $PHN_W"; }
 # ?panels=0 hides from the boot and saves nothing (a query override)
-runq "$F/field-probes.json" "$PHN_Q&panels=0" "out/$P-phn-qp" --width 1440 --height 900 --wait 3 --fps 0 --eval '(async()=>{await STARCHORUS.wait(400);return [document.documentElement.dataset.panels,getComputedStyle(document.getElementById("controls")).visibility,String((STARCHORUS.storageDump()||{}).panels)].join()})()' >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q&panels=0" "out/$P-phn-qp" --width 1440 --height 900 --wait 3 --ready "$PHN_RDY" --fps 0 --eval '(async()=>{await STARCHORUS.wait(400);return [document.documentElement.dataset.panels,getComputedStyle(document.getElementById("controls")).visibility,String((STARCHORUS.storageDump()||{}).panels)].join()})()' >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-qp.json" 1)
 rowif "?panels=0: hidden from the boot, its value not saved [$PHN_V]" [ "$PHN_V" = "off,hidden,undefined" ]
 
@@ -71,7 +72,7 @@ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);awa
  o[t]=bad.join(";")||"ok";}
 E("mast-brand").querySelector(".dot").dataset.live="live";o.pulse=getComputedStyle(E("mast-brand").querySelector(".dot")).animationName;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-port" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVP" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-port" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVP" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-port.json" 1)
 PHN_W='{"foundation":"ok","wargames":"ok","whitehall":"ok","pulse":"pulse","errors":0}'
 rowif "phone 375x812, 3 themes: bar 44 px with chip and counts, sheet collapsed, sky clear of both, no overlap or sideways scroll, banners whole, half keeps the device clear, full scrolls every section" [ "$PHN_V" = "$PHN_W" ]
@@ -87,7 +88,7 @@ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);awa
  const ov=ovl();if(ov.length)bad.push("overlap "+ov);if(wide())bad.push("wide");const s=small();if(s.length)bad.push("small "+s);
  STARCHORUS.setSheet("peek");await W(300);o[t]=bad.join(";")||"ok";}
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-land" --width 812 --height 375 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVL" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-land" --width 812 --height 375 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVL" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-land.json" 1)
 PHN_W='{"foundation":"ok","wargames":"ok","whitehall":"ok","errors":0}'
 rowif "phone 812x375 on its side: one left column, the sky right of it, full sheet below the bar, chip unclipped, no overlap, 44 px targets" [ "$PHN_V" = "$PHN_W" ]
@@ -107,7 +108,7 @@ E("t-help").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);i
 STARCHORUS.select(STARCHORUS.nodes("ap")[0].id);await W(400);if(vis(sc))bad.push("detail");STARCHORUS.deselect();await W(300);if(!vis(sc))bad.push("back");
 return JSON.stringify([bad.join(";")||"ok",STARCHORUS.errors().length])})()'
 phn_scope() {   # phn_scope WANT WIDTH HEIGHT -> the eval's verdict on the page $H serves: ["ok",0], or what is wrong (WANT = the id of the parent the button should have)
-  runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-$2x$3" --width "$2" --height "$3" --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "(async()=>{const WANT=\"$1\";${PHN_EVS#\(async()=>\{}" >/dev/null 2>&1
+  runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-$2x$3" --width "$2" --height "$3" --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "(async()=>{const WANT=\"$1\";${PHN_EVS#\(async()=>\{}" >/dev/null 2>&1
   evalv "out/$P-phn-sc-$2x$3.json" 1
 }
 PHN_V=""
@@ -142,7 +143,7 @@ STARCHORUS.deselect();await W(300);o.after=STARCHORUS.phone().card+":"+STARCHORU
 STARCHORUS.select(lo.id);await W(400);o.low=STARCHORUS.phone().detent;STARCHORUS.deselect();
 const cli=STARCHORUS.nodes("client")[0];if(cli){STARCHORUS.select(cli.id);await card("client","detail");STARCHORUS.deselect();}
 o.bad=bad.join(";")||"none";o.errors=STARCHORUS.errors().length;return JSON.stringify([o.bad,o.reset,o.height,o.homeTitle,o.high,o.after,o.low,o.errors,o.inv,o.legend,o.help,o.detail].join("|"))})()'
-runq "$F/devices.json" "$PHN_Q" "out/$P-phn-cards" --width 390 --height 844 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVC" >/dev/null 2>&1
+runq "$F/devices.json" "$PHN_Q" "out/$P-phn-cards" --width 390 --height 844 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVC" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-cards.json" 1)
 PHN_W='"none|200>0|full|Homing|half:true|controls:peek|peek|0|drawer:legend|legend:legend|help:help|detail:detail"'
 rowif "phone cards: one at a time (controls · six drawers · legend · help · detail), a new card opens at the top (the controls scrolled 200 px, the inventory at 0), × back to the controls at their height, a star low on the screen opens its detail collapsed, every target ≥ 44 px" [ "$PHN_V" = "$PHN_W" ]
@@ -150,7 +151,7 @@ rowif "phone cards: one at a time (controls · six drawers · legend · help · 
 
 # ---- every load starts collapsed (C17), also with a drawer open: ?inv=1 and ?obs=1 take the way a saved drawer does (S.ui before the boot)
 for PHN_Z in inv obs; do
-  runq "$F/devices.json" "$PHN_Q&$PHN_Z=1" "out/$P-phn-ld-$PHN_Z" --width 390 --height 844 --mobile --wait 3 --fps 0 --eval '(p=>[p.card,p.detent,p.h===p.peek,p.peek>0].join())(STARCHORUS.phone())' >/dev/null 2>&1
+  runq "$F/devices.json" "$PHN_Q&$PHN_Z=1" "out/$P-phn-ld-$PHN_Z" --width 390 --height 844 --mobile --wait 3 --ready "$PHN_RDY" --fps 0 --eval '(p=>[p.card,p.detent,p.h===p.peek,p.peek>0].join())(STARCHORUS.phone())' >/dev/null 2>&1
 done
 PHN_V="$(evalv "out/$P-phn-ld-inv.json" 1) $(evalv "out/$P-phn-ld-obs.json" 1)"
 rowif "phone: a drawer open at the load (?inv=1, ?obs=1) leaves the sheet collapsed [$PHN_V]" [ "$PHN_V" = "drawer,peek,true,true drawer,peek,true,true" ]
@@ -158,13 +159,13 @@ rowif "phone: a drawer open at the load (?inv=1, ?obs=1) leaves the sheet collap
 # ---- the sheet by hand (390x844, pointer events): chevron, Esc, a drag up, a flick down, a drag that starts on 2.4, a scroll at
 # half, a tap on empty sky. The drags need page coordinates, so a first run reads them (collapsed and full).
 PHN_GEO='(async()=>{const p=()=>{const g=document.getElementById("sheet-grab").getBoundingClientRect();return [Math.round(g.left+g.width/2),Math.round(g.top+g.height/2)]},a=p();STARCHORUS.setSheet("full");await STARCHORUS.wait(500);const b=p(),c=document.querySelector("#sheet-lead [data-band=\"2.4\"]").getBoundingClientRect();return a.concat(b,[Math.round(c.left+c.width/2),Math.round(c.top+c.height/2)]).join(" ")})()'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-geo" --width 390 --height 844 --mobile --wait 4 --fps 0 --eval "$PHN_GEO" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-geo" --width 390 --height 844 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval "$PHN_GEO" >/dev/null 2>&1
 # shellcheck disable=SC2046   # word-split the six coordinates on purpose
 set -- $(evalv "out/$P-phn-geo.json" 1) 0 0 0 0 0 0
 PHN_TG='(()=>{const r=document.getElementById("sheet-toggle").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()'
 PHN_SKY='(()=>{for(let y=130;y<330;y+=10)for(let x=20;x<370;x+=10)if(STARCHORUS.hitTest(x,y)===null)return [x,y];return null})()'
 PHN_DT='STARCHORUS.phone().detent'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-hand" --width 390 --height 844 --mobile --wait 4 --fps 0 \
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-hand" --width 390 --height 844 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 \
   --step "clickat:$PHN_TG" --step "eval:$PHN_DT" --step "clickat:$PHN_TG" --step "eval:$PHN_DT" \
   --step 'eval:STARCHORUS.setSheet("half")' --step key:Escape --step "eval:$PHN_DT" \
   --step "drag:$1,$2,$1,$(($2 - 400)),300" --step "eval:$PHN_DT" \
@@ -189,7 +190,7 @@ STARCHORUS.select(STARCHORUS.nodes("ap")[0].id);await W(500);o.push(STARCHORUS.p
 const t=getComputedStyle(E("sheet")).transitionDuration.split(",").every(v=>v.trim()==="0s");E("pill-dot").dataset.live="live";E("mast-brand").querySelector(".dot").dataset.live="live";
 o.push(t,getComputedStyle(E("pill-dot")).animationName,getComputedStyle(E("mast-brand").querySelector(".dot")).animationName);
 document.body.dispatchEvent(new KeyboardEvent("keydown",{key:"u",bubbles:true}));await W(500);o.push(vis(E("bar")),vis(E("sheet")),vis(E("panels-pill")),STARCHORUS.errors().length);return o.join()})()'
-runq "$F/field-probes.json" "$PHN_Q&theme=whitehall&rm=1" "out/$P-phn-hide" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVH" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q&theme=whitehall&rm=1" "out/$P-phn-hide" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVH" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-hide.json" 1)
 PHN_W="false,false,true,true,true,true,true,none,detail,true,false,none,true,none,none,true,true,false,0"
 rowif "phone Hide (Whitehall): bar and sheet go, banners and a 44 px pill = chip stay, sky re-centred; a detail opens in the sheet and the pill makes way; reduced motion: no transition, no pulse" [ "$PHN_V" = "$PHN_W" ]
@@ -199,14 +200,14 @@ rowif "phone Hide (Whitehall): bar and sheet go, banners and a 44 px pill = chip
 # by a resize gives back the desktop of a fresh load (every panel home, the same boxes, the same :root)
 PHN_SN='(()=>{const o={};for(const i of ["masthead","stats","source","legend","controls","chanbar","mode-chip","mast-brand","grp-bands","detail","help"]){const e=document.getElementById(i),r=e.getBoundingClientRect();o[i]=[e.parentNode.id||e.parentNode.tagName,Math.round(r.left*10),Math.round(r.top*10),Math.round(r.width*10),Math.round(r.height*10),getComputedStyle(e).display].join()}o.root=document.documentElement.style.cssText;o.phone=document.documentElement.dataset.phone;return JSON.stringify(o)})()'
 PHN_PH='document.documentElement.dataset.phone'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-bnd" --width 720 --height 900 --wait 4 --fps 0 \
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-bnd" --width 720 --height 900 --wait 4 --ready "$PHN_RDY" --fps 0 \
   --step "eval:$PHN_PH" --step size:721x900 --step "eval:$PHN_PH" --step size:812x375 --step "eval:$PHN_PH" \
   --step size:375x812 --step "eval:$PHN_PH" --step size:1440x900 --step wait:1 --step "eval:$PHN_SN" >/dev/null 2>&1
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-fresh" --width 1440 --height 900 --wait 5 --fps 0 --eval "$PHN_SN" >/dev/null 2>&1
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-bndm" --width 1000 --height 500 --mobile --wait 4 --fps 0 \
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-fresh" --width 1440 --height 900 --wait 5 --ready "$PHN_RDY" --fps 0 --eval "$PHN_SN" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-bndm" --width 1000 --height 500 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 \
   --step "eval:$PHN_PH" --step size:812x375 --step "eval:$PHN_PH" >/dev/null 2>&1
-runq "$F/field-probes.json" "$PHN_Q&phone=1" "out/$P-phn-q1" --width 1440 --height 900 --wait 3 --fps 0 --eval "$PHN_PH" >/dev/null 2>&1
-runq "$F/field-probes.json" "$PHN_Q&phone=0" "out/$P-phn-q0" --width 375 --height 812 --mobile --wait 3 --fps 0 --eval "$PHN_PH" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q&phone=1" "out/$P-phn-q1" --width 1440 --height 900 --wait 3 --ready "$PHN_RDY" --fps 0 --eval "$PHN_PH" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q&phone=0" "out/$P-phn-q0" --width 375 --height 812 --mobile --wait 3 --ready "$PHN_RDY" --fps 0 --eval "$PHN_PH" >/dev/null 2>&1
 PHN_V="$(evals "out/$P-phn-bnd.json" | head -n 4 | tr '\n' ' ')$(evals "out/$P-phn-bndm.json" | tr '\n' ' ')$(evalv "out/$P-phn-q1.json" 1) $(evalv "out/$P-phn-q0.json" 1)"
 PHN_S1=$(evalv "out/$P-phn-bnd.json" 5); PHN_S2=$(evalv "out/$P-phn-fresh.json" 1)
 PHN_OK=0; [ "$PHN_V" = '"on" "off" "off" "on" "off" "on" on off' ] && [ -n "$PHN_S1" ] && [ "$PHN_S1" = "$PHN_S2" ] && PHN_OK=1
@@ -228,8 +229,8 @@ rowif "phone pass theme-free: phoneLayout, skyBox, phDetailDetent, applyPhone ($
 # at most three quarters of the brand's, and the brand still fits one line on a 375-px phone
 PHN_VER=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$H")
 PHN_VE='(()=>{const e=document.getElementById("mast-ver"),b=document.getElementById("mast-brand"),fs=x=>parseFloat(getComputedStyle(x).fontSize);return [e.textContent===STARCHORUS.version,fs(e)<=fs(b)*0.75,b.getBoundingClientRect().height<fs(b)*2.2,e.textContent].join("|")})()'
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-ver" --width 1440 --height 900 --wait 3 --fps 0 --eval "$PHN_VE" >/dev/null 2>&1
-runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-verp" --width 375 --height 812 --mobile --wait 3 --fps 0 --eval "$PHN_VE" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-ver" --width 1440 --height 900 --wait 3 --ready "$PHN_RDY" --fps 0 --eval "$PHN_VE" >/dev/null 2>&1
+runq "$F/field-probes.json" "$PHN_Q" "out/$P-phn-verp" --width 375 --height 812 --mobile --wait 3 --ready "$PHN_RDY" --fps 0 --eval "$PHN_VE" >/dev/null 2>&1
 PHN_V1=$(evalv "out/$P-phn-ver.json" 1); PHN_V2=$(evalv "out/$P-phn-verp.json" 1)
 rowif "masthead version: '$PHN_VER' from STARCHORUS.version, small type, brand on one line on desktop and on a 375-px phone [$PHN_V1 / $PHN_V2]" \
   [ "$PHN_V1/$PHN_V2" = "true|true|true|$PHN_VER/true|true|true|$PHN_VER" ]
@@ -301,7 +302,7 @@ o.scale=d5.length===3&&d5.every((d,i)=>Math.abs(d/d1[i]-0.5)<0.002);
 o.rings=[r1>=0.9,ring(R(-60,0.5))>=0.9,ring(R(-60,1))<=0.3];
 o.counters=cnt()===S.bubbles().length&&cnt()>0;o.labels=[S.labelCandidates().length===k1,S.layoutInfo().labelsDrawn>=5];
 S.setZoom2d(1);o.errors=S.errors().length;return JSON.stringify(o)})()'
-runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&theme=foundation" "out/$P-phn-zoom" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_EVZ" >/dev/null 2>&1
+runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&theme=foundation" "out/$P-phn-zoom" --width 1440 --height 900 --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 90 --eval "$PHN_EVZ" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-zoom.json" 1)
 PHN_W='{"clamp":[0.5,4],"steps":"0.8,0.64,0.512,0.5,0.5,0.625,1,0.8,1","scale":true,"rings":[true,true,true],"counters":true,"labels":[true,true],"errors":0}'
 rowif "2D zoom out (1440x900, 1200 stations): clamped to 0.5 and 4, buttons and keys step it by 1.25 and reset to 1, stars at half their distance, the -60 dBm ring at half its radius and gone from the old one, every bubble counter and the same star names" [ "$PHN_V" = "$PHN_W" ]
@@ -317,9 +318,9 @@ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);awa
  const r=all.filter(vis).map(e=>R(e)),ov=r.some((x,i)=>r.some((y,j)=>j>i&&x.left<y.right-0.5&&y.left<x.right-0.5&&x.top<y.bottom-0.5&&y.top<x.bottom-0.5)),inside=r.every(x=>x.left>=-0.5&&x.right<=innerWidth+0.5);
  res.push([t,b.length,b.filter(e=>vis(e)).length,Math.min(...r.map(x=>Math.round(Math.min(x.width,x.height)))),ov,inside,document.documentElement.scrollWidth===innerWidth,document.querySelector("[data-band=bt]").getBoundingClientRect().width>0].join("/"));}
 o.res=res;o.phone=STARCHORUS.phone().on;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio320" --width 320 --height 568 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
-runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio360" --width 360 --height 800 --mobile --wait 4 --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio320" --width 320 --height 568 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
+runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-phn-radio360" --width 360 --height 800 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVR" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-radio.json" 1); PHN_V3=$(evalv "out/$P-phn-radio320.json" 1); PHN_V6=$(evalv "out/$P-phn-radio360.json" 1)
 PHN_W='{"res":["foundation/4/4/44/false/true/true/true","wargames/4/4/44/false/true/true/true","whitehall/4/4/44/false/true/true/true"],"phone":true,"errors":0}'
 PHN_W3=$PHN_W
