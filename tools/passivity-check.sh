@@ -1161,7 +1161,7 @@ rowif "§14.6g outward and state-changing programs: $(lines "$tmp/g_hits") lines
 # the dot commands of the sqlite3 shell that run one (`.shell`, `.system`: a text rule on the raw line), a program of this list behind a program that runs its operand (`flock FILE sh -c ...`, `chroot DIR python3 -c ...`, `start-stop-daemon -x /bin/sh`), and a command run by a PATH outside the system directories (`/tmp/x`, `./x`: the file may be a text that the script wrote; three lines of the
 # payloads that call the collector as `./starchorus-collect.sh` are pinned). `ln` is here because a link is the way to give a program a second name (`ln -s /usr/bin/hc?tool x`).
 # A pinned `eval` is READ, not proven safe: the four of the Overview (and of its library copy) put a record of the document into a variable name, which rests on the record framing and the canary rows of tools/regress.d/ingest-fuzz.sh; the pin only forces a review. The same holds for the self-test's `sh -c` stand-ins
-# (fixed texts) and the one `python3 -c` of json_ok (a fixed program).
+# (fixed texts), the one `python3 -c` of json_ok (a fixed program) and the four readiness lines of bt_selftest -- a `python3 -c` that binds an AF_UNIX socket under its sandbox `$BTS`, and three `ln` links that stand in a /proc/PID/fd tree; all are fixed and reach nothing outside `$BTS`.
 # NOT SEEN, and SECURITY.md says so: the program text itself (what a pinned line runs, and what a file holds that a pinned `sh FILE` runs); a copy of a program under another name (`cp /usr/bin/curl /tmp/x; /tmp/x` is a command word `x`, or a script written into a directory of the PATH and run by its name: the mutation probe holds the control `sink-limit-written-program`); an awk program that writes a file (`print 1 > "/sys/x"`: the control `out-ok-awk`); an awk command pipe whose command is a variable that is no `getline` (`print x | c`); a sed program that runs a command (GNU sed `e`, inside the single-quoted program: the control `sink-limit-sed-e`); a trap given by an expansion (its
 # line is a record of this row, and a built command word of row 6d); a sink spelled by a built word (row 6d); and a sink in the text of a here-document with a quoted delimiter, which is text like a string (the stand-ins of the collector's self-test are such texts: bt_tmo has an `exec "$@"` and bt_stub an
 # `ln -s` there, and a handler or a script that the text writes is read, as code, from its first function head on: tools/passivity-check.sh, script texts).
@@ -1188,6 +1188,10 @@ starchorus-display.sh:fetch:[ "$fx_key" = "$JSON|" ] || eval "CK_$1=\$fx_key CO_
 starchorus-collect.sh:selftest:sh -c 'exit 0' & dpid=$!; wait "$dpid" 2>/dev/null
 starchorus-collect.sh:selftest:eval "${ixd#*:}"
 starchorus-collect.sh:bt_selftest:sh "$BTS/$SELF_BASE" 2>/dev/null & BTS_OH=$!
+starchorus-collect.sh:bt_selftest:if have python3 && (cd "$BTS" && python3 -I -c 'import socket; s = socket.socket(socket.AF_UNIX); s.bind("sock")') 2>/dev/null && [ -S "$BTS/sock" ]; then bts_sock=1; fi
+starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/777/fd/0"; ln -s /dev/null "$BTS/gcproc/777/fd/1"; [ "$bts_sock" = 0 ] || ln -s "$BTS/sock" "$BTS/gcproc/777/fd/3"
+starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/778/fd/0"; ln -s 'socket:[1]' "$BTS/gcproc/778/fd/3"
+starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/779/fd/0"; ln -s /dev/null "$BTS/gcproc/779/fd/1"
 starchorus-collect.sh:selftest:( sh "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )
 starchorus-collect.sh:selftest:( sh "$tdir/own/airodump-ng" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
 starchorus-collect.sh:selftest:( ( cd "$klw/$1" && exec sh "$klw/$1/starchorus-collect.sh" $2 ) </dev/null >/dev/null 2>&1 & echo $! > "$klw/spawn.pid" )
