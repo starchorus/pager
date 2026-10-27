@@ -72,14 +72,14 @@ the licence does not require one.
 
 ## Version
 
-Starchorus 0.2.5. The main parts carry the same number:
+Starchorus 0.2.6. The main parts carry the same number:
 
 | Part | File | Version |
 |---|---|---|
-| Page | `starchorus.html` | 0.2.5 |
-| Collector | `starchorus-collect.sh` | 0.2.5 |
-| On-device Overview | `starchorus-display.sh` | 0.2.5 |
-| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.5 |
+| Page | `starchorus.html` | 0.2.6 |
+| Collector | `starchorus-collect.sh` | 0.2.6 |
+| On-device Overview | `starchorus-display.sh` | 0.2.6 |
+| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.6 |
 
 ## What the page shows
 

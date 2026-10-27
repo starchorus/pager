@@ -2,7 +2,7 @@
 # Title: Starchorus
 # Author: Starchorus
 # Description: Strictly passive, receive-only Wi-Fi observation tool; visualises the radio environment and never transmits.
-# Version: 0.2.5
+# Version: 0.2.6
 # Contract: 3
 # Category: reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later

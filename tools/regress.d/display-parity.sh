@@ -183,7 +183,7 @@ DSP_SEQ=$(grep -v '^[[:space:]]*#' starchorus-display.sh | grep -c 'SEQ')
 DSP_GT=$(grep -c '^gen_tick()' starchorus-display.sh)
 DSP_G1=$(DSP_PG summary "$F/field-probes.json" | grep -c '^GEN 1 ')
 DSP_V=$(sed -n 's/^# Version:      \([0-9][0-9A-Za-z.-]*\)$/\1/p' starchorus-display.sh | head -n 1)
-if [ "$DSP_SEQ" = 0 ] && [ "$DSP_GT" = 1 ] && [ "$DSP_G1" = 1 ] && [ "$DSP_V" = 0.2.5 ]; then row "display: GEN, no SEQ (SEQ = $DSP_SEQ, gen_tick = $DSP_GT, 'GEN 1' on a first capture = $DSP_G1), version 0.2.5 [$DSP_V]" PASS; else row "display: GEN/SEQ/version off (SEQ $DSP_SEQ, gt $DSP_GT, g1 $DSP_G1, v $DSP_V)" FAIL; fi
+if [ "$DSP_SEQ" = 0 ] && [ "$DSP_GT" = 1 ] && [ "$DSP_G1" = 1 ] && [ "$DSP_V" = 0.2.6 ]; then row "display: GEN, no SEQ (SEQ = $DSP_SEQ, gen_tick = $DSP_GT, 'GEN 1' on a first capture = $DSP_G1), version 0.2.6 [$DSP_V]" PASS; else row "display: GEN/SEQ/version off (SEQ $DSP_SEQ, gt $DSP_GT, g1 $DSP_G1, v $DSP_V)" FAIL; fi
 # GEN counts captures: two different `generated` in one process give 1 then 2 (the function, lifted out of the script, fed the
 # "generated" of two documents as the screens feed it: the value of the gen record of their one jq program)
 DSP_T=$(mktemp -d 2>/dev/null || echo "out/dsp-tmp"); mkdir -p "$DSP_T"
