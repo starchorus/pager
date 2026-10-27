@@ -72,7 +72,7 @@ the licence does not require one.
 
 ## Version
 
-Starchorus 0.2.5. Every part carries the same number:
+Starchorus 0.2.5. The main parts carry the same number:
 
 | Part | File | Version |
 |---|---|---|
