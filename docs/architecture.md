@@ -2023,6 +2023,8 @@ detail, §5.6); no separate long-press is assigned. Drag threshold 10 px; hit ra
 with `pointer: coarse`, every tap target ≥ 44 × 44 px in phone mode. In phone mode a tap on empty sky collapses the sheet
 (and closes the detail; an unlocked 3D camera stays where the fingers left it); the sheet's head takes drags and flicks (§9.8).
 
+The page holds the browser's own pinch-zoom of the page back: `gesturestart`, `gesturechange` and `gestureend` are taken on `document` and their default refused (§36), because the WebKit page zoom runs on these events and `touch-action: none` on `canvasHud` does not cover it. Without it a two-finger pinch on some browsers scales the whole page — sky and panels together — and can leave the panels off the viewport, out of reach. The page's own pinch (two pointers on `canvasHud`) is unaffected; the wheel, the keyboard and the Camera buttons zoom as before. The page's own zoom reaches the sky, not the chrome: the controls and their text keep their size, so holding the browser's pinch-zoom back gives up the one way to enlarge the page's text. That is given up on purpose — keeping the controls within reach is worth more than a page that magnifies until they are not.
+
 ### 9.8 Phone mode (D21)
 
 **When.** `PHONE.query` = `(max-width: 720px), (max-height: 460px) and (pointer: coarse)`: every phone upright, every phone on

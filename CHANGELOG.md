@@ -23,6 +23,7 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ### Fixed
 
+- Some browsers took a two-finger pinch for a zoom of the whole page, not of the sky; on a phone or a tablet this grew the sky and the controls together and the sheet could slip past the screen's edge, out of reach. The page now holds that gesture back (`gesturestart`, `gesturechange` and `gestureend` on `document`, their default refused; `src/js/36-interaction.js`); the sky's own pinch, the wheel and the Camera buttons are unchanged. The browser's gesture events do not fire in the headless checks, so this was not tried on a phone or tablet by hand yet.
 - With `STARCHORUS_MAX_AGE` above 0, one access point in the window and no station or probe-response responder, the oldest-row marker and its number were taken for two further access points and published in `aps[]`. The final `awk` now skips both rows.
 
 ## 0.2.5 - unreleased

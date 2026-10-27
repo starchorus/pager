@@ -110,6 +110,8 @@ canvasHud.addEventListener("wheel", (e) => {
   else setZoom2d(S.cam.zoom2d * Math.exp(-norm * CFG3D.wheelK));   // about the device, not the cursor
   S.dirty = true;
 }, { passive: false });
+// hold the browser's own pinch-zoom of the page back (WebKit gesture events, §9.7); the sky zooms on canvasHud
+for (const g of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(g, (e) => e.preventDefault(), { passive: false });
 function shortcutsAllowed() { const a = document.activeElement; return a == null || a === document.body || a === canvasHud || a === el("panels-pill"); }
 // 3D camera steps, shared by the arrow/+/- keys and the #cam-* buttons
 const CAM_STEP = {
