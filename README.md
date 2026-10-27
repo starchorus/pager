@@ -152,6 +152,8 @@ a drawer, a network's detail or the keys. On its side the bar and the sheet form
 left. `?phone=1` or `?phone=0` forces the choice. At any size, `U` or 'Hide panels' leaves the sky
 alone with a small status pill that brings the panels back; the choice is remembered.
 
+On a phone or a tablet some browsers take a two-finger pinch for a zoom of the whole page, not of the sky: sky and controls grow together and the sheet can slip past the screen's edge, out of reach. A later release holds that back; until then the browser's own reset, or a reload, returns the page to size, and the sheet's Camera row zooms the sky on its own with its `+` and `−` buttons.
+
 The sheet's row also has a 'Scope' button (key `Z`, or `?scope=1`), off until you turn it on and only on a
 phone. It swaps the sky for a fan standing on the Pager: each band has a lane (2.4, 5 and 6 GHz, then
 stations, then Bluetooth while any mark is heard), a network sits along its lane by channel, and the arcs are the received signal in dBm, so a
