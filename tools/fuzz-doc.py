@@ -63,12 +63,18 @@ def fn_body(text, name):
 
 
 def page_fields(page):
-    """What the viewer reads: {"top": {field: hint}, "ap": ..., "client": ...}, hint in {num, str, list, any}."""
+    """What the viewer reads: {"top": {field: hint}, "ap": ..., "client": ..., "bt": ...}, hint in {num, str, list, any}.
+    Exits when the page cannot be read, when normalizeDoc / normClient / normBt is not found in it, or when a scan finds no field: a quiet
+    fall back to the contract keys alone would leave out every key the viewer reads beyond them (measured: about 13 % of the mutants) and the
+    mutant floor of the regress row would still pass."""
     try:
         text = open(page, encoding="utf-8").read()
-    except OSError:
-        return {"top": {}, "ap": {}, "client": {}, "bt": {}}
+    except OSError as e:
+        sys.exit("fuzz-doc: cannot read the page, so the fields the viewer reads cannot be derived: %s" % e)
     nd, nc, nb = fn_body(text, "normalizeDoc"), fn_body(text, "normClient"), fn_body(text, "normBt")
+    for name, body in (("normalizeDoc", nd), ("normClient", nc), ("normBt", nb)):
+        if not body.strip():
+            sys.exit("fuzz-doc: function %s() not found in %s, so the fields the viewer reads cannot be derived" % (name, page))
 
     def scan(body, var):
         out = {}
@@ -82,7 +88,12 @@ def page_fields(page):
                 hint = "list"
             out[f] = hint
         return out
-    return {"top": scan(nd, "raw"), "ap": scan(nd, "a"), "client": scan(nc, "c"), "bt": scan(nb, "b")}
+    scans = (("top", nd, "raw", "normalizeDoc"), ("ap", nd, "a", "normalizeDoc"), ("client", nc, "c", "normClient"), ("bt", nb, "b", "normBt"))
+    out = {k: scan(body, var) for k, body, var, _ in scans}
+    for k, _, var, fn in scans:
+        if not out[k]:
+            sys.exit("fuzz-doc: no %s field found (%s.NAME in %s() of %s): the viewer's own field list would be empty" % (k, var, fn, page))
+    return out
 
 
 def kind_of(v):
@@ -228,6 +239,26 @@ def setp(doc, path, field, val):
     tgt[field] = val
 
 
+def norm_id(x):
+    """The page's normMac(): trimmed, lower case, '-' as ':', twelve bare hex digits in pairs."""
+    s = str(x).strip().lower().replace("-", ":")
+    return ":".join(re.findall("..", s)) if re.fullmatch(r"[0-9a-f]{12}", s) else s
+
+
+def require_unique_ids(name, doc):
+    """Exit when two APs / clients of DOC share an id once the page has normalised it. The page keeps an associated client over a free one
+    with the same id ("associated wins") and the first of two equal ones, so a document that has to show every element has none."""
+    ids = [e.get(k) for k, es in (("bssid", doc["aps"]), ("mac", [c for a in doc["aps"] for c in (a.get("clients") or [])]), ("mac", doc["unassociated"]))
+           for e in es]
+    seen, dup = set(), []
+    for x in (norm_id(i) for i in ids if isinstance(i, str)):
+        if x in seen:
+            dup.append(x)
+        seen.add(x)
+    if dup:
+        sys.exit("fuzz-doc: %s: %d id(s) not unique, the page would drop the later element (first: %s)" % (name, len(dup), ascii(dup[0])[:60]))
+
+
 def build(fx, seed, canary, nbig):
     b = Bundle(seed)
     radio = next((d for _, fn, d in fx.docs if fn == "radio-pair.json"), None)
@@ -289,7 +320,7 @@ def build(fx, seed, canary, nbig):
         d = slim(base, ()); ci = next((a for a in d["aps"] if a.get("clients")), None)
         if ci is not None:
             ci["clients"][0] = junk; b.add(3, "3:clients[0]=%s" % jn, d)
-            d = copy.deepcopy(d); ci = next(a for a in d["aps"] if a.get("clients")); ci["clients"] = [junk] + ci["clients"]; b.add(3, "3:clients.prepend=%s" % jn, d)
+            d = slim(base, ()); ci = next(a for a in d["aps"] if a.get("clients")); ci["clients"] = [junk] + ci["clients"]; b.add(3, "3:clients.prepend=%s" % jn, d)   # a fresh copy: junk BEFORE the valid client, not [junk, junk]
         d = slim(base, ()); d["unassociated"] = [junk] + d["unassociated"]; b.add(3, "3:unassociated.prepend=%s" % jn, d)
         d = slim(base, ()); d["unassociated"] = [junk, junk]; b.add(3, "3:unassociated=[j,j]=%s" % jn, d)
         if radio is not None:
@@ -330,12 +361,15 @@ def build(fx, seed, canary, nbig):
     # These carry the positive anchor of the sink checks (the masked text must be findable in the panels).
     for hi, hs in enumerate(hostile):
         d = slim(fx.base("many-clients.json"), ())
+        nid = 0   # ONE id counter over all three lists: numbered per list, an associated and a free client got the same id, the page keeps the
+        #           associated one ("associated wins"), so every free client was dropped and its hostile text never reached the page
         for kind, elems in (("ap", d["aps"]), ("client", [c for a in d["aps"] for c in (a.get("clients") or [])]), ("client", d["unassociated"])):
             for i, e in enumerate(elems):
+                eid = "%s#%d" % (hs[:64], nid); nid += 1
                 for f in list(fx.fields["ap" if kind == "ap" else "client"]):
                     v = e.get(f)
                     if f in ("bssid", "mac"):
-                        e[f] = "%s#%d" % (hs[:64], i) if isinstance(v, str) else v
+                        e[f] = eid if isinstance(v, str) else v
                     elif isinstance(v, str):
                         e[f] = hs if i == 0 else hs[:64]
                     elif isinstance(v, list) and v and all(isinstance(x, str) for x in v):
@@ -350,6 +384,7 @@ def build(fx, seed, canary, nbig):
             d["bluetooth"] = [dict(addr="02:00:00:00:f6:%02x" % i, addr_type="random-resolvable", rssi=-50 - i, reports=1, last_seen=1789299990,
                                    company=65535, company_name=hs if i == 0 else hs[:48], name=hs if i == 0 else hs[:32]) for i in range(3)]
             d["center"]["bt_window"], d["center"]["bt_hold"] = 6, 120
+        require_unique_ids("6:all-text:h%d" % hi, d)
         b.add(6, "6:all-text:h%d" % hi, d, anchor=True)
     # "none" source: the note is a sink of #source-desc
     dn = fx.donor("top", "note")
