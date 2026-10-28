@@ -541,6 +541,8 @@ create_monitor() {
     [ -z "$base" ] && return 1
     newif="${base}mon"
     if have iw; then
+        # a name that is taken already is not ours to make, to use or to remove (cleanup deletes what this run made)
+        iw dev "$newif" info >/dev/null 2>&1 && return 1
         phy=$(iw dev "$base" info 2>/dev/null | awk '/wiphy/{print "phy"$2; exit}')
         if [ -n "$phy" ]; then
             if iw phy "$phy" interface add "$newif" type monitor >/dev/null 2>&1; then
@@ -555,6 +557,9 @@ create_monitor() {
         out=$(airmon-ng start "$base" 2>/dev/null)
         m=$(printf '%s\n' "$out" | awk 'tolower($0) ~ /monitor mode.*enabled|vif enabled/ {for(i=1;i<=NF;i++) if($i ~ /mon$/){print $i}}' | tail -1)
         [ -z "$m" ] && m="${base}mon"
+        # the name only when that interface is now there in monitor mode: a start that failed made nothing, and
+        # cleanup must never delete an interface this run did not make
+        iw dev "$m" info 2>/dev/null | grep -q 'type monitor' || return 1
         printf '%s\n' "$m"; return 0
     fi
     return 1
