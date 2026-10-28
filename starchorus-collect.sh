@@ -680,7 +680,10 @@ start_airodump() {
     [ -n "$MONIF" ] || return 1
     mkdir -p "$CAPDIR"
     rm -f "$CAPDIR"/starchorus-*.csv 2>/dev/null
-    have ip && ip link set "$MONIF" up 2>/dev/null
+    # only the interface this run made is brought up; one it found (the recon service's, or STARCHORUS_IFACE) is used as it is
+    if [ "$CREATED_MON" = 1 ]; then
+        have ip && ip link set "$MONIF" up 2>/dev/null
+    fi
     # --write-interval rewrites the CSV on a cadence; --output-format csv keeps it parseable.
     # --background 1 avoids curses; stdout/err are discarded.
     airodump-ng --write-interval 2 --output-format csv --background 1 \
@@ -2293,7 +2296,10 @@ build_from_csv() {
 build_from_tcpdump() {
     [ -n "$MONIF" ] || return 1
     have tcpdump || return 1
-    have ip && ip link set "$MONIF" up 2>/dev/null
+    # as in start_airodump: only the interface this run made, never one it found
+    if [ "$CREATED_MON" = 1 ]; then
+        have ip && ip link set "$MONIF" up 2>/dev/null
+    fi
     burst=$INTERVAL
     [ "$burst" -lt 1 ] 2>/dev/null && burst=2
     tcpdump_burst "$burst" | parse_tcpdump_text "$1"
