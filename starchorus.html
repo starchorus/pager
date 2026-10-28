@@ -5739,7 +5739,7 @@ function renderInv() {
   const val = { ssid: (n) => (aliasOf(n.id) || n.ssidKnown || n.ssid || "").toLowerCase(), bssid: (n) => n.bssid, band: (n) => n.band, ch: (n) => n.channel ?? 999, rssi: rssiOf, sec: (n) => n.sec, heard: (n) => n.freshTier ?? 9 }[key] || ((n) => n.rssi);
   rows.sort((a, b) => cmpStr(val(a), val(b)) * dir || (a.bssid < b.bssid ? -1 : 1));
   const ssids = new Set(all.map(n => n.ssidKnown || n.ssid).filter(Boolean)), chans = new Set(all.map(n => n.band + "/" + n.channel));
-  const chips = (title, field, entries) => '<h4>' + title + '</h4><div class="chips">' + entries.map(([v, c]) => '<button class="chip' + (f[field] === v ? " on" : "") + '" data-f="' + field + '" data-v="' + esc(v) + '">' + esc(v) + " " + c + "</button>").join("") + "</div>";
+  const chips = (title, field, entries) => '<h4>' + title + '</h4><div class="chips">' + entries.concat(f[field] && !entries.some(e => e[0] === f[field]) ? [[f[field], 0]] : []).map(([v, c]) => '<button class="chip' + (f[field] === v ? " on" : "") + '" data-f="' + field + '" data-v="' + esc(v) + '">' + esc(v) + " " + c + "</button>").join("") + "</div>";
   const tally = (fn) => { const m = new Map(); for (const n of all) { const v = fn(n); m.set(v, (m.get(v) || 0) + 1); } return Array.from(m.entries()).sort((a, b) => b[1] - a[1]); };
   let h = '<h4>Inventory</h4><div class="chips"><span class="chip">' + ssids.size + ' SSIDs</span><span class="chip">' + all.length + ' APs</span><span class="chip">' + (S._stats ? S._stats.clients + S._stats.randomHidden : 0) + ' stations (count only)</span>' + invRandomChip() + '<span class="chip">' + chans.size + ' channels</span><span class="chip">' + rows.length + " of " + all.length + " shown</span></div>";
   h += chips("Band", "band", tally(n => n.band)) + chips("Security", "sec", tally(n => n.sec)) + chips("Identity", "identity", tally(n => identityOf(n.id))) + chips("Vendor", "vendor", tally(n => n.vendor || "—").slice(0, 8));
@@ -5994,7 +5994,8 @@ function renderTime() {
 function setThreshold(v) { S.threshold = v == null || !Number.isFinite(+v) ? null : clamp(Math.round(+v), -100, -20); S.dirty = true; renderTime(); return S.threshold; }
 function renderRec() {
   const rb = el("rec-body"); if (!rb || S.dx !== "rec") return;
-  const r = recObj(), rp = S.replay, i = rp ? rp.i : r.count - 1;
+  const r = recObj(), rp = S.replay, i = rp ? rp.i : r.count - 1, sl = el("rec-slider");
+  if (rp && sl === document.activeElement) { sl.max = r.count - 1; sl.value = i; el("rec-live").disabled = false; return recLabel(); }   // the slider in use keeps its element
   let h = "<h4>Recording</h4>";
   h += '<div class="note">' + r.count + " of " + r.max + " captures held in memory · about " + (r.bytes / 1048576).toFixed(1) + " MB of " + (r.maxBytes / 1048576) + " MB (estimated). Complete captures; never saved, gone when the page closes.</div>";
   if (!r.count) { rb.innerHTML = h + '<div class="note">Nothing recorded yet: a capture is recorded when its <code>generated</code> time is new.</div>'; return; }
@@ -6041,7 +6042,7 @@ function applyDrawer() {   // the legend's box hosts one body at a time: legend 
   layoutEdges();
 }
 function renderObs() {
-  const ob = el("obs-body"); if (!ob || !S.ui.observations) return;
+  const ob = el("obs-body"); if (!ob || !S.ui.observations || document.activeElement === el("obs-watch-in")) return;
   let h = "", last = null;
   for (const r of S.obs) { if (r.group !== last) { h += "<h4>" + esc(r.group) + "</h4>"; last = r.group; } h += '<div class="obsrow hint"><span class="dot"></span><span>' + esc(r.text) + "</span></div>"; }
   if (!S.obs.length) h += '<div class="obsnote">Nothing to report yet — hints appear once they hold for two captures.</div>';
@@ -6052,13 +6053,14 @@ function renderObs() {
   h += '<button class="btn" id="obs-clear" title="Delete the saved baseline, watchlist and identities from this browser">Clear local data</button>';
   ob.innerHTML = h;
   const inp = el("obs-watch-in");
-  if (inp) inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { watchSet(inp.value, true); renderObs(); const i2 = el("obs-watch-in"); if (i2) i2.focus(); } });
+  if (inp) inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { inp.blur(); watchSet(inp.value, true); renderObs(); const i2 = el("obs-watch-in"); if (i2) i2.focus(); } });
   for (const b of ob.querySelectorAll("[data-unwatch]")) b.addEventListener("click", () => { watchSet(b.getAttribute("data-unwatch"), false); renderObs(); });
   const cl = el("obs-clear"); if (cl) cl.addEventListener("click", () => clearLocalData());
 }
 function clearLocalData() {   // P8: every starchorus.* key, in one call (SECURITY.md §4 lists them)
   setToggle("baselineDiff", false);   // first: it saves the ui key, which the loop then removes
   for (const k of [STORAGE_KEY, IDENTITY_KEY, BASELINE_KEY, WATCH_KEY, LIB_KEY, NOTES_KEY]) safeStorage.remove(k);
+  clearTimeout(saveTimer);   // the queued ui save
   S.identity.clear(); S.baseline = null; S.watch = []; S.obsWatchSeen = new Set(); S.rules = []; S.notes.clear(); recClear();   // the recording is memory only, but "clear" means clear
   baselineRecompute(); obsCompute(); renderObs(); S.dirty = true; return true;
 }
@@ -6287,7 +6289,7 @@ function apChan(ap) {
 function bubbleSummary(b) {
   const parts = [b.n + " clients"];
   if (b.meanRssi != null) parts.push("mean " + b.meanRssi + " dBm");
-  for (const [v, c] of b.vendors.slice(0, 3)) parts.push(esc(v) + " " + c);
+  for (const [v, c] of b.vendors.slice(0, 3)) parts.push(v + " " + c);
   if (b.randomized) parts.push(b.randomized + " randomised");
   return parts.join(" · ");
 }
@@ -6780,8 +6782,8 @@ detailSpark.addEventListener("keydown", (e) => {
   const v = info.s[cur];
   detailSpark.setAttribute("aria-label", "Signal history: " + (v === -128 ? "gap" : v + " dBm") + " · sample " + (cur + 1) + " of " + info.s.length);
 });
-function cyclePinned(dir) {   // [ / ] step through pinned nodes and open their detail
-  const arr = Array.from(S.pinned); if (!arr.length) return;
+function cyclePinned(dir) {   // [ / ] step through pinned nodes
+  const arr = Array.from(S.pinned).filter(nodeById); if (!arr.length) return;
   let i = arr.indexOf(S.locked);
   i = i < 0 ? (dir > 0 ? 0 : arr.length - 1) : ((i + dir) % arr.length + arr.length) % arr.length;
   select(arr[i]);
