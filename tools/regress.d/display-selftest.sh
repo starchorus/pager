@@ -1972,5 +1972,153 @@ done
 if [ "$DST_S33" = "$DST_X33" ]; then row "display: a capture jq cannot parse (cut off, text, null) says 'Capture unreadable.' on four screens, an empty or missing one still 'Waiting for the first scan.', a good one neither; the Overview says it on each draw and runs two jq; three planted copies fall back to waiting; $DST_X33 copies, real and device-like jq" PASS
 else row "display unreadable capture: $DST_S33/$DST_X33 copies as expected" FAIL; DST_KEEP=1; fi
 
+# ---- S34 fivebytes (0.2.6.1, #17): the Devices screen groups on five address bytes, as the page's linkReason and the documentation have it, and not on four. The device prefix (pfx)
+# and the ESS device key (dev) of JQ_DEVICES both slice the lower-cased BSSID; they cut it at [0:11], bytes 0 to 3, and now cut it at [0:14], bytes 0 to 4, so two addresses that differ only
+# in byte 4 were shown as one device with two radios, and a name heard on both was no merged SSID. One document of seven access points on dummy addresses (global prefixes, so none is
+# left out as locally administered): Hall, two addresses that agree in bytes 0-3 and differ in byte 4, one name (two devices of one radio each: no device in the list, one merged SSID);
+# Quay, two that agree in bytes 0-4 and differ in byte 5, one name (one device of two radios, one device only, so no merged SSID); Lodge, three names on 50:c7:bf:ee, two of them in
+# 00 and one in 01 (one device of two radios, the third alone). (a) --once devices on both copies under the real and the device-like jq must give exactly: Devices 2, Merged SSIDs 1,
+# Lodge (2 radios), Quay (2 radios). (b) NEGATIVE CONTROLS, planted copies that each differ from the real one in exactly one line: the device prefix cut at [0:11] again => 3 devices, Hall as
+# one device and Lodge as three radios, with the merged SSID still counted; the ESS key cut at [0:11] again => the 2 devices still, but the merged SSID gone.
+DST_FB="$DST_D/s34"; mkdir -p "$DST_FB"
+dst_dv() { printf '{"bssid":"%s","ssid":"%s","channel":1,"band":"2.4","security":"WPA2","rssi":-60}' "$1" "$2"; }   # dst_dv ADDRESS SSID: one access point of the document
+printf '{"generated":1789300000,"source":"fixture","center":{"label":"Fixture"},"unassociated":[],"aps":[%s,%s,%s,%s,%s,%s,%s]}\n' \
+  "$(dst_dv 44:4e:6d:aa:01:10 Fixture-Hall)" "$(dst_dv 44:4e:6d:aa:02:10 Fixture-Hall)" \
+  "$(dst_dv 78:8a:20:cc:dd:20 Fixture-Quay)" "$(dst_dv 78:8a:20:cc:dd:21 Fixture-Quay)" \
+  "$(dst_dv 50:c7:bf:ee:00:40 Fixture-Lodge)" "$(dst_dv 50:c7:bf:ee:00:41 Fixture-Lodge-Guest)" "$(dst_dv 50:c7:bf:ee:01:40 Fixture-Lodge-Annexe)" > "$DST_FB/five.json"
+DST_FW='Logical grouping (GEN 1)|Devices (multi-BSSID / multi-radio): 2|Merged SSIDs (one name, >=2 devices): 1|  dev 50:c7:bfxx  (2 radios)  Fixture-Lodge|  dev 78:8a:20xx  (2 radios)  Fixture-Quay|'
+DST_FWP='Logical grouping (GEN 1)|Devices (multi-BSSID / multi-radio): 3|Merged SSIDs (one name, >=2 devices): 1|  dev 44:4e:6dxx  (2 radios)  Fixture-Hall|  dev 50:c7:bfxx  (3 radios)  Fixture-Lodge|  dev 78:8a:20xx  (2 radios)  Fixture-Quay|'
+DST_FWK='Logical grouping (GEN 1)|Devices (multi-BSSID / multi-radio): 2|Merged SSIDs (one name, >=2 devices): 0|  dev 50:c7:bfxx  (2 radios)  Fixture-Lodge|  dev 78:8a:20xx  (2 radios)  Fixture-Quay|'
+DST_S34=0; DST_X34=0; DST_S34B=0; DST_X34B=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X34=$((DST_X34 + 1)); DST_X34B=$((DST_X34B + 1)); DST_L34=""; DST_L34B=""
+  for DST_N in 0 1; do
+    dst_once "s34-$DST_G-$DST_N" "$DST_C" devices "$DST_FB/five.json" "$DST_N" < /dev/null
+    DST_FO=$(tr '\n' '|' < "$DST_D/s34-$DST_G-$DST_N.out")
+    [ "$DST_FO" = "$DST_FW" ] || DST_L34="$DST_L34 nrx=$DST_N: [$DST_FO] (want [$DST_FW]);"
+  done
+  DST_FD=$(sed -n 's/^Devices (multi-BSSID \/ multi-radio): //p' "$DST_D/s34-$DST_G-0.out"); DST_FM=$(sed -n 's/^Merged SSIDs (one name, >=2 devices): //p' "$DST_D/s34-$DST_G-0.out")
+  if [ -z "$DST_L34" ]; then DST_S34=$((DST_S34 + 1)); else echo "    five bytes, $DST_G copy:$DST_L34"; fi
+  # (b) the planted copies
+  for DST_MN in prefix key; do
+    case $DST_MN in
+      prefix) DST_MF='s/pfx:(\.bssid\[0:14\])/pfx:(.bssid[0:11])/'; DST_MW=$DST_FWP ;;
+      *)      DST_MF='s/ascii_downcase|\.\[0:14\])}/ascii_downcase|.[0:11])}/'; DST_MW=$DST_FWK ;;
+    esac
+    DST_MO="$DST_D/s34-$DST_G-$DST_MN.sh"
+    sed "$DST_MF" "$DST_C" > "$DST_MO"; DST_MD=$(diff "$DST_C" "$DST_MO" | grep -c '^<')
+    dst_once "s34-$DST_G-m$DST_MN" "$DST_MO" devices "$DST_FB/five.json" 0 < /dev/null
+    DST_FO=$(tr '\n' '|' < "$DST_D/s34-$DST_G-m$DST_MN.out")
+    [ "$DST_MD" = 1 ] && [ "$DST_FO" = "$DST_MW" ] && [ "$DST_FO" != "$DST_FW" ] || DST_L34B="$DST_L34B planted copy '$DST_MN': $DST_MD lines differ (want 1), reads [$DST_FO] (want [$DST_MW]);"
+  done
+  if [ -z "$DST_L34B" ]; then DST_S34B=$((DST_S34B + 1)); else echo "    five bytes control, $DST_G copy:$DST_L34B"; fi
+done
+if [ "$DST_S34" = "$DST_X34" ] && [ "$DST_FD/$DST_FM" = 2/1 ]; then row "display Devices screen: addresses that share four bytes and differ in the fifth are separate devices, five shared bytes are one device (Devices $DST_FD, Merged SSIDs $DST_FM, Lodge 2 radios, Quay 2 radios; $DST_X34 copies x real and device-like jq)" PASS
+else row "display five bytes: $DST_S34/$DST_X34 copies as expected (Devices '$DST_FD', Merged SSIDs '$DST_FM')" FAIL; DST_KEEP=1; fi
+if [ "$DST_S34B" = "$DST_X34B" ]; then row "display Devices screen, negative controls: the device prefix cut at four bytes again reads 3 devices (Lodge 3 radios), the ESS key cut at four again reads 0 merged SSIDs ($DST_X34B copies, one line planted each)" PASS
+else row "display five bytes, negative controls: $DST_S34B/$DST_X34B copies as expected" FAIL; DST_KEEP=1; fi
+
+# ---- S35 leadzero (0.2.6.1, #46): a number with a leading zero never reaches shell arithmetic. The Overview takes `generated` and `center.interval` of the capture as text, and a string such as
+# "08" passed the digits-only test; `$((now - sg))` and `$((3 * si))` then read it as octal, so 08 and 09 ended the Overview in the middle of a draw (an arithmetic error ends a non-interactive shell: measured
+# with the dev machine's sh and with dash; BusyBox ash, the device's shell, is not here to measure) and 010 or 00 gave a wrong age or a wrong threshold without a word. scan_age (generated, interval, the STARCHORUS_INTERVAL fallback), frame (the copy it keeps in OV_INT) and
+# age_str now take such a value as no usable capture time or interval, and the default of 30 s (a threshold of 90 s) stands. (a) The Overview of both copies, under every shell this drop-in uses,
+# draws the summary and the top screen (RIGHT, B) to the end on captures from many-clients.json whose `generated` is 60 s old (95 s for two of the cases) and whose interval or environment is
+# the case: signature = frames / Last scan lines / red "No new scan" lines / lines that are not the stand-in's LOG (the shell's own error text); ok = 2/2/0/0 (dated, inside the default
+# threshold, the age 60 to 90 s), red = 2/0/2/0 (a real threshold crossed), none = 2/0/0/0 (no capture time: no Last scan line and no red one, the GEN line without an age); every other line of
+# both screens must be the plain control's (the numbers are the same). Cases: a plain interval 10 (number and string) is still used (red at 60 s); "08", "09", "010", "00" as interval are
+# refused (ok), and "08" at 95 s is red under the default (the threshold is 90 s, not 0 and not an error); "08", "09", "010", "00" as `generated` are no time (none); STARCHORUS_INTERVAL=08 and
+# 010 are refused (ok), =10 is used (red); and the carry: an interval "08" on the summary with STARCHORUS_INTERVAL=100 leaves the threshold at 300 s on the summary AND on the top screen (the
+# copy frame keeps in OV_INT does not take the 08: taken, it would stand in for the fallback and turn the threshold into the default 90 s). (b) --once summary on a capture dated "08", "09", "010", "00" (age_str): the same numbers as
+# the control, a GEN line without an age, no error text; both jq builds. (c) NEGATIVE CONTROLS, planted copies of each script, each with ONE of the five leading-zero tests taken out
+# (the test of generated in scan_age, of the interval in scan_age, of the fallback in scan_age, of the copy in frame, of age_str): each reads red on the case that needs it.
+DST_LZ="$DST_D/s35"; mkdir -p "$DST_LZ"
+dst_lzdoc() {   # dst_lzdoc OUTFILE GENERATED INTERVAL: many-clients.json whose `generated` is GENERATED seconds old (a JSON string if it starts with a quote) and whose center.interval is INTERVAL (JSON; - = none)
+  case $2 in \"*) _dst_g=$2 ;; *) _dst_g=$(($(date +%s) - $2)) ;; esac
+  if [ "$3" = - ]; then jq -c --argjson g "$_dst_g" '.generated = $g' "$F/many-clients.json" > "$1"
+  else jq -c --argjson g "$_dst_g" --argjson i "$3" '.generated = $g | .center.interval = $i' "$F/many-clients.json" > "$1"; fi
+}
+dst_lzsig() {   # dst_lzsig RC OUTFILE: "dies" when the Overview left with a status, else frames/Last scan lines/red lines/noise (0: every line is the stand-in's LOG, x: the shell's own text as well)
+  if [ "$1" != 0 ]; then echo dies; return; fi
+  _dst_n=0; [ "$(grep -vc '^LOG' "$2")" = 0 ] || _dst_n=x
+  echo "$(dst_cnt 'LOG A: Refresh   B: Back' "$2")/$(grep -c '^LOG Last scan ' "$2")/$(grep -c '^LOG\[red\] No new scan for ' "$2")/$_dst_n"
+}
+dst_lzbody() { grep -v -e 'GEN [0-9][0-9]* ' -e 'Last scan [0-9]' -e 'No new scan for ' -e 'heard < 1 min' "$1"; }   # dst_lzbody OUTFILE: a run without the lines that carry a time: the numbers of the screens
+DST_S35=0; DST_X35=0; DST_N35=0; DST_S35B=0; DST_X35B=0; DST_N35B=0; DST_S35C=0; DST_X35C=0
+for DST_E in $DST_COPIES; do
+  DST_G=${DST_E%%:*}; DST_C=${DST_E#*:}; DST_X35=$((DST_X35 + 1)); DST_X35B=$((DST_X35B + 1)); DST_X35C=$((DST_X35C + 1)); DST_L35=""; DST_L35B=""; DST_L35C=""
+  # (a) the Overview; the control is a plain capture, 60 s old, no interval, no environment
+  for DST_X in $DST_SHELLS; do
+    DST_OVSH=$DST_X; DST_TG="s35-$DST_G-$DST_X"
+    dst_lzdoc "$DST_LZ/ctl.src" 60 -
+    DST_OVSRC="$DST_LZ/ctl.src"; dst_ov "$DST_TG-ctl" "$DST_C" "RIGHT B" STARCHORUS_INTERVAL=; DST_OVSRC=; DST_N35=$((DST_N35 + 1))
+    DST_QC=$(dst_lzbody "$DST_D/$DST_TG-ctl.out"); DST_QS=$(dst_lzsig "$DST_RC" "$DST_D/$DST_TG-ctl.out")
+    [ "$DST_QS" = 2/2/0/0 ] && [ "$(printf '%s\n' "$DST_QC" | grep -c .)" -ge 15 ] || DST_L35="$DST_L35 [control $DST_X] signature $DST_QS (want 2/2/0/0), $(printf '%s\n' "$DST_QC" | grep -c .) lines of numbers (want 15 or more);"
+    # tag|interval (JSON, - = none)|generated (seconds old, or a JSON string)|STARCHORUS_INTERVAL (- = none)|class
+    for DST_Q in 'int10|10|60|-|red' 'intS10|"10"|60|-|red' 'int08|"08"|60|-|ok' 'int09|"09"|60|-|ok' 'int010|"010"|60|-|ok' 'int00|"00"|60|-|ok' 'late08|"08"|95|-|red' \
+                 'gen08|30|"08"|-|none' 'gen09|30|"09"|-|none' 'gen010|30|"010"|-|none' 'gen00|30|"00"|-|none' \
+                 'env08|-|60|08|ok' 'env010|-|60|010|ok' 'env10|-|60|10|red' 'carry|"08"|95|100|ok'; do
+      DST_QT=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QI=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QG=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+      DST_QE=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QK=$(printf '%s' "$DST_Q" | cut -d'|' -f5)
+      case $DST_QK in ok) DST_QW=2/2/0/0 ;; red) DST_QW=2/0/2/0 ;; *) DST_QW=2/0/0/0 ;; esac
+      case $DST_QG in \"*) DST_QAW=0 ;; *) DST_QAW=1 ;; esac   # the GEN line of the summary carries age words when `generated` is a number
+      dst_lzdoc "$DST_LZ/$DST_QT.src" "$DST_QG" "$DST_QI"
+      DST_OVSRC="$DST_LZ/$DST_QT.src"; dst_ov "$DST_TG-$DST_QT" "$DST_C" "RIGHT B" STARCHORUS_INTERVAL="${DST_QE#-}"; DST_OVSRC=; DST_N35=$((DST_N35 + 1))
+      DST_O="$DST_D/$DST_TG-$DST_QT.out"; DST_QS=$(dst_lzsig "$DST_RC" "$DST_O")
+      DST_QB=same; [ "$(dst_lzbody "$DST_O")" = "$DST_QC" ] || DST_QB=differ
+      DST_QA=$(grep '^LOG GEN ' "$DST_O" | sed -n 1p | grep -c ' ago ')
+      DST_QX=0
+      if [ "$DST_QK" = ok ]; then   # both Last scan lines say "N s ago", N between the age planted and 30 s more
+        DST_QN=$(sed -n 's/^LOG Last scan [0-9:]* (\([0-9]*\) s ago)$/\1/p' "$DST_O" | tr '\n' ' ')
+        [ "$(printf '%s\n' "$DST_QN" | wc -w | tr -d ' ')" = 2 ] || DST_QX=1
+        # shellcheck disable=SC2086   # one number per word, on purpose
+        for DST_QY in $DST_QN; do [ "$DST_QY" -ge "$DST_QG" ] && [ "$DST_QY" -le $((DST_QG + 30)) ] || DST_QX=1; done
+      fi
+      if [ "$DST_QS/$DST_QB/$DST_QA/$DST_QX" != "$DST_QW/same/$DST_QAW/0" ]; then
+        DST_L35="$DST_L35 [$DST_QT, $DST_X] signature $DST_QS (want $DST_QW), numbers $DST_QB (want same), GEN line with an age $DST_QA (want $DST_QAW), ages out of range $DST_QX (want 0);"
+      fi
+    done
+    DST_OVSH=
+  done
+  if [ -z "$DST_L35" ]; then DST_S35=$((DST_S35 + 1)); else echo "    leading zero, $DST_G copy:$DST_L35"; fi
+  # (b) --once summary: age_str
+  for DST_N in 0 1; do
+    dst_lzdoc "$DST_LZ/once-ctl.src" 60 -
+    dst_once "s35b-$DST_G-$DST_N-ctl" "$DST_C" summary "$DST_LZ/once-ctl.src" "$DST_N" < /dev/null
+    DST_QC=$(dst_lzbody "$DST_D/s35b-$DST_G-$DST_N-ctl.out")
+    for DST_QG in '"08"' '"09"' '"010"' '"00"'; do
+      DST_QT=$(printf '%s' "$DST_QG" | tr -d '"')
+      dst_lzdoc "$DST_LZ/once-$DST_QT.src" "$DST_QG" -
+      dst_once "s35b-$DST_G-$DST_N-$DST_QT" "$DST_C" summary "$DST_LZ/once-$DST_QT.src" "$DST_N" < /dev/null; DST_N35B=$((DST_N35B + 1))
+      DST_O="$DST_D/s35b-$DST_G-$DST_N-$DST_QT.out"
+      DST_QB=same; [ "$(dst_lzbody "$DST_O")" = "$DST_QC" ] || DST_QB=differ
+      DST_QA=$(grep -c ' ago ' "$DST_O"); DST_QL=$(grep -c '^GEN [0-9]' "$DST_O")
+      [ "$DST_QB/$DST_QA/$DST_QL" = same/0/1 ] || DST_L35B="$DST_L35B [nrx=$DST_N, generated $DST_QG] numbers $DST_QB (want same), lines with an age $DST_QA (want 0), GEN lines $DST_QL (want 1);"
+    done
+  done
+  if [ -z "$DST_L35B" ]; then DST_S35B=$((DST_S35B + 1)); else echo "    leading zero, summary, $DST_G copy:$DST_L35B"; fi
+  # (c) the planted copies: one test taken out of each (the pattern 0?*| of the case in that one line), then the case that needs it; sh only. mutant|sed address|interval|generated|STARCHORUS_INTERVAL|signature the old line gives
+  # shellcheck disable=SC2016   # sed programs: the display script's own text, not to be expanded here
+  for DST_Q in 'scangen|/^ *sg=\${R_gen-}; case/|30|"08"|-|dies' 'scangen|/^ *sg=\${R_gen-}; case/|30|"010"|-|2/0/2/0' \
+               'scanint|/^ *si=\${R_interval-}; case/|"08"|95|100|2/1/1/0' 'scanenv|/^ *case \$si in .*) si=30 ;; esac/|-|60|08|dies' 'scanenv|/^ *case \$si in .*) si=30 ;; esac/|-|60|010|2/0/2/0' \
+               'frame|/^ *case \${R_interval-} in .*OV_INT=/|"08"|95|100|2/0/2/0' 'agestr|/^ *g=\$1; case \$g in/|30|"08"|-|2/0/0/x'; do
+    DST_QM=$(printf '%s' "$DST_Q" | cut -d'|' -f1); DST_QF=$(printf '%s' "$DST_Q" | cut -d'|' -f2); DST_QI=$(printf '%s' "$DST_Q" | cut -d'|' -f3)
+    DST_QG=$(printf '%s' "$DST_Q" | cut -d'|' -f4); DST_QE=$(printf '%s' "$DST_Q" | cut -d'|' -f5); DST_QW=$(printf '%s' "$DST_Q" | cut -d'|' -f6)
+    DST_QT="$DST_QM-$(printf '%s' "$DST_QG$DST_QE" | tr -cd '0-9a-z')"; DST_MO="$DST_D/s35-$DST_G-$DST_QM.sh"
+    sed "${DST_QF}s/0?\\*|//" "$DST_C" > "$DST_MO"; DST_MD=$(diff "$DST_C" "$DST_MO" | grep -c '^<')
+    dst_lzdoc "$DST_LZ/m-$DST_QT.src" "$DST_QG" "$DST_QI"
+    DST_OVSRC="$DST_LZ/m-$DST_QT.src"; dst_ov "s35c-$DST_G-$DST_QT" "$DST_MO" "RIGHT B" STARCHORUS_INTERVAL="${DST_QE#-}"; DST_OVSRC=
+    DST_QS=$(dst_lzsig "$DST_RC" "$DST_D/s35c-$DST_G-$DST_QT.out")
+    [ "$DST_MD/$DST_QS" = "1/$DST_QW" ] || DST_L35C="$DST_L35C [$DST_QM, generated $DST_QG, interval $DST_QI, env $DST_QE] $DST_MD lines differ (want 1), signature $DST_QS (want $DST_QW);"
+  done
+  if [ -z "$DST_L35C" ]; then DST_S35C=$((DST_S35C + 1)); else echo "    leading zero control, $DST_G copy:$DST_L35C"; fi
+done
+if [ "$DST_S35" = "$DST_X35" ]; then row "display leading zero: an interval, a capture time or STARCHORUS_INTERVAL such as 08, 09, 010 or 00 never reaches shell arithmetic: both screens are drawn to the end with the control's numbers, the default 30 s stands, a leading-zero capture time gives no age, a plain 10 is still used ($DST_N35 runs, $DST_X35 copies x $DST_SHELLS)" PASS
+else row "display leading zero: $DST_S35/$DST_X35 copies as expected" FAIL; DST_KEEP=1; fi
+if [ "$DST_S35B" = "$DST_X35B" ]; then row "display summary on a capture dated 08, 09, 010 or 00: the control's numbers, a GEN line without an age, no error text ($DST_N35B runs, $DST_X35B copies x real and device-like jq)" PASS
+else row "display leading zero, summary: $DST_S35B/$DST_X35B copies as expected" FAIL; DST_KEEP=1; fi
+if [ "$DST_S35C" = "$DST_X35C" ]; then row "display leading zero, negative controls: five planted copies, one test each taken out, read red (08 ends the Overview, 010 gives a red line, the 08 kept in OV_INT turns a threshold of 300 s into 90 s; $DST_X35C copies)" PASS
+else row "display leading zero, negative controls: $DST_S35C/$DST_X35C copies as expected" FAIL; DST_KEEP=1; fi
+unset -f dst_dv dst_lzdoc dst_lzsig dst_lzbody
+
 if [ "$DST_KEEP" = 0 ]; then rm -rf "$DST_D"; else echo "    display-selftest scratch kept for inspection: $DST_D"; fi
 unset -f dst_shortnap dst_cl1 dst_st dst_once dst_read dst_count dst_allpass dst_ov dst_ovrun dst_ovleft dst_alive dst_cnt dst_ui dst_views dst_code dst_fn dst_pin dst_first
