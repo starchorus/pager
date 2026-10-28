@@ -12,7 +12,7 @@ Usage:
                           [--eval "expr" ...] [--click X,Y] [--key Key]
                           [--step KIND:ARG ...] [--eval-timeout 30]
                           [--width 1440 --height 900] [--mobile] [--virtual-time] [--json]
-                          [--ready [EXPR]]
+                          [--ready [EXPR] [--ready-strict]]
 
 Order: navigate -> --wait (or --ready, below) -> --click/--key (+ --after-wait) -> fps over --fps s -> --eval list
 -> --step list (eval:EXPR | click:X,Y | clickat:EXPR returning [x,y] | key:KEY | wait:S | size:WxH
@@ -29,16 +29,21 @@ navigation count as "not yet". Bare --ready stands for: the embedded fonts are l
 frame has been painted after both. The report says under "ready" what was asked, whether it was met, after how many seconds
 and in how many probes. Not with --virtual-time (no frame is ever drawn). A site that depends on time passing (an animation,
 a poll count, the fps pass) keeps the plain --wait.
+--ready-strict (only with --ready): a condition still unmet when --wait runs out ends the run with exit code 3, after the evals
+have run and the report is written. Without it an unmet --ready shows only as "met": false in the report and the exit code stays
+0 (tools/regress.d/cdp-ready.sh pins that), so a caller that does not read ready.met can take a run on the page's built-in demo
+sky for one on its capture. A caller that reads no report passes --ready-strict.
 
 Exit code 0 on success (even if the page logged errors -- check the report),
-1 on driver failure. The report (JSON) lists console entries, exceptions,
+1 on driver failure, 3 for an unmet --ready under --ready-strict. SIGTERM and SIGHUP end the run as 143 and 129, Chrome stopped
+and its profile removed first. The report (JSON) lists console entries, exceptions,
 eval results (--eval, then eval/clickat steps, in order) and measured fps.
 It also lists every request the page actually made (CDP Network domain) under "requests":
 [{method, url, type}], in the order sent: redirects and sendBeacon pings included, url cut to 200 characters,
 a WebSocket as {method: "WEBSOCKET"}. That is the run-time evidence the passivity rows of tools/regress.sh
 lack (they read the source text); tools/harness.sh net_verdict judges it. Additive: no consumer reads it strictly.
 """
-import argparse, base64, json, os, socket, struct, subprocess, sys, tempfile, time, urllib.request
+import argparse, base64, json, os, signal, socket, struct, subprocess, sys, tempfile, time, urllib.request
 
 # bare --ready: the embedded fonts are loaded, the page's script has run (window.STARCHORUS) and a frame was painted after both
 READY_DEFAULT = "document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS))))"
@@ -53,7 +58,7 @@ CHROME_CANDIDATES = [
 
 def find_chrome():
     for c in CHROME_CANDIDATES:
-        if c and os.path.exists(c):
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):   # a file Chrome cannot be started from would only fail later, in Popen
             return c
     sys.exit("no chrome binary found; set CHROME_BIN")
 
@@ -78,6 +83,7 @@ class WS:
                 raise RuntimeError("websocket handshake failed")
             buf += chunk
         head, _, self.rbuf = buf.partition(b"\r\n\r\n")
+        self.partial = b""   # the fragments received so far of a message that is not yet complete (see recv)
         if b" 101 " not in head.split(b"\r\n")[0]:
             raise RuntimeError("websocket upgrade refused: " + head.decode(errors="replace"))
 
@@ -96,31 +102,42 @@ class WS:
         masked = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
         self.sock.sendall(bytes(hdr) + masked)
 
-    def _read_exact(self, n):
+    def _need(self, n):
+        """Buffers at least n bytes in rbuf and takes none out. A socket.timeout leaves rbuf as it is, so the caller can ask again."""
         while len(self.rbuf) < n:
             chunk = self.sock.recv(max(65536, n - len(self.rbuf)))
             if not chunk:
                 raise RuntimeError("websocket closed")
             self.rbuf += chunk
-        out, self.rbuf = self.rbuf[:n], self.rbuf[n:]
-        return out
 
     def recv(self):
-        """Returns the next complete text message (handles fragmentation, ping, close)."""
-        message = b""
+        """Returns the next complete text message (handles fragmentation, ping, close).
+
+        Transactional: a frame is taken out of rbuf only once all of it (header, length, mask, payload) is there, and the
+        fragments of a message so far wait in self.partial. A socket.timeout at any point therefore leaves the stream in step
+        and the next call carries on. pump() and the vtime loop read with a short timeout and ask again; reading the header on
+        its own lost it (or the first fragment) whenever a frame was split across a stall, and the payload was then parsed as
+        a header."""
         while True:
-            b0, b1 = self._read_exact(2)
+            self._need(2)
+            b0, b1 = self.rbuf[0], self.rbuf[1]
             fin, opcode = b0 & 0x80, b0 & 0x0F
-            n = b1 & 0x7F
+            n, pos = b1 & 0x7F, 2   # pos: where the mask, or without one the payload, begins
             if n == 126:
-                n = struct.unpack(">H", self._read_exact(2))[0]
+                self._need(4)
+                n, pos = struct.unpack(">H", self.rbuf[2:4])[0], 4
             elif n == 127:
-                n = struct.unpack(">Q", self._read_exact(8))[0]
+                self._need(10)
+                n, pos = struct.unpack(">Q", self.rbuf[2:10])[0], 10
             if b1 & 0x80:  # server frames are never masked, but be safe
-                mask = self._read_exact(4)
-                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(self._read_exact(n)))
+                self._need(pos + 4 + n)
+                mask = self.rbuf[pos:pos + 4]
+                pos += 4
+                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(self.rbuf[pos:pos + n]))
             else:
-                payload = self._read_exact(n)
+                self._need(pos + n)
+                payload = self.rbuf[pos:pos + n]
+            self.rbuf = self.rbuf[pos + n:]   # the whole frame is here: only now does it leave the buffer
             if opcode == 0x8:
                 raise RuntimeError("websocket closed by peer")
             if opcode == 0x9:  # ping -> pong
@@ -128,8 +145,9 @@ class WS:
                 continue
             if opcode == 0xA:
                 continue
-            message += payload
+            self.partial += payload
             if fin:
+                message, self.partial = self.partial, b""
                 return message.decode()
 
 
@@ -210,6 +228,9 @@ def main():
     ap.add_argument("--ready", nargs="?", const=READY_DEFAULT, default=None, metavar="EXPR",
                     help="go on as soon as EXPR (JS, polled every 0.1 s, a promise awaited) is truthy instead of sleeping the whole "
                          "--wait, which stays the ceiling; bare: fonts loaded, STARCHORUS present, a frame painted")
+    ap.add_argument("--ready-strict", action="store_true",
+                    help="with --ready: exit 3 when the condition is still unmet after --wait (the report is written and the evals "
+                         "have run); without it an unmet --ready only shows as ready.met false and the exit code stays 0")
     ap.add_argument("--fps", type=float, default=2.0, help="seconds over which to count animation frames (0 = skip)")
     ap.add_argument("--eval", action="append", default=[], help="JS expression to evaluate after wait (repeatable)")
     ap.add_argument("--click", action="append", default=[], help="X,Y css px to click after wait (repeatable)")
@@ -230,20 +251,31 @@ def main():
     args = ap.parse_args()
     if args.ready is not None and args.virtual_time:
         sys.exit("--ready needs a running clock (frames, timers): not with --virtual-time")
+    if args.ready_strict and args.ready is None:
+        sys.exit("--ready-strict has nothing to be strict about without --ready")
+
+    # SIGTERM and SIGHUP would end the process on the spot, before the finally below could stop Chrome and remove its profile:
+    # Chrome ran on and the profile stayed in the temp directory. As SystemExit they run it, as SIGINT (KeyboardInterrupt) does.
+    def die(signum, _frame):
+        sys.exit(128 + signum)
+    sigs = (signal.SIGTERM, signal.SIGHUP)
+    for s in sigs:
+        signal.signal(s, die)
 
     chrome = find_chrome()
-    profile = tempfile.mkdtemp(prefix="starchorus-cdp-")
-    # Port 0 = Chrome picks a free port and writes it to <profile>/DevToolsActivePort. A fixed,
-    # pid-derived port could collide with a concurrent run and silently drive the OTHER Chrome.
-    proc = subprocess.Popen([
-        chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-        "--hide-scrollbars", "--mute-audio", "--disable-extensions", "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding", "--remote-debugging-port=0",
-        "--remote-allow-origins=*", "--user-data-dir=" + profile,
-        "--window-size=%d,%d" % (args.width, args.height), "about:blank",
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    profile = proc = None   # set inside the try, so that a failure on the way (mkdtemp, Popen) still reaches the cleanup
     report = {"url": args.url, "console": [], "exceptions": [], "eval": [], "fps": None, "requests": []}
     try:
+        profile = tempfile.mkdtemp(prefix="starchorus-cdp-")
+        # Port 0 = Chrome picks a free port and writes it to <profile>/DevToolsActivePort. A fixed,
+        # pid-derived port could collide with a concurrent run and silently drive the OTHER Chrome.
+        proc = subprocess.Popen([
+            chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+            "--hide-scrollbars", "--mute-audio", "--disable-extensions", "--disable-background-timer-throttling",
+            "--disable-renderer-backgrounding", "--remote-debugging-port=0",
+            "--remote-allow-origins=*", "--user-data-dir=" + profile,
+            "--window-size=%d,%d" % (args.width, args.height), "about:blank",
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         port = None
         for _ in range(200):
             try:
@@ -402,13 +434,18 @@ def main():
                 e = p.get("entry", {})
                 report["console"].append({"type": e.get("level"), "source": e.get("source"), "text": e.get("text"), "url": e.get("url")})
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except Exception:
-            proc.kill()
-        if not args.keep_profile:
+        for s in sigs:   # a second signal must not cut the cleanup short (a few seconds at most)
+            signal.signal(s, signal.SIG_IGN)
+        if proc is not None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                proc.kill()
+        if profile is not None and not args.keep_profile:
             subprocess.call(["rm", "-rf", profile])
+        for s in sigs:
+            signal.signal(s, signal.SIG_DFL)
 
     errors = [c for c in report["console"] if c.get("type") in ("error", "assert")] + report["exceptions"]
     report["error_count"] = len(errors)
@@ -428,6 +465,9 @@ def main():
             print("eval:", e["expr"][:80], "=>", json.dumps(e["value"])[:400])
         if report.get("screenshot"):
             print("screenshot: ", report["screenshot"])
+    if args.ready_strict and not report["ready"]["met"]:   # after the report: it says what was asked and what the probes saw
+        print("cdp.py: --ready not met within --wait %g s (--ready-strict): exit 3" % args.wait, file=sys.stderr)
+        return 3
     return 0
 
 
