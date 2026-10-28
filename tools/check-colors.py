@@ -18,7 +18,7 @@ Stdlib only, no network; a dev-machine tool (nothing here runs on the device).
 Rules (role -> token paths -> rule), the table of §4.1:
   band       band.{2.4,5,6}.core            OKLCH hue 2.4 in 140-190, 5 in 220-265, 6 in 285-315; pairwise dE >= 15
   unknown    band.unknown.core              chroma < 0.05; dE >= 10 to status.ringNeutral and render.bubbleStroke
-  alarm      status.alarm                   dE >= 15 to band cores, selection, pin, chrome, aggregate
+  alarm      status.alarm                   dE >= 15 to band cores, selection, pin (ink.secondary), chrome, aggregate
   alert      status.alert                   OKLCH hue 15-40 (red); dE >= 15 to band cores and selection (it may equal the alarm: Whitehall's does)
   bt         render.btMark                  OKLCH hue 325-360; dE >= 15 to band cores, alarm, selection, chrome and render.clientCore;
                                             dE >= 10 to band.unknown.core, status.ringNeutral and status.hidden
@@ -26,7 +26,9 @@ Rules (role -> token paths -> rule), the table of §4.1:
   chrome     chrome.*, accent.toggle*       dE >= 15 to band cores and alarm
   aggregate  render.bubbleStroke, line.edge.color, render.nebula, line.device      chroma < 0.05
   ornament   particles.color, glow.color, accent.flare, render.starfield.color, look.clock.*   dE >= 8 to alarm
-Fully transparent or null tokens carry no colour and are skipped.
+Fully transparent or null tokens carry no colour and are skipped. A string that starts with #, rgb or hsl but is not
+one of #rrggbb, rgb(r, g, b) or rgba(r, g, b, a) (so #rgb, #rrggbbaa, rgb(r g b / a), hsl(...)) cannot be measured: it is a
+FAIL (role input), never skipped.
 """
 import itertools
 import json
@@ -39,6 +41,7 @@ BANDS = ("2.4", "5", "6")
 HUE = {"2.4": (140, 190), "5": (220, 265), "6": (285, 315)}
 HEX = re.compile(r"^#([0-9a-fA-F]{6})$")
 RGBA = re.compile(r"^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$")
+COLOURISH = re.compile(r"^\s*(#|rgb|hsl)", re.I)   # a string that claims to be a colour; if parse() cannot read it, it is reported, not dropped
 
 
 def parse(c):
@@ -113,6 +116,18 @@ def leaves(t, path, out):
         out.append(path)
 
 
+def unreadable(v, path, out):
+    """Appends (path, value) for every string under v that looks like a colour (COLOURISH) but parse() cannot read."""
+    if isinstance(v, dict):
+        for k in v:
+            unreadable(v[k], path + "." + k if path else k, out)
+    elif isinstance(v, list):
+        for i, x in enumerate(v):
+            unreadable(x, "%s[%d]" % (path, i), out)
+    elif isinstance(v, str) and COLOURISH.match(v) and parse(v) is None:
+        out.append((path, v))
+
+
 def check(themes):
     rows = []
 
@@ -124,6 +139,10 @@ def check(themes):
         if not isinstance(t, dict):
             rec(th, "input", False, "theme missing")
             continue
+        bad = []
+        unreadable(t, "", bad)
+        for path, v in bad:   # every other rule skips a token it cannot read, so this is the one place that says so
+            rec(th, "input", False, "%s unreadable colour %r (want #rrggbb, rgb(r, g, b) or rgba(r, g, b, a))" % (path, v[:40]))
         base = parse(get(t, "surface.base"))
         if base is None:
             rec(th, "input", False, "surface.base unreadable")
@@ -149,6 +168,7 @@ def check(themes):
             return [p for p in out if col(p)]
 
         sel = [p for p in ("accent.selection", "accent.focusRing") if col(p)]
+        pin = [p for p in ("ink.secondary",) if col(p)]   # the pin mark's notched arc (docs/architecture.md D5)
         chrome_paths = expand(("chrome", "accent.toggleOn", "accent.toggleInk", "accent.toggleBorder"))
         agg = [p for p in ("render.bubbleStroke", "line.edge.color", "render.nebula", "line.device") if col(p)]
         orn = expand(("particles.color", "glow.color", "accent.flare", "render.starfield.color", "look.clock"))
@@ -186,11 +206,13 @@ def check(themes):
                 if band[b] is not None:
                     d = dE(alarm, band[b])
                     rec(th, "alarm", d >= 15, "dE alarm vs band %s = %.1f (>= 15)" % (b, d))
-            for p in sel + chrome_paths + agg:
+            for p in sel + pin + chrome_paths + agg:
                 o = flat(p)
                 if o is not None:
                     d = dE(alarm, o)
                     rec(th, "alarm", d >= 15, "dE alarm vs %s = %.1f (>= 15)" % (p, d))
+        if not pin:
+            rec(th, "alarm", False, "ink.secondary (the pin mark) missing")
 
         # alert: the ring of an alerted access point (the firmware's deauth/disassoc alert) is red, and apart from the data bands and from selection
         alert = flat("status.alert")
@@ -275,6 +297,25 @@ def selftest():
     eq("hue(red)", h, 29.23, 0.2)
     eq("over(50% white on black) L", oklab(over((255, 255, 255, 0.5), black))[0], oklab((128, 128, 128))[0], 0.005)
     eq("get band.2.4.core", 1.0 if get({"band": {"2.4": {"core": "#000"}}}, "band.2.4.core") == "#000" else 0.0, 1.0, 0)
+
+    # what the validator must not drop silently: a token it cannot read, and the pin in the alarm comparison. A bare-bones token
+    # set (one chrome token, the pin, the alarm, a surface) is enough; every other role is red for its missing tokens and ignored here.
+    def mini(chrome_ink, pin):
+        t = {"surface": {"base": "#000000"}, "status": {"alarm": "#e0b95a"}, "chrome": {"ink": chrome_ink}}
+        if pin is not None:
+            t["ink"] = {"secondary": pin}
+        return {th: t for th in THEMES}
+
+    def named(themes, role, word, ok):
+        return sum(1 for _th, r, good, msg in check(themes)[0] if r == role and word in msg and good == ok)
+
+    for bad_tok in ("#e0b95aff", "#eb5", "rgb(224 185 90)", "hsl(41, 70%, 62%)"):
+        eq("unreadable %s is a FAIL, one per theme" % bad_tok, named(mini(bad_tok, "#9aa7c4"), "input", "unreadable colour", False), 3, 0)
+    eq("a readable token is not reported unreadable", named(mini("#e0b95a", "#9aa7c4"), "input", "unreadable colour", False), 0, 0)
+    eq("rgba() and transparent are not reported unreadable", named(mini("rgba(224, 185, 90, 0.5)", "transparent"), "input", "unreadable colour", False), 0, 0)
+    eq("alarm vs a distant pin is measured, one row per theme", named(mini("#e0b95a", "#9aa7c4"), "alarm", "ink.secondary", True), 3, 0)
+    eq("alarm vs a pin of the alarm colour is a FAIL, one per theme", named(mini("#e0b95a", "#e0b95a"), "alarm", "ink.secondary", False), 3, 0)
+    eq("no pin token is a FAIL, one per theme", named(mini("#e0b95a", None), "alarm", "ink.secondary", False), 3, 0)
     print("selftest %s" % ("FAILED (%d)" % fails if fails else "ok"))
     return 1 if fails else 0
 

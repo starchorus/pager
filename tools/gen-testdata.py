@@ -812,9 +812,10 @@ def validate_bluetooth(bt):
         a = b.get("addr")
         if not (isinstance(a, str) and re.fullmatch(r"[0-9a-f]{2}(:[0-9a-f]{2}){5}", a)):
             p.append(w + ": addr must be a lower-case xx:xx:xx:xx:xx:xx string")
-        elif a in seen:
-            p.append(w + ": duplicate addr")
-        seen.add(a)
+        else:   # only a valid string is hashed: a list or an object as addr is a problem to report, not a crash
+            if a in seen:
+                p.append(w + ": duplicate addr")
+            seen.add(a)
         if b.get("addr_type") not in BT_TYPES:
             p.append("%s: addr_type must be one of %s" % (w, ", ".join(BT_TYPES)))
         for k in ("rssi", "last_seen"):
@@ -852,6 +853,11 @@ def validate_activity(act):
     if sum(e["share"] for e in act if isinstance(e, dict) and isinstance(e.get("share"), (int, float))) > 1.0001:
         p.append("activity shares sum to more than 1")
     return p
+
+
+def whole(v):
+    """True for an integer that is not a bool (JSON true/false are Python ints as well)."""
+    return isinstance(v, int) and not isinstance(v, bool)
 
 
 def validate(doc, legacy=False):
@@ -920,9 +926,14 @@ def validate(doc, legacy=False):
         if not isinstance(c, dict) or "mac" not in c or "rssi" not in c:
             p.append("%s: client needs mac+rssi" % where)
             return
-        if c["mac"] in macs:
-            p.append("%s: duplicate mac %s" % (where, c["mac"]))
-        macs.add(c["mac"])
+        if not isinstance(c["mac"], str):   # not hashed: a list or an object as mac is a problem to report, not a crash
+            p.append("%s: mac must be a string" % where)
+        else:
+            if c["mac"] in macs:
+                p.append("%s: duplicate mac %s" % (where, c["mac"]))
+            macs.add(c["mac"])
+        if not (c["rssi"] is None or whole(c["rssi"])):   # a station without a signal carries null (clouds.json, devices.json)
+            p.append("%s: rssi must be an integer or null" % where)
         extra = set(c) - {"mac", "rssi"} - OPT_CL
         if extra:
             p.append("%s: unknown client keys %s" % (where, sorted(extra)))
@@ -937,9 +948,20 @@ def validate(doc, legacy=False):
             p.append(w + ": not an object")
             continue
         p += ["%s: missing %r" % (w, k) for k in AP_KEYS if k not in ap]
-        if ap.get("bssid") in macs:
-            p.append("%s: duplicate bssid" % w)
-        macs.add(ap.get("bssid"))
+        if "bssid" in ap and not isinstance(ap["bssid"], str):   # not hashed: a list or an object as bssid is a problem to report, not a crash
+            p.append("%s: bssid must be a string" % w)
+        else:   # a missing bssid is reported above and still counts once, as before
+            if ap.get("bssid") in macs:
+                p.append("%s: duplicate bssid" % w)
+            macs.add(ap.get("bssid"))
+        for k in ("ssid", "security"):   # the collector writes both as strings (an unnamed network is "", never null)
+            if k in ap and not isinstance(ap[k], str):
+                p.append("%s: %s must be a string" % (w, k))
+        for k in ("channel", "freq", "rssi"):   # whole numbers; the collector writes null when a source gives none
+            if k in ap and not (ap[k] is None or whole(ap[k])):
+                p.append("%s: %s must be an integer or null" % (w, k))
+        if "clients" in ap and not isinstance(ap["clients"], list):
+            p.append("%s: clients must be an array" % w)
         if ap.get("band") not in ("", None) + BANDS:
             p.append("%s: odd band %r" % (w, ap.get("band")))
         extra = set(ap) - set(AP_KEYS) - OPT_AP
@@ -954,7 +976,7 @@ def validate(doc, legacy=False):
             p.append("%s: cipher must be {group?, pairwise?}" % w)
         if "responded_ssids" in ap and not (isinstance(ap["responded_ssids"], int) and ap["responded_ssids"] >= 2):
             p.append("%s: responded_ssids must be an integer >= 2 (the collector omits 1)" % w)
-        for j, c in enumerate(ap.get("clients") or []):
+        for j, c in enumerate(ap["clients"] if isinstance(ap.get("clients"), list) else []):
             chk_client(c, "%s.clients[%d]" % (w, j))
     for j, c in enumerate(doc["unassociated"]):
         chk_client(c, "unassociated[%d]" % j)
@@ -1038,8 +1060,8 @@ def main(argv=None):
             print("PROBLEM:", x)
         aps = doc.get("aps", [])
         print("%s: aps=%d assoc_clients=%d unassociated=%d source=%s %s" % (
-            args.validate, len(aps), sum(len(a.get("clients") or []) for a in aps), len(doc.get("unassociated", [])),
-            doc.get("source"), "FAILED" if probs else "OK"))
+            args.validate, len(aps), sum(len(a["clients"]) for a in aps if isinstance(a, dict) and isinstance(a.get("clients"), list)),
+            len(doc.get("unassociated", [])), doc.get("source"), "FAILED" if probs else "OK"))   # a malformed entry is already in probs: the summary must not crash on it
         return 1 if probs else 0
 
     if args.legacy:
