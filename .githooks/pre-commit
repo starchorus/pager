@@ -44,7 +44,7 @@ trap 'rm -rf "$tmp"' EXIT
 trap 'exit 130' INT TERM HUP
 git checkout-index -a -f --prefix="$tmp/" || { echo "pre-commit: checkout-index of the index failed" >&2; exit 1; }
 [ -f "$tmp/tools/quick.sh" ] || { echo "pre-commit: tools/quick.sh is not in the index, nothing to run (--no-verify to bypass)" >&2; exit 1; }
-unset STARCHORUS_ROOT   # harness.sh would prefer it over the exported tree
+unset STARCHORUS_ROOT STARCHORUS_PREFLIGHT_ONLY   # ROOT: harness.sh would prefer it over the exported tree. PREFLIGHT_ONLY: quick.sh then stops with exit 0 after its preflight, and every commit would pass unchecked
 verdict() {   # verdict OUTFILE RC LABEL: rc 0 prints the summary line and returns; anything else says why and ends the hook with exit 1
   if [ "$2" = 0 ]; then
     tail -n 1 "$1" | sed 's/^/pre-commit: /'
