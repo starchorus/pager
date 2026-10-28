@@ -230,11 +230,30 @@ if [ "$OPS_HOME" -ge 1 ] && [ "$OPS_HOMC" -ge 1 ] && [ "$OPS_HOMO" -ge 1 ]; then
 else row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" FAIL; fi
 OPS_V=$(sed -n 's/^# Version:      \([0-9][0-9A-Za-z.-]*\)$/\1/p' starchorus-collect.sh | head -n 1)
 rowif "collector version 0.2.6 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.2.6 ]
-# --help prints the header's USAGE/CONFIG block whole: first line "USAGE:", last line the end of the STARCHORUS_OUI_FILE entry.
+# --help prints the header's USAGE/CONFIG block whole (first line "USAGE:", up to the end of the STARCHORUS_OUI_FILE entry, which is counted once) and then names
+# every option that block does not reach: 17 STARCHORUS_ names in all (the layers, the alert log, the one active opt-in and the three test roots), the seven layers
+# under "Opt-in layers" each with (default 0) or (default none), the alert log under "On by default" with (default 1) and its window (default 600), and as its last line
+# the note on the one active opt-in. The entries are read joined with their continuation lines, each tagged with its heading (off/on).
 OPS_HLP=$(sh starchorus-collect.sh --help 2>/dev/null)
 OPS_HL1=$(printf '%s\n' "$OPS_HLP" | head -n 1); OPS_HLN=$(printf '%s\n' "$OPS_HLP" | wc -l | tr -d ' ')
-OPS_HLZ=$(printf '%s\n' "$OPS_HLP" | tail -n 1 | grep -c 'one log line\.  (default auto)$')
-rowif "collector --help: USAGE/CONFIG block whole (first [$OPS_HL1], $OPS_HLN lines, ends with the OUI entry: $OPS_HLZ)" [ "$OPS_HL1|$OPS_HLZ" = "USAGE:|1" ]
+OPS_HLZ=$(printf '%s\n' "$OPS_HLP" | grep -c 'one log line\.  (default auto)$')
+OPS_HLE=$(printf '%s\n' "$OPS_HLP" | awk '/^Opt-in layers, each off by default/ { sec = "off"; next }
+    /^On by default:$/ { sec = "on"; next }
+    /^[^ ]/ { if (rec != "") print rec; rec = ""; sec = ""; next }
+    /^  [^ ]/ { if (rec != "") print rec; rec = sec ":" $0; next }
+    /^ / { c = $0; sub(/^ +/, " ", c); rec = rec c; next }
+    END { if (rec != "") print rec }')
+OPS_HLF=0; OPS_HLT=0; OPS_HLM=""; OPS_HLO=0; OPS_HLA=0
+for OPS_HLV in HOPINFO SURVEY SURVEY_IFACE OWN OWN_SSID_FILE HOMING_BSSID APCLI_RO BLUETOOTH BT_WINDOW TRAFFIC ALERTS ALERT_DIR ALERT_WINDOW ALLOW_ACTIVE SYSFS_BT PROC_BT SYSFS_NET; do
+    OPS_HLT=$((OPS_HLT + 1))
+    if printf '%s\n' "$OPS_HLP" | grep -Eq "STARCHORUS_$OPS_HLV([^A-Za-z0-9_]|\$)"; then OPS_HLF=$((OPS_HLF + 1)); else OPS_HLM="$OPS_HLM $OPS_HLV"; fi
+done
+for OPS_HLV in HOPINFO SURVEY OWN HOMING_BSSID APCLI_RO BLUETOOTH TRAFFIC; do
+    OPS_HLO=$((OPS_HLO + $(printf '%s\n' "$OPS_HLE" | grep -Ec "^off:  STARCHORUS_$OPS_HLV +.*\(default (0|none)\)")))
+done
+OPS_HLA=$(printf '%s\n' "$OPS_HLE" | grep -Ec '^on:  STARCHORUS_(ALERTS +.*\(default 1\)|ALERT_WINDOW +.*\(default 600\))')
+OPS_HLX=$(printf '%s\n' "$OPS_HLP" | tail -n 1 | grep -c 'STARCHORUS_ALLOW_ACTIVE=1 (default 0: off)\.$')
+rowif "collector --help: USAGE/CONFIG block whole and the opt-in options named (first [$OPS_HL1], $OPS_HLN lines, OUI entry kept: $OPS_HLZ, names $OPS_HLF of $OPS_HLT${OPS_HLM:+, missing$OPS_HLM}, layers off $OPS_HLO of 7, alert log on $OPS_HLA of 2, ends with the active opt-in note: $OPS_HLX)" [ "$OPS_HL1|$OPS_HLZ|$OPS_HLF/$OPS_HLT|$OPS_HLO|$OPS_HLA|$OPS_HLX" = "USAGE:|1|17/17|7|2|1" ]
 OPS_HB=$(grep -c "^HOMING_BSSID=\${STARCHORUS_HOMING_BSSID:-}" starchorus-collect.sh)
 rowif "homing is opt-in: no target unless STARCHORUS_HOMING_BSSID / homing.target is set ($OPS_HB)" [ "$OPS_HB" = 1 ]
 

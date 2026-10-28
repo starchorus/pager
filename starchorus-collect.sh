@@ -7388,6 +7388,26 @@ KLRL
 usage() {
     # the USAGE/CONFIG block of the header, selected by its first and last line (not by line numbers)
     sed -n '/^# USAGE:$/,/one log line\.  (default auto)$/p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'
+    # The header goes on from there under a heading that calls every flag default OFF, and the alert log is not (default 1), so the rest is
+    # set out here with the true defaults: the same flags as the entries of that part of the header, one line each (the pin in operator-tools.sh lists them).
+    printf '%s\n' '  ./starchorus-collect.sh -h         # the same as --help'
+    printf '%s\n' 'Opt-in layers, each off by default; none of them transmits (each reads, or listens):'
+    printf '%s\n' '  STARCHORUS_HOPINFO         1 = channels[]: when each frequency was last heard (recon.db).  (default 0)'
+    printf '%s\n' '  STARCHORUS_SURVEY          1 = busy_pct / noise per channel, from a read-only survey dump;'
+    printf '%s\n' '                             STARCHORUS_SURVEY_IFACE picks the interface.  (default 0)'
+    printf '%s\n' '  STARCHORUS_OWN             1 = the interface addresses of this device; STARCHORUS_OWN_SSID_FILE'
+    printf '%s\n' '                             lists its own SSIDs, one per line.  (default 0)'
+    printf '%s\n' '  STARCHORUS_HOMING_BSSID    one access point to home in on, or the first line of homing.target in STARCHORUS_OUTDIR.  (default none)'
+    printf '%s\n' '  STARCHORUS_APCLI_RO        1 = the read-only list commands of the AP service (the pineap source sets it itself).  (default 0)'
+    printf '%s\n' '  STARCHORUS_BLUETOOTH       1 = one passive Bluetooth LE listening window per cycle, of STARCHORUS_BT_WINDOW'
+    printf '%s\n' '                             seconds (5 to 15, default 5).  (default 0)'
+    printf '%s\n' '  STARCHORUS_TRAFFIC         1 = the share of frames per frequency; on recon.db also a frame counter per station.  (default 0)'
+    printf '%s\n' 'On by default:'
+    printf '%s\n' '  STARCHORUS_ALERTS          0 = do not read alerts.log (the companion alert payload) from STARCHORUS_ALERT_DIR,'
+    printf '%s\n' '                             default /root/loot/starchorus-alerts.  (default 1)'
+    printf '%s\n' '  STARCHORUS_ALERT_WINDOW    the seconds an alert is kept, 60 to 86400.  (default 600)'
+    printf '%s\n' 'Tests only: STARCHORUS_SYSFS_BT, STARCHORUS_PROC_BT and STARCHORUS_SYSFS_NET name another root for sysfs and /proc.'
+    printf '%s\n' 'Everything here is receive-only except the active scan opt-in, STARCHORUS_ALLOW_ACTIVE=1 (default 0: off).'
 }
 
 # --------------------------------------------------------------------------- main
