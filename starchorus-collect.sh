@@ -216,6 +216,7 @@ VENDOR_NEWF=""      # this instance's temp file of new cache lines (removed by c
 CACHE_LOCKED=0      # lock depth: >0 while this instance holds $OUI_CACHE.lock (released by cleanup)
 VENDOR_STATE=""     # last logged vendor-setup state: setup_vendor logs only when it changes
 STARTED_AIRODUMP=0  # 1 if THIS instance started airodump (only then does cleanup stop it)
+AD_PID=""           # the pid of that airodump: cleanup stops this one, never the one a later start wrote into the shared pidfile
 LOCK_BUDGET=100     # cache_lock: wait at most this long (0.1-s units) for a live holder
 LOCK_BUSY_UNTIL=0   # epoch until which cache writes are skipped after a lock give-up (backoff)
 # Log-once flags: an episode (a run of cycles with the same failure) is logged once; the flag clears when it ends.
@@ -450,6 +451,45 @@ kill_loops() {
             fi
         fi
         kill "$p" 2>/dev/null
+    done
+}
+
+# The pids of the `sleep` children of pid $1, one per line: field 4 of /proc/PID/stat is the parent, the name field the command
+# (bt_statf); `ps` where there is no /proc (a development machine). The payload's pl_kids finds the same processes.
+loop_naps() {
+    if [ -r /proc/self/stat ]; then
+        for ln_f in /proc/[0-9]*/stat; do
+            bt_statf "$ln_f" || continue
+            [ "$BT_ST_PPID" = "$1" ] && [ "$BT_ST_COMM" = sleep ] || continue
+            ln_p=${ln_f%/stat}; printf '%s\n' "${ln_p##*/}"
+        done
+    else
+        ps -A -o pid= -o ppid= -o comm= 2>/dev/null | awk -v p="$1" '$2 == p && ($3 == "sleep" || $3 ~ /\/sleep$/) { print $1 }'
+    fi
+}
+
+# Daemon start-up: kill_loops replace, then wait, at most $1 seconds, until the loops it stopped have gone. Their cleanup stops their own
+# airodump and removes the monitor interface they made: this start must take neither over before that (it would capture on an interface
+# that is about to go). A loop sleeps in the foreground, and BusyBox ash runs its TERM trap only when that sleep returns, so each poll ends
+# the sleep children of every loop still there (loop_naps), as the payload's stop does (pl_kill_sleeps): a replaced loop then goes at once,
+# whatever interval it sleeps, and only one in the middle of a step (a tcpdump burst) takes longer. A signal to our own processes only.
+# The pids are read before the TERM, as kill_loops reads them; one that no longer runs this script is gone (pid_ours). 0 = none left,
+# 1 = one still runs after the wait (said once).
+replace_loops() {
+    # shellcheck disable=SC2009  # see kill_loops()
+    rl_old=$(ps w 2>/dev/null | grep "$SELF_BASE" | grep -v grep | grep -v -- '--' | awk '{print $1}')
+    kill_loops replace
+    rl_n=0
+    while :; do
+        rl_left=""
+        for rl_p in $rl_old; do [ "$rl_p" != "$$" ] && pid_ours "$rl_p" "$SELF_BASE" && rl_left="$rl_left $rl_p"; done
+        [ -n "$rl_left" ] || return 0
+        if [ "$rl_n" -ge "$1" ]; then
+            log "replaced collector loop(s)$rl_left still running after ${1}s; a monitor interface such a loop made goes when it ends"
+            return 1
+        fi
+        for rl_p in $rl_left; do for rl_s in $(loop_naps "$rl_p"); do kill "$rl_s" 2>/dev/null; done; done
+        sleep 1; rl_n=$((rl_n + 1))
     done
 }
 
@@ -688,7 +728,7 @@ start_airodump() {
     # --background 1 avoids curses; stdout/err are discarded.
     airodump-ng --write-interval 2 --output-format csv --background 1 \
         -w "$CAPPREFIX" "$MONIF" >/dev/null 2>&1 &
-    echo $! > "$AIRODUMP_PIDFILE"
+    AD_PID=$!; echo "$AD_PID" > "$AIRODUMP_PIDFILE"
     CAP_METHOD="airodump"; STARTED_AIRODUMP=1
     log "started passive airodump-ng (pid $(cat "$AIRODUMP_PIDFILE")) on $MONIF"
     return 0
@@ -712,10 +752,10 @@ cleanup() {
     if [ "$BT_ARM" = s ] && [ -z "$BT_SPID" ]; then BT_SPID=$bt_last; fi
     trap - INT TERM HUP EXIT
     [ -z "$BT_MPID$BT_SPID" ] || bt_end abort
-    if [ "$STARTED_AIRODUMP" = "1" ] && [ -f "$AIRODUMP_PIDFILE" ]; then
-        p=$(cat "$AIRODUMP_PIDFILE" 2>/dev/null)
-        pid_ours "$p" airodump && kill "$p" 2>/dev/null
-        rm -f "$AIRODUMP_PIDFILE"
+    # the airodump THIS instance started, by its own pid; the shared pidfile only while it still names that one (a later start may have written its own)
+    if [ "$STARTED_AIRODUMP" = "1" ] && [ -n "$AD_PID" ]; then
+        pid_ours "$AD_PID" airodump && kill "$AD_PID" 2>/dev/null
+        [ "$(cat "$AIRODUMP_PIDFILE" 2>/dev/null)" = "$AD_PID" ] && rm -f "$AIRODUMP_PIDFILE"
     fi
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
     # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal (each post-pass's own:
@@ -7295,6 +7335,12 @@ trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 129' HUP
 trap cleanup EXIT
 
+# Daemon start: one collector per device. Every other collector loop is stopped and waited for (replace_loops) BEFORE this run picks a
+# monitor interface or starts airodump, so that the cleanup of a replaced loop cannot take either away from it. Its sleep is ended, so
+# it goes within about a second; the bound covers one in the middle of a cycle's step, and a margin for its cleanup. The loop pidfile
+# is still written only once the source is resolved and the capture runs (the payload's start counts it as "up" and allows about 10 s).
+[ "$1" = "--once" ] || replace_loops $((INTERVAL + 15))
+
 # Locate the local OUI file + cache once (logs once if none; never fatal).
 setup_vendor
 
@@ -7336,11 +7382,9 @@ if [ "$1" = "--once" ]; then
     exit 1
 fi
 
-# Daemon loop. Idempotent start: stop ANY collector loop already running for this script first
-# (pidfile-tracked or orphaned) so repeated starts -- e.g. re-running the payload -- never stack
-# duplicate loops fighting over one starchorus.json. kill_loops() skips our own PID and reports every
-# other collector loop it replaces (one collector per device).
-kill_loops replace
+# Daemon loop. Idempotent start: every collector loop already running for this script (pidfile-tracked or orphaned) was stopped at
+# the start (replace_loops), so repeated starts -- e.g. re-running the payload -- never stack duplicate loops fighting over one
+# starchorus.json. kill_loops() skips our own PID and reports every other collector loop it replaces (one collector per device).
 sweep_stale_cache_files
 bt_sweep
 sweep_stale_workcopies
