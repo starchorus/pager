@@ -53,7 +53,8 @@ def num(x):
 
 
 def ctl(x, n):
-    return "" if x is None else re.sub(r"[\x00-\x1f\x7f]", "", str(x))[:n]
+    """The page's stripCtl(): the same character class (C0, DEL and C1 controls, zero-width, bidi and word-joiner marks, the BOM), then cut to n."""
+    return "" if x is None else re.sub(r"[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]", "", str(x))[:n]
 
 
 def mac(x):
@@ -65,8 +66,8 @@ def band_of(band, freq, ch):
     b = re.sub(r"\s*ghz$", "", str(band if band is not None else "").strip(), flags=re.I)
     if b in BANDS:
         return b
-    if freq is not None:
-        return "6" if freq >= 5925 else "5" if freq >= 5000 else "2.4" if freq >= 2400 else "unknown"
+    if freq is not None and freq >= 2400:                 # a frequency below 2400 MHz decides nothing: the channel is asked, as the page does
+        return "6" if freq >= 5925 else "5" if freq >= 5000 else "2.4"
     if ch is not None:
         return "6" if ch > 177 else "5" if 32 <= ch <= 177 else "2.4" if 1 <= ch <= 14 else "unknown"
     return "unknown"
@@ -309,6 +310,18 @@ HAND = {
     # empty SSID = hidden (2 APs), a blank "  " SSID is not hidden but has no group key; no group, no ESS from either
     "hand-hidden": (_doc([_ap("44:4e:6d:00:00:10", "", "2.4", 6), _ap("58:97:bd:00:00:01", "", "5", 36), _ap("9c:3d:cf:00:00:01", "  ", "5", 40)]),
                     {"devices": [], "ess": [], "apsTotal": 3, "assoc": 0, "free": 0, "groups": 0, "hidden": 2}),
+    # the page's stripCtl() removes more than the C0 controls: C1 controls, zero-width marks, bidi controls, the word joiner and the BOM go too, and
+    # the name that is left is what groups. "Net" plain and "Net" with one character of each of those classes added (zero-width space, C1 NEL, right-to-left
+    # override, BOM, word joiner), six boxes of distinct OUIs: one name, so one ESS of 6 APs on 6 devices and one group (six names would be no group at all)
+    "hand-ctl-ess": (_doc([_ap("44:4e:6d:00:00:10", "Net", "5", 36, rssi=-50), _ap("58:97:bd:00:00:01", "Net\u200b", "5", 40, rssi=-55),
+                           _ap("9c:3d:cf:00:00:01", "N\u0085et", "5", 44, rssi=-60), _ap("24:de:c6:00:00:01", "Net\u202e", "5", 48, rssi=-65),
+                           _ap("f0:9f:c2:00:00:01", "\ufeffNet", "5", 52, rssi=-70), _ap("b8:ec:a3:00:00:01", "Net\u2060", "5", 56, rssi=-75)]),
+                    {"devices": [], "ess": [("Net", 6, 6)], "apsTotal": 6, "assoc": 0, "free": 0, "groups": 1, "hidden": 0}),
+    # a name made only of such characters is empty after the strip: hidden, and no group key. Three of them on three boxes (a lone zero-width space twice,
+    # then a right-to-left override with a word joiner and a BOM) beside one plain name: 3 hidden, no group, no ESS (the same invisible name twice would be a group)
+    "hand-ctl-hidden": (_doc([_ap("44:4e:6d:00:00:10", "\u200b", "5", 36), _ap("58:97:bd:00:00:01", "\u200b", "5", 40),
+                              _ap("9c:3d:cf:00:00:01", "\u202e\u2060\ufeff", "5", 44), _ap("24:de:c6:00:00:01", "Plain", "5", 48)]),
+                        {"devices": [], "ess": [], "apsTotal": 4, "assoc": 0, "free": 0, "groups": 0, "hidden": 3}),
     # security words and bands: WPA2/WPA3 -> wpa3-transition, OWE -> owe, WEP -> wep, Secured -> wpa, "" -> open, other -> unknown;
     # 2412 MHz -> 2.4, 5180 -> 5, 5955 -> 6, neither channel nor freq nor band -> unknown (counted in no band)
     "hand-sec": ({"generated": 1789300000, "center": {"label": "hand"}, "source": "recon-db", "unassociated": [], "aps": [
@@ -356,16 +369,20 @@ HAND = {
                       {"devices": [], "ess": [], "apsTotal": 10, "assoc": 0, "free": 0, "groups": 0, "alarms": 3,
                        "security": {"open": 3, "wep": 0, "wpa": 2, "wpa2": 3, "wpa3": 1, "owe": 0, "enterprise": 0, "wpa3-transition": 0, "tkip-weak": 1, "unknown": 0}}),
     # the band of an AP without a band word: from the channel (1..14 -> 2.4, 32..177 -> 5, 178.. -> 6, anything between or below is unknown),
-    # from the frequency (>= 2400 -> 2.4, >= 5000 -> 5, below 2400 unknown), the frequency before the channel, the band word before both
-    # (also with a space before "GHz"). 15 APs, one per case, distinct OUIs: 2.4 = ch 1, ch 14, 2400 MHz, 4999 MHz (the rule as written: below 5000
-    # and from 2400 is 2.4), freq-before-channel (5); 5 = ch 32, ch 177, 5000 MHz, band-word-before-freq (4); 6 = ch 178, ch 233, "6 GHz" (3); unknown = ch 15, ch 31, 2399 MHz (3, in no band)
+    # from the frequency (>= 2400 -> 2.4, >= 5000 -> 5; below 2400 decides nothing and falls through to the channel, unknown only if that says
+    # nothing either), the frequency before the channel, the band word before both (also with a space before "GHz"). 17 APs, one per case,
+    # distinct OUIs: 2.4 (6) = ch 1, ch 14, 2400 MHz, 4999 MHz (the rule as written: below 5000 and from 2400 is 2.4), freq-before-channel,
+    # 0 MHz with ch 6 (a frequency below 2400 falls through to the channel); 5 (5) = ch 32, ch 177, 5000 MHz, band-word-before-freq,
+    # 2399 MHz with ch 36 (the fall-through lands on another band than 2.4); 6 (3) = ch 178, ch 233, "6 GHz";
+    # unknown (3, in no band) = ch 15, ch 31, 2399 MHz without a channel
     "hand-bands": ({"generated": 1789300000, "center": {"label": "hand"}, "source": "recon-db", "unassociated": [], "aps": [
         {"bssid": "44:4e:6d:%02x:00:01" % (32 + i), "ssid": "B%d" % i, "security": "WPA2", "rssi": -50, "clients": [], **kw} for i, kw in enumerate([
             {"channel": 1}, {"channel": 14}, {"freq": 2400}, {"freq": 4999}, {"freq": 2412, "channel": 36},
             {"channel": 32}, {"channel": 177}, {"freq": 5000}, {"band": "5GHz", "freq": 2412},
             {"channel": 178}, {"channel": 233}, {"band": "6 GHz"},
-            {"channel": 15}, {"channel": 31}, {"freq": 2399}])]},
-                   {"devices": [], "ess": [], "apsTotal": 15, "assoc": 0, "free": 0, "groups": 0, "bands": {"2.4": 5, "5": 4, "6": 3}}),
+            {"channel": 15}, {"channel": 31}, {"freq": 2399},
+            {"freq": 0, "channel": 6}, {"freq": 2399, "channel": 36}])]},
+                   {"devices": [], "ess": [], "apsTotal": 17, "assoc": 0, "free": 0, "groups": 0, "bands": {"2.4": 6, "5": 5, "6": 3}}),
     # a radio pair needs BOTH bands known: the same box by every other hint (same OUI, byte 5 ten apart, SSID base equal) is NOT one device when
     # the lower AP has no band (pair 1) or the higher AP has none (pair 2)
     "hand-unkband": (_doc([_ap("44:4e:6d:40:00:10", "Zed", None, None), _ap("44:4e:6d:40:00:1a", "Zed_5G", "5", 44),
