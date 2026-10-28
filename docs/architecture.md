@@ -747,7 +747,7 @@ lx, lz    = polar(homeAngle, homeR + jitterR)                          // starti
 | Obstacle | Radius (centre → edge kept clear) |
 |---|---|
 | Star without clients | `starZonePx(ap) = max(3.0·basePxMax(ap), basePxMax(ap) + starZoneExtraPx)` (glow up to 3·basePx, hidden ring up to basePx + 10, glyph/badge up to + 18) |
-| Star with clients | `max(starZonePx(ap), orbitZonePx(ap))` with `orbitZonePx = orbitRcap(ap) + clientMinDistPx/2` (single orbits) or `72 + clientMinDistPx/2` (hex cluster from `hexAbove`) – free clients never lie on the paths of associated ones |
+| Star with clients | `max(starZonePx(ap), orbitZonePx(ap))` with `orbitZonePx = orbitRcap(ap) + clientMinDistPx/2` (single orbits) or `72 + clientMinDistPx/2` (hex cluster from `hexAbove`; the zone is that of the first lap, so the laps from rank 37 on lie beyond it) – free clients never lie on the paths of associated ones, those outer laps apart |
 | Core | `inner − coreZonePx` |
 | Bubble (§4.6) | `r + bubbleZonePx` – only for **non-members** (members are excluded from the relaxation, no circularity) |
 
@@ -826,7 +826,7 @@ Display (section 28 only): (x, z) → (x·cos θ − z·sin θ, x·sin θ + z·c
 ```
 lane       = rank mod orbitLanes (6); rank = index in the AP's client list sorted by mac
 orbitR     = orbitMinPx (32) + hash(mac + "o")·orbitSpreadPx (18) + lane·orbitRankPx (3)      // 32..65 px
-orbitRcap  = clamp(0.5·distToNearestOtherAp − 4, orbitMinPx, orbitMaxPx (65))                  // from angleT/radiusT, theme-independent
+orbitRcap  = clamp(0.5·distToNearestOtherAp − 4, orbitMinPx, orbitMaxPx (65))                  // from angleT/radiusT of the band-filtered APs placed in this pass, theme-independent
 orbitR     = min(orbitR, orbitRcap)
 orbitPhase = hash(mac)·2π; dir = hash(mac + "d") > 0.5 ? 1 : −1                           // start only for a new orbit (see below)
 orbitSpeed = dir · orbitSpeedBase · (orbitSpeedRefPx / orbitR)^orbitSpeedExp rad/s             // Kepler: faster inside
@@ -838,11 +838,11 @@ phase     += orbitSpeed·liveDt;  wx = ap.wx + cos(phase)·orbitR/maxRadius;  wz
   radius). It is set afresh only for a new orbit: a new client, a different AP, a switch between probe orbit (§8.9) and
   genuine association, or a switch of the AP from hex cluster to lanes.
 - From `hexAbove` (8) clients per AP: hex cluster instead of single orbits: 7 slots at `2·hexBPx`, a further 12 at `3.25·hexBPx`,
-  the rest at 72 px; slot = `rank`; overall rotation `hexSpinRadPerS` about the AP, one direction per AP
+  the rest in laps of 18 slots, the first at 72 px and each further lap 8 px further out; slot = `rank`; overall rotation `hexSpinRadPerS` about the AP, one direction per AP
   (`hash(bssid + "d")`): phase = slot angle + direction · `ap.hexA` (the cluster's rotation since the switch to hex), so that
   a relayout puts every slot at its rotated position and the slots never cross. No client orbit takes part in the spreading
   (the path is the decluttering).
-- Collision with other stars: `orbitRcap` keeps the path below half the distance to the nearest AP; if a slot still lies
+- Collision with other stars: `orbitRcap` keeps the path below half the distance to the nearest other AP whose band is not filtered off (placed in the same pass); if a slot still lies
   in another star's zone, the phase is shifted deterministically by `+π/orbitLanes` (at most 6 attempts).
 - Distinguishability: free = core `render.clientCore` + 1-px border in `surface.base`; associated = additionally a ring in
   the star's `band.core` (D8: the band ring only on genuine association); shape per `render.clientShape` (`disc` or
@@ -1000,9 +1000,10 @@ Preset 2D:     el π/2 − 0.001, dist 20, F = 20·maxRadius (quasi-orthographic
 `S.cam` (§2.6): target (`azT, elT, distT, targetT`) and actual (`az, el, dist, target`). Two kinds of movement:
 - **Easing** (dt-based): `az = easeAngle(az, azT, kAz, dt)`, `el = ease(…, kEl)`, `ln dist = ease(…, kDist)` (log space),
   `target = ease(…, kTarget)`. Drag writes `az/el` **and** `azT/elT` directly (no lag); wheel/buttons set only targets.
-- **Tween** (click focus, reset, view change): `S.cam.tween = {t0: clock, ms, from, to, fn}` with
+- **Tween** (click focus, reset, view change): `S.cam.tween = {e: 0, ms, from, to, fn}` with
   `ms = S.anim.cameraEaseMs`, `fn = S.anim.cameraEasing` (reduced motion: 150 ms linear); per frame
-  `u = fn(clamp((clock − t0)/ms))`, values = `lerp(from, to, u)` (angles by shortest path, dist in log space); actual **and** target
+  `e += dt·1000` (the tween's own elapsed time on the frame step `dt`, not the scene `clock`, so that a pause does not stop it) and
+  `u = fn(clamp(e/ms))`, values = `lerp(from, to, u)` (angles by shortest path, dist in log space); actual **and** target
   are set; drag/wheel/keyboard abort the tween.
 - Limits: `dist ∈ [distMin, distMax]`, `el ∈ [elMin, elMax]`, `az` free.
 
@@ -1059,7 +1060,7 @@ detail. In both modes the observer always lies exactly at `CX, CY`.
 S.view.blendT = v === "3d" ? 1 : 0; blend = ease(blend, blendT, kBlend, dt); if (|blend − blendT| < 1e-3) blend = blendT   // snap → tS exactly 0/1
 tS = smoothstep(0, 1, blend)   // reduced motion: k = kReduced (≈ 150 ms)
 Camera:  el = lerp(π/2 − 0.001, el3D, tS); ln dist = lerp(ln 20, ln dist3D, tS); ln F = lerp(ln(20·maxRadius), ln F3D, tS)  // dolly zoom without a jump
-         az = az3D·tS (back in 2D the ring labels are at the top)
+         az = az3D·tS (back in 2D the ring labels are at the top; on leaving 3D `az3D = wrapPi(az)`, so that the turns of auto-rotation are not replayed)
 Nodes:   pT = lerp(p2, p3, tS); fog/size weighted by tS (§5.4); sky rotation identical in both paths
 Rings:   tS = 0 → static from #bg; tS > 0 → projected polylines on #sky (layer 2), #bg rings with alpha 1 − tS
 While 0.02 < blend < 0.98: no auto-rotation, no spread step, aggregation frozen, labels only hover/pinned/locked
@@ -1111,9 +1112,10 @@ tick(t):
   stepCamera(dt); stepBlend(dt)                                          // 28
   if (S.settling && !blending) spreadStep(LAYOUT.settlePerFrame)         // 26
   stepNodes(dt, liveDt)   // alpha (S.anim.fadeInK/fadeOutK), position, orbit phase (liveDt), twinkle/breathing, bubble blend, basePx, delete at alpha < 0.02 && target 0
-  stepSky(liveDt); stepParticles(liveDt)
+  stepSky(liveDt)
   projectAll()                                                           // 28 (2D path at tS = 0)
-  animating = auto-rotation, easing, settle, blend, bubble blend, twinkle, tween, sky rotation, particles (without reduced motion),
+  stepParticles(liveDt)                                                  // 32, after the projection: the dust follows its stars in the same frame
+  animating = auto-rotation, easing, settle, blend, bubble blend, twinkle, breathing (without reduced motion), tween, sky rotation, particles (without reduced motion),
               travelling dots, persistence decay, flicker, cursor blink
   if (S.fixedTime != null) animating = false                              // frozen: only dirty renders
   if (dirty || animating) { render(); dirty = false }
@@ -1236,7 +1238,7 @@ is counted.* Baked (`text` sprite, one `drawImage`, no place in the budget): the
 (`LAYOUT.rings` is a fixed set; the 2D labelling sits on `#bg` anyway) and the cursor. A core text of length 0
 or over `SPRITE_TEXT_MAX` (32 characters) falls back to the counted path, so that no single string produces a large
 bitmap. The budget goes, in order of priority, to: locked → hover → pinned (APs and clients) → group labels
-(≤ `maxGroupLabels`) → top-N APs by `rssi·alphaDraw` (N = `maxLabels[lod]`) → badges (§8.7) → vendor lines; whatever
+(≤ `maxGroupLabels`) → top-N APs by `(rssi + 130)·alphaDraw` (N = `maxLabels[lod]`) → badges (§8.7) → vendor lines; whatever
 exceeds it is dropped from the end. Bubble counters and security/alarm glyphs are sprites (`counter`, `glyph`), but still
 occupy grid cells (labels move out of their way).
 
@@ -1250,7 +1252,7 @@ taller than the room is dropped like a colliding one, and so is the label of a s
 is never pulled to the edge. Which APs may carry a label, and in which
 order, is decided by `labelCandidateList()` (theme-free): not hidden, SSID known, outside a 2D↔3D transition,
 `alphaDraw > 0.6 && px ≥ 5·min(1, zoom2d)` (the bound shrinks with the stars when zoomed out in 2D; in 3D `px` is never below 5) (or locked/hover/pinned), with device links only the carrier per device; sorted locked 4 /
-hover 3 / pinned 2, then `rssi·alphaDraw`. Fonts, grid, text budget and `maxLabels` then decide only **which**
+hover 3 / pinned 2, then `(rssi + 130)·alphaDraw` (the signal in dB above a floor of −130 dBm, times opacity). Fonts, grid, text budget and `maxLabels` then decide only **which**
 candidates are drawn (`labels()` is an ordered subsequence of `STARCHORUS.labelCandidates()`). Hidden APs never
 (§8.5). Text = `strokeText` in `surface.base` + `fillText` (legible over glows); capitals according to `font.transform`, the
 band suffix from `ENCODING.band.suffix` in all themes. An AP's vendor line (§8.7) shares the rectangle of its label (two rows); a client's vendor line is a rectangle of its own.
@@ -1429,7 +1431,7 @@ merges neighbouring blocks and lowers the bump pointer, so that no fragmentation
 particle count changes, the pool is refilled once; `applyTheme` resets on a genuine change.
 `_internals.particles.pooled` (only with `?debug=1`) gives the occupied pool slots and, without a leak, equals `count`.
 
-**Lens flare** (`depth.lensFlare.maxStars`, `RENDER.flareMax`): candidates = visible APs by `rssi·alphaDraw`;
+**Lens flare** (`depth.lensFlare.maxStars`, `RENDER.flareMax`): candidates = visible APs by `rssi`;
 **hysteresis 3 dB**: a candidate without a flare displaces the **weakest current carrier** if and only if it is ≥ 3 dB
 brighter; changes as a cross-fade via `node.flare` (`stats().flares` counts `flare > 0.5`). Without history the two
 brightest carry one. Sprite `flare`: horizontal streak (`lengthFactor·basePx`) in `accent.flare`, plus a faint vertical one;
@@ -1533,7 +1535,7 @@ rebuildChannelStats(): per band map channel → {count, aps[], widthMax, assumed
 ```
 **The 20 MHz assumption is visible** (without `width`, `assumed` is true for all APs and adjacent-channel overlap on 5/6 GHz
 practically never occurs): (1) legend row 'channel overlap (derived, width unknown → 20 MHz)'; (2) channel-bar tooltip
-'width 20 MHz (assumed)'; (3) AP tooltip/detail 'Overlaps: … (co-channel, ch 6) · … (adjacent, ch 8 · 40 MHz)' with the
+'width 20 MHz (assumed)' (only for a channel on which no AP states a width, otherwise its widest width is shown); (3) AP tooltip/detail 'Overlaps: … (co-channel, ch 6) · … (adjacent, ch 8 · 40 MHz)' with the
 addition 'derived, width unknown → 20 MHz' when `assumed`; (4) `title` of the channel bar 'APs per channel · widths assumed
 20 MHz where unknown'.
 
