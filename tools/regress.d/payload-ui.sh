@@ -1130,9 +1130,12 @@ pui_alpin() {   # pui_alpin FILE -> 0 iff the lines of FILE that name PL_ALERT_D
   grep 'PL_ALERT_DI[RS]' "$PUI_T/alcode.txt" > "$PUI_T/alseen.txt"
   cmp -s "$PUI_T/alseen.txt" "$PUI_T/alpin.txt"
 }
+# (the third pinned line is pl_skew's one read of the copy in the alert tree: it only names the path whose "# Version:" and "# Contract:" headers the launch check compares with
+# the payload's own, as it does the collector's and the Overview's; it writes nothing; 0.2.6.1, #61)
 cat > "$PUI_T/alpin.txt" <<'PUI_ALPIN'
 PL_ALERT_DIR=${STARCHORUS_ALERT_TREE:-/root/payloads/alerts}/deauth_flood_detected/starchorus
 PL_ALERT_DIS=${PL_ALERT_DIR%/*}/DISABLED.starchorus
+alert-deauth.sh) pl_p=$PL_ALERT_DIR/payload.sh ;;
 pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
 pl_alert_dis() { [ -f "$PL_ALERT_DIS/payload.sh" ]; }
 rm -f "$PL_ALERT_DIR/payload.sh.tmp"

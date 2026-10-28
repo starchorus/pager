@@ -46,9 +46,9 @@
 # MENU (device only; the texts are the menu specification's, verbatim):
 #   Launch: E1 without a collector, E12 with STARCHORUS_COLLECTOR=0; pidfiles whose pid is not ours are deleted (a pid read
 #   from a file on eMMC can belong to anything after a reboot); "Starchorus listens only."; a version, or a "# Contract:"
-#   number (the interface the three scripts share; a file without one is contract 1), that differs between this payload
-#   and the installed collector or Overview is reported once. A dead loop with the marker present had
-#   stopped by itself ("Collector had stopped."), and a page server left without a collector is stopped.
+#   number (the interface the scripts share; a file without one is contract 1), that differs between this payload
+#   and the installed collector, Overview or (while Alerts is ON) companion alert is reported once. A dead loop
+#   with the marker present had stopped by itself ("Collector had stopped."), and a page server left without a collector is stopped.
 #   Start: no question; spinner; marker /tmp/starchorus.started = the epoch of this Start (tmpfs: a reboot clears it);
 #   the collector (setsid, nice 19) and, with Web Page ON, the page server (nice 19); up to 5 s for both, then, when the
 #   Overview is to open, up to 20 s more for the first capture of this Start (the spinner stays up, so the Overview opens
@@ -757,16 +757,18 @@ pl_status() {
     ui_log "Window $(pl_wlab "$STARCHORUS_MAX_AGE"), every $STARCHORUS_INTERVAL s"
 }
 
-# pl_skew -> the "# Version:" and "# Contract:" headers of the installed collector and Overview against this payload's own, and the
-# "# Version:" of the installed netcat server and the version line of the installed page (index.html: `  version: "x.y.z",`), which
-# carry no contract of their own and are judged on the version alone;
+# pl_skew -> the "# Version:" and "# Contract:" headers of the installed collector and Overview, and of the companion alert (the copy of
+# alert-deauth.sh that the Alerts row made in the firmware's alert tree, read only while it is there: none, nothing to judge), against this
+# payload's own, and the "# Version:" of the installed netcat server and the version line of the installed page (index.html:
+# `  version: "x.y.z",`), which carry no contract of their own and are judged on the version alone;
 # a difference is reported once per launch (dialogue and LOG on the device, stderr elsewhere; one dialogue, for the first file that
 # differs) and nothing else changes. The
-# contract number is the interface the three scripts share (the collector's --status/--stop/pidfile protocol, the
-# Overview's environment): it changes with that interface, so a payload updated on its own is caught at the same version
-# too. An installed file with a version but no contract line is contract 1; a file
-# with no version header at all is not judged. The remedy named is tools/install.sh, or, where this payload's own directory
-# carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them.
+# contract number is the interface the scripts share (the collector's --status/--stop/pidfile protocol, the
+# Overview's environment, the line format of the alerts.log that the companion alert writes and the collector parses): it changes
+# with that interface, so a payload updated on its own is caught at the same version too. An installed file with a version but no
+# contract line is contract 1; a file with no version header at all is not judged. The remedy named is tools/install.sh, or, where this payload's own directory
+# carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them; for the
+# companion alert, whose copy only the Alerts row replaces (read-only here), it is "Switch Alerts off, then on.".
 pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_con() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_pver() { sed -n '/^  version: "[0-9][0-9A-Za-z.-]*",$/{s/^  version: "\(.*\)",$/\1/p;q;}' "$1" 2>/dev/null; }   # the page's version line (tools/doc-truth.py reads the same one); q: sed stops at the first match and does not read the rest of the page
@@ -777,17 +779,22 @@ pl_skew() {
     if [ -f "$PL_HOME/starchorus-collect.sh" ] && [ "$PL_HOME" != "$STARCHORUS_DIR" ]; then
         pl_fd="Delete starchorus-collect.sh\nin $STARCHORUS_DIR."; pl_fn="delete $STARCHORUS_DIR/starchorus-collect.sh"
     else pl_fd="Run tools/install.sh."; pl_fn="run tools/install.sh"; fi
-    for pl_f in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh index.html; do
+    for pl_f in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh index.html alert-deauth.sh; do
         case $pl_f in
-            index.html) pl_v=$(pl_pver "$STARCHORUS_DIR/$pl_f") ;;
-            *) pl_v=$(pl_ver "$STARCHORUS_DIR/$pl_f") ;;
+            alert-deauth.sh) pl_p=$PL_ALERT_DIR/payload.sh ;;   # the copy in the firmware's alert tree (read only; absent: not judged)
+            *) pl_p=$STARCHORUS_DIR/$pl_f ;;
+        esac
+        case $pl_f in
+            index.html) pl_v=$(pl_pver "$pl_p") ;;
+            *) pl_v=$(pl_ver "$pl_p") ;;
         esac
         [ -n "$pl_v" ] || continue
         case $pl_f in
             starchorus-serve.sh|index.html) pl_c=$pl_mc; pl_cn= ;;   # no contract line: the version alone decides
-            *) pl_c=$(pl_con "$STARCHORUS_DIR/$pl_f"); pl_c=${pl_c:-1}; pl_cn=" (contract $pl_c)" ;;
+            *) pl_c=$(pl_con "$pl_p"); pl_c=${pl_c:-1}; pl_cn=" (contract $pl_c)" ;;
         esac
         if [ "$pl_v/$pl_c" = "$pl_me/$pl_mc" ]; then continue; fi
+        case $pl_f in alert-deauth.sh) pl_fd="Switch Alerts off, then on."; pl_fn="switch Alerts off, then on" ;; esac   # only the Alerts row renews this copy (the check ends below, so no later file meets this remedy)
         if [ "$ONDEV" = 1 ]; then
             if [ "$pl_v" = "$pl_me" ]; then pl_sk="Installed files differ from\nthe payload."; pl_sl="Installed files differ from the payload."
             else pl_sk="Installed $pl_v, payload $pl_me."; pl_sl=$pl_sk; fi

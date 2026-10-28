@@ -502,12 +502,14 @@ The terminal in Hak5's [Virtual Pager](https://documentation.hak5.org/wifi-pinea
 4. Start it again (section 5). The first start after an update takes a little longer: the collector
    splits the vendor (OUI) list into an index once, so the first capture comes later than usual.
 
-Replace all seven, not only the payload. The payload compares the installed collector and Overview
-with itself when it opens, by version and by their `# Contract:` number, the interface the payload,
-the collector and the Overview share, and the installed netcat server and page by version. When they differ, it says so once, in a dialogue: 'Installed
+Replace all seven, not only the payload. The payload compares the installed collector and Overview,
+and the companion alert in the firmware's alert tree while Alerts is ON, with itself when it opens,
+by version and by their `# Contract:` number, the interface the payload, the collector, the Overview
+and the companion alert share, and the installed netcat server and page by version. When they differ, it says so once, in a dialogue: 'Installed
 …, payload …' for another version, 'Installed files differ from the payload.' for the same version
 with another contract. The dialogue names the remedy: 'Run tools/install.sh.', or, with the Hak5
-library copy, which has no `tools` folder on the Pager, the collector file to delete. A payload
+library copy, which has no `tools` folder on the Pager, the collector file to delete; for the
+companion alert, whose copy in the alert tree only the Alerts row replaces, 'Switch Alerts off, then on.' A payload
 replaced on its own is caught at the same version too. Files from the first release carry no
 Contract line and count as contract 1. The netcat server and the page have no contract line, so only
 their version is compared (as of 24 October 2026; the dialogue is the same and appears once, for the
