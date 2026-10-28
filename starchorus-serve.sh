@@ -70,8 +70,18 @@ case "$1" in
     stop) stop_serve; exit 0 ;;
 esac
 
+# PORT and DIR are baked into the handler by sed (below). A port that is not all digits, or a directory holding a character that sed
+# (& # \) or the handler's double quotes (" $ `) would read as syntax, gives a handler that serves nothing: refused here.
+case $PORT in ''|*[!0-9]*) echo "[starchorus-serve] STARCHORUS_PORT is not a port number: $PORT" >&2; exit 1 ;; esac
+case $DIR in
+    *'&'*|*'#'*|*\\*|*'"'*|*'$'*|*'`'*) printf '%s\n' '[starchorus-serve] STARCHORUS_DIR must not contain & # \ " $ or a backtick' >&2; exit 1 ;;
+esac
 [ -f "$DIR/index.html" ] || { echo "[starchorus-serve] no index.html in $DIR" >&2; exit 1; }
 [ -x "$NC" ] || { echo "[starchorus-serve] no nc at $NC" >&2; exit 1; }
+# One server per directory: the handler, the FIFO and the pidfiles are shared, so a second start would break the first and leave
+# it running unrecorded, where stop cannot find it, holding the port. (Not our own pid: a stale pidfile may carry it by chance.)
+sp=$(sed -n 1p "$SERVE_PIDFILE" 2>/dev/null)
+if [ "$sp" != "$$" ] && own_pid "$sp" starchorus-serve; then echo "[starchorus-serve] already running (pid $sp); stop it first" >&2; exit 1; fi
 
 # ipv4 TEXT -> 0 iff TEXT is a dotted-quad IPv4 address (four parts 0-255, no leading zero)
 ipv4() {
@@ -192,7 +202,9 @@ exec >&-
 cat > /dev/null
 HANDLER_EOF
 # bake the directory and the port in: they are not exported, and the handler is a separate script
-sed -i "s#__DIR__#$DIR#; s#__PORT__#$PORT#" "$HANDLER"
+if ! { sed "s#__DIR__#$DIR#; s#__PORT__#$PORT#" "$HANDLER" > "$HANDLER.new" && mv "$HANDLER.new" "$HANDLER"; } || grep -qE '__(DIR|PORT)__' "$HANDLER"; then
+    rm -f "$HANDLER.new"; echo "[starchorus-serve] cannot bake $DIR and port $PORT into $HANDLER" >&2; exit 1
+fi
 chmod +x "$HANDLER"
 
 rm -f "$FIFO" 2>/dev/null
@@ -205,15 +217,29 @@ echo $$ > "$SERVE_PIDFILE"
 serve_exit() {
     [ -n "$!" ] && kill "$!" 2>/dev/null
     [ -p "$FIFO" ] && : 2>/dev/null <> "$FIFO"
-    rm -f "$SERVE_PIDFILE" "$NC_PIDFILE" "$FIFO"; exit 0
+    rm -f "$SERVE_PIDFILE" "$NC_PIDFILE" "$FIFO"; exit "${1:-0}"
 }
 trap serve_exit INT TERM
 if [ "$ADDR" = 0.0.0.0 ]; then URL="http://<device-ip>:$PORT/  (all interfaces)"; else URL="http://$ADDR:$PORT/"; fi
 echo "[starchorus-serve] $URL  (nc, serving $DIR)" >&2
+bad=0
 while :; do
+    t0=$(date +%s)
     # the FIFO flow: see NOTE in the header
     # shellcheck disable=SC2094  # reading+writing the FIFO in one pipeline IS the pattern here
     "$HANDLER" < "$FIFO" | "$NC" "$@" > "$FIFO" &   # "$@" = the listening arguments chosen above
     echo "$!" > "$NC_PIDFILE"
-    wait
+    wait "$!"; rc=$?
+    wait   # and the handler: the next round starts only after both
+    # An nc that cannot listen (an address the device does not hold, a port taken) ends at once with a status of its own, and
+    # the loop would start it again at full speed while the page counts as up. A signal (129 to 192) is the handler's watchdog,
+    # and an nc that ran for a while was listening. After five quick failures in a row the server ends; until then it backs off.
+    if [ "$rc" -gt 0 ] && { [ "$rc" -le 128 ] || [ "$rc" -gt 192 ]; } && [ $(($(date +%s) - t0)) -lt 2 ]; then
+        bad=$((bad + 1))
+        sleep "$bad" &   # in the background, so that a TERM ends it at once; $! is then a live process for serve_exit
+        [ "$bad" -lt 5 ] || { echo "[starchorus-serve] nc cannot listen on $ADDR:$PORT (status $rc); giving up" >&2; serve_exit 1; }
+        wait "$!"
+    else
+        bad=0
+    fi
 done
