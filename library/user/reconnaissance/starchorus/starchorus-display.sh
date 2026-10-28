@@ -911,7 +911,7 @@ claim() {  # claim [short]
 }
 
 age_str() {  # age_str GENERATED -> "42s ago" / "5m ago" / "3h ago" since .generated (unix seconds), or nothing
-    g=$1; [ -n "$g" ] || return
+    g=$1; case $g in ''|0?*|*[!0-9]*) return ;; esac   # no number, or one the shell would read as octal (see scan_age)
     now=$(date +%s 2>/dev/null) || return
     d=$((now - g)); [ "$d" -lt 0 ] && d=0
     if [ "$d" -lt 90 ]; then echo "${d}s ago"; elif [ "$d" -lt 5400 ]; then echo "$((d/60))m ago"; else echo "$((d/3600))h ago"; fi
@@ -1040,13 +1040,13 @@ screen_bands() {   # band split + security tally
 # excluded; ESS = one SSID seen under >= 2 distinct bytes-0-4 prefixes.
 JQ_DEVICES='_D(
   (try ([ .aps[] | select(.bssid) | {bssid:(.bssid|ascii_downcase), ssid:(.ssid // "")} ]
-        | map(. + { oui:(.bssid[0:8]), pfx:(.bssid[0:11]),
+        | map(. + { oui:(.bssid[0:8]), pfx:(.bssid[0:14]),
                     ul:( (.bssid[1:2]) as $c | ($c=="2" or $c=="6" or $c=="a" or $c=="e") ) })
         | map(select(.ul|not))
         | group_by(.pfx) | map(select(length>=2))) catch null) as $dl
   | _R("gen"; .generated // empty),
     _R("ndev"; $dl | length),
-    _R("ess"; [ .aps[] | select((.ssid // "")!="") | {ssid:.ssid, dev:((.bssid // "")|ascii_downcase|.[0:11])} ]
+    _R("ess"; [ .aps[] | select((.ssid // "")!="") | {ssid:.ssid, dev:((.bssid // "")|ascii_downcase|.[0:14])} ]
         | group_by(.ssid) | map({ssid:.[0].ssid, devs:( [.[].dev] | unique | length)})
         | map(select(.devs>=2)) | length),
     _R("devl"; $dl | .[0:4][] | "  dev " + .[0].oui + "xx  (" + (length|tostring) + " radios)  " + (.[0].ssid|if .=="" then "<hidden>" else . end)))'
@@ -1203,10 +1203,11 @@ tpl_line() {   # tpl_line aps b24 b5 b6 open crowding
 # capture, a waiting screen) or the box has no clock. It reads the "gen" and "interval" records the screen has just loaded
 # and takes one `date`: no jq of its own.
 scan_age() {
-    sg=${R_gen-}; case $sg in ''|*[!0-9]*) return 1 ;; esac
+    # a leading zero is no number here: the shell's arithmetic would read it as octal, and 08 or 09 would end the Overview
+    sg=${R_gen-}; case $sg in ''|0?*|*[!0-9]*) return 1 ;; esac
     [ "${#sg}" -le 11 ] || return 1
-    si=${R_interval-}; case $si in ''|0|*[!0-9]*) si=${OV_INT:-${STARCHORUS_INTERVAL:-30}} ;; esac
-    case $si in ''|0|*[!0-9]*) si=30 ;; esac
+    si=${R_interval-}; case $si in ''|0|0?*|*[!0-9]*) si=${OV_INT:-${STARCHORUS_INTERVAL:-30}} ;; esac
+    case $si in ''|0|0?*|*[!0-9]*) si=30 ;; esac
     now=$(date +%s 2>/dev/null) || return 1
     case $now in ''|*[!0-9]*) return 1 ;; esac
     SA_G=$sg; SA_D=$((now - sg)); [ "$SA_D" -ge 0 ] || SA_D=0; SA_LIM=$((3 * si))
@@ -1236,7 +1237,7 @@ stamp() {
 # frame VIEW -> the last lines of every draw: when the scan was made, the keys, and on the summary the page's address
 # when the payload serves one
 frame() {
-    case ${R_interval-} in ''|0|*[!0-9]*) ;; *) OV_INT=$R_interval ;; esac
+    case ${R_interval-} in ''|0|0?*|*[!0-9]*) ;; *) OV_INT=$R_interval ;; esac
     stamp
     log "A: Refresh   B: Back"
     if [ "$1" = summary ]; then
