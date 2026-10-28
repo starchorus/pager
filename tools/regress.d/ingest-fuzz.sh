@@ -52,7 +52,7 @@ FUZ_SINKS_STATIC="helpList legendBody tip"         # constant markup (legend row
 FUZ_SINKS_OPEN="ab=renderAir (Air drawer) ib=renderInv (inventory) hb=renderHome (homing meter) tb=renderTime (time series) rb=renderRec (record drawer) e=recLabel (record position) ob=renderObs (observations) el0=renderTote (Foundation tote card) c=renderCaption (caption)"
 # Known open findings (glob on the mutant name | owner | cause). New finding => red; an entry nothing hits => red "please remove".
 # A finding is fixed in the page, never here.
-FUZ_KNOWN_OPEN='4:top.generated:*e+308|page|generated beyond +-8.64e12 s: setSourcePanel calls new Date(generated*1000).toISOString(), RangeError after ingest already replaced the display, so load() reports an error for a document it took'
+FUZ_KNOWN_OPEN=''
 FUZ_JS=$(cat "$R/tools/evals/ingest-fuzz.js")
 FUZ_Q="?poll=0&spin=0&intro=0&debug=1&fixed=$STARCHORUS_FIXED"
 FUZ_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
