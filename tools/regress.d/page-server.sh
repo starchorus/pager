@@ -29,6 +29,15 @@
 #                 the handler whose case is widened to serve one of them is caught by the same count. No code change: this server
 #                 names its two files and has no path to a third, whatever lies beside them; route A's servers are given a
 #                 directory instead, a directory of their own (payload-ui, section 28)
+#   P7 guards     (script + handler + FIFO, every case in a directory of its own; stand-ins for an nc that cannot listen, is ended by a signal or
+#                 fails after listening a while, and for a sed that fails or changes nothing) #13: an nc that cannot listen is started again
+#                 after 1, 2, 3 and 4 s, not at full speed, and after five quick failures the server says so and ends with status 1, the page
+#                 down; an nc that a signal ends, or that ran for a while before it failed, is no failure. #48: a second start on the same
+#                 directory and port is refused and the first is kept, answering, with nothing orphaned after stop. #49: a port that is not all
+#                 digits, or a directory holding & # \ " $ or a backtick, is refused before the handler is written; a bake that fails, or leaves
+#                 a placeholder, refuses to start. CONTROLS: a copy without the back-off, one without the guard, one without the checks of port
+#                 and directory and one without the check of the bake are each caught by the count of their row. Not run here: the device's nc,
+#                 whose exit statuses only the device shows
 # Sourced by tools/regress.sh and tools/quick.sh with cwd = repo root, after the core rows. Only SRV_* names and srv_* functions are set.
 
 SRV_T=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-srv.XXXXXX") || SRV_T=""
@@ -450,6 +459,229 @@ for SRV_F in starchorus-serve.pid .starchorus-http-nc.pid .starchorus-http.fifo;
 [ ! -e "$SRV_TMP/starchorus-http-$SRV_PORT.left" ] || srv_bad "own copy left"
 [ -e "$SRV_TMP/starchorus-http-${SRV_PORT}1.keep" ] || srv_bad "another port's copy removed"
 rowif "page server: stop ends loop, nc and handler and removes the copy of its port only (bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+
+# ---- P7 guards: the loop must not spin (#13), one server to a directory (#48), the handler baked only from a checked directory and port (#49).
+# Every case has a directory, a queue and an stderr file of its own under the scratch directory (TAG.d, TAG.q, TAG.err) and runs the script of P5, its
+# limits cut as there. A copy for a control differs from that script in the one place its row is about; a copy that came out equal to the script makes
+# the row red. Five stand-ins more: an nc that cannot listen (it notes the time of each start), one that a signal ends at once, one that listens for
+# a while and then fails, a sed that fails when the handler is baked and one that leaves the handler as it was. None of them binds a port.
+cat > "$SRV_ST/nc-fail" <<'SRV_X'
+#!/bin/sh
+# stand-in GNU netcat that cannot listen (the port is taken, the address is not the device's): -h names -s as the real one does; any other call
+# notes its start (time in whole seconds, pid, arguments) in $SRV_Q/nc.calls and ends at once with status 1, as nc does when bind() fails
+[ "$1" = -h ] && { echo "  -s, --source=ADDRESS       local source address (ip or hostname)"; exit 0; }
+echo "$(date +%s) $$ $*" >> "$SRV_Q/nc.calls"
+exit 1
+SRV_X
+cat > "$SRV_ST/nc-sig" <<'SRV_X'
+#!/bin/sh
+# stand-in nc that a signal ends at once, as the handler's watchdog ends the nc of a client that said nothing: noted like nc-fail, then TERM to itself
+[ "$1" = -h ] && { echo "  -s, --source=ADDRESS       local source address (ip or hostname)"; exit 0; }
+echo "$(date +%s) $$ $*" >> "$SRV_Q/nc.calls"
+kill -TERM $$
+exit 1
+SRV_X
+cat > "$SRV_ST/nc-slow" <<'SRV_X'
+#!/bin/sh
+# stand-in nc that listened for a while and then failed: noted like nc-fail, then 2.2 s of listening, then status 1
+[ "$1" = -h ] && { echo "  -s, --source=ADDRESS       local source address (ip or hostname)"; exit 0; }
+echo "$(date +%s) $$ $*" >> "$SRV_Q/nc.calls"
+sleep 2.2
+exit 1
+SRV_X
+cat > "$SRV_ST/sed-fail" <<'SRV_X'
+#!/bin/sh
+# stand-in sed that fails when the page server bakes its handler (the call whose script starts s#__DIR__#); every other call is the real sed
+case $1 in 's#__DIR__'*) exit 1 ;; esac
+exec "$SRV_SED" "$@"
+SRV_X
+cat > "$SRV_ST/sed-keep" <<'SRV_X'
+#!/bin/sh
+# stand-in sed that "succeeds" at the bake and changes nothing: the handler comes out with its placeholders; every other call is the real sed
+case $1 in 's#__DIR__'*) shift; exec cat "$@" ;; esac
+exec "$SRV_SED" "$@"
+SRV_X
+chmod +x "$SRV_ST/nc-fail" "$SRV_ST/nc-sig" "$SRV_ST/nc-slow" "$SRV_ST/sed-fail" "$SRV_ST/sed-keep"
+srv_mkbin "$SRV_T/binfail" nc-fail:nc; srv_mkbin "$SRV_T/binsig" nc-sig:nc; srv_mkbin "$SRV_T/binslow" nc-slow:nc; srv_mkbin "$SRV_T/binsf" sed-fail:sed; srv_mkbin "$SRV_T/binsk" sed-keep:sed
+srv_case() { mkdir -p "$SRV_T/$1.d" "$SRV_T/$1.q"; cp "$SRV_D/index.html" "$SRV_T/$1.d/index.html"; }   # srv_case TAG: a directory with the page, and a queue
+srv_go() {   # srv_go SCRIPT DIR PORT PATH QUEUE TAG: the server on that directory and port in the background (SRV_GP its pid, TAG.err its stderr; the queue is where the nc stand-ins note things)
+  STARCHORUS_DIR="$2" STARCHORUS_PORT="$3" STARCHORUS_BIND=127.0.0.1 TMPDIR="$SRV_TMP" PATH="$4" SRV_Q="$5" "${SRV_RT:-sh}" "$1" </dev/null >/dev/null 2>"$SRV_T/$6.err" &
+  SRV_GP=$!
+}
+srv_stopd() { STARCHORUS_DIR="$2" STARCHORUS_PORT="$3" TMPDIR="$SRV_TMP" PATH="$SRV_B" "${SRV_RT:-sh}" "$1" stop >/dev/null 2>&1; }   # srv_stopd SCRIPT DIR PORT
+srv_dead() { ! srv_alive "$1" starchorus-serve; }   # srv_dead PID: no server of ours has that pid
+srv_empty() { [ -z "$(srv_pids "$1")" ]; }   # srv_empty TEXT: no process has TEXT in its command line
+srv_lines() { [ -f "$1" ] && echo $(($(wc -l < "$1"))) || echo 0; }   # lines of a file, 0 where there is none
+# shellcheck disable=SC2012   # the inode of one FIFO of ours, a name without surprises
+srv_inode() { ls -i "$1" 2>/dev/null | awk '{ print $1 }'; }   # the inode number of a file
+srv_reap() {   # srv_reap SCRIPT DIR PID: stop, then end, what is left of a server we started; a pid that does not go is killed
+  srv_stopd "$1" "$2" "$SRV_PORT"; kill "$3" 2>/dev/null
+  srv_until 3 srv_dead "$3" || kill -9 "$3" 2>/dev/null
+  wait "$3" 2>/dev/null
+}
+srv_plant() {   # srv_plant DIR CMD ARG...: DIR/starchorus-serve.sh = the output of CMD ARG... run on the script of P5 (the name matters, see SRV_S); false when the copy came out equal to it
+  mkdir -p "$1"; srv_plf="$1/starchorus-serve.sh"; shift
+  "$@" "$SRV_S" > "$srv_plf" && ! cmp -s "$SRV_S" "$srv_plf"
+}
+
+# ---- #13 an nc that cannot listen. Side by side, for the same window: the script with an nc that fails at once, the script with an nc that a signal ends,
+# and the control, a copy whose loop counts no failure. The failing run goes on to its end (1 + 2 + 3 + 4 s of back-off) while the other cases are made, and so
+# does the run with an nc that listens for 2.2 s and then fails (on a copy with a long IDLE: the handler's watchdog would end that nc first, by a signal).
+# shellcheck disable=SC2317,SC2329   # named as an argument of srv_until
+srv_have3() { [ "$(srv_lines "$1")" -ge 3 ]; }   # srv_have3 FILE: at least three lines
+SRV_WIN=1.6; SRV_MINSP=10
+srv_case fail; srv_case sig; srv_case spin; srv_case slow
+srv_plant "$SRV_T/slow.s" "$SRV_SED" -e "$SRV_LI"; SRV_LOK=$?
+# shellcheck disable=SC2016   # sed script, not shell
+srv_plant "$SRV_T/spin.s" "$SRV_SED" -e 's/^    if \[ "\$rc" -gt 0 \] && /    if false \&\& /'; SRV_SPOK=$?
+srv_go "$SRV_S" "$SRV_T/fail.d" "$SRV_PORT" "$SRV_T/binfail" "$SRV_T/fail.q" fail; SRV_FP=$SRV_GP
+srv_go "$SRV_S" "$SRV_T/sig.d" "$SRV_PORT" "$SRV_T/binsig" "$SRV_T/sig.q" sig; SRV_IP=$SRV_GP
+srv_go "$SRV_T/spin.s/starchorus-serve.sh" "$SRV_T/spin.d" "$SRV_PORT" "$SRV_T/binfail" "$SRV_T/spin.q" spin; SRV_SP=$SRV_GP
+srv_go "$SRV_T/slow.s/starchorus-serve.sh" "$SRV_T/slow.d" "$SRV_PORT" "$SRV_T/binslow" "$SRV_T/slow.q" slow; SRV_LP=$SRV_GP
+srv_until 6 test -s "$SRV_T/fail.q/nc.calls"; srv_until 6 test -s "$SRV_T/sig.q/nc.calls"; srv_until 6 test -s "$SRV_T/spin.q/nc.calls"
+sleep "$SRV_WIN"
+SRV_AW=$(srv_lines "$SRV_T/fail.q/nc.calls"); SRV_IW=$(srv_lines "$SRV_T/sig.q/nc.calls"); SRV_SW=$(srv_lines "$SRV_T/spin.q/nc.calls")
+SRV_IUP=no; srv_dead "$SRV_IP" || SRV_IUP=yes; SRV_SUP=no; srv_dead "$SRV_SP" || SRV_SUP=yes
+SRV_IGU=$(grep -c 'giving up' "$SRV_T/sig.err"); SRV_SGU=$(grep -c 'giving up' "$SRV_T/spin.err")
+srv_reap "$SRV_S" "$SRV_T/sig.d" "$SRV_IP"; srv_reap "$SRV_T/spin.s/starchorus-serve.sh" "$SRV_T/spin.d" "$SRV_SP"
+
+# ---- #48 the second start. A first server, then a second start on its directory and port, then stop: the script (the second start is refused, the first is
+# kept and still answers, nothing is left after stop) and the control, a copy without the guard (the second start goes on, takes the pidfile and the FIFO, and the
+# first is left running where stop cannot find it).
+srv_guard() {   # srv_guard TAG SCRIPT2 ANSWERS: a first server, a second start (SCRIPT2) on the same directory and port, stop; what is wrong goes to SRV_BADS
+  srv_gt=$1; srv_case "$srv_gt"; srv_gd="$SRV_T/$srv_gt.d"; srv_gq="$SRV_T/$srv_gt.q"; srv_g1s="$SRV_T/$srv_gt.one/starchorus-serve.sh"
+  mkdir -p "$SRV_T/$srv_gt.one"; cp "$SRV_S" "$srv_g1s"; cp "$SRV_JA" "$srv_gd/starchorus.json"
+  srv_go "$srv_g1s" "$srv_gd" "$SRV_PORT" "$SRV_B" "$srv_gq" "$srv_gt.1"; srv_g1=$SRV_GP
+  srv_until 6 test -s "$srv_gd/starchorus-serve.pid"; srv_until 3 test -s "$srv_gq/nc.started"
+  srv_gp1=$(sed -n 1p "$srv_gd/starchorus-serve.pid" 2>/dev/null); srv_gi1=$(srv_inode "$srv_gd/.starchorus-http.fifo")
+  { [ -n "$srv_gp1" ] && [ -n "$srv_gi1" ]; } || srv_bad "first server not up"
+  srv_go "$2" "$srv_gd" "$SRV_PORT" "$SRV_B" "$srv_gq" "$srv_gt.2"; srv_g2=$SRV_GP
+  srv_until 2 srv_dead "$srv_g2"
+  if srv_dead "$srv_g2"; then wait "$srv_g2"; srv_gr=$?; [ "$srv_gr" = 1 ] || srv_bad "status $srv_gr"; else srv_bad "second start goes on"; fi
+  grep -qF "[starchorus-serve] already running (pid $srv_gp1); stop it first" "$SRV_T/$srv_gt.2.err" || srv_bad "no message"
+  [ "$(sed -n 1p "$srv_gd/starchorus-serve.pid" 2>/dev/null)" = "$srv_gp1" ] || srv_bad "pidfile taken"
+  [ "$(srv_inode "$srv_gd/.starchorus-http.fifo")" = "$srv_gi1" ] || srv_bad "FIFO replaced"
+  srv_alive "$srv_gp1" starchorus-serve || srv_bad "first gone"
+  if [ "$3" = yes ]; then
+    srv_client "$srv_gq" 01 get /starchorus.json; srv_until 6 test -s "$srv_gq/resp.01"
+    { [ -s "$srv_gq/resp.01" ] && srv_whole "$srv_gq/resp.01" "$SRV_JA"; } || srv_bad "first no longer answers"
+  fi
+  srv_stopd "$srv_g1s" "$srv_gd" "$SRV_PORT"; srv_until 1 srv_empty "$SRV_T/$srv_gt."
+  srv_empty "$SRV_T/$srv_gt." || srv_bad "left after stop"
+  srv_gl=""
+  if [ -f "$srv_gq/nc.started" ]; then
+    while read -r srv_gn; do srv_alive "$srv_gn" "-p $SRV_PORT -c" && srv_gl="$srv_gl $srv_gn"; done < "$srv_gq/nc.started"
+  fi
+  [ -z "$srv_gl" ] || srv_bad "nc left"
+  srv_reap "$srv_g1s" "$srv_gd" "$srv_g1"; srv_reap "$srv_g1s" "$srv_gd" "$srv_g2"
+  for srv_gn in $srv_gl; do kill "$srv_gn" 2>/dev/null; done
+}
+mkdir -p "$SRV_T/guard.two"; cp "$SRV_S" "$SRV_T/guard.two/starchorus-serve.sh"
+SRV_BADS=""; srv_guard guard "$SRV_T/guard.two/starchorus-serve.sh" yes; SRV_BGR=$SRV_BADS
+# shellcheck disable=SC2016   # sed script, not shell
+srv_plant "$SRV_T/noguard.two" "$SRV_SED" -e '/^if \[ "\$sp" != "\$\$" \] && own_pid /d'; SRV_NGOK=$?
+SRV_BADS=""; srv_guard noguard "$SRV_T/noguard.two/starchorus-serve.sh" no; SRV_BGP=$SRV_BADS
+
+# ---- #49 the handler baked from a checked directory and port. Every start is made at once and judged afterwards (a refused start is over in milliseconds): a port
+# that is not all digits, a directory holding & # \ " $ or a backtick (each with its page, so that only the character can be the reason), a bake that fails; and three
+# controls, copies without the checks (of port and directory, and of the bake), which must go on to start.
+srv_try1() {   # srv_try1 TAG DIR PORT [SCRIPT [PATH]]: the server on that directory and port in the background (TAG.q its queue, TAG.err its stderr, TAG.dir the directory)
+  mkdir -p "$SRV_T/$1.q"; printf '%s\n' "$2" > "$SRV_T/$1.dir"
+  srv_go "${4:-$SRV_S}" "$2" "$3" "${5:-$SRV_B}" "$SRV_T/$1.q" "$1"; echo "$SRV_GP" > "$SRV_T/$1.gp"
+}
+srv_try2() {   # srv_try2 TAG SECS [SCRIPT]: wait up to SECS for it to end -> SRV_TR (its exit status, or "up"), SRV_TH (handler written, 0/1), SRV_TW (pidfile and FIFO there, 0..2); a server still there is stopped
+  read -r srv_tp < "$SRV_T/$1.gp"; IFS= read -r srv_td < "$SRV_T/$1.dir"; srv_until "$2" srv_dead "$srv_tp"
+  SRV_TH=0; [ ! -e "$srv_td/.starchorus-http-handler.sh" ] || SRV_TH=1
+  SRV_TW=0; [ ! -e "$srv_td/starchorus-serve.pid" ] || SRV_TW=$((SRV_TW + 1)); [ ! -e "$srv_td/.starchorus-http.fifo" ] || SRV_TW=$((SRV_TW + 1))
+  if srv_dead "$srv_tp"; then wait "$srv_tp"; SRV_TR=$?; else SRV_TR=up; srv_reap "${3:-$SRV_S}" "$srv_td" "$srv_tp"; fi
+}
+srv_refuse() {   # srv_refuse TAG MESSAGE HANDLER-MAY-BE-THERE: judge the run srv_try2 saw: exit 1, that message, nothing written (the handler unless allowed), no nc started
+  [ "$SRV_TR" = 1 ] || srv_bad "$1 status $SRV_TR"
+  grep -qF -- "$2" "$SRV_T/$1.err" || srv_bad "$1 message"
+  [ "$3" = 1 ] || [ "$SRV_TH" = 0 ] || srv_bad "$1 handler written"
+  [ "$SRV_TW" = 0 ] || srv_bad "$1 pidfile/FIFO written"
+  [ ! -e "$SRV_T/$1.q/nc.started" ] || srv_bad "$1 nc started"
+}
+SRV_PORTS="18299x 1829.9 -18299 18299&"; SRV_PN=0
+for SRV_PV in $SRV_PORTS; do SRV_PN=$((SRV_PN + 1)); srv_case "port$SRV_PN"; srv_try1 "port$SRV_PN" "$SRV_T/port$SRV_PN.d" "$SRV_PV"; done
+SRV_HN=0
+for SRV_CH in '&' '#' "\\" '"' '$' '`'; do
+  SRV_HN=$((SRV_HN + 1)); SRV_HD="$SRV_T/hostile/d$SRV_HN$SRV_CH"; mkdir -p "$SRV_HD"; cp "$SRV_D/index.html" "$SRV_HD/index.html"
+  srv_try1 "dir$SRV_HN" "$SRV_HD" "$SRV_PORT"
+done
+srv_case sf; srv_try1 sf "$SRV_T/sf.d" "$SRV_PORT" "$SRV_S" "$SRV_T/binsf"
+srv_case sk; srv_try1 sk "$SRV_T/sk.d" "$SRV_PORT" "$SRV_S" "$SRV_T/binsk"
+# shellcheck disable=SC2016   # sed script, not shell
+srv_plant "$SRV_T/novalid.s" "$SRV_SED" -e '/^case \$PORT in /d' -e '/^case \$DIR in$/,/^esac$/d'; SRV_NVOK=$?
+# shellcheck disable=SC2016   # script text, not shell: the unchecked bake the script had before
+SRV_UNCHK='sed "s#__DIR__#$DIR#; s#__PORT__#$PORT#" "$HANDLER" > "$HANDLER.new"; mv "$HANDLER.new" "$HANDLER"'
+# shellcheck disable=SC2016   # awk program, not shell
+srv_plant "$SRV_T/nobake.s" awk -v rep="$SRV_UNCHK" '/^if ! \{ sed / { print rep; skip = 1; next } skip { if ($0 == "fi") skip = 0; next } { print }'; SRV_NBOK=$?
+srv_case ppx; srv_try1 ppx "$SRV_T/ppx.d" 18299x "$SRV_T/novalid.s/starchorus-serve.sh"
+SRV_QD="$SRV_T/hostile/dq"'"'; mkdir -p "$SRV_QD"; cp "$SRV_D/index.html" "$SRV_QD/index.html"; srv_try1 pdq "$SRV_QD" "$SRV_PORT" "$SRV_T/novalid.s/starchorus-serve.sh"
+srv_case pbk; srv_try1 pbk "$SRV_T/pbk.d" "$SRV_PORT" "$SRV_T/nobake.s/starchorus-serve.sh" "$SRV_T/binsf"
+sleep 1   # the copies without the checks are all there by now (a refused start was over long ago)
+SRV_BADS=""; SRV_N=0
+for SRV_PV in $SRV_PORTS; do SRV_N=$((SRV_N + 1)); srv_try2 "port$SRV_N" 3; srv_refuse "port$SRV_N" "STARCHORUS_PORT is not a port number: $SRV_PV" 0; done
+SRV_BPT=$SRV_BADS; SRV_BADS=""; SRV_N=0
+while [ "$SRV_N" -lt "$SRV_HN" ]; do SRV_N=$((SRV_N + 1)); srv_try2 "dir$SRV_N" 3; srv_refuse "dir$SRV_N" "STARCHORUS_DIR must not contain" 0; done
+[ "$SRV_HN" = 6 ] || srv_bad "$SRV_HN directories, 6 wanted"
+SRV_BDR=$SRV_BADS; SRV_BADS=""
+srv_try2 sf 3; srv_refuse sf "cannot bake" 1; srv_try2 sk 3; srv_refuse sk "cannot bake" 1
+SRV_BBK=$SRV_BADS; SRV_BADS=""
+srv_try2 ppx 0 "$SRV_T/novalid.s/starchorus-serve.sh"; srv_refuse ppx "STARCHORUS_PORT is not a port number: 18299x" 0
+srv_try2 pdq 0 "$SRV_T/novalid.s/starchorus-serve.sh"; srv_refuse pdq "STARCHORUS_DIR must not contain" 0
+srv_try2 pbk 0 "$SRV_T/nobake.s/starchorus-serve.sh"; srv_refuse pbk "cannot bake" 1
+SRV_BCT=$SRV_BADS
+
+# ---- the runs that went on meanwhile, then the rows
+srv_until 12 srv_have3 "$SRV_T/slow.q/nc.calls"
+SRV_LGAP=$(awk 'NR == 1 { t = $1 } NR == 3 { print $1 - t }' "$SRV_T/slow.q/nc.calls" 2>/dev/null)
+SRV_LUP=no; srv_dead "$SRV_LP" || SRV_LUP=yes; SRV_LGU=$(grep -c 'giving up' "$SRV_T/slow.err")
+srv_reap "$SRV_T/slow.s/starchorus-serve.sh" "$SRV_T/slow.d" "$SRV_LP"
+srv_until 16 srv_dead "$SRV_FP"
+if srv_dead "$SRV_FP"; then wait "$SRV_FP"; SRV_FRC=$?; else SRV_FRC=running; srv_reap "$SRV_S" "$SRV_T/fail.d" "$SRV_FP"; fi
+SRV_FN=$(srv_lines "$SRV_T/fail.q/nc.calls")
+SRV_GAPS=$(awk 'NR > 1 { printf "%s%d", (NR > 2 ? " " : ""), $1 - p } { p = $1 }' "$SRV_T/fail.q/nc.calls" 2>/dev/null)
+SRV_GI=0; for SRV_G in $SRV_GAPS; do SRV_GI=$((SRV_GI + 1)); tm_note "page-server: back-off gap $SRV_GI" "$SRV_G"; done
+
+SRV_BADS=""
+{ [ "$SRV_AW" -ge 1 ] && [ "$SRV_AW" -le 2 ]; } || srv_bad "$SRV_AW starts in the window"
+[ "$SRV_FN" = 5 ] || srv_bad "$SRV_FN starts in all"
+awk 'NR > 1 { k = NR - 1; g = $1 - p; if (g < k || g > k + 2) bad = 1 } { p = $1 } END { exit bad }' "$SRV_T/fail.q/nc.calls" 2>/dev/null || srv_bad "gaps: $SRV_GAPS s"
+rowif "page server: an nc that cannot listen is started again after 1, 2, 3 and 4 s, not at full speed ($SRV_AW starts in the first $SRV_WIN s, at most 2; $SRV_FN in all, 5 wanted; bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+SRV_BADS=""
+[ "$SRV_FRC" = 1 ] || srv_bad "status $SRV_FRC"
+grep -qF "[starchorus-serve] nc cannot listen on 127.0.0.1:$SRV_PORT (status 1); giving up" "$SRV_T/fail.err" || srv_bad "no message"
+for SRV_F in starchorus-serve.pid .starchorus-http-nc.pid .starchorus-http.fifo; do [ ! -e "$SRV_T/fail.d/$SRV_F" ] || srv_bad "$SRV_F left"; done
+srv_empty "$SRV_T/fail.d/" || srv_bad "processes left"
+rowif "page server: after five quick failures of its nc the server names address, port and status, says it gives up and ends with status 1: pidfile, nc pidfile and FIFO removed, no handler left (status $SRV_FRC; bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+SRV_BADS=""
+[ "$SRV_SPOK" = 0 ] || srv_bad "copy equal to the script"
+[ "$SRV_SW" -ge "$SRV_MINSP" ] || srv_bad "$SRV_SW starts in the window"
+[ "$SRV_SUP" = yes ] && [ "$SRV_SGU" = 0 ] || srv_bad "it ended or gave up"
+rowif "page server: a copy whose loop counts no failure starts the nc at full speed and never gives up, which the count above sees (at least $SRV_MINSP starts in the first $SRV_WIN s against at most 2; bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+SRV_BADS=""
+[ "$SRV_IW" -ge "$SRV_MINSP" ] || srv_bad "$SRV_IW starts in the window"
+[ "$SRV_IUP" = yes ] && [ "$SRV_IGU" = 0 ] || srv_bad "it ended or gave up"
+rowif "page server: an nc that a signal ends (the handler's watchdog) is no failure: the next is started at once and the server does not give up (at least $SRV_MINSP starts in the first $SRV_WIN s, still running; bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+SRV_BADS=""
+[ "$SRV_LOK" = 0 ] || srv_bad "copy equal to the script"
+{ [ -n "$SRV_LGAP" ] && [ "$SRV_LGAP" -ge 4 ] && [ "$SRV_LGAP" -le 6 ]; } || srv_bad "third start ${SRV_LGAP:-none} s after the first"
+[ "$SRV_LUP" = yes ] && [ "$SRV_LGU" = 0 ] || srv_bad "it ended or gave up"
+rowif "page server: an nc that listened for a while (2.2 s) before it failed is no quick failure: the next is started with no back-off and the server does not give up (the third start 4 to 6 s after the first, where a loop that counted it takes 7; bad:${SRV_BADS:- none})" [ -z "$SRV_BADS" ]
+rowif "page server: a second start on the same directory and port is refused and the first is kept: exit 1 and 'already running', pidfile and FIFO as they were, the first still answers, and stop leaves no process and no nc (bad:${SRV_BGR:- none})" [ -z "$SRV_BGR" ]
+case $SRV_BGP in *'[second start goes on]'*'[pidfile taken]'*'[FIFO replaced]'*'[left after stop]'*) SRV_NGRED=1 ;; *) SRV_NGRED=0 ;; esac
+[ "$SRV_NGOK" = 0 ] || SRV_NGRED=0   # a copy that came out equal to the script is no control
+rowif "page server: a copy without the guard is caught by the same counts: its second start goes on, takes the pidfile and the FIFO, and the first is left running after stop (copy made: $SRV_NGOK = 0; found:${SRV_BGP:- none})" [ "$SRV_NGRED" = 1 ]
+rowif "page server: a STARCHORUS_PORT that is not all digits ($SRV_PORTS) is refused before the handler is written: exit 1 and the message, no handler, pidfile or FIFO, no nc started (bad:${SRV_BPT:- none})" [ -z "$SRV_BPT" ]
+rowif "page server: a STARCHORUS_DIR holding & # a backslash, a double quote, a dollar sign or a backtick ($SRV_HN directories, each with its page) is refused likewise (bad:${SRV_BDR:- none})" [ -z "$SRV_BDR" ]
+rowif "page server: a bake that fails (a sed that fails; a sed that changes nothing and leaves the placeholders) refuses to start: exit 1 and 'cannot bake', no pidfile or FIFO, no nc started (bad:${SRV_BBK:- none})" [ -z "$SRV_BBK" ]
+SRV_NRED=$(($(printf '%s' "$SRV_BCT" | tr -cd '[' | wc -c)))
+case $SRV_BCT in *'[ppx status up]'*'[ppx handler written]'*'[pdq status up]'*'[pdq handler written]'*'[pbk status up]'*'[pbk nc started]'*) SRV_CTRED=1 ;; *) SRV_CTRED=0 ;; esac
+[ "$SRV_NVOK$SRV_NBOK" = 00 ] || SRV_CTRED=0   # a copy that came out equal to the script is no control
+rowif "page server: copies without the checks are caught by the same counts: with no look at port and directory it serves from 18299x and from a directory with a double quote, with no check of the bake it starts on (copies made: $SRV_NVOK$SRV_NBOK = 00; $SRV_NRED counts red)" [ "$SRV_CTRED" = 1 ]
+unset -f srv_have3 srv_case srv_go srv_stopd srv_dead srv_empty srv_lines srv_inode srv_reap srv_plant srv_guard srv_try1 srv_try2 srv_refuse
 fi
 
 # ---- clean up: whatever of ours still runs, the scratch directory unless a row asked for it to be kept
