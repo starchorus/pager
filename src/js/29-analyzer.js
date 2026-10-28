@@ -76,8 +76,8 @@ function rebuildChannelStats() {
   for (const ap of S.apOrder) {
     if (ap.band === "unknown" || ap.channel == null) continue;
     const m = analyzer.channels[ap.band]; let e = m.get(ap.channel);
-    if (!e) { e = { count: 0, aps: [], widthMax: 0, assumed: false }; m.set(ap.channel, e); }
-    e.count++; e.aps.push(ap.id); e.widthMax = Math.max(e.widthMax, ap.width ?? 20); if (ap.width == null) e.assumed = true;
+    if (!e) { e = { count: 0, aps: [], widthMax: 0, assumed: true }; m.set(ap.channel, e); }
+    e.count++; e.aps.push(ap.id); e.widthMax = Math.max(e.widthMax, ap.width ?? 20); if (ap.width != null) e.assumed = false;
   }
   S.crowding = crowdingOf();
 }
@@ -261,12 +261,12 @@ function obsCompute() {
   if (fs.size && S.generated != null) {   // Probes for a confirmed SSID (P4): tiered 0 / <5 / >=5, only after 10 minutes of capture time, no times, no identities
     if (S.obsProbe.firstGen == null) S.obsProbe.firstGen = S.generated;
     if (S.generated - S.obsProbe.firstGen >= OBS_PROBE_S) {
-      let k = 0; for (const c of S.clientOrder) if (c.probes && c.probes.some(p => fs.has(p))) k++;
+      let k = 0; for (const c of S.clientOrder) if (!eventSkip(c) && c.probes && c.probes.some(p => fs.has(p))) k++;
       if (k > 0) add("probes", "Probes", "stations probed for a confirmed SSID: " + (k < 5 ? "<5" : "5 or more"));
     }
   }
   for (const w of S.watch) {   // Watchlist (SSIDs of access points only); "lost" needs hop data, as for the baseline
-    const hit = aps.some(n => (n.ssidKnown || n.ssid) === w);
+    const hit = aps.some(n => n.groupKey === w);
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
@@ -350,7 +350,7 @@ function chanOverlap(band, ch) {   // Σ rssiT of the APs whose span overlaps th
 function channelLoad(band, ch) { const o = chanOverlap(band, ch); return o ? { load: Math.round(o.sum * 100) / 100, co: o.co, adj: o.adj } : { load: 0, co: 0, adj: 0 }; }
 function channelModel() {
   const st = new Map();   // probe activity: stations heard via APs on the channel (a count, no identity)
-  S.clients.forEach(c => { if (c.target !== 1 || !c.parent) return; const ap = S.aps.get(c.parent); if (ap && ap.band !== "unknown" && ap.channel != null) { const k = ap.band + "/" + ap.channel; st.set(k, (st.get(k) || 0) + 1); } });
+  S.clients.forEach(c => { if (c.target !== 1 || !c.parent || c.affinity) return; const ap = S.aps.get(c.parent); if (ap && ap.band !== "unknown" && ap.channel != null) { const k = ap.band + "/" + ap.channel; st.set(k, (st.get(k) || 0) + 1); } });
   const dev = new Set(S.sky.dev.map(d => d.band + "/" + d.channel));
   const out = { crowding: S.crowding.level, assumptions: { beaconMs: BEACON.ms, beaconBytes: BEACON.bytes, mbps: Object.assign({}, BEACON.mbps), width: "20 MHz assumed where the collector gives none" }, bands: {} };
   for (const band of ["2.4", "5", "6"]) {
@@ -420,8 +420,8 @@ function recAppend(doc, key) {
   const r = S.rec, gen = doc.generated; if (gen == null || gen === r.lastGen) return false;   // → true when a capture was recorded
   r.lastGen = gen; const bytes = docBytes(doc);
   r.docs.push({ n: ++r.seqNo, gen, bytes, doc: JSON.parse(JSON.stringify(doc)) }); r.bytes += bytes;
-  while (r.docs.length > REC_MAX || r.bytes > REC_BYTES) r.bytes -= r.docs.shift().bytes;
-  if (S.replay && S.replay.i >= r.docs.length) S.replay.i = r.docs.length - 1;
+  while (r.docs.length > REC_MAX || r.bytes > REC_BYTES) r.bytes -= r.docs.shift().bytes, S.replay && S.replay.i--;
+  if (S.replay) S.replay.i = clamp(S.replay.i, 0, r.docs.length - 1);
   return true;
 }
 function recObj() { const r = S.rec || recEmpty(); return { count: r.docs.length, bytes: r.bytes, max: REC_MAX, maxBytes: REC_BYTES, snapshots: r.docs.map(d => ({ n: d.n, generated: d.gen, aps: d.doc.aps.length, clients: d.doc.aps.reduce((a, x) => a + x.clients.length, 0) + d.doc.unassociated.length, bytes: d.bytes })) }; }
@@ -441,7 +441,7 @@ function stashMarks() {   // the event marks of the live nodes (a replay may del
 function replayObj() { const r = S.replay, n = S.rec ? S.rec.docs.length : 0; return { active: !!r, index: r ? r.i : null, count: n, generated: r && S.rec.docs[r.i] ? S.rec.docs[r.i].gen : null, buffered: r ? r.buffered : 0, playing: !!(r && r.play) }; }
 function replayTo(i, opts) {
   const r = S.rec; if (!r || !r.docs.length) return null;
-  i = clamp(Math.round(+i), 0, r.docs.length - 1);
+  i = clamp(Math.round(+i || 0), 0, r.docs.length - 1);
   if (!S.replay) S.replay = { i, pending: null, buffered: 0, play: false, acc: 0, marks: stashMarks() };
   S.replay.i = i;
   const rec = r.docs[i];
@@ -982,8 +982,9 @@ function libraryImport(text) {   // "MAC class" per line; "aa:bb:cc:??:??:??" (o
     if (/[?*]/.test(k)) {
       if (cls === "unknown") { rej(l, "a rule cannot assign unknown"); continue; }
       const re = ruleRegex(k); if (!re) { rej(l, "not a valid rule"); continue; }
+      const p = k.toLowerCase(); S.rules = S.rules.filter(r => r.pat != p);
       if (S.rules.length >= RULES_MAX) { rej(l, "too many rules"); continue; }
-      S.rules.push({ pat: k.toLowerCase(), cls, re }); res.rules++; continue;
+      S.rules.push({ pat: p, cls, re }); res.rules++; continue;
     }
     const b = normMac(k); if (!isMac(b)) { rej(l, "not a MAC"); continue; }
     if (cls === "unknown") { S.identity.delete(b); continue; }
