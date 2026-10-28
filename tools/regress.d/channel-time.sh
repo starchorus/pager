@@ -147,6 +147,64 @@ else
   echo "    got:  $(printf '%s' "$CHT_R" | cut -c1-900)"; echo "    want: $CHT_RW"
 fi
 
+# ---- Back to live writes no false change. A replay has already written its own channel, SSID, band, security and RSSI over the live nodes (and deleted and re-created the ones it faded out), so the resume
+# ingest must not judge the buffered poll against them: the change log (exported), the change count, the cue pulses and the twinkles stay as they were before the replay. The same run gives the buffered poll one
+# access point that was never heard (a real arrival, judged from the restored capture marks), which is still counted. The log before the replay holds the one real change of the recording (ap 2, capture 8, 11>1):
+# the false entry the resume used to add is the same words at capture 11, so the log is read whole, and again by the capture it was written at.
+CHT_EVB='(async()=>{
+await STARCHORUS.wait(800);const o={};
+const id=(n)=>"02:00:00:00:0d:"+String(n).padStart(2,"0");
+const ap=(n,ch,rssi,cl)=>({bssid:id(n),ssid:"r"+n,band:ch>14?"5":"2.4",channel:ch,rssi,security:"WPA2",clients:cl||[]});
+const mk=(i)=>({source:"recon-db",generated:3000+5*i,aps:[ap(1,6,-60+i,[{mac:"3c:22:fb:10:20:01",rssi:-55}]),ap(2,i>=7?1:11,-70),ap(3,36,-55),ap(4,52,-65)].concat(i>=5?[ap(5,1,-50)]:[]),unassociated:[{mac:"3c:22:fb:10:20:77",rssi:-70}]});
+const live=(d)=>STARCHORUS.load(d,"rs",{mode:"live"});
+for(let i=0;i<10;i++)live(mk(i));
+const ids=[1,2,3,4,5,6].map(id),chg=(b)=>STARCHORUS.changes(b)||[];
+const log=()=>ids.map(b=>chg(b).map(c=>c.seq+":"+c.kind+":"+c.from+">"+c.to).join(",")).join("|");   // seq:kind:from>to per access point, ap 1 to 6
+const L0=log(),N0=STARCHORUS.stats().changeEntries,T0=STARCHORUS.stats().twinkles;o.before=L0;
+STARCHORUS.replay(3);
+await STARCHORUS.wait(2600);o.faded=STARCHORUS.node(id(5))===null;   // ap 5 is gone while the replay shows capture 3: Back to live creates it again from the defaults
+const buf=mk(10);buf.aps.push(ap(6,6,-60));live(buf);o.buffered=STARCHORUS.replayInfo().buffered;   // the poll that arrives meanwhile: ap 6 is new, the rest as capture 10 (1 dB on ap 1)
+STARCHORUS.replayExit();
+const st=STARCHORUS.stats(),ev=st.events;
+o.after=log();o.atResume=ids.reduce((a,b)=>a+chg(b).filter(c=>c.seq===ev.captureSeq).length,0);o.entries=st.changeEntries-N0;
+o.changed=ev.changed;o.cues=ev.cues;o.twinkles=st.twinkles-T0;
+o.events=[ev.captureSeq,ev.arrived,ev.departed,ev.newAps].join();
+o.active=STARCHORUS.replayInfo().active;
+o.errors=STARCHORUS.errors().length;
+return JSON.stringify(o);})()'
+runq demo "$CHT_Q" "out/$P-cht-rsm" --wait 2 --fps 0 --ready --eval-timeout 120 --eval "$CHT_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+CHT_B=$(evalv "out/$P-cht-rsm.json" 1 | cht_nj); CHT_BE=$(evalv "out/$P-cht-rsm.json" 2)
+CHT_BW=$(printf '%s' '{"active":false,"after":"|8:channel:11>1||||","atResume":0,"before":"|8:channel:11>1||||","buffered":1,"changed":0,"cues":0,"entries":0,"errors":0,"events":"11,1,0,1","faded":true,"twinkles":0}' | cht_nj)
+if [ "$CHT_B" = "$CHT_BW" ] && [ "$CHT_BE" = 0 ]; then
+  row "recording: Back to live after a replay that faded a node out writes no false change: the log is the one it was (only the real 11>1 of capture 8), 0 entries at the resumed capture, 0 changed, 0 cues, 0 twinkles, while a real arrival in the buffered poll is still counted (events 11,1,0,1)" PASS
+else
+  row "recording: Back to live writes no false change (err ${CHT_BE:-?})" FAIL
+  echo "    got:  $(printf '%s' "$CHT_B" | cut -c1-900)"; echo "    want: $CHT_BW"
+fi
+
+# The row bites: the same run on a copy of the page whose change-log comparison also runs on a resume ('&& !opts.resume' taken out). Fair by construction: the old text is in the page exactly once, the copy
+# differs from the page in that one line, and it boots without an error. It must turn red exactly the keys that read the false entries (the log after the exit, the entries at the resumed capture and in all,
+# changed, cues, twinkles) and leave every other key as the page has it: the log before the replay, the faded node, the buffered poll, the real arrival, the end of the replay. The copy is only served to headless
+# Chrome on 127.0.0.1; nothing in it sends.
+CHT_PL="out/$P-cht-plant"; mkdir -p "$CHT_PL"
+python3 -B - "$H" "$CHT_PL/p-resume.html" 'else if (cmp && !opts.resume) {' 'else if (cmp) {' <<'PY'
+import sys
+src, out, old, new = sys.argv[1:]
+s = open(src, encoding="utf-8").read()
+if s.count(old) != 1:
+    sys.exit(1)
+open(out, "w", encoding="utf-8").write(s.replace(old, new))
+PY
+CHT_PR=$?; CHT_PD=$(diff "$H" "$CHT_PL/p-resume.html" 2>/dev/null | grep -c '^<')
+CHT_HK=$H; H="$CHT_PL/p-resume.html"   # runq serves $H: point it at the copy for this one call, then put it back
+runq demo "$CHT_Q" "out/$P-cht-rsx" --wait 2 --fps 0 --ready --eval-timeout 120 --eval "$CHT_EVB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+H=$CHT_HK
+CHT_X=$(evalv "out/$P-cht-rsx.json" 1 | cht_nj); CHT_XE=$(evalv "out/$P-cht-rsx.json" 2)
+CHT_XK=$(printf '%s' "$CHT_X" | CHT_BW="$CHT_BW" python3 -c 'import json,os,sys;w=json.loads(os.environ["CHT_BW"]);g=json.load(sys.stdin);print(",".join(k for k in sorted(w) if g.get(k)!=w[k]))' 2>/dev/null)
+CHT_XV=$(printf '%s' "$CHT_X" | python3 -c 'import json,sys;g=json.load(sys.stdin);print("%s at the resumed capture, %s in all, changed %s, cues %s, twinkles %s, events %s" % (g["atResume"],g["entries"],g["changed"],g["cues"],g["twinkles"],g["events"]))' 2>/dev/null)
+CHT_XOK=0; [ "$CHT_PR" = 0 ] && [ "$CHT_PD" = 1 ] && [ "$CHT_XE" = 0 ] && [ "$CHT_XK" = "after,atResume,changed,cues,entries,twinkles" ] && CHT_XOK=1
+rowif "recording: the resume key bites: a copy of the page whose change-log comparison also runs on a resume turns the log, the entries, changed, cues and twinkles red (false 11>1 for the replayed node, null-to-value entries for the re-created one) and leaves the log before the replay, the fade-out, the buffered poll, the real arrival and the end of the replay as they are [copy differs in $CHT_PD line, err ${CHT_XE:-?}, red keys ${CHT_XK:-none}; ${CHT_XV:-no value}]" [ "$CHT_XOK" = 1 ]
+
 # ---- keys Q/J/H/Y, buttons, drawer exclusivity, channel-bar modes, waterfall, threshold ring, autoplay, drawer language (P10)
 CHT_EVU='(async()=>{
 await STARCHORUS.wait(800);const o={},key=(k)=>window.dispatchEvent(new KeyboardEvent("keydown",{key:k}));
