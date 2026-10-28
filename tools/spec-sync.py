@@ -9,6 +9,8 @@ Between the markers
   <!-- spec-sync:contrast:begin --> ... <!-- spec-sync:contrast:end -->  a Markdown table: every CONTRAST_PAIRS row with its WCAG ratio in the three themes
 the generated text replaces the old one (write mode) or is compared with it (--check: exit 1 on any difference, printing the first differing line).
 Both inputs come from tools/dump-themes.sh. No wall clock, no network.
+Exit status: 0 the spec equals the code (or was written); 1 a real difference (--check only); 2 the check could not be made at all (wrong
+arguments, an unreadable or malformed input, a missing marker). A crash must not look like a difference, so those cases never exit 1.
 """
 import itertools
 import json
@@ -42,6 +44,9 @@ def contrast_block(c):
 
 def replace(doc, name, body):
     b, e = "<!-- spec-sync:%s:begin -->" % name, "<!-- spec-sync:%s:end -->" % name
+    for m in (b, e):
+        if m not in doc:
+            raise ValueError("marker %s not found" % m)
     return doc[:doc.index(b) + len(b)] + "\n" + body + doc[doc.index(e):]
 
 
@@ -51,13 +56,23 @@ def main(argv):
     if len(args) != 3:
         print(__doc__)
         return 2
-    themes, contrast = json.loads(read(args[0])), json.loads(read(args[1]))
     path = args[2]
-    doc = read(path)
-    new = replace(replace(doc, "themes", themes_block(themes)), "contrast", contrast_block(contrast))
+    # An unreadable or malformed input, a missing marker or a generator that cannot cope with the shape of the JSON is not a difference
+    # between spec and code: it is exit 2 with the reason, so that exit 1 keeps meaning exactly "the spec differs".
+    try:
+        themes, contrast = json.loads(read(args[0])), json.loads(read(args[1]))
+        doc = read(path)
+        new = replace(replace(doc, "themes", themes_block(themes)), "contrast", contrast_block(contrast))
+    except (OSError, ValueError, LookupError, TypeError, AttributeError) as exc:
+        print("spec-sync: input or spec unusable (%s: %s)" % (type(exc).__name__, exc), file=sys.stderr)
+        return 2
     if not check:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(new)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new)
+        except OSError as exc:
+            print("spec-sync: cannot write %s: %s" % (path, exc), file=sys.stderr)
+            return 2
         print("spec-sync: wrote %s" % path)
         return 0
     if new == doc:
