@@ -3,9 +3,11 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## 0.2.6 - unreleased
+## 0.2.6 - 2026-10-28
 
 *A part release of the 0.2 line. The splash screen is not in it; it is left for a later release.*
+
+*There is no separate 0.2.5 release: that work is folded into this one. 0.2.0 stands beside the 0.2.5 line as a sibling, not a forebear, and its changes are carried along here as well.*
 
 ### Added
 
