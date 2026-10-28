@@ -46,7 +46,7 @@ function placeAPs() {
       const rad = r + nudges[ni];
       if (rad < inner) continue;
       // hysteresis angle only counts at the un-nudged radius
-      const start = (ni === 0 && ap.angleT != null) ? 0 : 1;
+      const start = ap.angleT != null && ni ? 1 : 0;
       for (let ci = start; ci < cand.length; ci++) {
         const g = gapAt(cand[ci], rad, bestGap);
         if (g >= gap) { best = cand[ci]; bestGap = g; bestR = rad; found = true; break; }
@@ -61,7 +61,7 @@ function placeAPs() {
   for (const ap of S.apOrder) {
     if (ap.angle == null) { ap.angle = ap.angleT; ap.radius = ap.radiusT; ap.wx = Math.cos(ap.angle) * ap.radius; ap.wz = Math.sin(ap.angle) * ap.radius; }
   }
-  const all = S.apOrder, nA = all.length, px = new Float64Array(nA), py = new Float64Array(nA);
+  const all = list, nA = all.length, px = new Float64Array(nA), py = new Float64Array(nA);
   for (let i = 0; i < nA; i++) { const o = all[i]; px[i] = Math.cos(o.angleT) * o.radiusT * maxRadius; py[i] = Math.sin(o.angleT) * o.radiusT * maxRadius; }
   for (let i = 0; i < nA; i++) {
     const ap = all[i], ax = px[i], ay = py[i];
@@ -89,7 +89,7 @@ function orbitOfClient(c, ap) {   // a lane keeps the phase of an orbit that goe
     const rank = c.rank; let ringR, base, cnt;
     if (rank < 7) { ringR = 2 * LAYOUT.hexBPx; base = 0; cnt = 7; }
     else if (rank < 19) { ringR = 3.25 * LAYOUT.hexBPx; base = 7; cnt = 12; }
-    else { ringR = 72; base = 19; cnt = 18; }
+    else { ringR = 72 + ((rank - 19) / 18 | 0) * 8; base = 19; cnt = 18; }
     const dir = hash(ap.id + "d") > 0.5 ? 1 : -1;   // one direction per AP (§4.3, overall rotation): the cluster turns as a whole, its slots never cross
     c.orbitR = ringR;
     c.orbitPhase = ((rank - base) % cnt) / cnt * Math.PI * 2 + dir * ap.hexA;   // a kept slot gets the phase it has, a moved one its place in the turned cluster

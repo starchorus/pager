@@ -1992,7 +1992,7 @@ function placeAPs() {
       const rad = r + nudges[ni];
       if (rad < inner) continue;
       // hysteresis angle only counts at the un-nudged radius
-      const start = (ni === 0 && ap.angleT != null) ? 0 : 1;
+      const start = ap.angleT != null && ni ? 1 : 0;
       for (let ci = start; ci < cand.length; ci++) {
         const g = gapAt(cand[ci], rad, bestGap);
         if (g >= gap) { best = cand[ci]; bestGap = g; bestR = rad; found = true; break; }
@@ -2007,7 +2007,7 @@ function placeAPs() {
   for (const ap of S.apOrder) {
     if (ap.angle == null) { ap.angle = ap.angleT; ap.radius = ap.radiusT; ap.wx = Math.cos(ap.angle) * ap.radius; ap.wz = Math.sin(ap.angle) * ap.radius; }
   }
-  const all = S.apOrder, nA = all.length, px = new Float64Array(nA), py = new Float64Array(nA);
+  const all = list, nA = all.length, px = new Float64Array(nA), py = new Float64Array(nA);
   for (let i = 0; i < nA; i++) { const o = all[i]; px[i] = Math.cos(o.angleT) * o.radiusT * maxRadius; py[i] = Math.sin(o.angleT) * o.radiusT * maxRadius; }
   for (let i = 0; i < nA; i++) {
     const ap = all[i], ax = px[i], ay = py[i];
@@ -2035,7 +2035,7 @@ function orbitOfClient(c, ap) {   // a lane keeps the phase of an orbit that goe
     const rank = c.rank; let ringR, base, cnt;
     if (rank < 7) { ringR = 2 * LAYOUT.hexBPx; base = 0; cnt = 7; }
     else if (rank < 19) { ringR = 3.25 * LAYOUT.hexBPx; base = 7; cnt = 12; }
-    else { ringR = 72; base = 19; cnt = 18; }
+    else { ringR = 72 + ((rank - 19) / 18 | 0) * 8; base = 19; cnt = 18; }
     const dir = hash(ap.id + "d") > 0.5 ? 1 : -1;   // one direction per AP (§4.3, overall rotation): the cluster turns as a whole, its slots never cross
     c.orbitR = ringR;
     c.orbitPhase = ((rank - base) % cnt) / cnt * Math.PI * 2 + dir * ap.hexA;   // a kept slot gets the phase it has, a moved one its place in the turned cluster
@@ -2755,7 +2755,7 @@ function startTween(to) {
   const c = S.cam;
   const ms = reduceMotion ? 150 : S.anim.cameraEaseMs;
   const fn = reduceMotion ? (u => u) : (S.anim.cameraEasing || easeInOutCubic);
-  c.tween = { t0: S.clock * 1000, ms, fn,
+  c.tween = { e: 0, ms, fn,
     from: { az: c.az, el: c.el, dist: c.dist, target: c.target.slice() },
     to: { az: to.az ?? c.az, el: to.el ?? c.el, dist: to.dist ?? c.dist, target: (to.target || c.target).slice() } };
   S.dirty = true;
@@ -2765,7 +2765,7 @@ function stepCamera(dt) {
   if (v.blend !== v.blendT) return;          // transition drives the camera (stepBlend)
   if (v.blend < 0.5) { c.ramp = 0; return; } // 2D steady: projection unused
   if (c.tween) {
-    const tw = c.tween, u = tw.fn(clamp((S.clock * 1000 - tw.t0) / tw.ms, 0, 1));
+    const tw = c.tween, u = tw.fn(clamp((tw.e += dt * 1e3) / tw.ms, 0, 1));
     c.az = c.azT = tw.from.az + wrapPi(tw.to.az - tw.from.az) * u;
     c.el = c.elT = clamp(lerp(tw.from.el, tw.to.el, u), CFG3D.elMin, CFG3D.elMax);
     c.dist = c.distT = clamp(Math.exp(lerp(Math.log(tw.from.dist), Math.log(tw.to.dist), u)), CFG3D.distMin, CFG3D.distMax);
@@ -2839,7 +2839,7 @@ function setView(v, opts = {}) {
   if (opts.snap) { S.view.blend = S.view.blendT; tS = smoothstep(0, 1, S.view.blend); snapCamera(v); }
   else {
     if (v === "3d" && wasBlend < 0.5) { S.cam.az3D = CFG3D.azStart; S.cam.az = 0; S.cam.azT = 0; }
-    else if (v === "2d") S.cam.az3D = S.cam.az;
+    else if (v === "2d") S.cam.az3D = wrapPi(S.cam.az);
     S.cam.tween = null;
   }
   if (opts.persist !== false) { S.queryLocked.delete("view"); saveUi(); }

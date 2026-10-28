@@ -155,7 +155,7 @@ function startTween(to) {
   const c = S.cam;
   const ms = reduceMotion ? 150 : S.anim.cameraEaseMs;
   const fn = reduceMotion ? (u => u) : (S.anim.cameraEasing || easeInOutCubic);
-  c.tween = { t0: S.clock * 1000, ms, fn,
+  c.tween = { e: 0, ms, fn,
     from: { az: c.az, el: c.el, dist: c.dist, target: c.target.slice() },
     to: { az: to.az ?? c.az, el: to.el ?? c.el, dist: to.dist ?? c.dist, target: (to.target || c.target).slice() } };
   S.dirty = true;
@@ -165,7 +165,7 @@ function stepCamera(dt) {
   if (v.blend !== v.blendT) return;          // transition drives the camera (stepBlend)
   if (v.blend < 0.5) { c.ramp = 0; return; } // 2D steady: projection unused
   if (c.tween) {
-    const tw = c.tween, u = tw.fn(clamp((S.clock * 1000 - tw.t0) / tw.ms, 0, 1));
+    const tw = c.tween, u = tw.fn(clamp((tw.e += dt * 1e3) / tw.ms, 0, 1));
     c.az = c.azT = tw.from.az + wrapPi(tw.to.az - tw.from.az) * u;
     c.el = c.elT = clamp(lerp(tw.from.el, tw.to.el, u), CFG3D.elMin, CFG3D.elMax);
     c.dist = c.distT = clamp(Math.exp(lerp(Math.log(tw.from.dist), Math.log(tw.to.dist), u)), CFG3D.distMin, CFG3D.distMax);
@@ -239,7 +239,7 @@ function setView(v, opts = {}) {
   if (opts.snap) { S.view.blend = S.view.blendT; tS = smoothstep(0, 1, S.view.blend); snapCamera(v); }
   else {
     if (v === "3d" && wasBlend < 0.5) { S.cam.az3D = CFG3D.azStart; S.cam.az = 0; S.cam.azT = 0; }
-    else if (v === "2d") S.cam.az3D = S.cam.az;
+    else if (v === "2d") S.cam.az3D = wrapPi(S.cam.az);
     S.cam.tween = null;
   }
   if (opts.persist !== false) { S.queryLocked.delete("view"); saveUi(); }
