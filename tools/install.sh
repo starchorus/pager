@@ -150,9 +150,11 @@ shq() {   # shell-quote one word, for DISPLAY only (the real calls pass the word
   esac
 }
 # ONE master connection (one password prompt); every later ssh/scp reuses it. accept-new as in the ad-hoc
-# installer; nothing else is relaxed. The value of ControlPath never contains a blank (checked below), so the
-# option string can be split into words on purpose.
-mk_opts() { SSH_OPTS="-o ControlMaster=auto -o ControlPath=$1 -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"; }
+# installer; nothing else is relaxed. ServerAliveInterval=15 with ServerAliveCountMax=4 ends a link that has gone
+# silent after about a minute (the keepalive probes travel inside the one ssh session, nothing else is sent), so a
+# dropped link fails the run instead of hanging it until the system's TCP timeout. The value of ControlPath never
+# contains a blank (checked below), so the option string can be split into words on purpose.
+mk_opts() { SSH_OPTS="-o ControlMaster=auto -o ControlPath=$1 -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"; }
 CMD_MKDIR="mkdir -p $LOOT $PLDIR"
 # every file goes up as <target>.new; the exec bits are set on those, then ONE command renames them all into place, in the order of FILES
 # (a rename within a directory is atomic: the final path holds the old file or the new one, never half of one)

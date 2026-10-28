@@ -267,8 +267,8 @@ ins_opts_bad() {   # ins_opts_bad LOG -> calls whose options are not exactly the
   awk -F'\t' "$INS_AWK_SHAPE"'
     { o = $3; gsub(/ControlPath=[^ ]*/, "ControlPath=<cm>", o) }
     $1 == "ssh" && $3 ~ /(^| )-O / && (o != "-o ControlPath=<cm> -O exit" || $4 != "") { print $1 ": " $3 " " $4 }   # only the cleanup call is allowed: -o ControlPath=<cm> -O exit, no command
-    $1 == "ssh" && $3 !~ /(^| )-O / && o != "-o ControlMaster=auto -o ControlPath=<cm> -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" { print $1 ": " $3 }
-    ($1 == "scp-up" || $1 == "scp-get") && o != "-O -o ControlMaster=auto -o ControlPath=<cm> -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15" { print $1 ": " $3 }
+    $1 == "ssh" && $3 !~ /(^| )-O / && o != "-o ControlMaster=auto -o ControlPath=<cm> -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" { print $1 ": " $3 }
+    ($1 == "scp-up" || $1 == "scp-get") && o != "-O -o ControlMaster=auto -o ControlPath=<cm> -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" { print $1 ": " $3 }
     $2 != host { print $1 ": host " $2 }' host="$INS_HOST" "$1"
 }
 ins_scp_bad() {   # ins_scp_bad LOG GETS -> uploads that are not exactly the seven targets plus .new, in order (once each); reads of a file that was not sent; GETS = wanted number of reads; a log line of the wrong shape;
@@ -613,7 +613,7 @@ INS_rw2=$(printf '%s\n' $INS_ALL $INS_ALL2 | LC_ALL=C sort | tr '\n' ' '); INS_r
 rowif "installer, the runs of the real installer are exactly the listed 32 (INS_ALL + INS_ALL2): none is left unjudged [$INS_rs2]" [ "$INS_rs2" = "$INS_rw2" ]
 
 # ---- 7. the judges bite: dummy logs with one planted fault each (the intact log is green)
-INS_O="-o ControlMaster=auto -o ControlPath=/x/cm -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+INS_O="-o ControlMaster=auto -o ControlPath=/x/cm -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
 INS_jn=0; INS_jbad=0
 ins_dummy() {   # ins_dummy WANT JUDGE 'log line' ... -> JUDGE on a log made of the lines (WANT = red | green)
   INS_jw=$1; INS_jj=$2; shift 2; INS_jn=$((INS_jn + 1)); : > "$INS_T/dummy.log"
