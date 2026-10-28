@@ -491,15 +491,14 @@ status_instances() {
 }
 
 # --------------------------------------------------------------------------- interface setup
-# Return the mgmt interface so we never touch the 2.4GHz management radio (phy0).
+# The mgmt interfaces, one per line, so that we never touch the 2.4GHz management radio (phy0).
 # On the device the mgmt AP interface is wlan0mgmt (often part of br-lan) and carries one of the
-# two management addresses the awk below knows. We match the
-# fixed names first, then fall back to whichever iface carries a known mgmt IP.
+# two management addresses the awk below knows. Every interface with one of the fixed names is
+# listed, and so is whichever iface carries a known mgmt IP (on the device br-lan, which no phy holds).
 mgmt_iface() {
     if have iw; then
         iw dev 2>/dev/null | awk '
-            /^[[:space:]]*Interface/ { ifc=$2 }
-            ifc ~ /^wlan0(mgmt|cli|open|wpa|ent)?$/ { print ifc; exit }'
+            /^[[:space:]]*Interface/ && $2 ~ /^wlan0(mgmt|cli|open|wpa|ent)?$/ { print $2 }'
     fi
     if have ip; then
         ip -o addr show 2>/dev/null | awk '/172\.16\.52\.1|172\.16\.42\.1/{print $2; exit}'
@@ -519,17 +518,26 @@ existing_monitors() {
     fi
 }
 
-# Pick a base (managed) interface that is NOT the mgmt radio, to host a monitor VIF.
-# Prefer the recon radio (wlan1*) over the 2.4GHz mgmt/client radio (wlan0*).
+# Pick a base (managed) interface that is NOT on the mgmt radio, to host a monitor VIF (and, opt-in, the ACTIVE scan).
+# The radio is judged by its phy, not by the name: a phy that holds any mgmt interface (mgmt_iface) or any interface of
+# type AP is skipped whole, so wlan0cli, which shares phy0 with wlan0mgmt on the device, is never taken, nor a client
+# beside a management AP that a firmware names otherwise. The names reach awk through the environment (a value of two
+# lines given with -v is fatal to some awks). Prefer the recon radio (wlan1*).
 candidate_base_iface() {
     mg=$(mgmt_iface)
     if have iw; then
-        iw dev 2>/dev/null | awk -v mg="$mg" '
-            /^[[:space:]]*Interface/ { ifc=$2 }
-            /type managed/ && ifc != mg {
-                if (ifc ~ /^wlan1/) { print ifc; hit=1; exit }
-                if (!n++) alt=ifc }
-            END { if (!hit && n) print alt }'
+        iw dev 2>/dev/null | SC_MG="$mg" awk '
+            BEGIN { n = split(ENVIRON["SC_MG"], m, "\n"); for (i = 1; i <= n; i++) if (m[i] != "") mgn[m[i]] = 1 }
+            /^phy#/                  { phy=$1; ifc="" }
+            /^[[:space:]]*Interface/ { ifc=$2; k++; nm[k]=ifc; ph[k]=phy; if (ifc in mgn) bad[phy]=1 }
+            /type AP/                { bad[phy]=1 }
+            /type managed/ && ifc != "" { man[k]=1 }
+            END {
+                for (i = 1; i <= k; i++) {
+                    if (!(i in man) || (ph[i] in bad)) continue
+                    if (nm[i] ~ /^wlan1/) { print nm[i]; exit }
+                    if (alt == "") alt=nm[i] }
+                if (alt != "") print alt }'
     fi
 }
 
