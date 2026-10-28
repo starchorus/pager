@@ -22,7 +22,7 @@ CHECKS
             no-break spaces) is removed before reading; a claim wrapped over one line end is read on the line where it starts.
   runlist   the run list of docs/architecture.md §11.0 = the fixture loop of tools/regress.sh (names, order, count).
   headers   the "# Version:" header of every script that carries one (collector, display script and its library copy, serve script,
-            both payload.sh, and the companion alert alert-deauth.sh) is the page version (`version: "x.y.z"` in starchorus.html): one project, one version number.
+            both payload.sh, and the companion alert alert-deauth.sh) is the page version (`version: "x.y.z"` or `"x.y.z.w"` in starchorus.html): one project, one version number.
   contract  [--want N]   the "# Contract:" header of the four scripts that carry one (collector, display script and its library copy,
             the library payload.sh) and of the companion alert (alert-deauth.sh: it fixes the alerts.log line format the collector parses)
             is one number, and N where --want is given (the radio pair's interface number is 3).
@@ -335,7 +335,7 @@ def plain(t):
 
 
 def vnorm(v):
-    """A version as (numeric core padded to three parts, pre-release suffix): "0.2" is 0.2.0, and "0.2.0-dev.1" is not "0.2.0" (semver 2.0.0)."""
+    """A version as (numeric core padded to at least three parts, a fourth kept, pre-release suffix): "0.2" is 0.2.0, "0.2.6.1" stays four, and "0.2.0-dev.1" is not "0.2.0" (semver 2.0.0)."""
     core, _, suf = v.partition("-")
     parts = core.split(".") + ["0"] * (3 - core.count(".") - 1)
     return (tuple(int(x) for x in parts), suf)
@@ -343,7 +343,7 @@ def vnorm(v):
 
 def head_version(root, script):
     for ln in rd(root, script).split("\n")[:40]:
-        m = re.match(r"^#\s*Version:\s*(\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)\s*$", ln)
+        m = re.match(r"^#\s*Version:\s*(\d+\.\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)\s*$", ln)
         if m:
             return m.group(1)
     return None
@@ -425,10 +425,10 @@ HEADER_SCRIPTS = ("starchorus-collect.sh", "starchorus-display.sh", "library/use
 
 def chk_headers(a, root):
     prob, parts = [], []
-    m = re.search(r'^  version: "(\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)",$', rd(root, "starchorus.html"), re.M)
+    m = re.search(r'^  version: "(\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)",$', rd(root, "starchorus.html"), re.M)
     page = m.group(1) if m else None
     if not page:
-        prob.append('starchorus.html has no `  version: "x.y.z",` line (x.y.z, or x.y.z-pre.n for a development build)')
+        prob.append('starchorus.html has no `  version: "x.y.z",` line (x.y.z or x.y.z.w, either with -pre.n for a development build)')
     for script in HEADER_SCRIPTS:
         head = head_version(root, script)
         if not head:
