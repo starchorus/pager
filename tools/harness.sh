@@ -86,17 +86,23 @@ runq() {   # runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp-Args…] → PREF
   # to observe code that runs before the first poll answers (D13 logon gate). S=0 keeps the plain server.
   # RUNQ_SHOT=1 also writes the screenshot PREFIX.png (evidence for the eye; no row reads it, and taking it costs 0.2 to 0.4 s and some 700 kB a run;
   # without it a run also ends that much sooner after its last step, so late console messages and requests have a window shorter by about as much).
+  # A run that fails before cdp.py starts (mktemp, either cp: a renamed fixture) must not leave the previous run's PREFIX.json or PREFIX.png
+  # behind: callers discard runq's status and read the report, so a stale file would be judged as if this run had happened. A missing report
+  # reads red in every consumer (chk, evalv, cdr_ready). The old report goes only once the fixture is safely copied, never before: a FIXTURE
+  # may be PREFIX.json itself (tools/regress.d/ingest-fuzz.sh, lines 96 and 123), and the redirect to PREFIX.json below does not happen
+  # until cdp.py starts. So _rq_stale runs right after the fixture copy and on each early-failure path before return 2.
   _rq_f=$1; _rq_q=$2; _rq_p=$3; shift 3
   _rq_d=0
   if [ "${1:-}" = --delay ]; then _rq_d=$2; shift 2; fi
-  _rq_t=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-runq.XXXXXX") || return 2
+  _rq_t=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-runq.XXXXXX") || { _rq_stale; return 2; }
   # INT/TERM while runq runs: without a trap the server (python3 -m http.server, then PPID 1) and the
   # starchorus-runq.* directory stayed behind. The trap runs after the foreground cdp.py returns (that is how sh handles a signal
   # during a foreground command; Ctrl-C reaches cdp.py directly, as before), cleans up and re-raises the signal, so the
   # caller ends exactly as it did. No caller holds an INT/TERM trap across a call (grep -n 'trap ' tools/*.sh tools/regress.d/*.sh: mutation-probe.sh sets one only while it waits for its two halves, and clears it before it returns).
   _rq_srv=""; trap '_rq_abort INT' INT; trap '_rq_abort TERM' TERM
-  cp "$H" "$_rq_t/index.html" || { _rq_end; return 2; }
-  [ "$_rq_f" = demo ] || cp "$_rq_f" "$_rq_t/starchorus.json" || { _rq_end; return 2; }
+  cp "$H" "$_rq_t/index.html" || { _rq_end; _rq_stale; return 2; }
+  [ "$_rq_f" = demo ] || cp "$_rq_f" "$_rq_t/starchorus.json" || { _rq_end; _rq_stale; return 2; }
+  _rq_stale   # the fixture is copied (it may have been PREFIX.json itself): the old report must not outlive this point
   _rq_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
   if [ "$_rq_d" = 0 ]; then
     python3 -m http.server "$_rq_port" --bind 127.0.0.1 --directory "$_rq_t" >/dev/null 2>&1 & _rq_srv=$!
@@ -122,6 +128,7 @@ PY
   python3 "$R/tools/cdp.py" "http://127.0.0.1:$_rq_port/$_rq_q" --wait 6 --fps 3 --json "$@" > "$_rq_p.json"; _rq_rc=$?
   _rq_end; return $_rq_rc
 }
+_rq_stale() { rm -f "$_rq_p.json" "$_rq_p.png"; }   # runq: drop the previous run's report and screenshot (reasons in the comment inside runq)
 _rq_end() {   # runq's cleanup on every path: server down, directory gone, no trap left behind
   trap - INT TERM
   [ -z "$_rq_srv" ] || { kill "$_rq_srv" 2>/dev/null; wait "$_rq_srv" 2>/dev/null; }
