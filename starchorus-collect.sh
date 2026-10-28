@@ -3681,12 +3681,15 @@ run_cycle() {
                 PN_FELL=1
                 CX_EMBED=1; CYC_NOW=$ts; build_from_recondb "$ts" 2>/dev/null > "$tmp" || ok=0; CX_EMBED=0; CYC_NOW=""
             fi ;;
-        iwscan)  build_from_iwscan  "$ts" 2>/dev/null > "$tmp" || ok=0 ;;
+        # the ACTIVE source keeps its stderr: the builder's notice that this cycle transmits probe requests is meant for the log, every cycle
+        iwscan)  build_from_iwscan  "$ts" > "$tmp" || ok=0 ;;
         *)       ok=0 ;;
     esac
     # What the recon.db copy had to say (build_from_recondb ran with its stderr dropped): said once per episode, like the Bluetooth messages
     [ "$RQ_TORN" != 1 ] || bt_issue torn "recon.db was written to while it was copied, twice in a row; the second copy is read all the same (a busy night)"
     [ -z "$RQ_HOLD" ] || bt_issue recondb "recon.db: the pass failed ($RQ_HOLD); the last document stays until a read succeeds"
+    # ... and the pineap source's security lookup, which says so inside build_from_apcli as well, where this cycle drops it (PSEC_FAIL stays 1 until a lookup answers)
+    [ "$PSEC_FAIL" != 1 ] || bt_issue psec "pineap: the security lookup in recon.db gave no answer; the labels already known stay (next try in a minute)"
     # Post-passes on a good, freshly built document, none of which can fail the cycle: the center extras (max_age,
     # interval, own_*), the homing reading of the ONE chosen AP, and the optional passive vendor /
     # randomized enrichment (skipped entirely with STARCHORUS_VENDOR=0; "defer": its new cache lines are
