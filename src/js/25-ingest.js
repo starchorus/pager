@@ -50,7 +50,7 @@ function histPushCl(seenCl, gen) {
 }
 function pkRate(n, p, gen) {   // §3.8 frames/s over three captures; n.gl = cue level
   const s = n.pk || (n.pk = []), l = s[s.length - 1];
-  if (gen == null || p == null || (l && (p < l[1] || gen - l[0] > Math.max(90, 2 * (S.pollIntervalS || 0) + 15)))) s.length = 0;   // restart on a fall or a gap
+  if (gen == null || p == null || (l && (gen < l[0] || p < l[1] || gen - l[0] > Math.max(90, 2 * (S.pollIntervalS || 0) + 15)))) s.length = 0;   // restart on a fall or a gap
   if (gen != null && p != null && !(s.length && s[s.length - 1][0] === gen)) { s.push([gen, p]); if (s.length > 3) s.shift(); }
   const e = s[s.length - 1], r = s.length > 1 ? (e[1] - s[0][1]) / (e[0] - s[0][0]) : null, t = r == null ? 0 : Math.min(1, Math.log10(1 + r) / Math.log10(1 + GLOW.rateFull));
   n.fps = r; n.gl = t < GLOW.min ? 0 : Math.ceil(t * 3);
@@ -127,9 +127,9 @@ function ingest(doc, opts = {}) {
     let n = S.aps.get(a.bssid); const isNew = !n;
     if (!n) { n = newAp(a.bssid); S.aps.set(a.bssid, n); changed = true; n.born = now; if (opts.resume) resumeMarks(opts.resume.aps, n); }
     if (n.target !== 1) { n.target = 1; n.born = now; changed = true; }
-    if (cap) {   // D2/D18: judged against the values the previous capture left on the node, before they are overwritten
+    if (cap) {   // D2/D18: judged against the values the previous capture left on the node, before they are overwritten (not on a resume: a replay already did)
       if (cmp && n.capSeq !== seq - 1) { n.newSeq = seq; S.ev.arrived++; }
-      else if (cmp) {
+      else if (cmp && !opts.resume) {
         const ns = secClass(a.security, a.akm, a.cipher);   // same classifier as n.sec below (akm/cipher decide some classes); freq is NOT compared (DS channel only)
         const p0 = pend.length;
         for (const [k, from, to] of [["channel", n.channel, a.channel], ["security", n.sec, ns], ["ssid", n.ssid, a.ssid], ["band", n.band, a.band]]) if (from !== to) pend.push([n.id, k, from, to]);

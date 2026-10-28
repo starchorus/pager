@@ -182,7 +182,7 @@ function loadData(raw, label, opts = {}) {
   if (!doc) { if (opts.paste) { pasteErr.textContent = "Could not parse: expected { aps: [ … ] }"; } return { ok: false, error: "invalid document" }; }
   const via = opts.mode === "live" || opts.mode === "demo" ? opts.mode : "recorded";
   if (S.replay) {   // U4: a replay is a view; live polls are still recorded but only shown after "Back to live"; anything else is a new source and ends it
-    if (via === "live" && !opts.resume) { const fresh = recAppend(doc, srcKeyOf(doc, label, via)); S.replay.pending = doc; if (fresh) S.replay.buffered++; renderRec(); setSourcePanel(); return { ok: true, replay: true, fresh, aps: doc.aps.length, clients: 0, free: 0, assoc: 0, sourceKind: "recorded" }; }   // counts captures
+    if (via === "live" && !opts.resume) { const fresh = recAppend(doc, srcKeyOf(doc, label, via)); S.replay.pending = doc; if (fresh) S.replay.buffered++; renderRec(); fresh || noteStalePoll(opts.tickMs, 1); setSourcePanel(); return { ok: true, replay: true, fresh, aps: doc.aps.length, clients: 0, free: 0, assoc: 0, sourceKind: "recorded" }; }   // counts captures
     S.replay = null; applyDrawer();
   }
   const changed = setSource(doc, label, via, opts.tickMs) || opts.paste === true || opts.drop === true;   // before ingest: the detail panel that ingest re-opens reads the new source's copy; paste/drop are always a new capture (D2)
