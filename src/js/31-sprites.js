@@ -67,9 +67,9 @@ function spriteTextFont(role) { return role === "monoSmall" ? TD.fontMonoSmall :
 const SPRITE_TEXT_MAX = 32;   // a longer string is left to fillText: one runaway label must not bake a huge bitmap
 function bakeSprite(kind, colorKey, tier, variant) {
   // #hud is rastered at hudDpr, not S.perf.dpr: RENDER.hudMinDpr keeps HUD text crisp while the governor
-  // scales the sky down. A "text" sprite is blitted onto #hud, so it must be baked at that same scale --
-  // otherwise the baked posts would be upscaled and soft next to the names that fT() still draws directly.
-  const dpr = kind === "text" ? hudDpr : S.perf.dpr, pad = 3;
+  // scales the sky down. What is blitted onto #hud (text, glyph, devcount) is baked at that scale, or it
+  // would be upscaled and soft beside the names fT() draws directly.
+  const dpr = /^(text|glyph|devcount)$/.test(kind) ? hudDpr : S.perf.dpr, pad = 3;
   const soft = variant === "soft";
   const mult = kind === "phosphor" ? THEME.render.phosphor.radiusFactor : kind === "glow" ? TD.glowMult : (kind === "client" || kind === "clientAssoc" || kind === "clientCross") ? 2.2 : 1.6;   // kinds with a fixed box below ignore it
   const cr = LAYOUT.coreRadiusPx, t = clamp((tier - cr[0]) / Math.max(1, cr[1] - cr[0]), 0, 1);   // bloom ramp over the theme-free core range

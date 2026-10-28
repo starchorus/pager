@@ -74,27 +74,28 @@ TXB_S4=$(grep -c 'SPRITE_TEXT_MAX' "$H")
 rowif "text budget: the bake guard is declared once and used once ($TXB_S4)" [ "$TXB_S4" = 3 ]
 
 # ---- #hud is rastered at hudDpr (>= RENDER.hudMinDpr 1.5 on a Retina display) so that HUD TEXT stays crisp
-# while the dpr governor scales the sky down. Baked text is blitted there, so it must be baked at the HUD
-# scale -- baked at the sky scale it would be upscaled and soft next to the names fT() still draws. This run
+# while the dpr governor scales the sky down. Baked text, the security glyphs and the device counters are
+# blitted there, so they must be baked at the HUD scale -- baked at the sky scale they would be upscaled and
+# soft next to the names fT() still draws (the bubble counters go onto the sky and keep the sky scale). This run
 # forces devicePixelRatio 2 on a 1320-node fixture, where the sky drops to 1.25 and the HUD stays 1.5: the
 # two scales genuinely differ here, so the row cannot pass by them being accidentally equal. ?autolod=0: the start DPR
 # from the node count (1.25), not what the quality governor makes of a busy test machine's first seconds.
 TXB_EVD='(async()=>{await STARCHORUS.wait(600);STARCHORUS.frame();const o={},I=STARCHORUS._internals;
 const hud=document.getElementById("hud"),hudScale=hud.width/innerWidth,sky=STARCHORUS.stats().dpr;
-const txt=[];I.spriteCache.forEach(function(v){if(v.kind==="text")txt.push(v)});
+const txt=[];I.spriteCache.forEach(function(v){if(/^(text|glyph|devcount)$/.test(v.kind))txt.push(v)});
 o.diverge=Math.abs(hudScale-sky)>0.01;o.hud=Math.round(hudScale*100)/100;o.sky=Math.round(sky*100)/100;
-o.n=txt.length;o.allAtHudScale=txt.length>0&&txt.every(function(v){return Math.abs(v.dpr-hudScale)<0.01});
+o.n=txt.length;o.kinds=Array.from(new Set(txt.map(function(v){return v.kind}))).sort().join("+");o.allAtHudScale=txt.length>0&&txt.every(function(v){return Math.abs(v.dpr-hudScale)<0.01});
 o.bitmapMatches=txt.every(function(v){return v.c.width===Math.ceil(v.w*hudScale)});
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-txb-dpr" --width 1440 --height 900 --wait 4 --fps 0 --scale 2 --ready "$TXB_RDY" --eval-timeout 90 --eval "$TXB_EVD" >/dev/null 2>&1
 TXB_D=$(evalv "out/$P-txb-dpr.json" 1 | txb_nj)
-TXB_DW=$(printf '%s' '{"allAtHudScale":true,"bitmapMatches":true,"diverge":true,"errors":0,"hud":1.5,"n":1,"sky":1.25}' | txb_nj)
+TXB_DW=$(printf '%s' '{"allAtHudScale":true,"bitmapMatches":true,"diverge":true,"errors":0,"hud":1.5,"kinds":"glyph+text","n":4,"sky":1.25}' | txb_nj)
 if [ "$TXB_D" = "$TXB_DW" ]; then
-  row "text budget: baked HUD text is baked at the HUD scale: at devicePixelRatio 2 on a 1320-node sky the canvas scales genuinely differ (sky 1.25, hud 1.5) and the text sprite carries 1.5, so the posts stay as crisp as the names beside them" PASS
+  row "text budget: baked HUD text is baked at the HUD scale: at devicePixelRatio 2 on a 1320-node sky the canvas scales genuinely differ (sky 1.25, hud 1.5) and every sprite baked for #hud (the text posts and the security glyphs) carries 1.5, so they stay as crisp as the names beside them" PASS
 else
-  row "text budget: baked HUD text follows hudDpr" FAIL; echo "    got:  $TXB_D"; echo "    want: $TXB_DW"
+  row "text budget: baked HUD sprites follow hudDpr" FAIL; echo "    got:  $TXB_D"; echo "    want: $TXB_DW"
 fi
-TXB_S5=$(grep -c 'const dpr = kind === "text" ? hudDpr : S.perf.dpr, pad = 3;' "$H")
+TXB_S5=$(grep -Ec '^  const dpr = /\^\(text\|glyph\|devcount\)\$/\.test\(kind\) \? hudDpr : S\.perf\.dpr, pad = 3;$' "$H")
 TXB_S6=$(grep -c 'if (hudDpr !== prevHudDpr) clearSprites();' "$H")
 rowif "text budget: the bake scale follows the destination canvas ($TXB_S5) and a hudDpr change drops the cache ($TXB_S6)" [ "$TXB_S5/$TXB_S6" = 1/1 ]
 
