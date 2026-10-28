@@ -25,8 +25,9 @@ function labelCandidateList(devCarrier) {
     if (devCarrier) { const dev = S.devices.get(S.deviceOf.get(ap.id)); if (dev && devCarrier.get(dev.id) !== ap.id && !forced) continue; }   // §8.8 one label per physical device
     cand.push(ap);
   }
-  if (anyForced()) cand.sort((a, b) => prio(b) - prio(a) || (b.rssi * b.alphaDraw - a.rssi * a.alphaDraw));
-  else cand.sort((a, b) => b.rssi * b.alphaDraw - a.rssi * a.alphaDraw);   // every prio is 0
+  const k = (n) => (n.rssi + 130) * n.alphaDraw;   // dBm above a -130 floor, times opacity
+  if (anyForced()) cand.sort((a, b) => prio(b) - prio(a) || k(b) - k(a));
+  else cand.sort((a, b) => k(b) - k(a));   // every prio is 0
   return cand;
 }
 function drawHud() {

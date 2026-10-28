@@ -142,13 +142,13 @@ function drawNebula() {   // §8.2 Layer 3 — neutral interference wash between
     const fog = Math.min(a.fog ?? 1, b.fog ?? 1);
     ctx.save();
     ctx.translate(mx, my); ctx.rotate(ang);
-    ctx.globalAlpha = clamp(baseA * Math.min(1, p.score) * (tS > 0 ? fog : 1), 0, 1);
+    setAlpha(ctx, baseA * Math.min(1, p.score) * (tS > 0 ? fog : 1));
     dI(ctx, sprite.c, -L / 2, -Wd / 2, L, Wd);
-    ctx.globalAlpha = clamp(baseA * 1.5 * Math.min(1, p.score), 0, 1);
+    setAlpha(ctx, baseA * 1.5 * Math.min(1, p.score));
     ctx.strokeStyle = THEME.render.nebula; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
     for (let i = -1; i <= 1; i++) { const x = i * L * 0.22; ctx.beginPath(); ctx.moveTo(x, -Wd / 2); ctx.lineTo(x, Wd / 2); ctx.stroke(); }
     ctx.setLineDash([]);
-    ctx.restore();
+    ctx.restore(); curAlpha = 1;
   }
   ctx.globalAlpha = 1; curAlpha = 1;
 }

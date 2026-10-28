@@ -78,7 +78,7 @@ function perfTick(t) {
 }
 function stepNodes(dt, liveDt) {
   const a = S.anim, stale = captureStale(); let moving = false;
-  const breathing = a.breathePeriodS > 0 && liveDt > 0;
+  const breathing = a.breathePeriodS * liveDt > 0 && !reduceMotion;
   const eIn = Math.exp(-a.fadeInK * dt), eOut = Math.exp(-a.fadeOutK * dt), e3 = Math.exp(-3 * dt);
   for (const n of S.aps.values()) {   // a Map iterator tolerates deleting the current entry, like forEach
     const alphaT = (n.target === 1 && S.ui.filters[n.band] !== false) ? 1 : 0;
@@ -153,8 +153,8 @@ function step(dt, liveDt) {
   stepNodes(dt, liveDt); stepClouds(dt);
   stepSky(liveDt);
   stepBubbles(dt);
-  stepParticles(liveDt); stepFlares(dt);
-  nodeEaseDt = dt; projectAll();
+  stepFlares(dt);
+  nodeEaseDt = dt; projectAll(); stepParticles(liveDt);
 }
 function scopeStep(dt, liveDt) {
   stepNodes(dt, liveDt); stepClouds(dt);
@@ -226,7 +226,7 @@ function resize() {
   W = window.innerWidth; H = window.innerHeight;
   if (phoneOn) phoneLayout(true);
   const sb = skyBox(); skyR = sb; CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
-  maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac;
+  maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac || 1;
   inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
   if (scopeOn) { scopeGeom(); SC.sg = ""; renderScope(); }
   resizeCanvases();

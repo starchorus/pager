@@ -3979,7 +3979,7 @@ function perfTick(t) {
 }
 function stepNodes(dt, liveDt) {
   const a = S.anim, stale = captureStale(); let moving = false;
-  const breathing = a.breathePeriodS > 0 && liveDt > 0;
+  const breathing = a.breathePeriodS * liveDt > 0 && !reduceMotion;
   const eIn = Math.exp(-a.fadeInK * dt), eOut = Math.exp(-a.fadeOutK * dt), e3 = Math.exp(-3 * dt);
   for (const n of S.aps.values()) {   // a Map iterator tolerates deleting the current entry, like forEach
     const alphaT = (n.target === 1 && S.ui.filters[n.band] !== false) ? 1 : 0;
@@ -4054,8 +4054,8 @@ function step(dt, liveDt) {
   stepNodes(dt, liveDt); stepClouds(dt);
   stepSky(liveDt);
   stepBubbles(dt);
-  stepParticles(liveDt); stepFlares(dt);
-  nodeEaseDt = dt; projectAll();
+  stepFlares(dt);
+  nodeEaseDt = dt; projectAll(); stepParticles(liveDt);
 }
 function scopeStep(dt, liveDt) {
   stepNodes(dt, liveDt); stepClouds(dt);
@@ -4127,7 +4127,7 @@ function resize() {
   W = window.innerWidth; H = window.innerHeight;
   if (phoneOn) phoneLayout(true);
   const sb = skyBox(); skyR = sb; CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
-  maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac;
+  maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac || 1;
   inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
   if (scopeOn) { scopeGeom(); SC.sg = ""; renderScope(); }
   resizeCanvases();
@@ -4767,13 +4767,13 @@ function drawNebula() {   // §8.2 Layer 3 — neutral interference wash between
     const fog = Math.min(a.fog ?? 1, b.fog ?? 1);
     ctx.save();
     ctx.translate(mx, my); ctx.rotate(ang);
-    ctx.globalAlpha = clamp(baseA * Math.min(1, p.score) * (tS > 0 ? fog : 1), 0, 1);
+    setAlpha(ctx, baseA * Math.min(1, p.score) * (tS > 0 ? fog : 1));
     dI(ctx, sprite.c, -L / 2, -Wd / 2, L, Wd);
-    ctx.globalAlpha = clamp(baseA * 1.5 * Math.min(1, p.score), 0, 1);
+    setAlpha(ctx, baseA * 1.5 * Math.min(1, p.score));
     ctx.strokeStyle = THEME.render.nebula; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
     for (let i = -1; i <= 1; i++) { const x = i * L * 0.22; ctx.beginPath(); ctx.moveTo(x, -Wd / 2); ctx.lineTo(x, Wd / 2); ctx.stroke(); }
     ctx.setLineDash([]);
-    ctx.restore();
+    ctx.restore(); curAlpha = 1;
   }
   ctx.globalAlpha = 1; curAlpha = 1;
 }
@@ -5271,8 +5271,9 @@ function labelCandidateList(devCarrier) {
     if (devCarrier) { const dev = S.devices.get(S.deviceOf.get(ap.id)); if (dev && devCarrier.get(dev.id) !== ap.id && !forced) continue; }   // §8.8 one label per physical device
     cand.push(ap);
   }
-  if (anyForced()) cand.sort((a, b) => prio(b) - prio(a) || (b.rssi * b.alphaDraw - a.rssi * a.alphaDraw));
-  else cand.sort((a, b) => b.rssi * b.alphaDraw - a.rssi * a.alphaDraw);   // every prio is 0
+  const k = (n) => (n.rssi + 130) * n.alphaDraw;   // dBm above a -130 floor, times opacity
+  if (anyForced()) cand.sort((a, b) => prio(b) - prio(a) || k(b) - k(a));
+  else cand.sort((a, b) => k(b) - k(a));   // every prio is 0
   return cand;
 }
 function drawHud() {
@@ -5531,7 +5532,7 @@ function interacted() { S.cam.ramp = 0; S.cam.idleAt = S.clock; }
 canvasHud.addEventListener("pointerdown", (e) => {
   try { canvasHud.setPointerCapture(e.pointerId); } catch (_) { }
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) {
+  if (pointers.size > 1) {
     const p = Array.from(pointers.values()); pinchBase = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
     pinchZoom0 = S.cam.zoom2d; pinchDist0 = S.cam.distT; drag = null;
   } else {
@@ -5563,7 +5564,7 @@ canvasHud.addEventListener("pointermove", (e) => {
 function endPointer(e) {
   try { canvasHud.releasePointerCapture(e.pointerId); } catch (_) { }
   const wasDrag = drag && drag.id === e.pointerId;
-  const clicked = wasDrag && !drag.moved;
+  const clicked = wasDrag && !drag.moved && e.type == "pointerup" && !e.button;
   pointers.delete(e.pointerId);
   if (wasDrag) { drag = null; if (clicked) { const id = nodeAt(e.clientX, e.clientY, e.pointerType === "touch"); if (id) { clickPin(id, e.timeStamp); select(id); } else if (!phoneOn) deselect(); else { if (S.locked || !detail.hidden) deselect(); setSheet("peek"); } } }   // phone: empty sky collapses the sheet, an unlocked 3D camera stays
   if (pointers.size < 2) pinchBase = 0;
@@ -7629,12 +7630,12 @@ S.labelsList = [];
   const demo = demoData(); setSource(demo, "demo", "demo"); ingest(demo, { newSource: true }); renderSourceTruth();
   if (query.demo1) { firstPollDone = true; guard(releaseLogon); }   // ?demo=1: no poll; the logon is released as the first poll does
   else { const boot = tryPoll(); if (!query.poll0) boot.then(r => pollArm(pollNextMs(r))); }   // §9.9 item 1
-  // The embedded label font loads async; once ready, invalidate text caches and repaint so canvas
-  // labels switch from the fallback to the signage face (matters for the Whitehall theme).
+  // The embedded font loads async; once ready, drop the measured and baked text, redraw #bg and repaint,
+  // so canvas labels leave the fallback face (Whitehall).
   try {
     if (document.fonts && document.fonts.load) {
       Promise.all([document.fonts.load('500 12px "Starchorus Sans"'), document.fonts.load('400 12px "Starchorus Sans"')])
-        .then(() => { measureCache.clear(); S.dirty = true; layoutEdges(); if (W > 0) render(); })
+        .then(() => { measureCache.clear(); clearSprites(); rebuildBackground(); S.dirty = true; layoutEdges(); if (W > 0) render(); })
         .catch(() => {});
     }
   } catch (e) {}

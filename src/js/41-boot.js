@@ -26,12 +26,12 @@ S.labelsList = [];
   const demo = demoData(); setSource(demo, "demo", "demo"); ingest(demo, { newSource: true }); renderSourceTruth();
   if (query.demo1) { firstPollDone = true; guard(releaseLogon); }   // ?demo=1: no poll; the logon is released as the first poll does
   else { const boot = tryPoll(); if (!query.poll0) boot.then(r => pollArm(pollNextMs(r))); }   // §9.9 item 1
-  // The embedded label font loads async; once ready, invalidate text caches and repaint so canvas
-  // labels switch from the fallback to the signage face (matters for the Whitehall theme).
+  // The embedded font loads async; once ready, drop the measured and baked text, redraw #bg and repaint,
+  // so canvas labels leave the fallback face (Whitehall).
   try {
     if (document.fonts && document.fonts.load) {
       Promise.all([document.fonts.load('500 12px "Starchorus Sans"'), document.fonts.load('400 12px "Starchorus Sans"')])
-        .then(() => { measureCache.clear(); S.dirty = true; layoutEdges(); if (W > 0) render(); })
+        .then(() => { measureCache.clear(); clearSprites(); rebuildBackground(); S.dirty = true; layoutEdges(); if (W > 0) render(); })
         .catch(() => {});
     }
   } catch (e) {}

@@ -61,7 +61,7 @@ function interacted() { S.cam.ramp = 0; S.cam.idleAt = S.clock; }
 canvasHud.addEventListener("pointerdown", (e) => {
   try { canvasHud.setPointerCapture(e.pointerId); } catch (_) { }
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) {
+  if (pointers.size > 1) {
     const p = Array.from(pointers.values()); pinchBase = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
     pinchZoom0 = S.cam.zoom2d; pinchDist0 = S.cam.distT; drag = null;
   } else {
@@ -93,7 +93,7 @@ canvasHud.addEventListener("pointermove", (e) => {
 function endPointer(e) {
   try { canvasHud.releasePointerCapture(e.pointerId); } catch (_) { }
   const wasDrag = drag && drag.id === e.pointerId;
-  const clicked = wasDrag && !drag.moved;
+  const clicked = wasDrag && !drag.moved && e.type == "pointerup" && !e.button;
   pointers.delete(e.pointerId);
   if (wasDrag) { drag = null; if (clicked) { const id = nodeAt(e.clientX, e.clientY, e.pointerType === "touch"); if (id) { clickPin(id, e.timeStamp); select(id); } else if (!phoneOn) deselect(); else { if (S.locked || !detail.hidden) deselect(); setSheet("peek"); } } }   // phone: empty sky collapses the sheet, an unlocked 3D camera stays
   if (pointers.size < 2) pinchBase = 0;

@@ -1182,8 +1182,8 @@ bubble/glyph – only `drawImage`, `fillRect` and one `stroke()` per path group.
 |---|---|---|---|---|---|---|---|---|
 | 0 | < 250 | sprite with halo (px ≥ 6), without halo (3 ≤ px < 6) | full | all associated | yes | 24 / 16 | toggle | ≤ 40 |
 | 1 | 250–600 | as 0 | half | all | yes | 18 / 12 | toggle | ≤ 40 |
-| 2 | 600–1000 | sprite only at px ≥ 4 && fog ≥ 0.5, otherwise `3×3` rect | APs only | hover/locked/pinned only | off | 12 / 8 | toggle (+ `forced`) | ≤ 20 |
-| 3 | > 1000 | `3×3` rect except hover/locked/pinned; bubbles as sprites | off | hover/locked only | off | 8 / 6 | forced | hover AP only |
+| 2 | 600–1000 | sprite only at px ≥ 4 && fog ≥ 0.5, otherwise `3×3` rect | APs only | hover/locked/pinned only | off | 12 / 8 | toggle (+ `forced`) | ≤ 40 |
+| 3 | > 1000 | `3×3` rect except hover/locked/pinned; bubbles as sprites | off | hover/locked only | off | 8 / 6 | forced | ≤ 40 |
 
 Column 'Labels' = `RENDER.maxLabels[lod]` (2D / 3D); all text items together are additionally subject to `RENDER.maxText`
 (§6.6). `stats().lod` reports the level; `S.ui.autoLod = false` (`?autolod=0`, `setToggles({autoLod:false})`) freezes it
@@ -1539,8 +1539,7 @@ addition 'derived, width unknown → 20 MHz' when `assumed`; (4) `title` of the 
 
 **Nebula** (layer 3): ellipse sprite `nebula` in `render.nebula`, stretched along the connection (rotation via
 `setTransform`, ≤ `nebulaMax` calls), alpha proportional to `I`; in 3D between the projected points. **Neutral:** never
-`band.*`, never `status.*` (interference is not an alarm). Toggle `#t-nebula` (`N`); LOD ≤ 1 up to 40 pairs, LOD 2 up to 20,
-LOD 3 only the hovered AP.
+`band.*`, never `status.*` (interference is not an alarm). Toggle `#t-nebula` (`N`); up to `nebulaMax` pairs at every LOD.
 
 **Channel bar** `#chanbar` (section 37, following `chart.*`): three small multiples 2.4 | 5 | 6 with a shared y axis (APs per
 channel), bars ≤ `chart.barMaxPx` in `band.core`, the occupancy of wide channels as a wash beneath the channels they cover, only the
