@@ -360,7 +360,7 @@ function fillAnim() {
   a.flareMax = d.lensFlare.maxStars | 0; a.flareEnabled = !!d.lensFlare.enabled; a.flareLenFactor = d.lensFlare.lengthFactor || 0;
 }
 function applyTheme(id, opts = {}) {
-  if (!THEMES[id]) id = "foundation";
+  if (!(THEMES[id] || 0).meta) id = "foundation";
   // changed = a real switch; re-applying the active theme keeps the theme-bound bitmaps, shows no caption and leaves a running intro alone
   const changed = TK === null || THEME !== THEMES[id];
   THEME = THEMES[id]; TK = flatten(THEME); TD = deriveStrings(THEME); fillAnim();

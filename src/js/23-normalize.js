@@ -8,7 +8,7 @@ const isMac = (m) => /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(m);
 const idOr = (x, fallback) => x != null && String(x).trim() !== "" ? normMac(x) : fallback;
 const strOrNull = (x, max) => typeof x === "string" ? stripCtl(x, max).trim() || null : null;   // "" → null
 const dbmOrNull = (x) => { const v = numOrNull(x); return v == null ? null : clamp(v, -120, 0); };
-function ulBit(mac) { const c = mac.charAt(1); return c === "2" || c === "6" || c === "a" || c === "e"; }
+function ulBit(mac) { const c = isMac(mac) && mac.charAt(1); return c === "2" || c === "6" || c === "a" || c === "e"; }
 function secClass(s, akm, cipher) {   // the collector's label AND, when present, its AKM/cipher detail (OWE before WPA3: libwifi sets the WPA3 class bit for OWE)
   const u = String(s || "").toUpperCase().trim(), ak = Array.isArray(akm) ? akm : [];
   if ((ak.includes("owe") && !ak.some(x => /^(psk|sae|1x)/.test(x))) || u.includes("OWE")) return "owe";
@@ -76,7 +76,7 @@ function normalizeDoc(raw) {
   const strs = (v, n, m) => Array.isArray(v) ? v.filter(x => typeof x === "string").map(x => stripCtl(x, m)).filter(Boolean).slice(0, n) : null;
   const rc = isObj(raw.center) ? raw.center : {};
   const doc = {
-    generated: numOrNull(raw.generated),
+    generated: (g => g * g < 6e22 ? g : null)(numOrNull(raw.generated)),
     source: typeof raw.source === "string" ? stripCtl(raw.source, 32) : "",
     note: stripCtl(raw.note, 120),
     center: { label: rc.label != null ? stripCtl(rc.label, 40).trim() : "",

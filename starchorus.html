@@ -1253,7 +1253,7 @@ function fillAnim() {
   a.flareMax = d.lensFlare.maxStars | 0; a.flareEnabled = !!d.lensFlare.enabled; a.flareLenFactor = d.lensFlare.lengthFactor || 0;
 }
 function applyTheme(id, opts = {}) {
-  if (!THEMES[id]) id = "foundation";
+  if (!(THEMES[id] || 0).meta) id = "foundation";
   // changed = a real switch; re-applying the active theme keeps the theme-bound bitmaps, shows no caption and leaves a running intro alone
   const changed = TK === null || THEME !== THEMES[id];
   THEME = THEMES[id]; TK = flatten(THEME); TD = deriveStrings(THEME); fillAnim();
@@ -1371,9 +1371,9 @@ function sessionFlag(name, set) {
 }
 const r3 = (v) => (typeof v === "number" && Number.isFinite(v)) ? Math.round(v * 1000) / 1000 : v;
 let stripN = 0;   // what the last stripCtl removed (the name's hid mark)
-function stripCtl(x, max) { if (x == null) return ""; const t = String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, ""); stripN = String(x).length - t.length; return t.slice(0, max); }
+function stripCtl(x, max) { if (x == null) x = ""; const t = String(x).replace(/[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, ""); stripN = String(x).length - t.length; return t.slice(0, max); }
 const plu = (n, w) => `${n} ${w}${n - 1 ? "s" : ""}`;
-function numOrNull(x) { if (x === null || x === undefined || x === "" || typeof x === "boolean") return null; const v = +x; return Number.isFinite(v) ? v : null; }
+function numOrNull(x) { const v = typeof x == "number" || typeof x == "string" && x.trim() ? +x : NaN; return Number.isFinite(v) ? v : null; }
 const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 
 // ==== 23 NORMALIZE ====
@@ -1386,7 +1386,7 @@ const isMac = (m) => /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(m);
 const idOr = (x, fallback) => x != null && String(x).trim() !== "" ? normMac(x) : fallback;
 const strOrNull = (x, max) => typeof x === "string" ? stripCtl(x, max).trim() || null : null;   // "" → null
 const dbmOrNull = (x) => { const v = numOrNull(x); return v == null ? null : clamp(v, -120, 0); };
-function ulBit(mac) { const c = mac.charAt(1); return c === "2" || c === "6" || c === "a" || c === "e"; }
+function ulBit(mac) { const c = isMac(mac) && mac.charAt(1); return c === "2" || c === "6" || c === "a" || c === "e"; }
 function secClass(s, akm, cipher) {   // the collector's label AND, when present, its AKM/cipher detail (OWE before WPA3: libwifi sets the WPA3 class bit for OWE)
   const u = String(s || "").toUpperCase().trim(), ak = Array.isArray(akm) ? akm : [];
   if ((ak.includes("owe") && !ak.some(x => /^(psk|sae|1x)/.test(x))) || u.includes("OWE")) return "owe";
@@ -1454,7 +1454,7 @@ function normalizeDoc(raw) {
   const strs = (v, n, m) => Array.isArray(v) ? v.filter(x => typeof x === "string").map(x => stripCtl(x, m)).filter(Boolean).slice(0, n) : null;
   const rc = isObj(raw.center) ? raw.center : {};
   const doc = {
-    generated: numOrNull(raw.generated),
+    generated: (g => g * g < 6e22 ? g : null)(numOrNull(raw.generated)),
     source: typeof raw.source === "string" ? stripCtl(raw.source, 32) : "",
     note: stripCtl(raw.note, 120),
     center: { label: rc.label != null ? stripCtl(rc.label, 40).trim() : "",
