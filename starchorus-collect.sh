@@ -239,7 +239,7 @@ CYC_NOW=""          # the cycle's clock (Unix seconds) while run_cycle has the r
 RR_N=0; RR_DIR=""; RR_CLS=""; RR_OK=""   # ram_room: cycles since `df` was asked, for which directory and size class, and 1 = the last answer was yes
 FLASH_COPY=1        # 1 = a copy under CAPDIR may exist (one made by this process, or by an earlier collector until the first RAM cycle has looked): the next RAM cycle removes it
 PACE_T0=""; PACE_NOW=""; PACE_MORE=0   # the loop's pace: when this cycle began and the clock (hundredths of a second since boot, "" = not readable), and the seconds slept beyond INTERVAL after the last cycle
-PACE_BT=0           # hundredths of a second this cycle spent in bt_end (bt_end_timed): the Bluetooth window's waiting, which is no load and is taken off the cycle's wall time
+PACE_BT=0           # hundredths of a second this cycle spent waiting (bt_end_timed: the Bluetooth window; build_from_tcpdump: its burst), which is no load and is taken off the cycle's wall time
 TEL_T0=0; TEL_FULL=0; TEL_SKIP=0; TEL_WALL=0; TEL_NW=0   # the hourly line: when the hour began, the full and the skipped cycles in it, the wall time (hundredths) of the cycles that were timed and their number
 DOC_N=""            # doc_whole: the line count of the document it judged whole (rs_keepdoc keeps it for refresh_generated instead of counting again)
 RS_SIG=""           # recon.db files (size, mtime, journal) at the last full pass; "" = none, so the next cycle rebuilds
@@ -340,6 +340,18 @@ interval_value() {
     esac
 }
 interval_value "${STARCHORUS_INTERVAL:-5}"
+# The recon window: whole seconds, 0 = off. Digits only, leading zeros dropped (never octal: 08 would stop the shell in `$((now - MAX_AGE))`, 0300 would be 192
+# and the document would carry invalid JSON); anything else, or more than nine digits, is 0 as before. Sets MAX_AGE.
+max_age_value() {
+    MAX_AGE=0
+    case $1 in
+        ''|*[!0-9]*) ;;
+        *) MA_N=$1
+           while [ "${#MA_N}" -gt 1 ] && [ "${MA_N#0}" != "$MA_N" ]; do MA_N=${MA_N#0}; done
+           if [ "${#MA_N}" -le 9 ]; then MAX_AGE=$MA_N; fi ;;
+    esac
+}
+max_age_value "${STARCHORUS_MAX_AGE:-0}"
 
 # --------------------------------------------------------------------------- small helpers
 log() { printf '[starchorus] %s\n' "$*" >&2; }   # printf, not echo: see find_oui_file
@@ -2343,6 +2355,7 @@ build_from_tcpdump() {
     burst=$INTERVAL
     [ "$burst" -lt 1 ] 2>/dev/null && burst=2
     tcpdump_burst "$burst" | parse_tcpdump_text "$1"
+    PACE_BT=$((PACE_BT + burst * 100))     # the burst listens for its whole length whatever the load: no load, taken off the wall time (pace_end)
     return 0
 }
 
@@ -3791,7 +3804,7 @@ run_cycle() {
 # device, a backoff exactly when the device is busy. The wall time is read by the shell itself from /proc/uptime (builtins, no process; BT_PROC is the stand-in
 # directory of the tests); where that cannot be read there is no backoff and no mean wall time. pace_end leaves PACE_MORE = the seconds to sleep beyond INTERVAL
 # (the loop sleeps INTERVAL as before, then PACE_MORE), and center_extra announces INTERVAL + PACE_MORE as center.interval: the value the loop sleeps after the cycle before (the
-# document of a cycle is written before pace_end has judged that cycle, so a slow cycle shows in the document of the next one). The wait for a Bluetooth window is no load and does not count (bt_end_timed).
+# document of a cycle is written before pace_end has judged that cycle, so a slow cycle shows in the document of the next one). The wait for a Bluetooth window (bt_end_timed) and the listening of a tcpdump burst (build_from_tcpdump) are no load and do not count.
 pace_now() {   # PACE_NOW = hundredths of a second since boot; "" and status 1 where /proc/uptime cannot be read
     PACE_NOW=""; pc_u=""
     { read -r pc_u _ < "$BT_PROC/uptime"; } 2>/dev/null
@@ -7317,6 +7330,8 @@ case "$1" in
     --status)    status_instances; exit 0 ;;
     --selftest)  selftest; exit $? ;;
     --help|-h)   usage; exit 0 ;;
+    --once|'')   ;;
+    *)           log "unknown option: $1 (see --help)"; exit 2 ;;   # not the daemon: that would replace the running collector
 esac
 
 mkdir -p "$OUTDIR" "$CAPDIR" "$PIDDIR" 2>/dev/null
