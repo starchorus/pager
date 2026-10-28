@@ -3868,8 +3868,10 @@ cycle_step() { pace_begin; run_cycle; pace_end; }
 #           forwards what arrives for the wrapper; returns 124 after delivering its signal), noforward (parent, but a signal that arrives for the
 #           wrapper ends the wrapper and leaves the tool alone). Every signal that reaches a wrapper is written to log/wrapper.sigs.
 #   M.text: what the monitor prints (the text of a window).
+# A stand-in polls its tree (log/) and the shell that wrote it (STP, this shell) and ends by itself when either is gone, so that a run that is interrupted
+# (st_abort removes the tree; a kill -9 does not) leaves nothing polling for ever.
 bt_tmo() {
-    printf '#!/bin/sh\nBTS=%s\n' "$1" > "$1/bin/timeout"
+    printf '#!/bin/sh\nBTS=%s\nSTP=%s\n' "$1" "$$" > "$1/bin/timeout"
     cat >> "$1/bin/timeout" <<'BTTMO'
 sig=TERM
 if [ "$1" = -s ]; then sig=$2; shift 2; fi
@@ -3891,6 +3893,7 @@ BTS_WPID=$$; export BTS_WPID
 ( "$@"; echo $? > "$BTS/rc.$$" ) &
 t0=$(date +%s); sent=""
 while [ ! -e "$BTS/rc.$$" ]; do
+    [ -d "$BTS/log" ] && kill -0 "$STP" 2>/dev/null || exit 1
     tp=$(cat "$BTS/tool.$$" 2>/dev/null)
     if [ -s "$BTS/sig/$$" ]; then
         while read -r m; do
@@ -3909,11 +3912,11 @@ exit "$rc"
 BTTMO
     chmod +x "$1/bin/timeout"
 }
-# The two scan tools: one script body, the role (S or M) in its first lines. $1 as for bt_tmo.
+# The two scan tools: one script body, the role (S or M) in its first lines. $1 as for bt_tmo; $2, when given, is the pid they watch in place of this shell's.
 bt_stub() {
     for bs_i in 1 2; do
         if [ "$bs_i" = 1 ]; then bs_n=hcitool; bs_r=S; else bs_n=btmon; bs_r=M; fi
-        printf '#!/bin/sh\nBTS=%s\nROLE=%s\n' "$1" "$bs_r" > "$1/bin/$bs_n"
+        printf '#!/bin/sh\nBTS=%s\nROLE=%s\nSTP=%s\n' "$1" "$bs_r" "${2:-$$}" > "$1/bin/$bs_n"
         cat >> "$1/bin/$bs_n" <<'BTSTUB'
 echo "$*" >> "$BTS/log/argv.$ROLE"
 echo $$ >> "$BTS/log/pid.$ROLE"
@@ -3932,6 +3935,7 @@ if [ "$ROLE" = M ] && [ "$mode" != silent ] && [ "$mode" != banner ]; then
     cat "$BTS/cfg/M.text" 2>/dev/null
 fi
 while :; do
+    [ -d "$BTS/log" ] && kill -0 "$STP" 2>/dev/null || exit 0
     if [ -s "$BTS/sig/$$" ]; then
         while read -r m; do
             case $m in
@@ -4678,7 +4682,8 @@ bt_selftest() {
     }
     # another collector's window, as bt_busy looks for it: a process named like this script, a pid file naming a live tool of the recorded start (BTS_OH, BTS_OT)
     bts_other() {
-        printf '#!/bin/sh\nwhile :; do sleep 1; done\n' > "$BTS/$SELF_BASE"
+        # shellcheck disable=SC2016  # script text for the stand-in: it ends when its file or this shell is gone (an interrupted run leaves no loop named like the collector)
+        printf '#!/bin/sh\nwhile [ -f "$0" ] && kill -0 %s 2>/dev/null; do sleep 1; done\n' "$$" > "$BTS/$SELF_BASE"
         sh "$BTS/$SELF_BASE" 2>/dev/null & BTS_OH=$!
         sleep 60 & BTS_OT=$!
         mkdir -p "$BTS/proc/$BTS_OT"; printf '%s (btmon) S %s 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 %s 0\n' "$BTS_OT" "$BTS_OH" "$BTS_OT" > "$BTS/proc/$BTS_OT/stat"
@@ -4816,7 +4821,7 @@ BTWIN
     # a signal between the fork of a wrapper and the assignment of its pid: cleanup() takes it from $!
     sleep 30 & bts_sl=$!
     BT_ARM=s; BT_SPID=""; BT_MPID=""; BT_F="$BTS/ram/starchorus-bt-$$.txt"; BT_PF="$BTS/ram/starchorus-bt-$$.pid"; : > "$BTS/log/sig.log"
-    cleanup 2>/dev/null
+    cleanup 2>/dev/null; st_arm   # cleanup() clears the INT, TERM and HUP traps of the run
     if [ "$(bts_q "$bts_sl" INT)" -ge 1 ] && [ -z "$BT_SPID$BT_MPID" ]; then st_pass "cleanup: a wrapper forked just before a signal is found in \$! and told to end (INT), the pids are cleared"; else st_fail "cleanup: fork race ([$(cat "$BTS/log/sig.log")] arm [$BT_ARM] spid [$BT_SPID])"; fi
     BT_ARM=""; kill -9 "$bts_sl" 2>/dev/null; wait "$bts_sl" 2>/dev/null
     bts_reap
@@ -5016,7 +5021,7 @@ BTWIN
     if bts_ps | grep -q .; then
         cp "$BTS/in/win.txt" "$BTS/cfg/M.text"; printf 'same\n' > "$BTS/cfg/T.mode"; : > "$BTS/log/sig.log"; : > "$BTS/log/naps"
         # shellcheck disable=SC2016  # the helper's own script text
-        ( while :; do bts_ps | awk -v p="$$" '$2 == p && ($3 == "sleep" || $3 ~ /\/sleep$/) { print $1 }' | while read -r np; do kill "$np" 2>/dev/null && echo "$np" >> "$BTS/log/naps"; done; sleep 0.5; done ) 2>/dev/null &
+        ( while [ -d "$BTS/log" ] && kill -0 "$$" 2>/dev/null; do bts_ps | awk -v p="$$" '$2 == p && ($3 == "sleep" || $3 ~ /\/sleep$/) { print $1 }' | while read -r np; do kill "$np" 2>/dev/null && echo "$np" >> "$BTS/log/naps"; done; sleep 0.5; done ) 2>/dev/null &
         bts_kp=$!
         bts_t0=$(date +%s); bts_win; bts_t1=$(date +%s)
         kill -9 "$bts_kp" 2>/dev/null; wait "$bts_kp" 2>/dev/null
@@ -5195,13 +5200,24 @@ selftest() {
     ST_FAILS=0; ST_PASS=0
     # Nothing here may reach a radio or the controller, whatever the environment holds: the switches are forced off, for this process and for the collectors
     # it starts (they read the environment), and the controller's sysfs points at nothing. A case that needs a switch sets it itself, inside its stand-in
-    # block (bt_env, the apcli stubs, a child's own environment).
+    # block (bt_env, the apcli stubs, a child's own environment). The alert log is out of reach too: a device that has logged an alert has a non-empty
+    # alerts.log, which would put a layer (and a recent line) into every document and fail the cycle and vendor cases for a reason that is no fault of the collector.
     STARCHORUS_BLUETOOTH=0; STARCHORUS_TRAFFIC=0; STARCHORUS_APCLI_RO=0; STARCHORUS_ALLOW_ACTIVE=0; STARCHORUS_SYSFS_BT=/nonexistent/starchorus-selftest-bt
-    export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT
-    BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT
+    STARCHORUS_ALERTS=0; STARCHORUS_ALERT_DIR=/nonexistent/starchorus-selftest-alerts
+    export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT STARCHORUS_ALERTS STARCHORUS_ALERT_DIR
+    BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT; ALERTS=0; ALERT_DIR=$STARCHORUS_ALERT_DIR
     tdir=$(mktemp -d 2>/dev/null || echo /tmp/starchorus-selftest.$$)
     mkdir -p "$tdir"
     OUTDIR="$tdir"; CAPDIR="$tdir/cap"; mkdir -p "$CAPDIR"
+    # An interrupted run (Ctrl-C, a hang-up, the time limit of tools/device-probe.sh) removes its workspace and ends with 128 plus the signal (a trap that only
+    # returned would leave the shell running, as cleanup() explains). The long-lived stand-ins poll that workspace and this shell and end by themselves
+    # within a second of either going, so none is left polling until a reboot or later reported as another collector's loop. Two things in the code under test
+    # change these traps: cleanup() clears them (the case that calls it re-arms them with st_arm), and bt_begin sets a HUP trap of its own (cleanup, then exit),
+    # so a hang-up after the first Bluetooth window leaves the workspace behind; the stand-ins still end with the shell.
+    # shellcheck disable=SC2329  # called by name from the traps
+    st_abort() { trap - INT TERM HUP; rm -rf "$tdir" 2>/dev/null; exit "$1"; }
+    st_arm() { trap 'st_abort 130' INT; trap 'st_abort 143' TERM; trap 'st_abort 129' HUP; }
+    st_arm
     log "selftest workspace: $tdir"
 
     st_pass() { log "  PASS: $1"; ST_PASS=$((ST_PASS+1)); }
@@ -5240,6 +5256,35 @@ CSV
     checkf "airodump: probed ESSID -> probes" "$out" '"rssi": -80, "probes": ["FreeWifi"]'
     check "airodump: rate from Speed (130)" "$out" '"security": "WPA2/PSK/CCMP", "rate": 130, "clients"'
     check "airodump: rate from Speed (866)" "$out" '"rate": 866'
+
+    # ---- 1a) an interrupted run: a second copy of this selftest is started and told to stop with TERM (as tools/device-probe.sh does at its time limit) as soon as it has made
+    #          its workspace; it must end with 143 and take that workspace with it (st_abort). A background job cannot trap INT, so TERM stands for the three signals.
+    #          The second copy is told whose it is (STARCHORUS_SELFTEST_NESTED holds the pid of this shell, which a copy takes for its own only when it is also its parent's pid) and
+    #          leaves this case out: otherwise it would reach it before it is stopped, start a third copy and leave that one running, and so on without end.
+    if [ "${STARCHORUS_SELFTEST_NESTED:-}" != "$PPID" ]; then
+        sab_o="$tdir/abort.out"; sab_w=""; sab_hung=0
+        exec 4>&2 2>/dev/null
+        STARCHORUS_SELFTEST_NESTED=$$ sh "$0" --selftest > "$sab_o" 2>&1 & sab_p=$!
+        sab_n=0
+        while [ -z "$sab_w" ] && [ "$sab_n" -lt 100 ]; do
+            sab_w=$(sed -n 's/^\[starchorus\] selftest workspace: //p' "$sab_o" | head -n 1)
+            [ -n "$sab_w" ] || { sleep 0.2 2>/dev/null || sleep 1; }
+            sab_n=$((sab_n + 1))
+        done
+        if [ -n "$sab_w" ]; then
+            kill -TERM "$sab_p"
+            sab_n=0; while kill -0 "$sab_p" && [ "$sab_n" -lt 50 ]; do sleep 0.2 2>/dev/null || { sleep 1; sab_n=$((sab_n + 4)); }; sab_n=$((sab_n + 1)); done
+        fi
+        if kill -0 "$sab_p"; then kill -9 "$sab_p"; sab_hung=1; fi
+        wait "$sab_p"; sab_rc=$?
+        sab_gone=0; [ -n "$sab_w" ] && [ ! -d "$sab_w" ] && sab_gone=1
+        [ -z "$sab_w" ] || rm -rf "$sab_w"
+        exec 2>&4 4>&-
+        if [ "$sab_rc/$sab_gone/$sab_hung" = 143/1/0 ]; then st_pass "selftest: an interrupted run (TERM) ends with 143 and removes its workspace"
+        else st_fail "selftest: an interrupted run (rc $sab_rc, workspace [$sab_w] gone $sab_gone, had to be killed $sab_hung)"; fi
+    else
+        log "  SKIP: the interrupted-run case is left to the copy that started this one"
+    fi
 
     # ---- 1b) Bluetooth, the per-cycle layers and the traffic call: the text of a window (no process), the layers (files), a window against stand-ins
     bt_parse_selftest "$tdir"
@@ -6895,7 +6940,8 @@ SQL
     #      airodump (stand-ins whose command lines name this script and airodump) are seen and stopped. Every process here is
     #      double-forked, so none of them lingers as a zombie of this shell.
     mkdir -p "$tdir/own"
-    printf 'while :; do sleep 1; done\n' > "$tdir/own/$SELF_BASE"; printf 'while :; do sleep 1; done\n' > "$tdir/own/airodump-ng"
+    # shellcheck disable=SC2016  # script text for the stand-ins: each ends when its file or this shell is gone (an interrupted run leaves no loop named like the collector)
+    printf 'while [ -f "$0" ] && kill -0 %s 2>/dev/null; do sleep 1; done\n' "$$" > "$tdir/own/$SELF_BASE"; cp "$tdir/own/$SELF_BASE" "$tdir/own/airodump-ng"
     ( sleep 30 >/dev/null 2>&1 & echo $! > "$tdir/own/f.pid" )
     ( sh "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )
     ( sh "$tdir/own/airodump-ng" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
@@ -7192,7 +7238,8 @@ SQL
     #          the operator's own collector), and a stand-in `readlink` answers /proc/PID/cwd from a map.
     #          Every wait is bounded; the stand-ins hold no inherited descriptor (a survivor would keep a caller's pipe open).
     klw="$tdir/klscope"; klbin="$klw/bin"; mkdir -p "$klbin" "$klw/d1" "$klw/d2" "$klw/own" "$klw/status"
-    printf '#!/bin/sh\nwhile :; do sleep 1; done\n' > "$klw/d1/starchorus-collect.sh"
+    # shellcheck disable=SC2016  # script text for the stand-ins: each ends when its file or this shell is gone (an interrupted run leaves no loop named like the collector)
+    printf '#!/bin/sh\nwhile [ -f "$0" ] && kill -0 %s 2>/dev/null; do sleep 1; done\n' "$$" > "$klw/d1/starchorus-collect.sh"
     for kd in d2 own status; do cp "$klw/d1/starchorus-collect.sh" "$klw/$kd/starchorus-collect.sh"; done
     chmod +x "$klw"/*/starchorus-collect.sh
     # shellcheck disable=SC2016   # script text for the stand-in, expanded when it runs
@@ -7227,13 +7274,15 @@ KLRL
     exec 4>&2 2>/dev/null   # no job "Terminated" lines while stand-ins come and go
     kl_spawn d1; klf1=$klsp; kl_spawn d2; klf2=$klsp; kl_spawn own; klown=$klsp; kl_spawn status --status; klst=$klsp
     exec 2>&4 4>&-
+    # The two decoy lines (a sleep, a grep) must be filtered out. Their pids lie above the kernel's pid ceiling (4194304), so no process has them: were the filter
+    # to regress, kill_loops would signal nothing (pids 1 and 2 would be init and the kernel's thread daemon, signalled as root).
     {   printf '  PID USER       VSZ STAT COMMAND\n'
         printf '%5s root      1508 S    {starchorus-coll} /bin/sh %s/d1/starchorus-collect.sh\n' "$klf1" "$klw"
         printf '%5s root      1508 S    sh %s/d2/starchorus-collect.sh\n' "$klf2" "$klw"
         printf '%5s root      1508 S    {starchorus-coll} /bin/sh ./starchorus-collect.sh\n' "$klown"
         printf '%5s root      1508 S    {starchorus-coll} /bin/sh ./starchorus-collect.sh --status\n' "$klst"
-        printf '%5s root      1200 S    sleep 1\n' 1
-        printf '%5s root      1200 S    grep starchorus-collect.sh\n' 2
+        printf '%5s root      1200 S    sleep 1\n' 4194305
+        printf '%5s root      1200 S    grep starchorus-collect.sh\n' 4194306
     } > "$klw/ps.txt"
     printf '%s %s\n' "$klf1" "$klw/d1" > "$klw/proc.map"   # d1 mapped (its directory is reported); d2 unmapped (the fallback)
     export KLTAB="$klw/ps.txt" KLMAP="$klw/proc.map"
@@ -7254,7 +7303,7 @@ KLRL
     grep -qF "also stopped collector loop pid $klf2 in unknown directory (one collector per device)" "$klw/kl.log" || klbad="$klbad no-foreign2-fallback"
     grep -q "pid $klown " "$klw/kl.log" && klbad="$klbad own-double-reported"
     grep -q "pid $klst " "$klw/kl.log" && klbad="$klbad status-reported"
-    grep -qE "pid (1|2) " "$klw/kl.log" && klbad="$klbad sleep-or-grep-line-matched"
+    grep -qE "pid (1|2|4194305|4194306) " "$klw/kl.log" && klbad="$klbad sleep-or-grep-line-matched"   # the decoys; 1 and 2 stay in, as nothing may ever report them
     if [ -z "$klbad" ]; then st_pass "kill_loops --stop (BusyBox ps w lines): foreign loops stopped and reported with directory (d1 named, d2 -> unknown directory); own loop not double-reported; --status untouched"; else st_fail "kill_loops --stop scope/honesty:$klbad"; fi
     # start-up "replace" wording: each loop replaced is reported (one collector per device)
     exec 4>&2 2>/dev/null
@@ -7290,6 +7339,22 @@ KLRL
     else
         log "  SKIP: kill_loops own-subshell case needs /proc"
     fi
+    # The stand-ins of the Bluetooth window end by themselves, within seconds, when the tree they poll is removed or the shell they watch is gone (an interrupted run, see st_abort).
+    # A scan stand-in (bt_stub makes two, one body) is run on its own in two trees, as the loops above are run (kl_spawn starts a script of this name in a directory of klscope),
+    # the first tree removed and the pid the second watches (a sleep here) killed. A stand-in that is still there is killed by kl_cleanup.
+    for klb in bs1 bs2; do mkdir -p "$klw/$klb/bin" "$klw/$klb/cfg" "$klw/$klb/log" "$klw/$klb/sig" "$klw/$klb/proc"; done
+    exec 4>&2 2>/dev/null
+    sleep 60 & klbw=$!
+    bt_stub "$klw/bs1"; bt_stub "$klw/bs2" "$klbw"
+    for klb in bs1 bs2; do for klf in "$klw/$klb/bin"/*; do cp "$klf" "$klw/$klb/starchorus-collect.sh"; done; done
+    kl_spawn bs1; klb1=$klsp; kl_spawn bs2; klb2=$klsp
+    sleep 1
+    klb_up=0; kill -0 "$klb1" 2>/dev/null && kill -0 "$klb2" 2>/dev/null && klb_up=1
+    rm -rf "$klw/bs1"; kill -9 "$klbw"; wait "$klbw"
+    kl_wait "$klb1"; klb_d1=$?; kl_wait "$klb2"; klb_d2=$?
+    exec 2>&4 4>&-
+    if [ "$klb_up/$klb_d1/$klb_d2" = 1/0/0 ]; then st_pass "window stand-ins: a scan stand-in runs while its tree and its shell are there, and ends by itself once its tree is removed, and once its shell is gone"
+    else st_fail "window stand-ins: ending by itself (up $klb_up, tree removed -> wait status $klb_d1, shell killed -> wait status $klb_d2; 0 = gone)"; fi
     exec 4>&2 2>/dev/null
     kl_cleanup
     exec 2>&4 4>&-
@@ -7314,6 +7379,7 @@ KLRL
         st_pass "run_cycle: post-pass output without closing brace (rc 0) discarded"
     else st_fail "run_cycle: broken post-pass tail published"; fi
 
+    trap - INT TERM HUP
     rm -rf "$tdir" 2>/dev/null
     if [ "$ST_FAILS" = "0" ]; then log "SELFTEST: ALL PASS ($ST_PASS checks)"; else log "SELFTEST: $ST_FAILS FAILURES, $ST_PASS passed (see above)"; fi
     [ "$ST_FAILS" = "0" ]
