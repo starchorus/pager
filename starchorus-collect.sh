@@ -707,15 +707,15 @@ cleanup() {
         rm -f "$AIRODUMP_PIDFILE"
     fi
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
-    # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal, an OUI index
-    # build, the pineap side files, the RAM copy of recon.db.
-    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" "${OUI_CACHE:-$CAPDIR/oui-cache.txt}.gat.$$" 2>/dev/null
+    # This instance's pid-stamped temp files only: the output files of a cycle cut short by the signal (each post-pass's own:
+    # .c center, .h homing, .v vendor, .l layers), an OUI index build, the pineap side files and security cache in the making, the RAM copy of recon.db.
+    rm -f "$OUTFILE.tmp.$$" "$OUTFILE.tmp.$$.c" "$OUTFILE.tmp.$$.h" "$OUTFILE.tmp.$$.v" "$OUTFILE.tmp.$$.l" "$OUTFILE.gen$$" "${OUI_CACHE:-$CAPDIR/oui-cache.txt}.gat.$$" 2>/dev/null
     # the Bluetooth window's files of this process (the pid file only when no tool is left, bt_end abort decides), the RECON CHANNELS call and its file
     rm -f "$TMPDIR_RAM/starchorus-bt-$$.txt.out" "$TMPDIR_RAM/starchorus-bt-$$.held" "$TMPDIR_RAM/starchorus-bt-$$.new" "$TMPDIR_RAM/starchorus-bt-$$.stat" \
           "$TMPDIR_RAM/starchorus-bt-$$.alog" "$TMPDIR_RAM/starchorus-traffic-$$.json" 2>/dev/null
     if [ -n "$TR_PID" ]; then is_own_child "$TR_PID" && kill "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rm -rf "$CAPDIR"/oui-index.new.$$.* 2>/dev/null
-    rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" 2>/dev/null
+    rm -f "$TMPDIR_RAM/starchorus-pineap-$$.unk" "$TMPDIR_RAM/starchorus-pineap-$$.neg" "$TMPDIR_RAM/starchorus-pineap-$$.all" "${PSEC:-$TMPDIR_RAM/starchorus-sec.txt}.new.$$" 2>/dev/null
     rm -f "$TMPDIR_RAM/starchorus-recon-$$.db" "$TMPDIR_RAM/starchorus-recon-$$.db-wal" "$TMPDIR_RAM/starchorus-recon-$$.db-shm" "$TMPDIR_RAM/starchorus-recon-$$.db-err" 2>/dev/null
     [ -n "$VENDOR_NEWF" ] && rm -f "$VENDOR_NEWF" 2>/dev/null
     [ "${CACHE_LOCKED:-0}" -gt 0 ] 2>/dev/null && CACHE_LOCKED=1  # release fully, whatever the depth
@@ -7270,6 +7270,14 @@ if [ ! -d "$OUTDIR" ] || [ ! -w "$OUTDIR" ]; then
     log "cannot create or write the output directory $OUTDIR (STARCHORUS_OUTDIR); no document is published until it can be written"
 fi
 
+# Signals clean up AND exit (a returning handler would otherwise resume the loop); EXIT only cleans. HUP is here for a collector started from a
+# terminal that closes (a Bluetooth window's tools must not outlive it). Set before anything is made: the OUI index and cache lock (setup_vendor),
+# a monitor interface (resolve_source) and airodump (start_airodump) are then undone by a signal at any point, and so by the exit when no source is found.
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 129' HUP
+trap cleanup EXIT
+
 # Locate the local OUI file + cache once (logs once if none; never fatal).
 setup_vendor
 
@@ -7299,13 +7307,6 @@ if [ "$RESOLVED" = "capture" ]; then
     fi
     [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
 fi
-
-# Signals clean up AND exit (a returning handler would otherwise resume the loop); EXIT only cleans. HUP is here for a collector started from a
-# terminal that closes (a Bluetooth window's tools must not outlive it).
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
-trap 'cleanup; exit 129' HUP
-trap cleanup EXIT
 
 if [ "$1" = "--once" ]; then
     # For a single cycle with airodump, give it a moment to populate the CSV.
