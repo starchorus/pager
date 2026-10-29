@@ -3,7 +3,7 @@
 The device is the Hak5 WiFi Pineapple Pager (a trademark of Hak5 LLC; Starchorus is not
 affiliated with Hak5). This is the developer reference for the facts **verified on the device** on which the collector, the Overview and the
 payload rest. The details come from a read-only session on the device and from its unpacked
-firmware image. Anything not yet verified on the device is marked as open (§2a, §2b, §5a, §5b, §7 and the list at the end of §6a);
+firmware image. Anything not yet verified on the device is marked as open (§2a, §2b, §2c, §5a, §5b, §7 and the list at the end of §6a);
 `tools/device-probe.sh` answers these questions in a read-only session, as far as that is possible
 without transmitting and without changing state.
 
@@ -15,6 +15,10 @@ without transmitting and without changing state.
 > `iw scan` sends probe requests and therefore counts as **active**; the collector uses it only with
 > an explicit opt-in (`STARCHORUS_ALLOW_ACTIVE=1`). Everything in this document describes reading or
 > receiving paths.
+>
+> 'Passive' describes what Starchorus itself does. A database it reads may itself have been filled by an active
+> scan (`blue5.db`, by the Pager's own scanner): that is the Pager's own setting, outside Starchorus's control,
+> and reading the result sends nothing.
 
 ---
 
@@ -278,7 +282,7 @@ collector killed with SIGKILL leaves its tools to their dead-man timers and to t
 window counts only when `btmon`'s text shows the collector's own `LE Set Scan Parameters` block with `Type: Passive (0x00)` before the
 first report, the scan enabled, no `Type: Active` block, no extended scan command or report, and frame numbers that increase. A
 missing `Scanning: Disabled` block is logged ('no scan disable was seen; the controller may still be scanning (passive); see
-device-notes V-13'). Records are held for 120 s after their window.
+device-notes V-13'). Records are held for 120 s after their window. On firmware 2.0, where the Pager's own scanner holds the controller, this window does not run (`bt_begin` stands it down) and `STARCHORUS_BT_SOURCE=auto` reads the firmware's database instead (§2c).
 
 **A scan left running.** If an `hcitool` dies between enabling the scan and its SIGINT handler (the device's `timeout` starts it with INT at default, so an INT
 in that moment kills it), or has to be terminated, the controller may go on scanning (A4: not to be provoked on purpose). The collector shows it by the missing disable block and by the next window
@@ -311,6 +315,53 @@ the count and the plain names of the BlueZ-looking files in `/usr/bin` and `/usr
 `bluetoothd`, `hcitool` and `btmon`. It calls no Bluetooth tool, `hciconfig` included, and starts no scan. Every further name it finds goes
 into `BT_WORDS` of `tools/passivity-check.sh`. What a window shows (the scan parameters, the event types, the head start) it cannot
 say; the devbench rows in §6a do.
+
+---
+
+### 2c. The firmware's Bluetooth database (`blue5.db`, firmware 2.0)
+
+Firmware 2.0 ships the Pager's own resident Bluetooth scanner, which fills a SQLite database at
+`/root/recon/blue5.db`. On that firmware the Bluetooth layer can read that database instead of running a window
+of its own (§2b). This is design (read from the code); on firmware 2.0 no real `blue5.db` has been read here
+yet (**open**, below).
+
+**Selection.** `STARCHORUS_BT_SOURCE` is `auto` (default), `blue5` or `window`, and is read only when
+`STARCHORUS_BLUETOOTH=1` (it does not switch Bluetooth on). `auto` takes the database when
+`STARCHORUS_BLUE5_DB` (default `/root/recon/blue5.db`) exists, a bare `-e` test once per cycle, otherwise the
+window; an existing but unreadable file gives no Bluetooth that cycle, not a fall-back to the window. Any other
+value gives no Bluetooth that cycle and one log line per episode.
+
+**Copy first, read-only.** Like recon.db (§4) the file is copied to RAM first (`$STARCHORUS_TMPDIR`, default
+`/tmp`; `starchorus-bt5-<pid>.db`; `umask 077`), opened with `sqlite3 -readonly` and removed after the query,
+and the copy is capped (a code comment puts the file at about 40 kB on the device). Unlike recon.db there is
+**no fall-back place and no read of the live file**: no copy means no Bluetooth that cycle. The scanner's
+`journal_mode` is `delete`, so a long read of the live file would hold a SHARED lock and stall its commits.
+
+**What is read.** One query with a completeness sentinel over the table `bt_device`: LE only
+(`transports = 1`), a 12-hex address, `rssi_avg` between -127 and -1, the last-seen time within 120 s before the
+cycle clock and never after it, the newest row per address, the strongest first, no more than 256. `reports`
+is `packets` (floored at 1); `company` is kept only as a real id (not 0 or 65535); `name` has TAB, LF and CR
+turned to spaces and is cut to 32; `connectable` only when 1; the address sub-type comes from `le_random` and
+the top two address bits (public, random-static, random-resolvable, random-nonresolvable). `last_seen` is the
+database's own value, not the cycle's `generated`.
+
+**The document.** The `bluetooth` array is as in §2b; `center` carries `bt_hold` and `bt_source` = `blue5`
+and **no** `bt_window` (there is no window of ours this cycle; page and Overview read a missing `bt_window` as
+not void). `STARCHORUS_BT_WINDOW` does not apply, and the source needs `sqlite3` and a readable file, not
+`hci0`, `hcitool` or `btmon`. A failed read is a void cycle for that layer (held records fade).
+
+**Stand-down.** With the `window` source, `bt_begin` returns 7 and logs that the Pager's own scanner holds the
+controller and our own window stands down this cycle (strict passivity), for as long as a process named
+`blue5` is seen in `/proc`.
+
+**Passivity.** Starchorus never starts, stops or configures that scanner and never runs `blue5ctl`; `blue5ctl`
+and `blue5` are denied by name in `tools/passivity-check.sh`. Whatever mode the scanner runs in is the Pager's
+own setting, outside Starchorus's control (the hard rule at the head of this file); reading the result sends
+nothing.
+
+**Still to check on the device** (**open**): one real read of a 2.0 `blue5.db` and its cost on the device; the
+columns of `bt_device` and the address encoding against a real file; and that `auto` selects it as described.
+The column list above is from the fixture the collector's self-test builds, not from a device file.
 
 ---
 
@@ -359,7 +410,7 @@ read on the live file would hold a SHARED lock that stalls the engine's commits.
 made, and why the `-journal` is deliberately not copied (a hot journal beside a read-only copy cannot be
 rolled back). With less free space in `/tmp` than the copy needs (size, half as much again for sqlite's
 temporary files, 2 MB), or when the copy fails, the old place `STARCHORUS_CAPDIR/recon_copy.db` is used,
-and as a last resort the original file, likewise `-readonly`.
+and as a last resort the original file, likewise `-readonly`. The firmware's own Bluetooth database on firmware 2.0 (`blue5.db`) sits in the same directory and is copied and read the same way, but with no fall-back place and no read of the live file (§2c).
 
 A plain `cp` of a file that the engine is rewriting in place can hold old and new pages together (a torn copy). The stamp that
 the skip test takes before the copy (size and modification time of the database, and whether a `-journal` or `-wal` stands beside
