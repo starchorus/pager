@@ -33,6 +33,10 @@
 #                       anyway, and the monitor that decodes what the controller hands the host). A window counts
 #                       only when that monitor shows the scan parameters of the collector's own scan with
 #                       Type: Passive before the first report (the witness, bt_parse).
+#                       Opt-in only (STARCHORUS_BLUETOOTH=1) with STARCHORUS_BT_SOURCE=blue5, or auto on firmware 2.0 where
+#                       the firmware's own scanner holds the controller: reading that scanner's database (blue5.db) read-only,
+#                       instead of a window of ours -- a copy in RAM, sqlite3 -readonly, a file read and not a tool start.
+#                       Whatever mode the Pager's scanner runs in is the Pager's own setting, outside our control; the read sends nothing.
 #                       Reading the alert log (STARCHORUS_ALERTS, on by default): $ALERT_DIR/alerts.log, a text file that the companion
 #                       alert payload (alert-deauth.sh) appends to when the firmware reports many deauth/disassoc frames heard for an
 #                       access point. Nothing is received or sent for it; the file is read as untrusted text (alerts[], below).
@@ -107,6 +111,12 @@
 #                        beside the source build) and writes the top-level "bluetooth" array and center."bt_window"/"bt_hold". Needs a
 #                        controller (hci0) and the scan tools; without them it stays off with one log line. Addresses, not devices.  (default 0)
 #   STARCHORUS_BT_WINDOW      the window length in whole seconds, 5 to 15; anything else is 5 with one log line.  (default 5)
+#   STARCHORUS_BT_SOURCE      auto|blue5|window: where the Bluetooth layer gets its records, only with
+#                        STARCHORUS_BLUETOOTH=1. auto = the firmware's own database (blue5.db) when present, else our
+#                        own window; blue5 = always that database (firmware 2.0); window = always our own passive LE scan.
+#                        Any other value turns Bluetooth off for that cycle (one log line).  (default auto)
+#   STARCHORUS_BLUE5_DB       the firmware's Bluetooth database for STARCHORUS_BT_SOURCE=blue5 and auto: copied to RAM and
+#                        read sqlite3 -readonly, like recon.db but with no flash copy and no read of the live file.  (default /root/recon/blue5.db)
 #   STARCHORUS_TRAFFIC        1 = the first cycle and then every second one reads RECON CHANNELS (the fifth literal line of apcli_ro, gated on
 #                        this flag alone, in the background) into the top-level "activity" array (a share per frequency, never a count); the
 #                        cycles in between publish the answer of the cycle before again, as the AP service counts over a window of 20 to 30 s.
@@ -137,11 +147,14 @@
 #   center : "max_age" (int, the STARCHORUS_MAX_AGE window; 0 = the whole record) and "interval" (int, seconds
 #            between rewrites), always; "own_bssids"/"own_ssids" with STARCHORUS_OWN=1; "bt_window" (int, seconds: the
 #            window this document was scanned with, 0 = no valid window this cycle) and "bt_hold" (int, seconds a record
-#            is carried after its window) together with the "bluetooth" array.
+#            is carried after its window) together with the "bluetooth" array. With STARCHORUS_BT_SOURCE=blue5 the
+#            document instead carries "bt_source": "blue5" and "bt_hold" and no "bt_window" (the records come from the
+#            firmware's database, not a window of ours).
 #   station, recon.db only, STARCHORUS_TRAFFIC=1: "packets" (int >= 0: the cumulative frame counter of the rows of that MAC heard
 #            in the last 300 s; a new recon session starts a new, smaller counter, so the consumer takes a drop as a first sight).
 #   top level: "bluetooth" (array, STARCHORUS_BLUETOOTH=1: one record per ADDRESS heard in the last passive window or held for
-#            "bt_hold" seconds: addr, addr_type, rssi, reports, last_seen (the "generated" of the cycle that heard it), and when
+#            "bt_hold" seconds: addr, addr_type, rssi, reports, last_seen (our own window: the "generated" of the cycle that heard
+#            it; the blue5 source: the database's own value), and when
 #            advertised company, company_name, name, connectable; at most 256, strongest first; addresses, not devices: random
 #            addresses rotate), "activity" (array,
 #            STARCHORUS_TRAFFIC=1: {"freq", "share"} per frequency from RECON CHANNELS, shares of the frames counted on all
@@ -7567,6 +7580,9 @@ usage() {
     printf '%s\n' '  STARCHORUS_APCLI_RO        1 = the read-only list commands of the AP service (the pineap source sets it itself).  (default 0)'
     printf '%s\n' '  STARCHORUS_BLUETOOTH       1 = one passive Bluetooth LE listening window per cycle, of STARCHORUS_BT_WINDOW'
     printf '%s\n' '                             seconds (5 to 15, default 5).  (default 0)'
+    printf '%s\n' '  STARCHORUS_BT_SOURCE       auto|blue5|window: where the Bluetooth layer reads (only with STARCHORUS_BLUETOOTH=1);'
+    printf '%s\n' '                             auto reads blue5.db when it exists, else our own window.  (default auto)'
+    printf '%s\n' '  STARCHORUS_BLUE5_DB        that database, copied and read read-only.  (default /root/recon/blue5.db)'
     printf '%s\n' '  STARCHORUS_TRAFFIC         1 = the share of frames per frequency; on recon.db also a frame counter per station.  (default 0)'
     printf '%s\n' 'On by default:'
     printf '%s\n' '  STARCHORUS_ALERTS          0 = do not read alerts.log (the companion alert payload) from STARCHORUS_ALERT_DIR,'
