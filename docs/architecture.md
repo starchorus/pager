@@ -8,7 +8,7 @@ lists (§2.7 query parameters, §9.6 keys, §10 API) are checked against the cod
 **Strictly passive.** The page sends nothing except `fetch("starchorus.json?_=…", {cache:"no-store"})` in the same
 directory. No radar sweep (it would suggest active scanning), no third-party requests, no external
 font link; the typeface is embedded (section 00). The collector only reads (monitor interface, recon database
-read-only, local OUI files and, opt-in, a passive Bluetooth LE scan) and writes `starchorus.json` and its cache to `$CAPDIR`. The only marked
+read-only, local OUI files and, opt-in, a passive Bluetooth LE scan or the firmware's own Bluetooth database) and writes `starchorus.json` and its cache to `$CAPDIR`. The only marked
 exception is the opt-in scan `STARCHORUS_ALLOW_ACTIVE=1` (`source: "iw-scan-ACTIVE"`, §14.2).
 
 **Data on the device.** The device's recon database delivers `aps[].clients` **empty**; all stations
@@ -21,9 +21,9 @@ security, clients:[{mac, rssi}]}], unassociated:[{mac, rssi}]}`. New fields are 
 `starchorus.json` without them runs unchanged. Read optionally: per AP `vendor`, `randomized`, `rate`,
 `last_seen`, `width`, `phy`, `caps`, `beacons`, `packets`, `akm[]`, `cipher{group, pairwise[]}`, `auth[]`,
 `responded_ssids`; per station `vendor`, `randomized`, `last_seen`, `packets`, `probes[]`; `center.max_age`,
-`center.interval`, `center.own_bssids`, `center.own_ssids`, `center.bt_window` and `center.bt_hold`; top-level `channels[{freq, last_heard, busy_pct, noise}]`,
+`center.interval`, `center.own_bssids`, `center.own_ssids`, `center.bt_window`, `center.bt_hold` and `center.bt_source`; top-level `channels[{freq, last_heard, busy_pct, noise}]`,
 `alerts[]`, `homing`, and, from the opt-in switches, `bluetooth[{addr, addr_type, rssi, reports, last_seen, company, company_name, name,
-connectable}]` (passive LE scan: addresses, never devices) and `activity[{freq, share}]` (a relative share of the frames the device heard per
+connectable}]` (addresses, never devices; a passive LE scan of ours, or the firmware's own Bluetooth database) and `activity[{freq, share}]` (a relative share of the frames the device heard per
 frequency, never a count; kept apart from `channels[]` so that nothing a 0.1 page reads as 'visited' can grow). The collector emits a field **only when a value is present** (never `null`). `own_*` stay
 in memory only and are never displayed or exported. The collector's field list is in its header comment,
 the device facts in `docs/device-notes.md`.
@@ -371,7 +371,7 @@ The contract stands; all rules are tolerant, no path throws.
 | `caps` | Array or string (split at `,`) → array of strings (max 12), otherwise `null` |
 | `randomized` | `=== true` → true; otherwise U/L bit heuristic, only if there is no `vendor` |
 | `clients[]` | Missing/not an array → `[]`; `mac` missing → `"<bssid>:c<j>"`; `unassociated[].mac` missing → `"free"+j`; `mac` normalised like `bssid` |
-| `bluetooth` | Optional array (opt-in `STARCHORUS_BLUETOOTH=1`; absent = off, or no controller or tool). At most 256 entries: `addr` normalised like a station MAC and kept only when it is one; `addr_type` one of `public`, `random-static`, `random-resolvable`, `random-nonresolvable`, `random` (anything else is `random`); `rssi` clamped like a station's (an entry without one is skipped); `reports` and `last_seen` numbers; `company` an integer 0…65535; `company_name` string, max 48; `name` control characters removed, max 32; `connectable` only when `=== true`. A duplicate address keeps the stronger entry. A document without the array has none for the page (no button, counter or legend row). `center.bt_window` (seconds; `0` = no valid window this cycle, the array then holds only carried records) and `center.bt_hold` (seconds a record is carried after its window) are kept as numbers. Text from the air (`name`, `company_name`) is handled like an SSID: escaped on display |
+| `bluetooth` | Optional array (opt-in `STARCHORUS_BLUETOOTH=1`; absent = off, or no controller or tool). At most 256 entries: `addr` normalised like a station MAC and kept only when it is one; `addr_type` one of `public`, `random-static`, `random-resolvable`, `random-nonresolvable`, `random` (anything else is `random`); `rssi` clamped like a station's (an entry without one is skipped); `reports` and `last_seen` numbers; `company` an integer 0…65535; `company_name` string, max 48; `name` control characters removed, max 32; `connectable` only when `=== true`. A duplicate address keeps the stronger entry. A document without the array has none for the page (no button, counter or legend row). `center.bt_window` (seconds; `0` = no valid window this cycle, the array then holds only carried records) and `center.bt_hold` (seconds a record is carried after its window) are kept as numbers; `center.bt_source` is set but not read by the page, and with it `last_seen` is the firmware database's own value. Text from the air (`name`, `company_name`) is handled like an SSID: escaped on display |
 | `activity` | Optional array of `{freq, share}` (opt-in `STARCHORUS_TRAFFIC=1`): entries with a numeric `freq` and `0 < share ≤ 1`, at most 69. A share of the frames heard on listed frequencies, never a count. It never feeds `channels[]`, the hop information, the baseline ghosts or the Watchlist's 'not heard now' |
 | `alerts` | Optional array of `{type, t, ap, n}` (the collector writes it while `alerts.log` holds reports of the last `STARCHORUS_ALERT_WINDOW` seconds, §14.6): `type` is `deauth`, `ap` a MAC, `n` a number above 0, at most 20 entries; the page drops any other entry. `n` counts the firmware's reports, not frames; there is no channel and no signal strength, and the report's source address is not carried. Local and live (P6) |
 | `packets` of a station | Cumulative frame counter of that MAC's rows heard in the last 300 s (opt-in Traffic, recon database source), absolute; the page derives a rate from consecutive captures (nothing on first sight, nothing after a drop, which is a new recon session). Access points get none |
@@ -2674,6 +2674,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   separate sniffer. The window is stopped within about 3 s of a signal (the first SIGINT to a scan younger than a second waits for its first
   second, since a scan that has not installed its handler would die of it with the controller still scanning), and a collector killed with
   SIGKILL leaves its tools to their dead-man timers and to the next start's sweep.
+- Bluetooth, firmware 2.0: where the firmware's own scanner holds the controller, the Bluetooth layer reads that scanner's database (`blue5.db`) read-only instead of running a window: a file read, not a tool start (`bt_begin` is still the only place a Bluetooth tool is started, and it stands the window down). The copy is read `sqlite3 -readonly`; `blue5ctl` and `blue5` are denied by name. Whatever mode that scanner runs in is the Pager's own setting, and reading the result sends nothing (device-notes §2c).
 - The receiver is never held on a channel or a BSSID; there is no radio-controlling command in the code.
 - `starchorus-display.sh` uses only the device's display commands `LOG`, `LIST_PICKER`, `ERROR_DIALOG` and
   `WAIT_FOR_INPUT` (`docs/device-notes.md` §7). The display keeps a key reader running from its first screen on: a background process that runs a `WAIT_FOR_INPUT`, without a time limit,
@@ -2905,7 +2906,7 @@ joining/captive portals, cloud upload/sync, WIPS containment/deauth, a hotspot o
 AP service, any control of the device from the browser, payload capture, handshake/PMKID display, Zigbee, Bluetooth inquiry,
 active LE scans, advertising, connections and GATT, fingerprinting/de-randomisation (Bluetooth addresses included: a rotating address is never
 linked to another across a rotation), genuine spectrum analysis/direction finding, drone Remote ID. Anything device-dependent (semantics of `time`
-in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 GHz, own BSSIDs, `packets`, the passive Bluetooth window, the unit
+in the recon database, `freq`, the fields of the AP service CLI, `iw survey`, 6 GHz, own BSSIDs, `packets`, the passive Bluetooth window, the firmware's Bluetooth database (`blue5.db`), the unit
 of `RECON CHANNELS`) is never treated as fact until checked on the device and stays behind toggles (default off); `docs/device-notes.md` lists the
 open questions with the identifiers V-1 … V-14 from `tools/device-probe.sh` (V-13: the Bluetooth controller and tools, from files alone; V-14: `flock`, `tail -c` and `/bin/bash`, which the alert companion and the collector assume).
 

@@ -186,6 +186,7 @@ Only the following is permitted:
   for 5 seconds per refresh, read with `btmon -i hci0`. A passive scan sends no scan request; it listens for advertisements that
   devices broadcast anyway. A window counts only when `btmon` shows the collector's own scan parameters as `Passive`, and nothing else
   of the Bluetooth stack is ever called (every other tool is denied by name in the static check; see [SECURITY.md](SECURITY.md));
+- on firmware 2.0, the firmware's own Bluetooth database instead of that scan (`STARCHORUS_BT_SOURCE=blue5`, or `auto` when the file is present): copied to RAM and read `sqlite3 -readonly`, never the live file. Whatever mode the firmware's own scanner runs in is the Pager's own setting; reading the result sends nothing (see [SECURITY.md](SECURITY.md));
 - the AP service's channel activity (`STARCHORUS_TRAFFIC=1`, opt-in, off by default): one read-only command,
   `RECON CHANNELS format=json`;
 - the alert log (`STARCHORUS_ALERTS`, on by default, and nothing happens without the file): the collector reads `alerts.log`, a text file that
