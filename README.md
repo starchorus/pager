@@ -445,8 +445,9 @@ That is a different view, not a cheaper one: the calls themselves cost 0.3 s of 
 BusyBox `awk` costs about 9 s for the 400 devices of the default call, and about 46 s for the whole session list
 (about 2,100 devices that day) with `full`, against about 2 to 2.7 s for a cycle of the database path. Use it for
 what it shows, not to save CPU. The lists cover the
-current recon session only (the database is cumulative), carry no encryption and no station-to-AP link; the
-security of each access point is therefore taken from the database, rarely, from a small cache in RAM, and an
+current recon session only (the database is cumulative) and no station-to-AP link. On firmware 2.0 the beacon records
+carry the `encryption` bitmask, and the security of each access point is read from it directly; on firmware 1.x, or for an
+access point seen only by a probe response, it is taken from the database instead, rarely, from a small cache in RAM, and an
 access point not yet known there is marked `Unknown` (never empty or absent: both the page and the Overview read
 a missing security as Open). If the AP service gives no usable answer (no entries, a failure, nothing within 10 s),
 that cycle is built from recon.db and the collector says so once.

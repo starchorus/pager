@@ -578,6 +578,14 @@ From these come the AP fields `akm[]`, `cipher{}` and `auth[]` and the labels `O
 field, as the only group cipher). OWE is checked first, because libwifi also sets the WPA3 class
 bit for OWE.
 
+On firmware 2.0 the AP service's beacon JSON carries the same `encryption` bitmask (device session 29 October 2026,
+read-only, the transmit counters unchanged). The pineap source decodes it with `encfields`, which reads the bitmask from
+its decimal string so that `awk` never rounds the uint64 at 2^53 (the SQL path keeps the value in sqlite, which the JSON
+path cannot), and then labels it with the same `sec_of2`/`sec_extra`. **Open** (not yet seen on the device): whether the
+bounded `recent` form (`bytime=true limit=400`, the pineap default) carries `encryption` on its beacon records as
+`RECON APS` does; how an OWE or 802.1X network appears in 2.0 `encryption`/`encryption_str`; and the raw text form of the
+integer in the live JSON (the one capture was `jq`-normalised).
+
 Everything that depends on device behaviour not yet verified sits behind a switch whose default is
 **off**. Each question needs the person at the device to approve the command:
 
@@ -620,6 +628,10 @@ others, `RECON APS {format=json}`, `RECON DEVICES {format=json} {sort=field} {by
 - **Scope.** The lists are the **current recon session** (the oldest `time` is about 10 hours back; 250 devices),
   whereas `recon.db` is cumulative (22,606 devices). They carry **no encryption field** and **no station-to-AP
   association**.
+- **Firmware 2.0.** The device session of 29 October 2026 found that 2.0 beacon records **do** carry `encryption` (the
+  libwifi bitmask, as in `recon.db`), plus `encryption_str`, `mfp_supported`/`mfp_required` and `hidden`. The pineap source
+  reads the security from that bitmask on 2.0, falling back to `recon.db` only where a beacon carries none (the decode and
+  the open items are in §5a).
 
 Schema (placeholders only; no real SSID or MAC is recorded anywhere in this repository):
 
