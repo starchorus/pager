@@ -139,7 +139,7 @@
 #            "security" = "Secured"/"Open" from the PRIVACY bit.
 #   client : "vendor", "randomized": true (locally-administered / private MAC, no lookup
 #            done), "last_seen" (recon.db and pineap only). Same for associated and unassociated clients.
-#   AP, recon.db only (never a station): "akm" (["psk","sae",...]), "cipher" ({"group", "pairwise": []}),
+#   AP, recon.db and the pineap source on firmware 2.0 (never a station): "akm" (["psk","sae",...]), "cipher" ({"group", "pairwise": []}),
 #            "auth" (["open","sae",...]) decoded from libwifi's encryption_info (layout pinned above
 #            build_from_recondb); "security" says OWE for OWE, "WPA2-Enterprise"/"WPA3-Enterprise" for
 #            802.1X AKMs, "WPA2 (TKIP)"/"WPA (TKIP)" for TKIP-only; "responded_ssids" (int >= 2: how many
@@ -3032,6 +3032,24 @@ AWK_SEC='
                 sx=sx ", \"cipher\": {" cj "}" }
             if(t2!="") sx=sx ", \"auth\": [" t2 "]"
             return sx }
+        # exact bits of a decimal integer string (no float): b[0]=LSB.. ; returns the bit count. Dodges awk rounding the raw uint64 away at 2^53.
+        function decbit(s,b,   i,n,r,c,q,o,nb){
+            nb=0; sub(/^0+/,"",s); if(s=="") s="0"
+            while(s!="0"){
+                r=0; o=""; n=length(s)
+                for(i=1;i<=n;i++){ c=substr(s,i,1)+0; q=int((r*10+c)/2); r=(r*10+c)%2; o=o q }
+                b[nb]=r; nb++
+                sub(/^0+/,"",o); if(o=="") o="0"; s=o }
+            return nb }
+        # the pieces recon_enc_sql makes, but from the decimal string: ef["enc"] class mask (WEP 2/WPA 4/WPA2 8/WPA3 16, SAE bit 57 counts as WPA3), ef["grp"]/["pw"]/["akm"]/["auth"] each < 2^22 (exact in awk)
+        function encfields(s,ef,   b,i,g,p,a,u){
+            decbit(s,b)
+            ef["enc"]=(b[1]?2:0)+(b[2]?4:0)+(b[3]?8:0)+((b[4]||b[57])?16:0)
+            g=0; for(i=5;i<=17;i++) if(b[i]) g+=2^(i-5)
+            p=0; for(i=18;i<=31;i++) if(b[i]) p+=2^(i-18)
+            a=0; for(i=32;i<=53;i++) if(b[i]) a+=2^(i-32)
+            u=0; for(i=54;i<=58;i++) if(b[i]) u+=2^(i-54)
+            ef["grp"]=g; ef["pw"]=p; ef["akm"]=a; ef["auth"]=u }
 '
 
 # The SQL that turns the libwifi bitmask into the pieces the awk library reads (sets ENC, ENC_GRP, ENC_PW, ENC_AKM, ENC_AUTH, ENC5).
@@ -3324,14 +3342,16 @@ SELECT '#STARCHORUS_TAILEND#';$RQ"
 # of the recent form). It is a different VIEW, not the same data, and not a cheaper one: the calls cost 0.3 s of CPU, but the awk below
 # walks the answer at about 22 ms per device on the device (9 s for the 400 of `recent`, 46 s for the 2,100 of `full`), against 2 s of CPU for a
 # cycle of the database path (docs/device-notes.md §6a). The lists are the CURRENT recon session only (the database is cumulative),
-# there is no encryption field and no station -> AP link in them. So:
+# on firmware 1.x there is no encryption field and no station -> AP link in them (firmware 2.0 adds `encryption` to beacon records: the security item below). So:
 #   * APs   : RECON APS. ssid = the strongest (then newest) beacon or probe-response record; a hidden beacon gives "". channel, freq, rssi from
 #             the record / the device; last_seen = `time`; responded_ssids from the probe-response records (2 or more distinct).
 #   * stations: the RECON DEVICES entries that are not APs (not in RECON APS and no beacon record). rssi, last_seen = `time`; probes[] = the SSIDs
 #             of their probe records (distinct, sorted, at most 8).
-#   * security: not in the AP service's lists. Taken per BSSID from recon.db, rarely: a small cache in $TMPDIR_RAM (starchorus-sec.txt) is read
+#   * security: on firmware 2.0 a beacon record carries `encryption` (the full libwifi bitmask, same as recon.db): encfields reads it from the
+#             decimal string (so awk never rounds the uint64 at 2^53) and sec_of2/sec_extra label it, with no recon.db lookup. Otherwise (1.x, or an
+#             AP seen only by a probe response) it is taken per BSSID from recon.db, rarely: a small cache in $TMPDIR_RAM (starchorus-sec.txt) is read
 #             every cycle; ONE query (copy + one sqlite3, the same read-only path as above) runs when a BSSID is not in the cache (at most every
-#             60 s) or when the cache holds BSSIDs the database did not know (at most every 10 min). Without a database: "Unknown".
+#             60 s) or when the cache holds BSSIDs the database did not know (at most every 10 min). Without either: "Unknown".
 #   * STARCHORUS_MAX_AGE applies to `time` of both lists.
 # The JSON is parsed in awk (the device's jq is slow): sed puts every JSON string on a line of its own (any character, escaped quotes and
 # backslashes, \uXXXX), so awk only walks the short structural chunks between them. SSIDs are carried over with their JSON escapes; \n and \t
@@ -3376,14 +3396,14 @@ AWK_PINEAP='
             if(f=="mac") dmac=v; else if(f=="freq") dfreq=v; else if(f=="signal") dsig=v; else if(f=="time") dtime=v }
         else if(depth==4 && kind[4]=="o"){ f=key[4]
             if(f=="ssid") rssid=cleanstr(v); else if(f=="channel") rch=v; else if(f=="freq") rfreq=v; else if(f=="signal") rsig=v
-            else if(f=="time") rtime=v; else if(f=="hidden") rhid=(v=="true") } }
-    function dev_begin(   k){ dmac=""; dfreq=""; dsig=""; dtime=""; hascand=0; hasbeacon=0; nresp=0; np=0
+            else if(f=="time") rtime=v; else if(f=="hidden") rhid=(v=="true"); else if(f=="encryption") renc=v } }
+    function dev_begin(   k){ dmac=""; dfreq=""; dsig=""; dtime=""; hascand=0; hasbeacon=0; hasbenc=0; benc=""; bencsig=-1000; nresp=0; np=0
         for(k in rseen) delete rseen[k]
         for(k in pseen) delete pseen[k] }
-    function rec_begin(){ rssid=""; rch=""; rfreq=""; rsig=""; rtime=""; rhid=0 }
+    function rec_begin(){ rssid=""; rch=""; rfreq=""; rsig=""; rtime=""; rhid=0; renc="" }
     function rec_end(   t,s,tm){ t=key[2]; s=isnum(rsig) ? rsig+0 : -1000; tm=isnum(rtime) ? rtime+0 : 0
         if(t=="beacon" || t=="response"){
-            if(t=="beacon") hasbeacon=1
+            if(t=="beacon"){ hasbeacon=1; if(renc ~ /^[0-9]+$/ && (!hasbenc || s>bencsig)){ hasbenc=1; bencsig=s; benc=renc } }
             if(!hascand || s>bsig || (s==bsig && tm>btime)){ hascand=1; bsig=s; btime=tm; bssid=rssid; bch=rch; bfreq=rfreq; bhid=(t=="beacon" && rhid) }
             if(t=="response" && rssid!="" && !(rssid in rseen)){ rseen[rssid]=1; nresp++ } }
         else if(t=="probe" && rssid!="" && !(rssid in pseen)){ pseen[rssid]=1; p8add(rssid) } }
@@ -3391,7 +3411,7 @@ AWK_PINEAP='
     function p8add(s,   j){ if(np<8) j=++np; else if(s<plist[8]) j=8; else return
         while(j>1 && plist[j-1]>s){ plist[j]=plist[j-1]; j-- }
         plist[j]=s }
-    function dev_end(   m,f,ch,i,pr){
+    function dev_end(   m,f,ch,i,pr,ef){
         m=macfmt(dmac); if(!ismac(m)) return
         if(cut+0>0 && !(isnum(dtime) && dtime+0>cut+0)) return
         if(which==2 && (m in isap)) return
@@ -3403,6 +3423,8 @@ AWK_PINEAP='
             ap_sig[nap]=isnum(dsig) ? ri(dsig) : (hascand && bsig>-1000 ? ri(bsig) : "")
             ap_last[nap]=(isnum(dtime) && dtime+0>0) ? ri(dtime) : ""
             ap_resp[nap]=(nresp>=2) ? nresp : 0
+            if(hasbenc){ encfields(benc, ef); ap_jsec[nap]=sec_of2(ef["enc"],ef["grp"],ef["pw"],ef["akm"],ef["auth"]); ap_jext[nap]=sec_extra(ef["grp"],ef["pw"],ef["akm"],ef["auth"]); ap_hasjsec[nap]=1 }
+            else ap_hasjsec[nap]=0
             nap++ }
         else {
             pr=""
@@ -3418,7 +3440,7 @@ AWK_PINEAP='
     function sortidx(arr,n,idx,   i,t){ for(i=0;i<n;i++){ idx[i]=i; skey[i]=arr[i] "|" sprintf("%09d", i) }
         for(i=int((n-2)/2);i>=0;i--) sift(i,n-1,idx)
         for(i=n-1;i>0;i--){ t=idx[0]; idx[0]=idx[i]; idx[i]=t; sift(0,i-1,idx) } }
-    BEGIN{ depth=0; which=1; nap=0; nst=0; sf=ENVIRON["SC_SEC"]; uf=ENVIRON["SC_UNK"]; nf=ENVIRON["SC_NEG"]; af=ENVIRON["SC_ALL"]
+    BEGIN{ sec_init(); depth=0; which=1; nap=0; nst=0; sf=ENVIRON["SC_SEC"]; uf=ENVIRON["SC_UNK"]; nf=ENVIRON["SC_NEG"]; af=ENVIRON["SC_ALL"]
         if(sf!=""){ while((getline l < sf)>0){ n=split(l, q, "\t"); if(n>=2 && ismac(q[1])){ seen[q[1]]=1; slab[q[1]]=q[2]; sext[q[1]]=(n>=3 ? q[3] : "") } } close(sf) } }
     /^#STARCHORUS_DEVICES#$/ { lit_end(); which=2; depth=0; next }
     { line=$0; if(line=="") next
@@ -3438,9 +3460,10 @@ AWK_PINEAP='
         sortidx(ap_mac, nap, ai)
         printf "  \"aps\": [\n"
         for(k=0;k<nap;k++){ i=ai[k]; m=ap_mac[i]
-            if(af!="") print m > af
-            if(m in seen){ sec=(slab[m]!="" ? slab[m] : "Unknown"); sx=sext[m]; if(slab[m]=="" && nf!="") print m > nf }
-            else { sec="Unknown"; sx=""; if(uf!="") print m > uf }
+            if(ap_hasjsec[i]){ sec=ap_jsec[i]; sx=ap_jext[i] }
+            else { if(af!="") print m > af
+                if(m in seen){ sec=(slab[m]!="" ? slab[m] : "Unknown"); sx=sext[m]; if(slab[m]=="" && nf!="") print m > nf }
+                else { sec="Unknown"; sx=""; if(uf!="") print m > uf } }
             extra=(ap_last[i]!="") ? ", \"last_seen\": " ap_last[i] : ""
             extra=extra sx
             if(ap_resp[i]>0) extra=extra ", \"responded_ssids\": " ap_resp[i]
@@ -3462,7 +3485,7 @@ AWK_PINEAP='
 # RECON DEVICES only means no stations.
 pineap_doc() {
     { printf '%s\n' "$PA" | clean_ctrl | json_tokens; printf '#STARCHORUS_DEVICES#\n'; printf '%s\n' "$PD" | clean_ctrl | json_tokens; } | \
-      SC_SEC="$PSEC" SC_UNK="$PUNK" SC_NEG="$PNEG" SC_ALL="$PALL" awk -v ts="$1" -v center="$CENTER_LABEL" -v src="pineap" -v cut="$PCUT" -v need="$PNEED" "$AWK_JSON_HELPERS$AWK_PINEAP"
+      SC_SEC="$PSEC" SC_UNK="$PUNK" SC_NEG="$PNEG" SC_ALL="$PALL" awk -v ts="$1" -v center="$CENTER_LABEL" -v src="pineap" -v cut="$PCUT" -v need="$PNEED" "$AWK_JSON_HELPERS$AWK_SEC$AWK_PINEAP"
 }
 # One query for the security of the APs in file $1 (lower-case MACs, one per line), written as the cache $PSEC: "mac<TAB>label<TAB>extra", and an
 # empty label for a BSSID the database does not know (so it is not asked for again before the next 10-minute retry). The same read-only copy
@@ -6510,6 +6533,18 @@ SQL
         sed -e 's/AA:BB:CC:00:00:04/AA:BB:CC:00:00:0B/g' "$ppt/aps.json" > "$ppt/aps10.json"; apcli_stub "$ppt/bin10" "$ppt/log10" "$ppt/aps10.json" "$ppt/dev.json"
         PSEC_T=$((pt0 + 90000)); c0=$(calls); pnb "$ppt/bin10" $((pt0 + 1010)); c1=$(calls)
         if [ "$c1" -gt "$c0" ] && [ "$PSEC_T" = $((pt0 + 1010)) ]; then st_pass "pineap: a clock set back does not hold the lookups off (it counts as due)"; else st_fail "pineap: clock back (lookups $c0 -> $c1, PSEC_T $PSEC_T)"; fi
+        # ---- 3e) pineap on firmware 2.0: the AP security straight from the beacon JSON `encryption` bitmask, with no recon.db lookup. The field is
+        #      the full libwifi uint64 (class bits low, AKM/cipher/auth high); encfields reads it from the decimal string, so awk never rounds it at 2^53.
+        et3=$((pt0 - 5))
+        printf '[{"mac": "02:00:00:00:00:11", "freq": 2437, "signal": -48, "time": %s, "beacon": {"1": {"ssid": "EncWPA2", "channel": 6, "freq": 2437, "signal": -50, "time": %s, "hidden": false, "encryption": 17184063752, "encryption_str": "[WPA2-PSK-CCMP128]"}}}, {"mac": "02:00:00:00:00:12", "freq": 2437, "signal": -55, "time": %s, "beacon": {"2": {"ssid": "EncWPA3", "channel": 6, "freq": 2437, "signal": -70, "time": %s, "hidden": false, "encryption": 2199027450128}}, "response": {"3": {"ssid": "EncWPA3", "channel": 6, "freq": 2437, "signal": -40, "time": %s}}}, {"mac": "02:00:00:00:00:13", "freq": 2437, "signal": -60, "time": %s, "beacon": {"4": {"ssid": "NoEnc", "channel": 6, "freq": 2437, "signal": -60, "time": %s, "hidden": false}}}, {"mac": "02:00:00:00:00:14", "freq": 2437, "signal": -52, "time": %s, "beacon": {"5": {"ssid": "EncHigh", "channel": 6, "freq": 2437, "signal": -52, "time": %s, "hidden": false, "encryption": 144115188075855880}}}]\n' \
+            "$et3" "$et3" "$et3" "$et3" "$et3" "$et3" "$et3" "$et3" "$et3" > "$ppt/enc_aps.json"
+        { clean_ctrl < "$ppt/enc_aps.json" | json_tokens; printf '#STARCHORUS_DEVICES#\n'; printf '[]\n' | json_tokens; } \
+          | awk -v ts="$pt0" -v center="This device" -v src=pineap -v cut=0 -v need=1 "$AWK_JSON_HELPERS$AWK_SEC$AWK_PINEAP" > "$ppt/enc.json" 2>"$ppt/enc.err"
+        if json_ok < "$ppt/enc.json"; then st_pass "pineap 2.0: valid JSON from beacon records that carry encryption"; else st_fail "pineap 2.0: document [$(cat "$ppt/enc.err")]"; fi
+        checkf  "pineap 2.0: a WPA2 beacon takes its security and akm/cipher from the JSON, with no recon.db at all" "$(pl_of "$(cat "$ppt/enc.json")" '02:00:00:00:00:11')" '"security": "WPA2", "last_seen": '"$et3"', "akm": ["psk"], "cipher": {"group": "ccmp128", "pairwise": ["ccmp128"]}'
+        checkf  "pineap 2.0: a response wins the record but a weaker beacon carries encryption, so WPA3 comes from the beacon (the latch)" "$(pl_of "$(cat "$ppt/enc.json")" '02:00:00:00:00:12')" '"security": "WPA3", "last_seen": '"$et3"', "akm": ["sae"]'
+        checkf  "pineap 2.0: a beacon with no encryption keeps the old path (no cache here, so Unknown)" "$(pl_of "$(cat "$ppt/enc.json")" '02:00:00:00:00:13')" '"security": "Unknown"'
+        checkf  "pineap 2.0: a bitmask above 2^53 is read exactly (WPA3/WPA2 with the SAE auth bit), where double-precision awk would round" "$(pl_of "$(cat "$ppt/enc.json")" '02:00:00:00:00:14')" '"security": "WPA3/WPA2", "last_seen": '"$et3"', "auth": ["sae"]'
         # a crowd: 120 APs and 400 stations in scrambled order come out sorted by MAC, every one of them there
         awk 'BEGIN{ n=401; printf "["
             for(i=0;i<120;i++){ v=(i*53)%131; printf "%s{\"mac\": \"%s\", \"freq\": 2437, \"signal\": -%d, \"time\": %d, \"beacon\": {\"%d\": {\"ssid\": \"Crowd%d\", \"channel\": 6, \"freq\": 2437, \"signal\": -%d, \"time\": %d, \"hidden\": false}}}", (i?",":""), sprintf("02:aa:00:00:%02x:%02x", int(v/256), v%256), 40+i%40, '$pt0' - 5, i, i, 40+i%40, '$pt0' - 5 }
