@@ -28,7 +28,11 @@ carries `-readonly`. That is the one condition for every contribution.
 
 Before the merge, `sh tools/regress.sh <prefix>` must also be green: build rules, passivity at run
 time, legal and neutral language, privacy, layout, Overview = page, specification = code. The full
-run needs Google Chrome and takes over 20 minutes; if nobody else has, the maintainer runs it.
+run needs Google Chrome and takes over 20 minutes; if nobody else has, the maintainer runs it. A commit that
+stages the passivity checker itself (`tools/passivity-check.sh` or `tools/passivity-mutate.sh`) runs a mutation
+probe on top: it re-proves that each rule still turns the checker red, and it takes tens of minutes, longer on a
+slow or busy machine. It is working, not hung; the parent process sits at near-zero CPU while its children do the
+work. Let it finish. `--no-verify` is not the answer.
 
 A new read or output path is described in [SECURITY.md](SECURITY.md) and in the [README](README.md)
 before it is merged.
@@ -48,6 +52,7 @@ code must:
 - in the Overview, **not call any of `jq`'s regex builtins** (`test`, `match`, `sub`, `gsub`,
   `capture`, `scan`, `splits`, `split` with flags): the device's `jq` is built without a regex
   library.
+- in the collector's `awk`, **use no `gensub`, `asorti`, `length(array)` or `{n}` interval regex** (the device's `awk` has none), and remember its arithmetic is double-precision: a value that can exceed 2^53 (a raw 64-bit field, say) is decoded by walking its decimal digits, not by plain `awk` maths, or the low bits are rounded away.
 - keep both copies of `starchorus-display.sh` (root and `library/…/starchorus/`) **byte-identical**.
 - not break the **JSON contract**: `{generated, center, source, aps[], unassociated[]}` with stable
   fields, new fields only additively; write atomically (temporary file, then `mv`); degrade cleanly
