@@ -1,6 +1,6 @@
 # Starchorus – Architecture of `starchorus.html`
 
-This file is the functional reference for the page `starchorus.html` (Starchorus 0.2.6) and for the parts of
+This file is the functional reference for the page `starchorus.html` (Starchorus 0.2.6.2) and for the parts of
 `starchorus-collect.sh` that define its data format. It describes what the code is and why it is built that way.
 Where numbers appear, they are the values in the code; the machine-generated blocks (§3.8, §7.0a) and the bound
 lists (§2.7 query parameters, §9.6 keys, §10 API) are checked against the code by the regression (`tools/regress.d/doc-binding.sh`).
@@ -2229,7 +2229,7 @@ are released only as observed values or counts (§14.5). `Object.freeze` on the 
 
 ```js
 window.STARCHORUS = Object.freeze({
-  version: "0.2.6",
+  version: "0.2.6.2",
   // Theme / View
   setTheme(id) → string,                 // "foundation"|"wargames"|"whitehall"; like #t-theme, without intro; returns the active theme
   getTheme() → string,

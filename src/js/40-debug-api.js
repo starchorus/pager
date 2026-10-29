@@ -166,7 +166,7 @@ function contrastPairs(pairs, themeId) {
   });
 }
 window.STARCHORUS = Object.freeze({
-  version: "0.2.6",
+  version: "0.2.6.2",
   setTheme: (id) => guard(() => applyTheme(id, { intro: false })),
   getTheme: () => guard(() => S.ui.theme),
   setView: (v) => guard(() => setView(v)),

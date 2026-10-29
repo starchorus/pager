@@ -229,7 +229,7 @@ OPS_HOME=$(printf '%s\n' "$OPS_HOMG" | grep -c 'seenAp.has'); OPS_HOMC=$(printf 
 if [ "$OPS_HOME" -ge 1 ] && [ "$OPS_HOMC" -ge 1 ] && [ "$OPS_HOMO" -ge 1 ]; then row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" PASS
 else row "homing gate: present AP or station (seenAp/seenCl $OPS_HOME/$OPS_HOMC), own transmitters still refused ($OPS_HOMO)" FAIL; fi
 OPS_V=$(sed -n 's/^# Version:      \([0-9][0-9A-Za-z.-]*\)$/\1/p' starchorus-collect.sh | head -n 1)
-rowif "collector version 0.2.6 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.2.6 ]
+rowif "collector version 0.2.6.2 [$OPS_V] (the project-wide version row is in station-outputs.sh)" [ "$OPS_V" = 0.2.6.2 ]
 # --help prints the header's USAGE/CONFIG block whole (first line "USAGE:", up to the end of the STARCHORUS_OUI_FILE entry, which is counted once) and then names
 # every option that block does not reach: 17 STARCHORUS_ names in all (the layers, the alert log, the one active opt-in and the three test roots), the seven layers
 # under "Opt-in layers" each with (default 0) or (default none), the alert log under "On by default" with (default 1) and its window (default 600), and as its last line

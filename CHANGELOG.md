@@ -3,6 +3,29 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.6.2 - 2026-10-29
+
+*A part release of the 0.2 line: it carries the review fixes once marked for 0.2.6.1, never released on their own, together with the adaptation to Pager firmware 2.0.*
+
+### Added
+
+- **The firmware's own Bluetooth database as a passive source on firmware 2.0 (`blue5.db`).** On 2.0 the Pager's resident Bluetooth scanner holds the controller, so the collector's own passive LE window stands down (`bt_begin` returns without starting a tool) and, with `STARCHORUS_BLUETOOTH=1`, the Bluetooth layer reads that scanner's database instead. The new `STARCHORUS_BT_SOURCE` (`auto`, the default, `blue5` or `window`) chooses the source and `STARCHORUS_BLUE5_DB` (default `/root/recon/blue5.db`) its path; `auto` takes the database when it exists, otherwise the window. The file is copied to RAM and read with `sqlite3 -readonly`, as the recon database is, but with no flash copy and no reading of the live file: no copy means no Bluetooth that cycle. It is read-only throughout: Starchorus never starts, stops or configures the scanner and never runs `blue5ctl` (both are denied by name in the passivity check). Whatever mode the scanner runs in is the Pager's own setting, outside Starchorus's control; reading the result sends nothing. The document carries `center.bt_source` and `bt_hold`, and no `bt_window`. Set out in `SECURITY.md`, `docs/device-notes.md` §2c, `docs/architecture.md` and the collector's header, with new `blue5:` self-test cases.
+- **Access-point security from the 2.0 beacon JSON.** On 2.0 the AP service's beacon records carry the libwifi `encryption` bitmask. The opt-in `pineap` source now decodes it for each access point's security (the same labels, `akm`, `cipher` and `auth` the recon-database path gives) instead of looking the security up in the database, whenever a beacon carries it; an access point a beacon has not named falls back to the database lookup as before, so the lookup is skipped for the access points the JSON already covers. The bitmask is the full libwifi value (the class bits low, the cipher and AKM fields high); it is read from its decimal string so that BusyBox `awk` never rounds it away at 2^53. Set out in `docs/device-notes.md` §5a (with the open device questions) and the `pineap` paragraphs of `README.md` and `SECURITY.md`, with new `pineap 2.0:` self-test cases.
+- The collector's `--help` names the opt-in layers and their defaults.
+- The version grammar admits a fourth number, so `0.2.6.2` and its kin are read where only three were before.
+
+### Changed
+
+- **The `pineap` recent list uses the 2.0 argument `bytime=true`.** Firmware 2.0 rejects the former `sort=time sortdir=desc` of the one bounded `RECON DEVICES` call with exit 255; the newest-first ordering is asked as `bytime=true limit=400` now, checked read-only on the device (the transmit counters unchanged). It bears only on `STARCHORUS_SOURCE=pineap` in its default `recent` mode; the default source (the recon database) is untouched. The pinned `apcli_ro` contract line and its provenance move with it.
+- **The collector's start and main loop.** The old loop is replaced before an interface or `airodump` is chosen; a monitor interface is claimed only when it is really there, only the monitor interface this run made is brought up, and the monitor VIF and the active scan are kept off the management radio. The traps are set before anything is made, and every temporary name is cleaned up. Unknown options are refused, the recon window is normalised, and the cycle burst is kept off the sleep pace. The ACTIVE-scan notice and a `pineap` lookup failure reach the log now.
+- `tools/cdp.py`: a stale report is cleared when `runq` fails before `cdp.py` runs.
+
+### Fixed
+
+- The installer ends a dead SSH link after about a minute (the `ServerAlive` options).
+- The known-open fuzz entry for the generated bound is retired.
+- Rows for 'Back to live': no false 'security changed', no false cue.
+
 ## 0.2.6 - 2026-10-28
 
 *A part release of the 0.2 line. The splash screen is not in it; it is left for a later release.*

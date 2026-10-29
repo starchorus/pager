@@ -5,7 +5,7 @@
 #               (recon.db read / monitor-mode RX only -- never transmits) and serves the
 #               visualisation on a high local port of the management address. Contains NO active/offensive feature.
 # Author:       Starchorus
-# Version:      0.2.6
+# Version:      0.2.6.2
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
