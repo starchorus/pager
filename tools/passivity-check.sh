@@ -92,8 +92,9 @@ TX_RE="(^|[^A-Za-z0-9_-])($TX_WORDS)([^A-Za-z0-9_]|\$)|(^|[^A-Za-z_])iw[[:space:
 # row reads: a glob that is only an argument (`ln -s /usr/bin/hc?tool x`, `cp`), a program text that is built and run (`eval`, `sh -c`, a pipe into `sh`, an awk `system()`), and
 # a name that a function of the script makes; for those the guarantee is review, and the run-time witness covers only the collector's own Bluetooth window.
 # Every name V-13 of docs/device-notes.md finds in the device's BlueZ directories is added here, one alternative each, and one sample in
-# tools/passivity-mutate.sh (MIN_ALTS_BT there is raised with it).
-BT_WORDS='hcitool|btmon|hciconfig|bluetoothctl|btmgmt|bluetoothd|gatttool|l2ping|l2test|rctest|sdptool|rfcomm|hcidump|btattach|bccmd|bdaddr|hciattach|hid2hci|btgatt-client|btgatt-server|obexd|rfkill|init\.d/bluetooth|/sys/kernel/debug/bluetooth|dbus-send|busctl|gdbus|org\.bluez|ciptool|avinfo|isotest|meshctl|mesh-cfgclient|bluetooth-meshd|btproxy|bluemoon|mpris-proxy|hex2hcd|obexctl|bluetooth-player|btinfo|scotest|hcieventmask'
+# tools/passivity-mutate.sh (MIN_ALTS_BT there is raised with it). blue5ctl (firmware 2.0, not BlueZ) is the Pager's own Bluetooth control
+# tool; it starts, stops and reconfigures the blue5 scanner, so it changes the controller's state and is denied by name like the BlueZ tools.
+BT_WORDS='hcitool|btmon|hciconfig|bluetoothctl|btmgmt|bluetoothd|gatttool|l2ping|l2test|rctest|sdptool|rfcomm|hcidump|btattach|bccmd|bdaddr|hciattach|hid2hci|btgatt-client|btgatt-server|obexd|rfkill|init\.d/bluetooth|/sys/kernel/debug/bluetooth|dbus-send|busctl|gdbus|org\.bluez|ciptool|avinfo|isotest|meshctl|mesh-cfgclient|bluetooth-meshd|btproxy|bluemoon|mpris-proxy|hex2hcd|obexctl|bluetooth-player|btinfo|scotest|hcieventmask|blue5ctl'
 # Command wrappers: inside a function of BT_FUNCS no simple command may begin with one of these (the command word is read after any
 # keyword, separator or `VAR=value`), because they let a tool name or an argument travel in a string or a variable. `command -v` stays
 # allowed. Every alternative starts with `^`: the family is tested against one simple command at a time, and the anchor keeps `ash -c`
@@ -123,6 +124,10 @@ OUT_WORDS=$OUT_WORDS'|macchanger|wl|nvram|wlanconfig|vconfig|ifenslave|batctl|tu
 OUT_WORDS=$OUT_WORDS'|dnsd|fakeidentd|ifplugd|nameif|nbd-client|pscan|slattach|ssl_client|tftpd|udhcpc6|udhcpd|zcip|inetd|flashcp|flash_eraseall|flash_lock|flash_unlock|nandwrite'
 OUT_WORDS=$OUT_WORDS'|mtr|fping|arp-scan|masscan|zmap|avahi-publish|avahi-publish-service|avahi-publish-address|avahi-browse|avahi-resolve|avahi-daemon|avahi-set-host-name|umdns'
 OUT_WORDS=$OUT_WORDS'|lftp|ncftp|ncftpput|ncftpget|snmpget|snmpset|snmpwalk|snmpbulkwalk|snmptrap|snmpd|at|batch|pppd|uqmi|qmicli|mmcli|comgt|gcom|lighttpd|nginx|mini_httpd|thttpd|darkhttpd'
+# blue5 (firmware 2.0) is the Pager's own Bluetooth scanner service: starting or configuring it changes the controller's state, so its
+# command word is denied here. Row 6g reads the command word only (^(…)$), so blue5.db as an argument, and the bare value blue5 wherever it
+# is not a command word, stay green; the control tool blue5ctl is denied by name in BT_WORDS above.
+OUT_WORDS=$OUT_WORDS'|blue5'
 # `ip` and `tc` are red when a word of the command is one of CHG_VERBS (for `tc` also one of TC_NOUNS) or the beginning of one: iproute2 and BusyBox take every unambiguous prefix (`ip l s wlan1mon down`, `ip r d default`, `ip a a 192.0.2.1/24 dev wlan0`, `tc q a dev wlan0 root netem`, `ip -ba FILE`),
 # so an abbreviation is read as the verb it can stand for (the objects `ip a` and `ip r` are the beginning of a verb too, and red with them: the row errs on the side of red). `iw` matches its commands whole, and only the commands that read are green: `iw dev wlan0 info`, `link`, `scan` (the row `iw scan opt-in only` holds the one guarded line),
 # `survey dump`, `station dump` or `get`, `reg get`, `wowlan show`, `event`, `features`, `commands`, `help`, `version`, `list`, `channels`, `get`, `mpath` or `mpp` with `dump` or `get`; every other command (`switch`, `offchannel`, `roc`, `ocb`, `auth`, `measurement`, `vendor`, `ap`, `cac`, `mpath new`, `mesh leave`, `coalesce`, `reg reload`, a command that an expansion makes) is red,

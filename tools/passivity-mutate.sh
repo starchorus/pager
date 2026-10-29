@@ -179,7 +179,7 @@ me="$here/$(basename "$0")"
 MIN_MUT=796    # mutations in the table, controls not counted (≥, PENDING ones included); count: sh tools/passivity-mutate.sh | grep -c '^mutation ' (927 lines: 796 and 131 controls; as of 26 October 2026)
 # alternatives per regex family (≥, only ever raised; raised with every name V-13 of docs/device-notes.md adds); count: sh tools/passivity-mutate.sh | grep -c '^alt <family> '
 # (family: netsurf 6, netx 19, tx 32, iw 3, sec6 21, bt 43, btwrap 15, pnet 31, out 108, chg 12, tcn 3)
-MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=43; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31; MIN_ALTS_OUT=162; MIN_ALTS_CHG=12; MIN_ALTS_TCN=3
+MIN_ALTS_NETSURF=6; MIN_ALTS_NETX=19; MIN_ALTS_TX=32; MIN_ALTS_IW=3; MIN_ALTS_SEC6=21; MIN_ALTS_BT=44; MIN_ALTS_BTWRAP=15; MIN_ALTS_PNET=31; MIN_ALTS_OUT=163; MIN_ALTS_CHG=12; MIN_ALTS_TCN=3
 MIN_ROWS=27   # PASS rows of the unmutated copy (≥); count: sh tools/passivity-check.sh | grep -c ' PASS$'   (13 before the Bluetooth rows, minus the replaced hcitool row, plus seven, plus the row of the built names, plus the row of the glob, find, xargs and alias, plus the three rows of the device probe, plus the row of the docroot of the page servers, plus the rows of the outward programs and of the program-text sinks)
 
 # ---- 0 · the probe may only ever RUN the checker (and itself for --meta) on a copy: grep our own executable lines
@@ -2464,6 +2464,7 @@ alt bt 'bluetooth-player'       'bluetooth-player x'                            
 alt bt 'btinfo'                 'btinfo x'                                        '§14.6b Bluetooth words'
 alt bt 'scotest'                'scotest -n x'                                    '§14.6b Bluetooth words'
 alt bt 'hcieventmask'           'hcieventmask x'                                  '§14.6b Bluetooth words'
+alt bt 'blue5ctl'               'blue5ctl status'                                 '§14.6b Bluetooth words'
 # btwrap: the wrappers, planted as simple commands inside ONE function of the allowlist (a copy of bt_busy, row Bluetooth wrappers); the three
 # words that the guard at the top of this script reads as a command are written with an empty pair of quotes inside them
 alt btwrap '^eval'                 'ev''al "$x"'                                      'Bluetooth wrappers|§14.6h program-text'
@@ -2642,6 +2643,7 @@ alt out 'htpdate'           'htpdate -s 192.0.2.1'                              
 alt out 'macchanger'         'macchanger -r wlan0'                                '§14.6g outward'
 alt out '=wl'               'wl up'                                              '§14.6g outward'
 alt out 'nvram'             'nvram set zz=1'                                     '§14.6g outward'
+alt out 'blue5'             'blue5 start'                                        '§14.6g outward'
 alt out 'wlanconfig'        'wlanconfig ath0 create wlandev wifi0'               '§14.6g outward'
 alt out 'vconfig'           'vconfig add eth0 5'                                 '§14.6g outward'
 alt out 'ifenslave'         'ifenslave bond0 eth0'                               '§14.6g outward'
