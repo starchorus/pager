@@ -617,12 +617,13 @@ An AP the cache does not know yet is written with `"security": "Unknown"`: the p
 empty or absent field would be read as Open by the page and by the Overview (`isopenwep`).
 
 `STARCHORUS_PINEAP_CALLS=recent`, the default, is a bounded form suggested to the author (a `RECON DEVICES` query with
-sensible arguments instead of everything): ONE call, `RECON DEVICES format=json sort=time sortdir=desc limit=400`. The same
+sensible arguments instead of everything): ONE call, `RECON DEVICES format=json bytime=true limit=400`. The same
 list carries the APs (beacon and response records) and the stations (probe records), so `RECON APS` is not called; the
 newest 400 devices are kept and the oldest fall off. An AP seen only through probe responses, with no beacon record
-among those 400, would show as a station. The forms with `limit=50` and `pagesize=100 page=1` were checked for
-passivity first; the value 400 on 14 October 2026, in a 130 s run of the source (the answer was a complete JSON array, the
-transmit counters of `wlan0`, `wlan0mon` and `wlan1mon` unchanged). It is the default because `full`, which asks for
+among those 400, would show as a station. On firmware 1.x the former `sort=time sortdir=desc` form (also with `limit=50` and
+`pagesize=100 page=1`) was checked for passivity first: the value 400 on 14 October 2026, in a 130 s run of the source, left a
+complete JSON array and the transmit counters of `wlan0`, `wlan0mon` and `wlan1mon` unchanged. Firmware 2.0 rejects `sort=time`
+(`Invalid sort field time`); the newest-first form is `bytime=true`, verified read-only on 29 October 2026, the counters unchanged. It is the default because `full`, which asks for
 every device of the session, is parsed device by device: it grows with the size of the list (about 2,100 devices that day, §6a).
 
 At the end, `tools/device-probe.sh` reports each open verification as `V-<id> <name>: OBSERVED …` or
@@ -870,10 +871,12 @@ What the collector does about it:
 
 Still to be checked on the device, with the exact argument sets:
 
-- `_pineap RECON DEVICES format=json sort=time sortdir=desc limit=400` (`STARCHORUS_PINEAP_CALLS=recent`, the default): the
-  transmit counters stayed the same and the answer was a complete JSON array (a daemon of the harness, 14 October 2026). Still to be
-  looked at: that it holds at most 400 entries, newest `time` first (`sortdir=desc` really descends, `sort=time` really sorts by time).
-  If the argument names differ on this firmware, the one literal line in `apcli_ro` is the only place to change.
+- `_pineap RECON DEVICES format=json bytime=true limit=400` (`STARCHORUS_PINEAP_CALLS=recent`, the default): on firmware 1.x the
+  former `sort=time sortdir=desc` form left the transmit counters unchanged and returned a complete JSON array (a daemon of the
+  harness, 14 October 2026). Firmware 2.0 rejects `sort=time` (`Invalid sort field time (expected signal, freq, packets, nbeacon,
+  nprobe, or nresp)`); the newest-first equivalent is `bytime=true` (help: `Sort by last seen time (newest first)`), and `limit=N`
+  keeps the first N after sorting. Verified read-only on 29 October 2026: a complete JSON array with the fields we read
+  (mac/time/signal/freq/packets/beacon), the transmit counters of every wireless interface unchanged.
 - `STARCHORUS_PINEAP_CALLS=full` end to end (the two plain lists): the daemon ran (46 s per pass, §6a above); the `tx_packets`
   comparison around it was unchanged.
 

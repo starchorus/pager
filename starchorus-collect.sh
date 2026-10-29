@@ -59,8 +59,8 @@
 #   STARCHORUS_IFACE          Monitor interface to use, or "auto" to detect. (default auto)
 #   STARCHORUS_SOURCE         auto|capture|recondb|pineap|iwscan  data source. pineap = the AP service's
 #                        own recon lists (read-only commands, opt-in; see PINEAP below).  (default auto)
-#   STARCHORUS_PINEAP_CALLS   pineap only: recent = ONE bounded RECON DEVICES (sort=time sortdir=desc limit=400; its passivity is
-#                        checked on the device, the ordering and the cut are still to be looked at, device-notes §5a and §6a),
+#   STARCHORUS_PINEAP_CALLS   pineap only: recent = ONE bounded RECON DEVICES (bytime=true limit=400; its passivity, the
+#                        newest-first ordering and the 400-cut are verified on the device, device-notes §5a and §6a),
 #                        the access points taken from the beacon records in it; full = RECON APS + RECON DEVICES, both
 #                        unbounded, so every device of the AP service's session is parsed (about 22 ms of the device's CPU
 #                        each: 46 s for 2,100 devices).  (default recent)
@@ -3174,7 +3174,7 @@ SELECT '#STARCHORUS_TAILEND#';$RQ"
 
 # --------------------------------------------------------------------------- JSON: the AP service's own recon lists (opt-in)
 # PINEAP. STARCHORUS_SOURCE=pineap asks the device's AP service for what its recon already holds, with READ-ONLY commands (apcli_ro:
-# `RECON DEVICES format=json sort=time sortdir=desc limit=400`, or with STARCHORUS_PINEAP_CALLS=full `RECON APS format=json` and `RECON DEVICES
+# `RECON DEVICES format=json bytime=true limit=400`, or with STARCHORUS_PINEAP_CALLS=full `RECON APS format=json` and `RECON DEVICES
 # format=json`), instead of copying recon.db and querying it. The transmit counters of every wireless interface stay unchanged (V-3, and a run
 # of the recent form). It is a different VIEW, not the same data, and not a cheaper one: the calls cost 0.3 s of CPU, but the awk below
 # walks the answer at about 22 ms per device on the device (9 s for the 400 of `recent`, 46 s for the 2,100 of `full`), against 2 s of CPU for a
@@ -3429,8 +3429,10 @@ build_from_iwscan() {
 # argument taken from outside (the lines only carry the optional prefix `timeout 10`). `recon_aps` and `recon_devices` are the two read-only
 # lists the opt-in source STARCHORUS_SOURCE=pineap reads (verified on the device, docs/device-notes.md V-3: they leave the transmit counters of
 # every wireless interface unchanged); there is no `RECON CLIENTS` command on the device, the stations are in `RECON DEVICES`.
-# `recon_devices_recent` is the same list newest first and cut at 400 entries (the arguments are the CLI's own, from its help; checked on the
-# device in a 130 s run of the source on 14 Oct 2026, the counters unchanged). `present` runs no command at all: it only asks whether the CLI
+# `recon_devices_recent` is the same list newest first and cut at 400 entries (`bytime=true`, the CLI's own argument, from its help). On 1.x the
+# former `sort=time sortdir=desc` form passed a 130 s device run on 14 Oct 2026 (counters unchanged); firmware 2.0 rejects `sort=time`, so the
+# newest-first form is `bytime=true`, verified read-only on 29 Oct 2026 (the transmit counters of every wireless interface unchanged). `present`
+# runs no command at all: it only asks whether the CLI
 # exists. The former `monitor` id (listening to one BSSID, never verified on the device and called by nothing) has left the allowlist.
 # `recon_channels` is the AP service's frame count per frequency (channel activity, not devices): read-only, its transmit counters measured
 # unchanged (docs/device-notes.md V-3), gated on STARCHORUS_TRAFFIC alone: turning Traffic on does not make the other ids callable, and
@@ -3446,7 +3448,7 @@ apcli_ro() {
         present)       [ $# -eq 1 ] || return 2; command -v _pineap >/dev/null 2>&1 ;;
         recon_aps)     [ $# -eq 1 ] || return 2; $ap_to _pineap RECON APS format=json ;;
         recon_devices) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json ;;
-        recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json sort=time sortdir=desc limit=400 ;;
+        recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json bytime=true limit=400 ;;
         recon_channels) [ $# -eq 1 ] || return 2; [ "$TRAFFIC" = "1" ] || return 3; $ap_to _pineap RECON CHANNELS format=json ;;
         *) return 2 ;;
     esac
@@ -3479,7 +3481,7 @@ apcli_selftest() {
     pl=$(cat "$plog")
     if [ "$pl" = "RECON APS format=json
 RECON DEVICES format=json
-RECON DEVICES format=json sort=time sortdir=desc limit=400
+RECON DEVICES format=json bytime=true limit=400
 RECON CHANNELS format=json" ]; then st_pass "apcli_ro: the four allowed ids that run a command (recon_aps, recon_devices, recon_devices_recent, recon_channels) run exactly their literal command lines"; else st_fail "apcli_ro allowed ids: [$pl]"; fi
     apcli_ro present; ap_pr=$?; mkdir -p "$pt/nobin"
     # shellcheck disable=SC2123  # PATH is replaced on purpose: the command line must not be found
@@ -6282,7 +6284,7 @@ RECON DEVICES format=json" ]; then st_pass "pineap: exactly the two read-only li
         if [ "$pnrc" = 2 ] && [ -z "$pn4" ]; then st_pass "pineap: an empty AP list is no answer (rc 2: run_cycle falls back to recon.db)"; else st_fail "pineap: empty lists (rc $pnrc)"; fi
         # "recent": one bounded RECON DEVICES, no RECON APS; the APs come from the beacon records, the document is the same
         : > "$ppt/log"; PINEAP_CALLS=recent; pnb "$ppt/bin" $pt0; pnr=$pn; PINEAP_CALLS=full
-        if [ "$(cat "$ppt/log")" = "RECON DEVICES format=json sort=time sortdir=desc limit=400" ] && printf '%s\n' "$pnr" | json_ok \
+        if [ "$(cat "$ppt/log")" = "RECON DEVICES format=json bytime=true limit=400" ] && printf '%s\n' "$pnr" | json_ok \
            && [ "$(printf '%s\n' "$pnr" | grep -c '"bssid"')" = 4 ] && [ "$(printf '%s\n' "$pnr" | grep -c '"mac"')" = 3 ]; then
             st_pass "pineap recent: one bounded RECON DEVICES call, the same 4 APs and 3 stations without RECON APS"
         else st_fail "pineap recent: [$(cat "$ppt/log")]"; fi

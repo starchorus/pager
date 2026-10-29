@@ -709,7 +709,7 @@ printf '%s\n' \
   'present)       [ $# -eq 1 ] || return 2; command -v _pineap >/dev/null 2>&1 ;;' \
   'recon_aps)     [ $# -eq 1 ] || return 2; $ap_to _pineap RECON APS format=json ;;' \
   'recon_devices) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json ;;' \
-  'recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json sort=time sortdir=desc limit=400 ;;' \
+  'recon_devices_recent) [ $# -eq 1 ] || return 2; $ap_to _pineap RECON DEVICES format=json bytime=true limit=400 ;;' \
   'recon_channels) [ $# -eq 1 ] || return 2; [ "$TRAFFIC" = "1" ] || return 3; $ap_to _pineap RECON CHANNELS format=json ;;' > "$tmp/pins"
 # shellcheck disable=SC2016   # awk program
 apcli_scan() { # the lines of apcli_ro that hold `_pineap`: $tmp/ap_bad = the ones that are not a pin; $tmp/ap_cnt = "n", then "id<TAB>times" per pin
