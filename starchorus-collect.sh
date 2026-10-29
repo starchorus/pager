@@ -187,6 +187,8 @@ OWN=${STARCHORUS_OWN:-0}
 OWN_SSID_FILE=${STARCHORUS_OWN_SSID_FILE:-}
 APCLI_RO=${STARCHORUS_APCLI_RO:-0}
 BLUETOOTH=${STARCHORUS_BLUETOOTH:-0}
+BT_SOURCE=${STARCHORUS_BT_SOURCE:-auto}               # auto|blue5|window: the Bluetooth source when BLUETOOTH=1 (bt_pick)
+BLUE5_DB=${STARCHORUS_BLUE5_DB:-/root/recon/blue5.db}  # the firmware's own Bluetooth database, read-only; the auto/blue5 source reads it
 TRAFFIC=${STARCHORUS_TRAFFIC:-0}
 ALERTS=${STARCHORUS_ALERTS:-1}                    # 1 = read $ALERT_DIR/alerts.log when it exists (the header says what writes it); nothing happens without the file
 ALERT_DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}   # where the companion alert-deauth.sh writes alerts.log: a directory of its own, outside the one the page server serves
@@ -281,6 +283,10 @@ BT_NOTES=""         # what happened to the processes of the last window (watchdo
 BT_STRAND=""        # a scan that did not end after a TERM (it may still be scanning, passively): its pid file stays for bt_sweep
 BT_BIG=0            # 1 = the text of the last window was over the parse cap (bt_parse read its first and last part only)
 BT_RC=3             # bt_begin's answer in this cycle
+BT_SRC=window       # bt_pick's choice this cycle: window (our own passive scan), blue5 (read the firmware's database) or none
+BT5_DB=""           # the RAM copy of blue5.db this cycle (bt_blue5_copy sets it, bt_blue5_done frees it); "" = none
+BT5_RAM=0           # 1 = BT5_DB is a copy of ours to remove after reading
+BT5_MAX=4194304     # cap on the blue5.db copy: above this, no Bluetooth this cycle (it is ~40 KB on the device; RAM only)
 BT_HELD=""          # last cycle's Bluetooth records (tab separated: the B fields, last_seen, carry); in memory, like RS_DOCV: a file would outlive a killed collector
 BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those of the cycle before: a message is logged once per episode (bt_issue)
 BT_LOGGED=" "
@@ -973,6 +979,117 @@ bt_busy() {
     return 1
 }
 
+# bt_pick: choose this cycle's Bluetooth source into BT_SRC from STARCHORUS_BT_SOURCE and whether the firmware's blue5 database is
+# there to read. READ-ONLY and cheap (one builtin -e test; no process scan, no find): it runs every cycle BLUETOOTH is on.
+#   window = our own passive LE scan (bt_begin, the window path below);
+#   blue5  = read blue5.db instead (strictly a file read, like recon.db; the blue5 tools are never run, and are denied by name);
+#   none   = no Bluetooth this cycle.
+# `auto` reads blue5.db when it is present (firmware 2.0, where the Pager's own scanner holds the controller) and otherwise uses our
+# own window (firmware 1.x, or a 2.0 device with no blue5). `auto` never starts a window on a controller a foreign scanner may hold:
+# that case is caught by bt_begin's own guard, which stands the window down. An unknown value is `none` (never a window).
+bt_pick() {
+    case $BT_SOURCE in
+        window) BT_SRC=window ;;
+        blue5)  BT_SRC=blue5 ;;
+        auto)   if [ -e "$BLUE5_DB" ]; then BT_SRC=blue5; else BT_SRC=window; fi ;;
+        *)      BT_SRC=none
+                bt_issue btsource "Bluetooth: STARCHORUS_BT_SOURCE=$BT_SOURCE is not auto, blue5 or window; no Bluetooth this cycle" ;;
+    esac
+}
+
+# bt_blue5_copy: copy blue5.db to RAM before reading it, read-only, the same copy-first rule as recon.db (blue5's journal_mode is
+# `delete`, so a long read on the live file would hold a SHARED lock that stalls blue5's commits). Built on recon_copy_to and ram_room,
+# but with NO flash fallback and NO live-file last resort (unlike recon_workcopy): if the RAM copy cannot be made there is no Bluetooth
+# this cycle, the live file is never read. The copy holds addresses, so it is made under umask 077 like the other Bluetooth files.
+# $1 = blue5.db. Sets BT5_DB (the copy to query, "" = none) and BT5_RAM (1 = bt_blue5_done removes it).
+bt_blue5_copy() {
+    BT5_DB=""; BT5_RAM=0
+    [ -r "$1" ] || return 1
+    file_size "$1"; bc_sz=${FSZ:-0}; case $bc_sz in ''|*[!0-9]*) bc_sz=0 ;; esac
+    if [ "$bc_sz" -gt "$BT5_MAX" ] 2>/dev/null; then
+        bt_issue blue5big "Bluetooth: the Bluetooth database is over the ${BT5_MAX}-byte cap; not read this cycle"; return 1
+    fi
+    bc_dst="$TMPDIR_RAM/starchorus-bt5-$$.db"
+    if [ -d "$TMPDIR_RAM" ] && [ -w "$TMPDIR_RAM" ] && ram_room "$TMPDIR_RAM" "$bc_sz"; then
+        bc_um=$(umask); umask 077
+        recon_copy_to "$1" "$bc_dst"; bc_rc=$?
+        umask "$bc_um"
+        if [ "$bc_rc" = 0 ]; then BT5_DB=$bc_dst; BT5_RAM=1; return 0; fi
+    fi
+    rm -f "$bc_dst" "$bc_dst-wal" "$bc_dst-shm" 2>/dev/null; RR_OK=""
+    return 1
+}
+# bt_blue5_done: free the RAM copy after reading (one rm), like recon_workdone.
+bt_blue5_done() {
+    [ "$BT5_RAM" = 1 ] && rm -f "$BT5_DB" "$BT5_DB-wal" "$BT5_DB-shm" 2>/dev/null
+    BT5_DB=""; BT5_RAM=0
+}
+
+# bt_blue5_sql: $1 = the blue5.db copy, $2 = the cycle clock ts (digits). stdout = one B-line per Bluetooth address (the shape
+# add_layers reads, with a 10th field, the real last_seen), then a sentinel line that proves the query ran to the end. All of the
+# validation, the de-duplication (the newest row per address) and the TAB/LF/CR neutralisation of the name are done IN SQL, read-only,
+# so a hostile advertiser's name can neither shift a column nor forge a record, and a stray value cannot reach the document:
+#   * transports=1 keeps LE only; a 12-hex mac becomes lower case and colon-separated; addr_type is derived from the address's top two
+#     bits (public, random-static/resolvable/non-resolvable) as the window path does, not a bare "random";
+#   * rssi is rssi_avg (steadier than the last sample) and must be a real reading (-127..-1); reports is packets, floored at 1; company
+#     is kept only as a real id (0 and 65535 mean "no id"); the name BLOB has TAB/LF/CR turned to spaces and is cut to 32;
+#   * only addresses seen within BT_HOLD (120 s) of ts are kept, and never one stamped later than ts (a clock that moved back);
+#   * one row per address, the newest, via MAX(last_seen) with its bare columns in a sub-query (the single-aggregate form SQLite defines).
+bt_blue5_sql() {
+    sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
+SELECT 'B',
+  lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)),
+  CASE WHEN le_random=0 THEN 'public'
+       WHEN (instr('0123456789ABCDEF',substr(upper(mac),1,1))-1)/4=3 THEN 'random-static'
+       WHEN (instr('0123456789ABCDEF',substr(upper(mac),1,1))-1)/4=1 THEN 'random-resolvable'
+       WHEN (instr('0123456789ABCDEF',substr(upper(mac),1,1))-1)/4=0 THEN 'random-nonresolvable'
+       ELSE 'random' END,
+  rssi_avg,
+  CASE WHEN packets IS NULL OR packets<1 THEN 1 WHEN packets>2147483647 THEN 2147483647 ELSE packets END,
+  CASE WHEN company IS NULL OR company<0 OR company>65535 OR company IN (0,65535) THEN '' ELSE company END,
+  '',
+  substr(replace(replace(replace(CAST(name AS TEXT),char(9),' '),char(10),' '),char(13),' '),1,32),
+  CASE WHEN connectable=1 THEN 1 ELSE 0 END,
+  lastseen
+FROM (SELECT mac, le_random, rssi_avg, packets, company, name, connectable, MAX(last_seen) AS lastseen
+      FROM bt_device
+      WHERE transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
+        AND rssi_avg IS NOT NULL AND rssi_avg BETWEEN -127 AND -1
+        AND last_seen<=$2 AND last_seen>=$2-120
+      GROUP BY mac)
+ORDER BY rssi_avg DESC;
+SELECT '#STARCHORUS_BT5OK#';
+" 2>/dev/null
+}
+# bt_blue5_read: $1 = ts. Reads blue5.db (its RAM copy) into $BT_F.out, the file add_layers reads (SC_BTP), as B-lines with the real
+# last_seen. 0 = a complete read, the records (maybe none) in $BT_F.out; 1 = transient (no copy, a bad clock, or no complete answer:
+# the caller makes it a void cycle, mode 2, so the held records fade instead of the layer blinking off). The blue5 tools are never run.
+bt_blue5_read() {
+    case $1 in ''|0|*[!0-9]*) return 1 ;; esac
+    bt_blue5_copy "$BLUE5_DB" || return 1
+    BT_F="$TMPDIR_RAM/starchorus-bt-$$.txt"
+    br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
+    bt_blue5_done
+    case $br_raw in *"#STARCHORUS_BT5OK#"*) ;; *) return 1 ;; esac
+    br_um=$(umask); umask 077
+    printf '%s\n' "$br_raw" | grep "^B$RECON_TAB" | clean_ctrl > "$BT_F.out" 2>/dev/null
+    umask "$br_um"
+    return 0
+}
+
+# bt_foreign_holder: 0 = a scanner that is not ours (the firmware's own blue5) is running, so it holds the controller and our own
+# passive window must stand down -- strict passivity never drives a controller another program is using. Read-only: it looks for a
+# blue5 process in BT_PROC with bt_is (the one process form the passivity check allows); no such process = nonzero, the controller is
+# free for our window. On a host without /proc (the dev machine) the glob matches nothing and it returns nonzero, so the window runs.
+bt_foreign_holder() {
+    for fh_d in "$BT_PROC"/[0-9]*; do
+        [ -d "$fh_d" ] || continue
+        fh_p=${fh_d##*/}
+        bt_is "$fh_p" blue5 && return 0
+    done
+    return 1
+}
+
 # The ONLY place a Bluetooth tool is started (tools/passivity-check.sh: BT_FUNCS, row 'Bluetooth lines in bt_begin'). btmon first,
 # and the scan only once btmon holds its monitor socket, so btmon decodes the scan parameters the scan sets (the passivity witness,
 # bt_parse). Both under timeout -s INT as dead-man timers. HUP and QUIT are ignored for the two launches only: a terminal that closes
@@ -980,7 +1097,7 @@ bt_busy() {
 # the signals at default: there the measure protects nothing, and the 1-s hold of bt_end abort is what keeps an early INT off a scan that has not yet
 # installed its handler). The pid file comes first, with its marker line, and only then is the other collectors' state looked at: of two collectors that
 # start at the same moment at most one runs a window (both may stand back once). rc 0 started, 3 flag off, 4 no controller or no tool, 5 another
-# collector's window is running, 6 btmon did not get ready (nothing was asked of the controller).
+# collector's window is running, 6 btmon did not get ready (nothing was asked of the controller), 7 a scanner that is not ours (blue5) holds the controller.
 bt_begin() {
     BT_SPID=""; BT_MPID=""; BT_SKID=""; BT_MKID=""; BT_TS=0; BT_VOID=""; BT_NOTES=""
     [ "$BLUETOOTH" = "1" ] || return 3
@@ -988,6 +1105,7 @@ bt_begin() {
     have hcitool || return 4
     have btmon || return 4
     have timeout || return 4
+    if bt_foreign_holder; then return 7; fi   # a scanner that is not ours (the firmware's blue5) holds the controller: stand down, strict passivity
     BT_F="$TMPDIR_RAM/starchorus-bt-$$.txt"; BT_PF="$TMPDIR_RAM/starchorus-bt-$$.pid"
     bt_um=$(umask); umask 077
     printf 'P %s\n' "$$" > "$BT_PF" 2>/dev/null && : > "$BT_F" 2>/dev/null && : > "$BT_F.err" 2>/dev/null; bt_rc=$?
@@ -1464,7 +1582,7 @@ AWK_LAYERS='
     }
     BEGIN {
         ts = ENVIRON["SC_TS"] + 0; hold = ENVIRON["SC_HOLD"] + 0; win = ENVIRON["SC_WIN"] + 0
-        mode = ENVIRON["SC_BTMODE"] + 0; trf = ENVIRON["SC_TRAFFIC"] + 0
+        mode = ENVIRON["SC_BTMODE"] + 0; trf = ENVIRON["SC_TRAFFIC"] + 0; btsrc = ENVIRON["SC_BTSRC"]
         nrec = 0; added = 0; cdone = 0; adone = 0; btline = ""; actline = ""; tstat = "off"; nout = 0
         alline = ""; alent = 0; alskip = 0; alnap = 0
         alf = ENVIRON["SC_ALF"]
@@ -1497,7 +1615,13 @@ AWK_LAYERS='
         }
         if (mode == 1) {
             f = ENVIRON["SC_BTP"]
-            while ((getline line < f) > 0) { if (split(line, c, "\t") >= 9 && c[1] == "B") addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ts, 0) }
+            while ((getline line < f) > 0) {
+                if (split(line, c, "\t") >= 9 && c[1] == "B") {
+                    ls = (c[10] ~ /^[0-9]+$/) ? c[10] + 0 : ts   # a blue5 B-line carries the real last_seen in a 10th field; a window line has none (-> ts, heard now)
+                    if (ls > ts) ls = ts                         # never later than the document that holds it (a clock that moved back)
+                    if (ls >= ts - hold) addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ls, 0)
+                }
+            }
             close(f)
         }
         if (mode != 0) {
@@ -1557,7 +1681,11 @@ AWK_LAYERS='
     }
     {
         if (!cdone && mode != 0 && index($0, "  \"center\": {") == 1 && match($0, /\},?$/)) {
-            $0 = substr($0, 1, RSTART - 1) ", \"bt_window\": " win ", \"bt_hold\": " hold substr($0, RSTART); cdone = 1 }
+            if (btsrc == "blue5")   # blue5 has no scan window of its own: no bt_window, a source marker instead (window docs stay exactly as before)
+                $0 = substr($0, 1, RSTART - 1) ", \"bt_hold\": " hold ", \"bt_source\": \"blue5\"" substr($0, RSTART)
+            else
+                $0 = substr($0, 1, RSTART - 1) ", \"bt_window\": " win ", \"bt_hold\": " hold substr($0, RSTART)
+            cdone = 1 }
         if (!adone && index($0, "  \"aps\": [") == 1) {
             if (mode != 0) { print btline; added++ }
             if (actline != "") { print actline; added++ }
@@ -1600,7 +1728,7 @@ add_layers() {
         if tail -c 262144 "$ALERT_DIR/alerts.log" > "$al_b.alog" 2>/dev/null; then al_f="$al_b.alog"
         else bt_issue alertsread "Alerts: $ALERT_DIR/alerts.log could not be read; no alerts this cycle"; fi
     fi
-    SC_TS=$ts SC_HOLD=$BT_HOLD SC_WIN=$al_w SC_BTMODE=$2 SC_TRAFFIC=$TRAFFIC SC_BTP="$BT_F.out" SC_BTH="$al_b.held" SC_BTN="$al_b.new" \
+    SC_TS=$ts SC_HOLD=$BT_HOLD SC_WIN=$al_w SC_BTMODE=$2 SC_BTSRC="$3" SC_TRAFFIC=$TRAFFIC SC_BTP="$BT_F.out" SC_BTH="$al_b.held" SC_BTN="$al_b.new" \
         SC_TRF="$TMPDIR_RAM/starchorus-traffic-$$.json" SC_ALF="$al_f" SC_ALWIN=$ALERT_WIN SC_STAT="$al_b.stat" LC_ALL=C awk "$AWK_JSON_HELPERS$AWK_LAYERS" < "$1" > "$1.l" 2>/dev/null
     post_keep "$1" l $? "$(sed -n 's/^added //p' "$al_b.stat" 2>/dev/null)" || return 1
     al_k=$(sed -n 's/^askip //p' "$al_b.stat" 2>/dev/null)
@@ -1613,20 +1741,24 @@ add_layers() {
 # $1 = the document of this cycle, as it is about to be published. The Bluetooth window of the cycle is ended and judged here (bt_end), the
 # RECON CHANNELS call is waited for, add_layers runs (when Bluetooth or Traffic is on, or alerts_look found an alert log), and the records for the next cycle are kept.
 run_layers() {
-    rl_m=0
-    if [ "$BLUETOOTH" = 1 ]; then
+    rl_m=0; rl_src=""
+    if [ "$BLUETOOTH" = 1 ] && [ "$BT_SRC" = blue5 ]; then
+        rl_src=blue5
+        if bt_blue5_read "$ts"; then rl_m=1; else rl_m=2; fi
+    elif [ "$BLUETOOTH" = 1 ] && [ "$BT_SRC" = window ]; then
         case $BT_RC in
             0) bt_end_timed
                if [ -z "$BT_VOID" ]; then rl_m=1; else rl_m=2; fi ;;
             5) bt_issue overlap "Bluetooth: another collector's window is running; this one skipped"; rl_m=2 ;;
             6) bt_end_timed; bt_issue monitor "Bluetooth: the monitor did not start in time; no scan this cycle"; rl_m=2 ;;
+            7) bt_issue foreign "Bluetooth: the Pager's own scanner holds the controller; our own window stands down this cycle (strict passivity)"; BT_HELD="" ;;
             *) bt_issue nocontroller "Bluetooth: no controller (hci0), or a scan tool or timeout is missing; Bluetooth stays off"; BT_HELD="" ;;
         esac
     fi
     if [ -n "$TR_PID" ]; then wait "$TR_PID" 2>/dev/null; TR_PID=""; fi
     rl_b="$TMPDIR_RAM/starchorus-bt-$$"
     if [ "$rl_m" != 0 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ]; then
-        if add_layers "$1" "$rl_m"; then
+        if add_layers "$1" "$rl_m" "$rl_src"; then
             [ "$rl_m" = 0 ] || BT_HELD=$(cat "$rl_b.new" 2>/dev/null)
         fi
         if [ "$TRAFFIC" = 1 ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != ok ] && [ "$(sed -n 's/^traffic //p' "$rl_b.stat" 2>/dev/null)" != none ]; then
@@ -3704,7 +3836,7 @@ run_cycle() {
     tmp="$OUTFILE.tmp.$$"
     ok=1; CENTER_DONE=0; rc_skip=0; RQ_HOLD=""; RQ_TORN=""
     BT_CUR=" "; BT_RC=3; TR_PID=""
-    if [ "$BLUETOOTH" = 1 ]; then bt_begin; BT_RC=$?; fi
+    if [ "$BLUETOOTH" = 1 ]; then bt_pick; [ "$BT_SRC" = window ] && { bt_begin; BT_RC=$?; }; fi
     # RECON CHANNELS is called on the first cycle and then every second one: the AP service's command-line client is about 48 ticks a call on the device, and its own
     # counting window is 20 to 30 s wide, so the cycle in between publishes the answer of the cycle before and loses nothing. An empty or missing file is called for.
     if [ "$TRAFFIC" = 1 ]; then
@@ -4280,7 +4412,7 @@ lay_selftest() {
     for lay_w in 20:5:1 4:5:1 abc:5:1 5:5:0 15:15:0 06:6:0 007:7:0 16:5:1; do
         lay_v=${lay_w%%:*}; lay_r=${lay_w#*:}; lay_x=${lay_r#*:}; lay_r=${lay_r%%:*}
         STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 \
-            STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_WINDOW=$lay_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
+            STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_SOURCE=window STARCHORUS_BT_WINDOW=$lay_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
         lay_m=0; grep -q "STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$lay_v'); using 5" "$LAY/w.log" && lay_m=1
         grep -q "one passive LE scan window of ${lay_r}s per cycle" "$LAY/w.log" || lay_wok=0
         [ "$lay_m" = "$lay_x" ] || lay_wok=0
@@ -4292,7 +4424,7 @@ lay_selftest() {
     for lay_dw in unset empty; do
         ( unset STARCHORUS_BT_WINDOW; [ "$lay_dw" = unset ] || export STARCHORUS_BT_WINDOW=
           STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 \
-              STARCHORUS_BLUETOOTH=1 sh "$0" --once > /dev/null 2> "$LAY/w.log" )
+              STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_SOURCE=window sh "$0" --once > /dev/null 2> "$LAY/w.log" )
         grep -q "one passive LE scan window of 5s per cycle" "$LAY/w.log" && ! grep -q 'must be whole seconds' "$LAY/w.log" || lay_dk=0
     done
     if [ "$lay_dk" = 1 ]; then st_pass "STARCHORUS_BT_WINDOW: unset, or empty, the window is 5 s and the collector logs no complaint about it"; else st_fail "STARCHORUS_BT_WINDOW: default ($lay_dk) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
@@ -4347,6 +4479,29 @@ lay_selftest() {
     if [ "$lay_cnt" = 256 ] && cmp -s "$LAY/b300.out" "$LAY/b300.sorted" && cmp -s "$LAY/b300.out" "$LAY/b300.want" && json_ok < "$LAY/doc.json"; then
         st_pass "hold: 300 addresses -> the strongest 256, in the order rssi then address"
     else st_fail "hold: cap (count $lay_cnt)"; fi
+
+    # 25b) blue5 source: bt_blue5_read maps blue5.db (read-only, a copy) to the bluetooth layer; add_layers marks center bt_source=blue5, no bt_window
+    if [ -n "$LAY_BLUE5_FIX" ] && [ -e "$LAY_BLUE5_FIX" ]; then
+        b5="$LAY/blue5"; mkdir -p "$b5" "$LAY/ram"; b5_db="$LAY_BLUE5_FIX"; b5_ts=1000000
+        b5_sBL=$BLUE5_DB; b5_sTR=$TMPDIR_RAM; b5_sBF=$BT_F; b5_sMX=$BT5_MAX; b5_sH=$BT_HELD
+        BLUE5_DB="$b5_db"; TMPDIR_RAM="$LAY/ram"; BT5_MAX=4194304; BT_HELD=""; ts=$b5_ts
+        if bt_blue5_read "$b5_ts"; then b5_rc=0; else b5_rc=1; fi
+        lay_doc $b5_ts > "$b5/doc.json"; add_layers "$b5/doc.json" 1 blue5; b5_ar=$?
+        b5_line=$(grep '^  "bluetooth": ' "$b5/doc.json")
+        b5_cnt=$(printf '%s' "$b5_line" | grep -o '"addr":' | grep -c .)
+        b5_src=0; grep -q '"bt_source": "blue5"' "$b5/doc.json" && b5_src=1
+        b5_win=0; grep -q 'bt_window' "$b5/doc.json" && b5_win=1
+        b5_dup=0; printf '%s' "$b5_line" | grep -q '"addr": "aa:bb:cc:00:00:0a", "addr_type": "public", "rssi": -40, "reports": 7' && b5_dup=1
+        b5_sub=0; printf '%s' "$b5_line" | grep -q '"addr": "c0:aa:bb:00:00:02", "addr_type": "random-static"' && printf '%s' "$b5_line" | grep -q '"addr": "40:aa:bb:00:00:03", "addr_type": "random-resolvable"' && b5_sub=1
+        b5_nm=0; printf '%s' "$b5_line" | grep -q '"name": "t n"' && b5_nm=1
+        b5_ex=0; printf '%s' "$b5_line" | grep -q -e ':00:06' -e ':00:07' -e ':00:09' && b5_ex=1
+        if [ "$b5_rc" = 0 ] && [ "$b5_ar" = 0 ] && [ "$b5_cnt" = 5 ] && [ "$b5_src" = 1 ] && [ "$b5_win" = 0 ] && [ "$b5_dup" = 1 ] && [ "$b5_sub" = 1 ] && [ "$b5_nm" = 1 ] && [ "$b5_ex" = 0 ] && json_ok < "$b5/doc.json"; then
+            st_pass "blue5: bt_blue5_read maps blue5.db read-only to 5 records (newest per address, LE/rssi/age/MAC filtered, subtype from the address top bits, TAB in a name -> space, 0/65535 company dropped); center bt_source=blue5, no bt_window"
+        else st_fail "blue5 read: rc $b5_rc ar $b5_ar cnt $b5_cnt src $b5_src win $b5_win dup $b5_dup sub $b5_sub nm $b5_nm ex $b5_ex"; fi
+        BLUE5_DB="$b5/none-such.db"; bt_blue5_read "$b5_ts"; b5_fc=$?
+        if [ "$b5_fc" != 0 ]; then st_pass "blue5: a missing blue5.db -> bt_blue5_read fails closed (no Bluetooth this cycle, the live file is never read)"; else st_fail "blue5: fail-closed rc $b5_fc"; fi
+        BLUE5_DB=$b5_sBL; TMPDIR_RAM=$b5_sTR; BT_F=$b5_sBF; BT5_MAX=$b5_sMX; BT_HELD=$b5_sH
+    fi
 
     # 26) traffic: RECON CHANNELS through run_layers (Bluetooth off)
     BLUETOOTH=0; TRAFFIC=1; BT_RC=3; TR_PID=""; ts=$t0; lay_tf="$LAY/ram/starchorus-traffic-$$.json"
@@ -4699,7 +4854,7 @@ bt_selftest() {
     bts_child() {
         mkdir -p "$BTS/child"
         STARCHORUS_OUTDIR="$BTS/child" STARCHORUS_PIDDIR="$BTS/child" STARCHORUS_CAPDIR="$BTS/child/cap" STARCHORUS_TMPDIR="$BTS/ram" STARCHORUS_SOURCE=iwscan \
-            STARCHORUS_ALLOW_ACTIVE=0 STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BLUETOOTH=1 STARCHORUS_TRAFFIC=0 STARCHORUS_APCLI_RO=0 \
+            STARCHORUS_ALLOW_ACTIVE=0 STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BLUETOOTH=1 STARCHORUS_BT_SOURCE=window STARCHORUS_TRAFFIC=0 STARCHORUS_APCLI_RO=0 \
             STARCHORUS_BT_WINDOW="${1:-15}" STARCHORUS_SYSFS_BT="$BTS/sys" STARCHORUS_PROC_BT="$BTS/proc" sh "$0" --once > "$BTS/log/child.out" 2> "$BTS/log/child.err" &
         BTS_CH=$!; BTS_CF=""; BTS_CM=""; BTS_CS=""; bc_pat=${2:-'^S [0-9][0-9]* [0-9][0-9]* [0-9]'}; bc_n=0
         while [ "$bc_n" -lt 150 ]; do
@@ -5290,6 +5445,15 @@ CSV
 
     # ---- 1b) Bluetooth, the per-cycle layers and the traffic call: the text of a window (no process), the layers (files), a window against stand-ins
     bt_parse_selftest "$tdir"
+    # blue5 fixture for the layers selftest, built here where a non-read-only sqlite3 is a test fixture (not a production read); lay_selftest reads it
+    LAY_BLUE5_FIX="$tdir/blue5-fix.db"
+    if have sqlite3; then rm -f "$LAY_BLUE5_FIX"; sqlite3 "$LAY_BLUE5_FIX" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,PRIMARY KEY(scan,mac));
+INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name) VALUES
+ (1,'AABBCC000001',1000000,1,0,1,-50,10,76,'Pub'),(1,'C0AABB000002',1000000,1,1,1,-60,5,12,'Stat'),
+ (1,'40AABB000003',1000000,1,1,0,-70,1,46517,'Res'),(1,'AABBCC000005',1000000,1,0,1,-55,0,65535,'t'||char(9)||'n'),
+ (1,'AABBCC000006',1000000,1,0,1,NULL,10,76,'x'),(1,'AABBCC000007',999800,1,0,1,-50,10,76,'old'),
+ (1,'AABBCC000009',1000000,2,0,1,-50,10,76,'cls'),(1,'AABBCC00000A',999990,1,0,1,-90,3,76,'o'),
+ (2,'AABBCC00000A',1000000,1,0,1,-40,7,76,'n');" 2>/dev/null; else LAY_BLUE5_FIX=""; fi
     lay_selftest "$tdir"
     printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"
     write_empty 1710000000 "no data" > "$tdir/emit-empty.json"; lay_check "write_empty document" "$tdir/emit-empty.json"
@@ -7451,8 +7615,12 @@ setup_vendor
 resolve_source
 log "resolved data source: $RESOLVED  (interface: ${MONIF:-n/a}, created_mon=$CREATED_MON)"
 if [ "$BLUETOOTH" = 1 ]; then
-    [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 5"
-    log "Bluetooth: one passive LE scan window of ${BT_WIN}s per cycle (STARCHORUS_BLUETOOTH=1); addresses, not devices"
+    bt_pick
+    case $BT_SRC in
+        window) [ -z "$BT_WIN_BAD" ] || log "Bluetooth: STARCHORUS_BT_WINDOW must be whole seconds from 5 to 15 (got '$BT_WIN_BAD'); using 5"
+                log "Bluetooth: one passive LE scan window of ${BT_WIN}s per cycle (STARCHORUS_BLUETOOTH=1); addresses, not devices" ;;
+        blue5)  log "Bluetooth: reads the Pager's own Bluetooth database each cycle, read-only (STARCHORUS_BT_SOURCE=${BT_SOURCE}); addresses, not devices" ;;
+    esac
 fi
 if [ "$ALERTS" = 1 ] && [ -n "$ALERT_WIN_BAD" ]; then
     log "Alerts: STARCHORUS_ALERT_WINDOW must be whole seconds from 60 to 86400 (got '$ALERT_WIN_BAD'); using 600"
