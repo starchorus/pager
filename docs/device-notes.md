@@ -377,7 +377,12 @@ INT, connectable INT, rssi INT, rssi_min INT, rssi_max INT, rssi_avg INT, tx_pow
 packets INT, name BLOB, name_complete INT, ad_flags INT, appearance INT, svc16 TEXT, svc_other INT, mfr BLOB,
 svcd BLOB, PRIMARY KEY(scan, mac) ON CONFLICT REPLACE)`: every column the query reads is there, with more beside
 them that the query does not touch (`ad_flags`, `appearance`, `svc16`, `svc_other`, `mfr`, `svcd`), and `mac` is
-twelve hex digits as assumed. **Still open:** the cost of the read on the device, per cycle.
+twelve hex digits as assumed. Later that day, with the self-test pinned to its own stand-ins and the company list read,
+`tools/install.sh` ended VERIFIED on this firmware for the first time: the collector's self-test ALL PASS on the device
+(531 checks as of 30 October 2026, where the development machine runs 543: cases gated on tools the device lacks), the
+Overview's ALL PASS (113 checks as of the same day), all seven files byte-identical, and the Overview's Bluetooth screen naming `Apple, Inc.`
+and `Robert Bosch GmbH` where it had said `company id 76` and `678`. **Still open:** the cost of the read on the device,
+per cycle.
 
 ---
 
