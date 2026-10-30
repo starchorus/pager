@@ -378,7 +378,10 @@ if mode == "probe":
     # of such a mutant counts); a null-entry mutant (class 3) that throws in load() is the other. Boot errors are "other": unfair copy.
     esc_k = [f for f in finds if f[0].startswith("6:")]
     nul_k = [f for f in finds if f[0].startswith("3:") and f[1].startswith("load threw")]
-    other = [f for f in finds if f not in esc_k and f not in nul_k]
+    # an anchor that finds a sink showing the hostile text unmasked ("... masked and not raw") is the esc fault seen through another
+    # sink, not an unplanned finding: with esc reduced to String(s) every masking anchor must fail. Run mode still counts them (the real page masks).
+    anch_k = [f for f in finds if f[1].startswith("anchor:") and "masked and not raw" in f[1]]
+    other = [f for f in finds if f not in esc_k and f not in nul_k and f not in anch_k]
     if not esc_k: note("BLIND: the unescaped SSID was not seen")
     if not nul_k: note("BLIND: null entries that are not skipped were not seen")
     if other: note("unplanned finding %s: %s" % (other[0][0][:40], other[0][1][:80]))
