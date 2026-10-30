@@ -29,7 +29,7 @@ await STARCHORUS.wait(800);const o={};const G=1000000;
 const ap=(n,age)=>({bssid:"02:00:00:00:10:0"+n,ssid:"p"+n,band:"5",channel:36,rssi:-50,security:"WPA3",last_seen:G-age,clients:[]});
 STARCHORUS.load({source:"recon-db",generated:G,aps:[ap(1,0),ap(2,120),ap(3,600),ap(4,2000)],unassociated:[]},"ph");
 await STARCHORUS.wait(1600);STARCHORUS.setView("2d");STARCHORUS.setFixedTime(9100000);STARCHORUS.frame();
-const glow=(id)=>{const s=STARCHORUS.nodeScreen(id),n=STARCHORUS.node(id);let sum=0;for(let k=0;k<16;k++){const a=k*Math.PI/8,r=n.px*1.9;sum+=STARCHORUS.pixel("sky",s.sx+Math.cos(a)*r,s.sy+Math.sin(a)*r).a;}return sum;};
+const glow=(id)=>{const s=STARCHORUS.nodeScreen(id),n=STARCHORUS.node(id);let sum=0;for(let k=0;k<16;k++){const a=k*Math.PI/8,r=n.px*2.3;sum+=STARCHORUS.pixel("sky",s.sx+Math.cos(a)*r,s.sy+Math.sin(a)*r).a;}return sum;};
 const id=(n)=>"02:00:00:00:10:0"+n;
 const g=[1,2,3,4].map(n=>glow(id(n)));o.order=(g[0]>g[1]&&g[1]>g[2]&&g[2]>g[3]&&g[0]>=2*g[3]);
 o.tiers=[1,2,3,4].map(n=>STARCHORUS.node(id(n)).freshTier).join("");
@@ -37,6 +37,8 @@ o.tiers=[1,2,3,4].map(n=>STARCHORUS.node(id(n)).freshTier).join("");
 const s1=STARCHORUS.nodeScreen(id(1)),n1=STARCHORUS.node(id(1));let ring=0;for(let r=n1.px+1;r<n1.px+8;r+=0.5)if(STARCHORUS.pixel("sky",s1.sx+r,s1.sy).a>100)ring++;o.ring=ring>0;
 const TH=STARCHORUS._internals.THEMES;o.tokens=["wargames","foundation","whitehall"].map(k=>TH[k].render.phosphor.enabled+"/"+TH[k].render.recvRing.enabled+"/"+TH[k].render.arrivalArcs).join(" ");o.sprites=STARCHORUS.stats().sprites<=128;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+# The glow is sampled at 2.3*px. The WPA3 ring (width 1.5 at px+4) ends about 1.25 px inside 1.9*px, and a sample rounded to a whole pixel there
+# read ring bleed that swamped the tiers once the first-time placements of #41 moved the stars to other sub-pixel positions (30 October 2026).
 runq demo "$TWG_Q&theme=wargames" "out/$P-twg-ph" --width 1440 --height 900 --wait 2 --ready --fps 0 --eval-timeout 120 --eval "$TWG_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWG_P=$(evalv "out/$P-twg-ph.json" 1 | twg_nj); TWG_PE=$(evalv "out/$P-twg-ph.json" 2)
 TWG_PW=$(printf '%s' '{"errors":0,"order":true,"ring":true,"sprites":true,"tiers":"0123","tokens":"true/true/true false/false/false false/false/false"}' | twg_nj)

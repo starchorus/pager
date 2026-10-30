@@ -258,8 +258,11 @@ OPS_HB=$(grep -c "^HOMING_BSSID=\${STARCHORUS_HOMING_BSSID:-}" starchorus-collec
 rowif "homing is opt-in: no target unless STARCHORUS_HOMING_BSSID / homing.target is set ($OPS_HB)" [ "$OPS_HB" = 1 ]
 
 # ---- the constellation label carries its weakest member (open/WEP "!", TKIP "~"); WPA2/WPA3 add nothing
+# The fixture's addresses set the members' places (hashed), and with them the group label's one candidate. Under the first-time
+# placements of #41 the former prefix 09 put that candidate on the grid cell the empty core text owns, so place() dropped the
+# label as documented; prefix 0b keeps it clear in the old layout and the new (30 October 2026). The row's claim is unchanged.
 OPS_EVG='(async()=>{
-const ap=(n,b,ch,sec)=>({bssid:"02:00:00:00:09:"+String(n).padStart(2,"0"),ssid:"grpnet",band:b,channel:ch,rssi:-55-n,security:sec});
+const ap=(n,b,ch,sec)=>({bssid:"02:00:00:00:0b:"+String(n).padStart(2,"0"),ssid:"grpnet",band:b,channel:ch,rssi:-55-n,security:sec});
 const mk=(g,secs)=>({source:"recon-db",generated:g,aps:[ap(1,"2.4",6,secs[0]),ap(2,"5",36,secs[1]),ap(3,"5",100,secs[2])],unassociated:[]});
 const o={},lab=()=>STARCHORUS.labels().filter(l=>l.kind==="group").map(l=>l.text).join("|")||"none";
 STARCHORUS.load(mk(100,["WPA2","WPA2","WPA2"]),"g");await STARCHORUS.wait(1200);o.g0=STARCHORUS.groups().map(g=>g.key+":"+g.members.length).join();
