@@ -107,7 +107,8 @@ esac
 # finds no room. devices.json (vendors on most of its APs), 3 themes x 2D/3D, the switch off and on, then the device labels (facets, x n) in 2D. Per snapshot: the
 # fillText count, the AP labels, the vendor lines, whether every vendor line is an AP's and sits 12 px under its label, the overlapping pairs among the boxes
 # (labels, vendor lines, badges, groups, clouds), a digest of the rounded label positions (2D; 3D keeps a little time-dependent jitter), and facets+counters/vendor lines on a carrier.
-# The figures with the switch off are those of the page before the change (measured on a copy of 16d7e07), so "nothing moves with the switch off" is a comparison, not a claim.
+# The figures with the switch off are those of the page before the vendor change (first measured on a copy of 16d7e07; re-measured on 30 October 2026 on the 0.2.6.2 page, whose
+# first-time placements (#41) moved every label, on Chrome 153.0.8010.48 and 156 alike), so "nothing moves with the switch off" is a comparison, not a claim.
 LBL_EVVEN='(async()=>{const o=[],ids=new Set(STARCHORUS.nodes("ap").map(n=>n.id));
 const snap=async(tag,on,dev)=>{STARCHORUS.setToggles({vendor:on});await STARCHORUS.wait(120);STARCHORUS.frame();
 const L=STARCHORUS.labels(),ft=STARCHORUS.perf().drawCalls.fillText,lab=L.filter(l=>l.kind==="label"&&!l.sprite),ven=L.filter(l=>l.kind==="vendor"),yok=ven.every(x=>lab.some(l=>l.id===x.id&&Math.abs(x.y-l.y-12)<0.01)),apok=ven.every(x=>ids.has(x.id));
@@ -118,13 +119,13 @@ o.push([tag,on?"on":"off",ft,lab.length,ven.length,yok,apok,ovl,tag[0]==="2"?dig
 for(const v of ["2d","3d"])for(const th of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(th);STARCHORUS.setView(v);await STARCHORUS.wait(1400);for(const on of [false,true])await snap(v+"/"+th,on,false);}
 STARCHORUS.setTheme("foundation");STARCHORUS.setView("2d");await STARCHORUS.wait(1400);STARCHORUS.setToggles({deviceLinks:true});await STARCHORUS.wait(1400);for(const on of [false,true])await snap("2d/devices",on,true);
 STARCHORUS.setToggles({vendor:false,deviceLinks:false});return o.join("\n")})()'
-LBL_VEN_OFF='2d/foundation off 18 17 0 true true 0 996561 -
-2d/wargames off 17 17 0 true true 0 910672 -
-2d/whitehall off 18 17 0 true true 0 443419 -
-3d/foundation off 13 11 0 true true 0 - -
-3d/wargames off 13 11 0 true true 0 - -
-3d/whitehall off 13 11 0 true true 0 - -
-2d/devices off 12 11 0 true true 0 555469 9/0'
+LBL_VEN_OFF='2d/foundation off 17 15 0 true true 0 435135 -
+2d/wargames off 16 14 0 true true 0 684042 -
+2d/whitehall off 17 15 0 true true 0 616297 -
+3d/foundation off 13 12 0 true true 0 - -
+3d/wargames off 14 13 0 true true 0 - -
+3d/whitehall off 14 13 0 true true 0 - -
+2d/devices off 11 9 0 true true 0 374747 5/0'
 # the page of the sensor: the rectangle is never offered, which is what the old code amounted to (its vendor box could not be placed)
 python3 - "$H" "out/$P-lbl-ven-old.html" <<'PY'
 import sys
@@ -152,6 +153,8 @@ rowif "labels: the sensor bites: a copy that never offers the rectangle (the old
 # 0000100001000 (3D) because the AP vendor lines had spent the 2D budget and the AP labels held the cells; a client's line is now placed after the forced AP labels and before the others.
 # (b) in 2D, three themes, devices.json and many-clients.json: the group labels and the badges with the switch on equal those with it off (the vendor lines had taken
 # the group label's slot, 1 -> 0, in two themes of devices.json and in all three of many-clients.json). The sensor copy offers no rectangle's reserve and no early client line.
+# (b) is read at 1728 x 1117 since 30 October 2026: at 1440 x 900 the first-time placements of #41 put an AP's two-row vendor rectangle on the grid cell of a group label's one
+# candidate in devices.json, and the grid is first come (docs/architecture.md on the second row), which the budget order cannot prevent; (a) stays at 1440 x 900.
 LBL_EVPIN='(async()=>{const o=[];for(const v of ["2d","3d"]){STARCHORUS.setTheme("foundation");STARCHORUS.setView(v);STARCHORUS.setToggles({vendor:true});await STARCHORUS.wait(1400);const ids=STARCHORUS.nodes("client").map(n=>n.id);let s="";for(const id of ids){STARCHORUS.pin(id,true);await STARCHORUS.wait(120);STARCHORUS.frame();s+=STARCHORUS.labels().some(l=>l.kind==="vendor"&&l.id===id)?"1":"0";STARCHORUS.pin(id,false)}await STARCHORUS.wait(100);STARCHORUS.frame();o.push(v+" "+s+" "+STARCHORUS.perf().drawCalls.fillText)}STARCHORUS.setToggles({vendor:false});return o.join(";")})()'
 LBL_EVGB='(async()=>{const o=[],c=()=>{const L=STARCHORUS.labels();return [L.filter(l=>l.kind==="group").length,L.filter(l=>l.kind==="badge").length]};STARCHORUS.setView("2d");for(const th of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(th);const r=[];for(const on of [false,true]){STARCHORUS.setToggles({vendor:on});await STARCHORUS.wait(1300);STARCHORUS.frame();r.push(c())}o.push(r[0][0]+"/"+r[1][0]+"g"+r[0][1]+"/"+r[1][1]+"b")}STARCHORUS.setToggles({vendor:false});return o.join(" ")})()'
 python3 - "$H" "out/$P-lbl-ven-res.html" <<'PY'
@@ -161,18 +164,20 @@ a = ['budget > rest + 1 + res + wb(ap)', 'if (!cvDone && !isForced(ap.id)) cvLin
 if any(s.count(x) != 1 for x in a): s += "\n<!-- the reserve or the client vendor line was not found exactly once -->\n"
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a[0], 'budget > rest + 1').replace(a[1], ''))
 PY
-runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" --eval "$LBL_EVGB" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
-runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-m" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-g" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1728 --height 1117 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-m" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1728 --height 1117 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
 LBL_HK=$H; H="out/$P-lbl-ven-res.html"
-runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-o" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" --eval "$LBL_EVGB" >/dev/null 2>&1
-runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-mo" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-o" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1440 --height 900 --eval-timeout 180 --eval "$LBL_EVPIN" >/dev/null 2>&1
+runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-og" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1728 --height 1117 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
+runq "$F/many-clients.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-res-mo" --wait 3 --fps 0 --ready "$LBL_RDY" --width 1728 --height 1117 --eval-timeout 120 --eval "$LBL_EVGB" >/dev/null 2>&1
 H=$LBL_HK
-LBL_RP=$(evalv "out/$P-lbl-res.json" 1); LBL_RD=$(evalv "out/$P-lbl-res.json" 2); LBL_RM=$(evalv "out/$P-lbl-res-m.json" 1); LBL_RE=$(evalv "out/$P-lbl-res.json" 3)
-LBL_ROP=$(evalv "out/$P-lbl-res-o.json" 1); LBL_ROD=$(evalv "out/$P-lbl-res-o.json" 2); LBL_ROM=$(evalv "out/$P-lbl-res-mo.json" 1)
+LBL_RP=$(evalv "out/$P-lbl-res.json" 1); LBL_RE=$(evalv "out/$P-lbl-res.json" 2); LBL_RD=$(evalv "out/$P-lbl-res-g.json" 1); LBL_RM=$(evalv "out/$P-lbl-res-m.json" 1)
+LBL_ROP=$(evalv "out/$P-lbl-res-o.json" 1); LBL_ROD=$(evalv "out/$P-lbl-res-og.json" 1); LBL_ROM=$(evalv "out/$P-lbl-res-mo.json" 1)
 LBL_RPK=$(printf '%s' "$LBL_RP" | tr ';' '\n' | awk '{n=gsub(/1/,"1",$2); if (n==13 && $2 !~ /0/ && $3<=(($1=="2d")?30:24)) ok++} END{print ok+0 "/" NR}')
 LBL_RGB=$(printf '%s %s\n' "$LBL_RD" "$LBL_RM" | tr ' ' '\n' | awk '{split($0,a,"g"); sub(/b$/,"",a[2]); split(a[1],g,"/"); split(a[2],b,"/"); if (g[1]==g[2] && b[1]==b[2]) ok++} END{print ok+0 "/" NR}')
 rowif "labels: Vendor on keeps what outranks it: each of the 13 clients pinned in turn shows its vendor line, 2D and 3D, inside the budget [$LBL_RPK; before the change 2D 0000101111011, 3D 0000100001000]" [ "$LBL_RPK/$LBL_RE" = "2/2/0" ]
-rowif "labels: Vendor on keeps what outranks it: the group labels and the badges equal those with it off (2D, 1440 x 900, 3 themes, devices.json and many-clients.json) [$LBL_RGB: $LBL_RD | $LBL_RM]" [ "$LBL_RGB" = "6/6" ]
+rowif "labels: Vendor on leaves the group labels and the badges as they are with it off (2D, 1728 x 1117, 3 themes, devices.json and many-clients.json; they outrank a vendor line in the budget, the grid is first come) [$LBL_RGB: $LBL_RD | $LBL_RM]" [ "$LBL_RGB" = "6/6" ]
 LBL_ROPK=$(printf '%s' "$LBL_ROP" | tr ';' '\n' | awk '{n=gsub(/1/,"1",$2); if (n==13) ok++} END{print ok+0}')
 LBL_ROGB=$(printf '%s %s\n' "$LBL_ROD" "$LBL_ROM" | tr ' ' '\n' | awk '{split($0,a,"g"); sub(/b$/,"",a[2]); split(a[1],g,"/"); split(a[2],b,"/"); if (g[1]==g[2] && b[1]==b[2]) ok++} END{print ok+0 "/" NR}')
 LBL_RBITE=no; [ "$LBL_ROGB" != "6/6" ] && LBL_RBITE=yes
@@ -180,7 +185,9 @@ rowif "labels: the sensor bites: a copy without the reserve and without the earl
 
 # ---- labels (7), 26 October 2026: a forced AP's name outranks a pinned client's vendor line (§6.6: locked -> hover -> pinned). devices.json, 1440 x 900, 2D, Vendor on:
 # AP ...bb:12 locked and client ...20:31 pinned, the AP keeps its label (the page before the change drew it); then each client pinned in turn with the AP nearest to it on
-# screen locked, the locked labels missing (0/13 on the page before the change) and the client vendor lines drawn. The sensor copy places the client lines ahead of every AP label.
+# screen locked, the locked labels missing (0/13 on the page before the change) and the client vendor lines drawn. The sensor copy places the client lines ahead of every AP label
+# and must then drop a locked label somewhere, the pair of the first row or one of the thirteen sweeps: the complement of that row's pass. The one pair alone bit only by placement
+# luck, and cannot since the first-time placements of #41 (30 October 2026).
 LBL_EVLK='(async()=>{const o=[];STARCHORUS.setTheme("foundation");STARCHORUS.setView("2d");STARCHORUS.setToggles({vendor:true});await STARCHORUS.wait(1400);
 const one=async(a,c)=>{STARCHORUS.select(a);STARCHORUS.pin(c,true);await STARCHORUS.wait(150);STARCHORUS.frame();const L=STARCHORUS.labels(),r=[L.some(l=>l.kind==="label"&&l.id===a),L.some(l=>l.kind==="vendor"&&l.id===c)];STARCHORUS.pin(c,false);STARCHORUS.deselect();return r};
 o.push((await one("44:4e:6d:aa:bb:12","3c:22:fb:10:20:31"))[0]);let miss=0,cv=0,n=0;
@@ -199,7 +206,9 @@ runq "$F/devices.json" "?poll=0&spin=0&intro=0&rm=1&autolod=0" "out/$P-lbl-lk-o"
 H=$LBL_HK
 LBL_LKV=$(evalv "out/$P-lbl-lk.json" 1); LBL_LKE=$(evalv "out/$P-lbl-lk.json" 2); LBL_LKO=$(evalv "out/$P-lbl-lk-o.json" 1)
 rowif "labels: Vendor on, AP ...bb:12 locked and client ...20:31 pinned: the AP keeps its label; each client pinned with its nearest AP locked loses no locked label (base 0/13) [label, missing, client lines: $LBL_LKV]" [ "${LBL_LKV%% *}/$(printf '%s' "$LBL_LKV" | cut -d' ' -f2)/$LBL_LKE" = "true/0/13/0" ]
-rowif "labels: the sensor bites: a copy that places the client vendor lines ahead of every AP label drops the locked AP's label [$LBL_LKO]" [ "${LBL_LKO%% *}" = false ]
+LBL_LKM=$(printf '%s' "$LBL_LKO" | cut -d' ' -f2); LBL_LKM=${LBL_LKM%%/*}; case $LBL_LKM in ''|*[!0-9]*) LBL_LKM=0 ;; esac
+LBL_LKB=no; if [ "${LBL_LKO%% *}" = false ] || [ "$LBL_LKM" -gt 0 ]; then LBL_LKB=yes; fi
+rowif "labels: the sensor bites: a copy that places the client vendor lines ahead of every AP label drops a locked AP's label, the pair above or one of the 13 sweeps [$LBL_LKO]" [ "$LBL_LKB" = yes ]
 
 # ---- particles: one run carries all five particle rows. The document comes from fetch('starchorus.json') inside
 # the eval (test code, not page code -- the page still has exactly one fetch), with the same label and

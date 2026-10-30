@@ -117,10 +117,10 @@ const CX=Math.round(innerWidth/2),CY=Math.round(innerHeight/2),px=(x,y)=>STARCHO
 const ringAny=(r)=>{let n=0;for(let k=0;k<24;k++){const a=k*Math.PI/12;if(px(CX+Math.cos(a)*r,CY+Math.sin(a)*r)>0)n++;}return n;};
 o.whOwn=[px(CX,CY-4)>0,ringAny(14)===0,ringAny(18.5)===0].join();
 STARCHORUS.setTheme("wargames");await STARCHORUS.wait(150);STARCHORUS.frame();o.wgRing=[ringAny(10.5)>0].join();STARCHORUS.setTheme("whitehall");await STARCHORUS.wait(150);STARCHORUS.setFixedTime(null);
-// the new plot mark: a dashed ring around an AP that arrived, for 3 captures, only in Whitehall
+// the new plot mark: a dashed ring around an AP that arrived, for 3 captures, only in Whitehall. ringN samples at px+10: at px+9 the samples sat 1.5 px off the outer ring of the AP itself (edge px+7.5), and a sample rounded to a whole pixel read that ring once the first-time placements of #41 moved the star to another sub-pixel position (30 October 2026)
 STARCHORUS.load(mk(200,2),"np");await STARCHORUS.wait(1500);
 STARCHORUS.load(mk(205,3),"np");await STARCHORUS.wait(1500);STARCHORUS.setFixedTime(9900000);await STARCHORUS.wait(120);STARCHORUS.frame();
-const ringN=(id)=>{const s=STARCHORUS.nodeScreen(id),n=STARCHORUS.node(id);let c=0;for(let k=0;k<48;k++){const a=k*Math.PI/24,r=n.px+9;if(px(s.sx+Math.cos(a)*r,s.sy+Math.sin(a)*r)>0)c++;}return c;};
+const ringN=(id)=>{const s=STARCHORUS.nodeScreen(id),n=STARCHORUS.node(id);let c=0;for(let k=0;k<48;k++){const a=k*Math.PI/24,r=n.px+10;if(px(s.sx+Math.cos(a)*r,s.sy+Math.sin(a)*r)>0)c++;}return c;};
 const idN="02:00:00:00:14:03",idO="02:00:00:00:14:01";
 o.newPlot=[ringN(idN)>0,ringN(idO)===0,STARCHORUS.node(idN).isNew===true||STARCHORUS.stats().events.newAps===1].join();
 STARCHORUS.setFixedTime(null);for(let i=0;i<3;i++){STARCHORUS.load(mk(210+5*i,3),"np");await STARCHORUS.wait(300);}await STARCHORUS.wait(600);STARCHORUS.setFixedTime(9950000);await STARCHORUS.wait(120);STARCHORUS.frame();

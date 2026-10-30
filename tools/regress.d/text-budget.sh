@@ -104,9 +104,11 @@ rowif "text budget: the bake scale follows the destination canvas ($TXB_S5) and 
 TXB_EVB='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(1500);const fx=await (await fetch("starchorus.json")).json(),G=fx.generated;const d=JSON.parse(JSON.stringify(fx));d.generated=G+10;d.bluetooth=[];for(let i=0;i<40;i++)d.bluetooth.push({addr:"02:00:00:00:05:"+(i+16).toString(16),addr_type:"public",rssi:-45-i,reports:1+i%4,last_seen:G+5,company:65535,company_name:"Maker "+"AB"[i%2]});STARCHORUS.load(d,"rp-tb");STARCHORUS.setToggles({rotate:false});const snap=()=>{STARCHORUS.frame();const L=STARCHORUS.labels();return JSON.stringify([L.filter(l=>!l.sprite).map(l=>l.kind+"|"+(l.text||l.id||"")).sort(),STARCHORUS.perf().drawCalls.fillText,L.filter(l=>l.kind==="label").map(l=>l.id).sort()])};o.marks=STARCHORUS.stats().bluetooth.marks;o.tags=0;o.same={};o.nonEmpty={};for(const v of ["2d","3d"]){STARCHORUS.setView(v);await sleep(3000);const r=[]; for(const bt of [true,false,true]){STARCHORUS.setToggles({bands:{bt}});await sleep(900);r.push(snap());} o.same[v]=r[0]===r[1]&&r[1]===r[2];o.nonEmpty[v]=JSON.parse(r[0])[2].length;o["ft"+v]=JSON.parse(r[0])[1];o.tags+=STARCHORUS.labels().filter(l=>/bt|tag/.test(l.kind)).length;}o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 runq "$F/radio-pair.json" "?poll=0&spin=0&intro=0&debug=1" "out/$P-txb-bt" --width 1440 --height 900 --wait 4 --fps 0 --ready "$TXB_RDY" --eval-timeout 120 --eval "$TXB_EVB" >/dev/null 2>&1
 TXB_B=$(evalv "out/$P-txb-bt.json" 1 | txb_nj)
-TXB_BW=$(printf '%s' '{"marks":40,"tags":0,"same":{"2d":true,"3d":true},"nonEmpty":{"2d":9,"3d":10},"ft2d":8,"ft3d":9,"errors":0}' | txb_nj)
+# The counts are a snapshot of the radio-pair fixture's labels (re-measured 30 October 2026 after the first-time placements of #41: one 3D label fewer, 9 and 8 where 10 and 9 stood);
+# the claim is `same`: the layer on, off and on alike, in 2D and 3D.
+TXB_BW=$(printf '%s' '{"marks":40,"tags":0,"same":{"2d":true,"3d":true},"nonEmpty":{"2d":9,"3d":9},"ft2d":8,"ft3d":8,"errors":0}' | txb_nj)
 if [ "$TXB_B" = "$TXB_BW" ]; then
-  row "text budget (radio pair): 40 Bluetooth marks leave the AP labels alone: the unbaked labels() entries, the counted fillText (8 in 2D, 9 in 3D) and the AP label ids are the same with the layer on, off and on, in 2D and 3D, and no mark carries a tag" PASS
+  row "text budget (radio pair): 40 Bluetooth marks leave the AP labels alone: the unbaked labels() entries, the counted fillText (8 in 2D, 8 in 3D) and the AP label ids are the same with the layer on, off and on, in 2D and 3D, and no mark carries a tag" PASS
 else
   row "text budget (radio pair): Bluetooth leaves the AP labels alone" FAIL; echo "    got:  $TXB_B"; echo "    want: $TXB_BW"
 fi
