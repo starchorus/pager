@@ -50,7 +50,9 @@
 #   and the installed collector, Overview or (while Alerts is ON) companion alert is reported once. A dead loop
 #   with the marker present had stopped by itself ("Collector had stopped."), and a page server left without a collector is stopped.
 #   Start: no question; spinner; marker /tmp/starchorus.started = the epoch of this Start (tmpfs: a reboot clears it);
-#   the collector (setsid, nice 19) and, with Web Page ON, the page server (nice 19); up to 5 s for both, then, when the
+#   the collector (setsid, nice 19) and, with Web Page ON, the page server (nice 19); up to 5 s for both, and longer for a
+#   launched collector that still lives without its pidfile (up to its own start ceiling, STARCHORUS_INTERVAL + 15 s, plus
+#   5 s: see pl_wait_up), then, when the
 #   Overview is to open, up to 20 s more for the first capture of this Start (the spinner stays up, so the Overview opens
 #   on numbers and not on "Waiting for the first scan."), then the Overview as a child process (no exec; nice 19), back to
 #   RUNNING with the cursor on Overview. A spinner that is up when the payload gets TERM or INT is stopped first.
@@ -857,10 +859,14 @@ pl_lastlog() {   # L7: the last line of collect.log, without the collector's pre
     [ -z "$pl_ll" ] || printf '%s\n' "$pl_ll" | cut -c1-40
 }
 
-# pl_wait_up WANTPAGE -> polls every 0.5 s until the collector is up (and, with WANTPAGE=1, the page too), 5 s at most; a
-# collector still starting (the process we launched is alive, no pidfile yet) gets 5 s more. 0 = up, 1 = not.
+# pl_wait_up WANTPAGE -> polls every 0.5 s until the collector is up (and, with WANTPAGE=1, the page too): 5 s for the usual
+# case, and after that for as long as the process we launched is still alive without a pidfile, since a collector that lives
+# is a collector still starting. Its own start first waits for an earlier loop to end (up to STARCHORUS_INTERVAL + 15 s, the
+# collector's replace_loops), and on the single core it starts at nice 19 beside the spinner and the page server, so on the
+# device the pidfile can take well over 10 s to land while nothing is wrong. The ceiling is the collector's own, plus 5 s. A
+# launched process that has gone without a pidfile is a collector that could not start: given up at once. 0 = up, 1 = not.
 pl_wait_up() {
-    pl_w=0
+    pl_w=0; pl_um=$(( (STARCHORUS_INTERVAL + 20) * 10 ))      # tenths of a second: the collector's own ceiling plus slack
     while :; do
         if pl_col_up; then
             [ "$1" = 1 ] || return 0
@@ -868,7 +874,7 @@ pl_wait_up() {
         fi
         if [ "$pl_w" -ge 50 ]; then
             pl_col_up && return 0                     # the page did not come up in time: the caller says so
-            [ "$pl_w" -lt 100 ] && pl_own "$PL_COLPID" starchorus-collect || return 1
+            [ "$pl_w" -lt "$pl_um" ] && pl_own "$PL_COLPID" starchorus-collect || return 1
         fi
         pl_nap; pl_w=$((pl_w + PL_NAP))
     done
