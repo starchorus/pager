@@ -1237,7 +1237,7 @@ rowif "§14.6h program-text sinks: $(lines "$tmp/s_hits") lines hold one (as com
 # words: the words up to the next `;` `&` `|`, the next `sqlite3`, a comment start (blank + `#`) or the first quote. So a
 # `# -readonly` comment, a second call after a read-only one, and `-readonly` inside a quoted SQL string do not count.
 # An occurrence after a `#` is still a call (a `#` inside a string would otherwise hide it).
-MIN_SQLITE_CALLS=1   # production calls: scoped sqlite3 words outside selftest(), minus `have sqlite3` (measured: 1, recondb_query)
+MIN_SQLITE_CALLS=2   # production calls: scoped sqlite3 words outside selftest(), minus `have sqlite3` (measured: 2, recondb_query + bt_blue5_sql)
 scoped '(^|[^A-Za-z0-9_-])sqlite3([^A-Za-z0-9_]|$)' > "$tmp/sq0"
 # shellcheck disable=SC2016   # awk program
 SQAWK='{ t = $0
