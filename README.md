@@ -107,12 +107,13 @@ Starchorus 0.2.6.2. The main parts carry the same number:
     hidden; the legend still counts them all ('n randomised MAC · k in m clouds'). The Overview
     counts clouds by the same rule ('Clients 247 free (245 random, 1 cloud)'), and the CSV export
     ends in a `cloud` column.
-- **Bluetooth LE** (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive scan of 5 seconds per refresh. What it
-  hears is drawn as small triangles at the radius of their signal on the same rings as the Wi-Fi nodes; the rings are shared, the scale is not,
+- **Bluetooth LE** (opt-in, Settings > Bluetooth, or `STARCHORUS_BLUETOOTH=1`): a passive scan of 5 seconds per refresh, or on
+  firmware 2.0 the firmware's own Bluetooth database instead of a scan (read-only, from a copy; see `STARCHORUS_BT_SOURCE` under
+  Configuration). What it hears is drawn as small triangles at the radius of their signal on the same rings as the Wi-Fi nodes; the rings are shared, the scale is not,
   and direction is not measured. A filled triangle is an address that does not rotate, a hollow one is rotating addresses of one
   company in one signal ring, folded into one mark (a dot at its centre; the tooltip gives the count); the figures are **addresses, not
   devices**, and a rotating address is never linked to another. The company is the id in the advertisement (it names who registered the
-  data, not necessarily the maker), shown by its name where the scan reports one. Key `4` and the 'BT' button hide the layer; the
+  data, not necessarily the maker), shown by its name where the scan or the firmware's company list reports one. Key `4` and the 'BT' button hide the layer; the
   counter 'BT addresses' (it keeps its count while the marks are hidden, and reads a dash when a scan failed and nothing is held) and
   the legend say which window the figure covers. Without a valid scan this cycle the marks are kept for two minutes and dim by age. A
   mark has a tooltip, no detail sheet in this release.
@@ -122,7 +123,7 @@ Starchorus 0.2.6.2. The main parts carry the same number:
   levels on a logarithmic scale of the frames heard from it per second (the scale ends at 5 per second, about the 95th percentile
   measured on one device); it depends on where the radio listens, and it shows nothing when the feed is not live.
 - **Alerts** (on by default, and silent until the file exists): the Pager's own alert engine can report that it heard many deauth/disassoc
-  frames for an access point. A small companion alert payload, `alert-deauth.sh`, which the owner installs by hand (see Alerts, below),
+  frames for an access point. A small companion alert payload, `alert-deauth.sh`, which the Settings row 'Alerts' installs after a question, or the owner by hand (see Alerts, below),
   writes one line to `alerts.log` for each report, and the collector turns the lines of the last ten minutes into `alerts[]`. The page lists
   them as 'many deauth/disassoc frames heard for this AP: <name> (<n>)'. It is a hint and not a diagnosis: a report carries no channel, no
   signal strength and no count of frames, `n` counts reports, and the source address is whatever the frames claim.
@@ -332,6 +333,8 @@ payload's README.
 
 Firmware: the payload's menus use Hak5's [`LIST_PICKER`](https://documentation.hak5.org/wifi-pineapple-pager/list_picker), which needs firmware 1.0.8 or later, and the
 QR dialogue of 'Open on Phone' is reported to need 1.1.1 or later (not tried here on an older firmware; where the command is missing, the payload shows the address as text).
+Since 0.2.6.2 the payload is adapted to firmware 2.0 (the argument of the recon list, an access point's security from the beacon records, the firmware's
+Bluetooth database as a source); the menu's Start, the installer's self-tests and the Bluetooth database read were checked on a Pager with firmware 2.0 on 30 October 2026.
 
 The Overview `starchorus-display.sh` reads the same `starchorus.json` and shows eight screens on the
 device's display: the summary, strongest networks, bands and security, devices and merges, probe
