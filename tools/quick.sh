@@ -6,8 +6,9 @@
 # exit 0 = every row PASS, 1 = at least one FAIL, 2 = setup problem.
 # One source: the rows are tools/static.sh (also run first by tools/regress.sh) plus the drop-ins named in QUICK_DROPINS
 # (tools/static.sh; each is verified Chrome-free by a row) plus `denylist-check.sh --selftest` and `--extended`.
-#   QUICK_MUTATE=1   also run the passivity mutation probe (drop-in mutation-probe, whose two halves run at the same time: about 21 minutes); the hook sets it when
-#                    tools/passivity-check.sh or tools/passivity-mutate.sh is staged. Without it that probe is T2 only.
+#   QUICK_MUTATE=1   also run the passivity mutation probe (drop-in mutation-probe, whose shards of both modes run at the same time: about 16 minutes on a machine with 14 cores, STARCHORUS_MUTATE_JOBS
+#                    sets the number of shards; a run whose inputs are those of the last green run replays that result under a note instead, STARCHORUS_MUTATE_FRESH=1 forces the real one); the hook sets it
+#                    when tools/passivity-check.sh or tools/passivity-mutate.sh is staged. Without it that probe is T2 only.
 # The collector selftest (about 20 s) is not part of T1 either (STATIC_SELFTEST=0): it runs in tools/regress.sh.
 # NOT proven: that the RUNNING page is passive (source text only; the runtime network comes in T2), anything under BusyBox,
 # anything on the device. Green here does not replace tools/regress.sh.

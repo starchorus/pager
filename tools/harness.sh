@@ -98,7 +98,7 @@ runq() {   # runq FIXTURE|demo "QUERY" PREFIX [--delay S] [cdp-Args…] → PREF
   # INT/TERM while runq runs: without a trap the server (python3 -m http.server, then PPID 1) and the
   # starchorus-runq.* directory stayed behind. The trap runs after the foreground cdp.py returns (that is how sh handles a signal
   # during a foreground command; Ctrl-C reaches cdp.py directly, as before), cleans up and re-raises the signal, so the
-  # caller ends exactly as it did. No caller holds an INT/TERM trap across a call (grep -n 'trap ' tools/*.sh tools/regress.d/*.sh: mutation-probe.sh sets one only while it waits for its two halves, and clears it before it returns).
+  # caller ends exactly as it did. No caller holds an INT/TERM trap across a call (grep -n 'trap ' tools/*.sh tools/regress.d/*.sh: mutation-probe.sh sets one only while it waits for its shards, and clears it before it returns).
   _rq_srv=""; trap '_rq_abort INT' INT; trap '_rq_abort TERM' TERM
   cp "$H" "$_rq_t/index.html" || { _rq_end; _rq_stale; return 2; }
   [ "$_rq_f" = demo ] || cp "$_rq_f" "$_rq_t/starchorus.json" || { _rq_end; _rq_stale; return 2; }

@@ -1,13 +1,17 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # tools/passivity-mutate.sh -- proves that every rule family of tools/passivity-check.sh can turn red.
-# usage: sh tools/passivity-mutate.sh [--only NAME|alts] [--meta]      (any cwd; dev machine; sends nothing, opens no socket)
+# usage: sh tools/passivity-mutate.sh [--only NAME|alts] [--meta] [--shard I/N | --merge FILE...]      (any cwd; dev machine; sends nothing, opens no socket)
 #   (default)    unmutated copy first (must be exit 0), then one FRESH copy per mutation with exactly ONE changed/added
 #                line; the set of red rows must equal the pinned set; then the alternative probe (below).
 #                Exit 0 = every line below matches, 1 = a miss, 2 = setup.
 #   --only NAME  one mutation (used by --meta and for debugging); --only alts = the alternative probe alone
 #   --meta       the probe of the probe: blinds one rule family, or ONE alternative of one, in an image of the checker and
 #                demands that THIS script then reports GREEN (BLIND!) for the matching mutation / alternative.
+#   --shard I/N  the default run, or --meta, cut into N shards: this is shard I (0 to N-1); it runs the entries of the table that are its turn, prints their lines tagged for the merge and
+#                then its sums (no verdict, exit 0). tools/regress.d/mutation-probe.sh starts the shards of both modes at the same time (SHARDS, below).
+#   --merge FILE...   the N shard files of ONE mode (--meta before --merge for the meta mode): checks that they add up, prints the lines of the entries in the order of the table and then the
+#                verdict of the summed counters, which is what the run without shards prints, line for line, with its exit status.
 # Alternative probe: the regex families of the checker (`--regexes`: NETSURF_RE, NETX, TX_WORDS, IW_VERBS, SEC6_RE, BT_WORDS, BT_WRAP_RE, PNET_WORDS, OUT_WORDS, CHG_VERBS, TC_NOUNS)
 # are split at their top-level `|`, DERIVED from the checker, not typed here. Every alternative needs exactly one planted sample in the
 # table `alt` below (sample matches its own alternative and no other; count of alternatives pinned as MIN_ALTS_*): all
@@ -165,6 +169,13 @@
 #                 denylist words: there each has one line in the table); the alternatives probe reads the evidence lines under a
 #                 red row, not its counter (the counter is the business of the row mutations). Every mutation is a text copy that never
 #                 runs (the only call in copies is the checker itself, which only reads; see self_guard()).
+# SHARDS:         the entries of a table (mut, mutr1, metaprobe, and the alternative probe as one entry) are independent: each is judged on a copy of its own and adds only to sums and to a set of rows.
+#                 So N shards can share the table: shard I runs the entries whose turn it is (the n-th goes to shard n mod N; the long ones, the alternative probe and the images whose child runs it,
+#                 are counted apart so that no shard gets them together), prints the lines of each tagged with its number, and ends with its sums (PART, COV), the names of the entries that failed to
+#                 set up (SN) and END (which shard of how many, how many entries the table has, how many it ran). --merge refuses files that do not add up (a shard missing or cut short, another N,
+#                 entries not run exactly once: never green with fewer entries), puts the lines back in the order of the table and lets the verdict below read the summed counters, so there is one verdict,
+#                 not a second implementation of it. Nothing is started here: the shards are started by tools/regress.d/mutation-probe.sh, and self_guard() counts what it always counted. The unmutated
+#                 copy is checked by every shard of the default run (a red one ends them at once), its line is printed by shard 0.
 # Rows are matched by prefix (their numbers change with the code). Mutations only ever touch COPIES in mktemp -d.
 # Owners: the pinned sets belong to L; a legitimate K change that renames a row makes this script say which name to adjust.
 # shellcheck disable=SC2016   # the mutation texts below are literal shell/JS source, not expansions
@@ -252,20 +263,106 @@ apply() {
 # ---- the rows of passivity-check.sh, by name prefix. Every one must be red at least once (coverage line below).
 ROWS='§14.6 scope fill|HTML network surface|fetch( =|other network APIs|URLs outside|§14.6 device calls|§14.6 allowlist names|iw scan opt-in|transmit tools invoked|§14.6b Bluetooth words|Bluetooth allowlist names|Bluetooth lines in bt_begin|Bluetooth word forms|Bluetooth wrappers|Bluetooth command position|apcli_ro literal lines|§14.6d command words from an expansion|§14.6e command names from a glob|§14.6f docroot of the page servers|§14.6g outward and state-changing programs|§14.6h program-text sinks|sqlite3 read-only|starchorus-serve.sh: GET|device-probe.sh scope fill|device-probe.sh named tools|device-probe.sh programs|§14.7 denylist'
 
-sel=""; meta=0
+sel=""; meta=0; SHARD_I=0; SHARD_N=0; MERGE=0   # SHARD_N: 0 = no shards (the run as it always was), N >= 1 = this is shard SHARD_I of N, -1 = merging shard files
+usage() { echo "usage: sh $0 [--only NAME] [--meta] [--shard I/N | --merge FILE...]" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case $1 in
     --only) sel=${2:-}; [ -n "$sel" ] || { echo "usage: --only NAME" >&2; exit 2; }; shift 2 ;;
     --meta) meta=1; shift ;;
-    *) echo "usage: sh $0 [--only NAME] [--meta]" >&2; exit 2 ;;
+    --shard) case ${2:-} in */*) SHARD_I=${2%%/*}; SHARD_N=${2#*/} ;; *) usage ;; esac
+             case $SHARD_I in [0-9]|[0-9][0-9]) ;; *) usage ;; esac; case $SHARD_N in [0-9]|[0-9][0-9]) ;; *) usage ;; esac
+             SHARD_I=${SHARD_I#0}; SHARD_I=${SHARD_I:-0}; SHARD_N=${SHARD_N#0}; SHARD_N=${SHARD_N:-0}
+             { [ "$SHARD_N" -ge 1 ] && [ "$SHARD_N" -le 64 ] && [ "$SHARD_I" -lt "$SHARD_N" ]; } || usage
+             shift 2 ;;
+    --merge) MERGE=1; shift; break ;;   # what is left are the shard files
+    *) usage ;;
   esac
 done
+if [ "$MERGE" = 1 ]; then { [ $# -gt 0 ] && [ -z "$sel" ] && [ "$SHARD_N" = 0 ]; } || usage; SHARD_N=-1; fi
+if [ "$SHARD_N" -gt 0 ] && [ -n "$sel" ]; then usage; fi
 
 nmut=0; nok=0; ngreen=0; nwrong=0; nctl=0; nctlok=0; nsetup=0; npend=0; setup_names=""; covered="|"
+nm=0; nmok=0; na=0; naok=0; nablind=0; nawrong=0; nauncov=0; nasetup=0; nafam=0; naderived=0   # --meta's and the alternative probe's counters, here for a shard of either mode to print them all
 seen_sel=0
+TAB=$(printf '\t')
+
+# ---- shards (see SHARDS in the header; tools/regress.d/mutation-probe.sh starts them)
+_eidx=0; _gh=0; _gl=0; _gown=0
+job_run() {   # job_run BODY ARG...: the body of an entry, by name (plain calls, so that ShellCheck sees that the bodies are used)
+  case $1 in
+    mut_one) shift; mut_one "$@" ;;
+    mutr1_one) shift; mutr1_one "$@" ;;
+    metaprobe_one) shift; metaprobe_one "$@" ;;
+    alt_probe) alt_probe ;;
+    *) echo "passivity-mutate: job_run: no entry body named $1" >&2; exit 2 ;;
+  esac
+}
+# job HEAVY BODY ARG...: one entry of a table (HEAVY 1 = one of the long ones). Without shards BODY runs where it stands. A shard runs it when it is its turn (the n-th light entry goes to shard n mod N, the
+# n-th long one likewise) and prints its lines as "L<TAB>entry<TAB>line<TAB>text", with a line "SN" for the name of an entry that failed to set up; a merge runs nothing.
+job() {
+  _jh=$1; shift
+  [ "$SHARD_N" != 0 ] || { job_run "$@"; return $?; }
+  [ "$SHARD_N" -gt 0 ] || return 0
+  _eidx=$((_eidx + 1))
+  if [ "$_jh" = 1 ]; then _gh=$((_gh + 1)); _gt=$(((_gh - 1) % SHARD_N)); else _gl=$((_gl + 1)); _gt=$(((_gl - 1) % SHARD_N)); fi
+  [ "$_gt" = "$SHARD_I" ] || return 0
+  _gown=$((_gown + 1)); _gn0=$setup_names
+  job_run "$@" > "$tmp/job.out" 2>&1
+  awk -v J="$_eidx" '{ printf "L\t%d\t%d\t%s\n", J, NR, $0 }' "$tmp/job.out"
+  [ "$setup_names" = "$_gn0" ] || printf 'SN\t%s\t%s\n' "$_eidx" "${setup_names#"$_gn0"}"
+}
+# the last lines of a shard: its sums (PART, in the order merge_run reads them), the rows it saw red (COV) and the proof that it ended (END: which shard of how many, how many entries the table has, how many it ran, of which mode)
+shard_end() {
+  printf 'PART\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$nmut" "$nok" "$ngreen" "$nwrong" "$nctl" "$nctlok" "$nsetup" "$npend" "$nm" "$nmok" "$na" "$naok" "$nablind" "$nawrong" "$nauncov" "$nasetup" "$nafam" "$naderived"
+  printf 'COV\t%s\n' "$covered"
+  if [ "$meta" = 1 ]; then _gm=x; else _gm=m; fi
+  printf 'END\t%s\t%s\t%s\t%s\t%s\n' "$SHARD_I" "$SHARD_N" "$_eidx" "$_gown" "$_gm"
+}
+# merge_run FILE...: the files of the N shards of one mode. Prints the lines of the entries in the order of the table, sets the counters that the verdict reads and returns 0; or says why the files do not add up
+# (a shard missing, cut short, twice, of another N, or entries not run exactly once) with a line of the probe's own prefix, and returns 1: a merge never reads green for want of entries.
+merge_run() {
+  if [ "$meta" = 1 ]; then _mp='passivity meta probe'; _mm=x; else _mp='passivity mutation probe'; _mm=m; fi
+  _mc=0; _mn=""; _mt=""; _mo=0; _mi=" "; _mred=""
+  for _mf in "$@"; do
+    _mc=$((_mc + 1))
+    [ -r "$_mf" ] || { printf '%s: SETUP-ERROR the shard file %s is missing\n' "$_mp" "$_mf"; return 1; }
+    if awk -F'\t' '$1 == "RED" { f = 1 } END { exit !f }' "$_mf"; then [ -n "$_mred" ] || _mred=$_mf; continue; fi
+    _me=$(awk -F'\t' '$1 == "END" { n++; r = $2 " " $3 " " $4 " " $5 " " $6 } END { if (n == 1) print r }' "$_mf")
+    _ei=""; _en=""; _et=""; _eo=""; _ek=""; _ex=""
+    IFS=' ' read -r _ei _en _et _eo _ek _ex <<EOF
+$_me
+EOF
+    _bad=0; for _v in "$_ei" "$_en" "$_et" "$_eo"; do case $_v in ''|*[!0-9]*) _bad=1 ;; esac; done
+    if [ "$_bad" = 1 ] || [ -n "$_ex" ]; then printf '%s: SETUP-ERROR the shard file %s has no (or a second) END line: that shard was stopped or failed\n' "$_mp" "$_mf"; return 1; fi
+    if [ "$_ek" != "$_mm" ]; then printf '%s: SETUP-ERROR the shard file %s is of the other mode (the default run and --meta each have their own shards and their own merge)\n' "$_mp" "$_mf"; return 1; fi
+    [ -n "$_mn" ] || { _mn=$_en; _mt=$_et; }
+    if [ "$_en" != "$_mn" ] || [ "$_et" != "$_mt" ] || [ "$_ei" -ge "$_en" ]; then printf '%s: SETUP-ERROR the shard file %s says shard %s of %s over %s entries, the first one says %s shards over %s entries\n' "$_mp" "$_mf" "$_ei" "$_en" "$_et" "$_mn" "$_mt"; return 1; fi
+    case $_mi in *" $_ei "*) printf '%s: SETUP-ERROR shard %s is in two of the files (%s)\n' "$_mp" "$_ei" "$_mf"; return 1 ;; esac
+    _mi="$_mi$_ei "; _mo=$((_mo + _eo))
+  done
+  if [ -n "$_mred" ]; then   # the unmutated copy was not green: the shard that said so tells it, as the run without shards does
+    awk -F'\t' '$1 == "L"' "$_mred" | sort -t "$TAB" -k2,2n -k3,3n | cut -f4-
+    awk -F'\t' '$1 == "E" { print $2 }' "$_mred" >&2
+    return 1
+  fi
+  if [ "$_mc" != "$_mn" ] || [ "$_mo" != "$_mt" ]; then printf '%s: SETUP-ERROR %s shard file(s) for %s shards, and they ran %s of %s entries: nothing is proven\n' "$_mp" "$_mc" "$_mn" "$_mo" "$_mt"; return 1; fi
+  awk -F'\t' '$1 !~ /^(L|SN|PART|COV|END|RED|E)$/ { print "passivity-mutate: not a shard line: " $0 > "/dev/stderr" }' "$@"
+  awk -F'\t' '$1 == "L"' "$@" | sort -t "$TAB" -k2,2n -k3,3n | cut -f4-
+  awk -F'\t' -v N="$_mn" '$1 == "PART" { n++; for (i = 2; i <= 19; i++) { if ($i !~ /^[0-9]+$/) b = 1; s[i] += $i } }
+    END { if (n != N || b) print "bad"; else for (i = 2; i <= 19; i++) printf "%d%s", s[i], (i < 19 ? " " : "\n") }' "$@" > "$tmp/m.sum"
+  _bad=0; IFS=' ' read -r nmut nok ngreen nwrong nctl nctlok nsetup npend nm nmok na naok nablind nawrong nauncov nasetup nafam naderived _ex < "$tmp/m.sum"
+  case $nmut$nok$ngreen$nwrong$nctl$nctlok$nsetup$npend$nm$nmok$na$naok$nablind$nawrong$nauncov$nasetup$nafam$naderived in ''|*[!0-9]*) _bad=1 ;; esac
+  if [ "$_bad" = 1 ]; then printf '%s: SETUP-ERROR the sums of the shards (PART lines) are missing or not numbers: nothing is proven\n' "$_mp"; return 1; fi
+  awk -F'\t' '$1 == "COV" { print $2 }' "$@" > "$tmp/m.cov"
+  covered="|"; while IFS= read -r _cv; do covered="$covered${_cv#|}"; done < "$tmp/m.cov"
+  awk -F'\t' '$1 == "SN"' "$@" | sort -t "$TAB" -k2,2n > "$tmp/m.sn"
+  setup_names=""; while IFS="$TAB" read -r _sk _si _ss; do setup_names="$setup_names$_ss"; done < "$tmp/m.sn"
+  return 0
+}
 
 # mut NAME FILE KIND ARG1 ARG2 EXPECT   (EXPECT = "|"-separated row prefixes that must be red, and only those; "" = stays green)
-mut() {
+# (a call of the table is a job, see job() above; mut_one is what one job does)
+mut_one() {
   _name=$1; _file=$2; _kind=$3; _a=$4; _b=$5; _exp=$6
   [ -z "$sel" ] || [ "$sel" = "$_name" ] || return 0
   seen_sel=1
@@ -302,7 +399,7 @@ mut() {
 # mutr1: like mut, for a mutation whose target is a line of the collector's Bluetooth code (bt_begin, bt_end, bt_selftest, the recon_channels line). While the
 # checker announces that work (PENDING in the header) a target that is not in the base yet makes it PENDING instead of a SETUP-ERROR; with nothing
 # announced it is exactly mut, so the first run after the collector has that code either bites or names the line to adapt.
-mutr1() {
+mutr1_one() {
   [ -z "$sel" ] || [ "$sel" = "$1" ] || return 0
   if [ -n "$pending" ] && [ -f "$base/$2" ]; then
     case $3 in fnline) _tl="^$4() {" ;; *) _tl=$4 ;; esac
@@ -311,15 +408,17 @@ mutr1() {
       printf 'mutation %s: PENDING (its target is not in %s yet; the checker still announces: %s)\n' "$1" "$2" "$pending"; return 0
     fi
   fi
-  mut "$@"
+  mut_one "$@"
 }
+mut() { job 0 mut_one "$@"; }
+mutr1() { job 0 mutr1_one "$@"; }
 
 # ============================== meta: the probe of the probe ==============================
 if [ "$meta" = 1 ]; then
   nm=0; nmok=0
   # metaprobe NAME BLIND_FILE OLD NEW ONLY WANT: in an image of the repo, break the checker as described, then the copy of THIS
-  # script run with `--only ONLY` must print a line starting with WANT (fixed text) and exit non-zero.
-  metaprobe() {
+  # script run with `--only ONLY` must print a line starting with WANT (fixed text) and exit non-zero. (A call is a job, see job() above; the images whose child runs the alternative probe are the long ones.)
+  metaprobe_one() {
     nm=$((nm + 1)); _img="$tmp/img$nm"; mkdir -p "$_img" || exit 2
     cp -R "$base/." "$_img/" || exit 2
     _c=$(nlit "$_img/$2" "$3")
@@ -330,6 +429,7 @@ if [ "$meta" = 1 ]; then
       nmok=$((nmok + 1)); printf 'meta %s: detected (%s => exit %s, %s)\n' "$1" "$5" "$_mrc" "$6"
     else printf 'meta %s: NOT DETECTED, exit %s: %s\n' "$1" "$_mrc" "$(head -n 3 "$tmp/meta.out" | cut -c1-120 | tr '\n' ';')"; fi
   }
+  metaprobe() { case ${5:-} in alts) job 1 metaprobe_one "$@" ;; *) job 0 metaprobe_one "$@" ;; esac; }
   # (a) NETX loses one alternative: window.open would pass unseen
   metaprobe netx-window-open tools/passivity-check.sh 'window\.open\(|' '' window-open 'mutation window-open: GREEN (BLIND!)'
   # (b) the object prefix of the location alternative is gone, the class excludes "." (an object-prefixed assignment escapes)
@@ -839,12 +939,14 @@ if [ "$meta" = 1 ]; then
   metaprobe alt-out-lighttpd tools/passivity-check.sh '|lighttpd|nginx' '|nginx' alts 'alt out lighttpd: GREEN (BLIND!)'
   metaprobe out-server-lighttpd-blind tools/passivity-check.sh '|lighttpd|nginx' '|nginx' out-server-lighttpd 'mutation out-server-lighttpd: GREEN (BLIND!)'
   metaprobe sink-wrapped-blind-ash tools/passivity-check.sh 'if (b ~ /^(sh|bash|ash|dash|ksh|zsh|busybox' 'if (b ~ /^(bash|ash|dash|ksh|zsh|busybox' sink-wrapped-ionice-file 'mutation sink-wrapped-ionice-file: GREEN (BLIND!)'
+  if [ "$SHARD_N" -gt 0 ]; then shard_end; exit 0; fi   # a shard of --meta leaves its sums, the merge judges them
+  if [ "$MERGE" = 1 ]; then merge_run "$@" || exit 1; fi
   printf 'passivity meta probe: %s/%s blinded checkers detected\n' "$nmok" "$nm"
   [ "$nm" -ge 2 ] && [ "$nmok" = "$nm" ]; exit $?
 fi
 
 # ============================== unmutated image first ==============================
-if [ -z "$sel" ]; then
+base_check() {   # the line on stdout; 1, with the reason on stderr, when the unmutated copy is not green (nothing is run against it then)
   run_check "$base" > "$tmp/base.out" 2>&1; brc=$?
   bpass=$(grep -c ' PASS$' "$tmp/base.out"); bfail=$(grep -c ' FAIL$' "$tmp/base.out")
   # every pinned row name must exist as a PASS row here, or the table talks about rows that are gone (phantom)
@@ -854,8 +956,17 @@ if [ -z "$sel" ]; then
   printf 'unmutated image: checker exit %s, %s PASS rows (≥ %s), %s FAIL, rows not printed:%s\n' "$brc" "$bpass" "$MIN_ROWS" "$bfail" "${phantom:- none}"
   if [ "$brc" != 0 ] || [ "$bpass" -lt "$MIN_ROWS" ] || [ -n "$phantom" ]; then
     echo "passivity mutation probe: the unmutated copy is not green (or a pinned row name is gone): nothing to compare against" >&2
-    sed 's/^/    /' "$tmp/base.out" | cut -c1-160 >&2; exit 1
+    sed 's/^/    /' "$tmp/base.out" | cut -c1-160 >&2; return 1
   fi
+}
+if [ -z "$sel" ] && [ "$MERGE" = 0 ]; then
+  if [ "$SHARD_N" -gt 0 ]; then   # a shard: every shard checks it (a red one ends them all at once), shard 0 prints the line; a red one leaves the line and the reason as lines of its own for the merge
+    base_check > "$tmp/base.o" 2> "$tmp/base.e"; _brc=$?
+    if [ "$_brc" != 0 ]; then
+      awk '{ printf "L\t0\t%d\t%s\n", NR, $0 }' "$tmp/base.o"; awk '{ printf "E\t%s\n", $0 }' "$tmp/base.e"; printf 'RED\n'; exit 1
+    fi
+    [ "$SHARD_I" != 0 ] || awk '{ printf "L\t0\t%d\t%s\n", NR, $0 }' "$tmp/base.o"
+  else base_check || exit 1; fi
 fi
 
 # ============================== the table: Name | file | mutation | rows that must be red ==============================
@@ -2834,7 +2945,8 @@ if [ -n "$sel" ]; then
   [ "$seen_sel" = 1 ] || { echo "passivity-mutate: no mutation named $sel" >&2; exit 2; }
   [ "$nsetup" = 0 ] && [ "$ngreen" = 0 ] && [ "$nwrong" = 0 ]; exit $?
 fi
-alt_probe
+if [ "$SHARD_N" -gt 0 ]; then job 1 alt_probe; shard_end; exit 0; fi   # a shard of the default run: the alternative probe is one (long) entry, then its sums; the merge judges them
+if [ "$MERGE" = 1 ]; then merge_run "$@" || exit 1; else alt_probe; fi
 
 # ============================== verdict ==============================
 uncovered=""; _ifs=$IFS; IFS='|'; for _p in $ROWS; do case "$covered" in *"|$_p|"*) ;; *) uncovered="$uncovered [$_p]" ;; esac; done; IFS=$_ifs
