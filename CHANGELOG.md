@@ -3,7 +3,7 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## 0.2.6.2 - 2026-10-29
+## 0.2.6.2 - 2026-10-30
 
 *A part release of the 0.2 line: it carries the review fixes once marked for 0.2.6.1, never released on their own, together with the adaptation to Pager firmware 2.0.*
 
