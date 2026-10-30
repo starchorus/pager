@@ -391,6 +391,15 @@ neutral placeholders (such as 'HomeWiFi', 'Office-5G', 'Vendor A'), not brand or
 freshness tiers (D1) occur. 'HomeWiFi' on 2.4 and 5 GHz forms a constellation. Counters: `#n-ap` 11,
 `#n-cl` 33.
 
+The sample sky also carries the Bluetooth layer: `bluetooth[]` with eight addresses, `02:00:00:00:04:10` … `:17`, and
+`center.bt_window: 6`, `bt_hold: 120`, as a capture of the collector's own window carries them. The first three are
+random-resolvable addresses of one placeholder company ('Maker A', identifier 65531) at −49, −53 and −57 dBm and fold into
+one hollow mark in the second ring; the other five are fixed (random-static and public in turn) at −46 to −77 dBm over the
+second and third rings, three of them naming a company ('Maker B', 'Maker C'), one advertising none; `last_seen` 0 … 98 s
+before `generated`, so two of the fixed marks stand in the second freshness tier. The BT button, the counter `#n-bt` (8) and
+the legend row therefore show in the demo, and the public demonstration and screenshots taken in demo mode show the layer.
+The Wi-Fi sky of the demo is unchanged by it (`tools/regress.d/radio-pair.sh`, the demo row).
+
 ---
 
 ## 3. Theme system

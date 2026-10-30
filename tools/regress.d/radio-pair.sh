@@ -309,11 +309,17 @@ o.same=a===b;o.n=JSON.parse(a)[0].length+"/"+JSON.parse(a)[1].length;o.errors=ST
 rp_run sky "$RP_EV_SKY"
 rp_row "radio: the layers leave the Wi-Fi sky where it was: the 10 stars and 20 stations sit at the same place with and without bluetooth[], activity[] and station packets" '{"errors":0,"n":"10/20","same":true}'
 
-# ---- the demo carries the whiskers (and no Bluetooth: see NOT PROVEN) and its two counts are unchanged
-RP_EV_DEMO='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(2500);STARCHORUS.frame();const st=STARCHORUS.stats();o.counts=[document.getElementById("n-ap").textContent,document.getElementById("n-cl").textContent].join("/");
-o.layers=[st.bluetooth===null,st.activity.channels,st.activity.max,STARCHORUS.legendRows().find(r=>r.kind==="activity").visible,document.querySelector("[data-band=bt]").hidden].join("/");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+# ---- the demo carries the whiskers and, since the sample sky gained its own bluetooth[] (docs/architecture.md 2.9), the Bluetooth layer: eight addresses in six marks
+# (one hollow of three rotating addresses of one company, five filled) at signal levels 1 and 2 (the second and third ring zones), two of them in the second freshness
+# tier; the button, the counter cell and the legend row show, and the two Wi-Fi counts are unchanged. The 'absent = 0.1' row above keeps the negative control: no layer
+# on any fixture without the array.
+RP_EV_DEMO='(async()=>{const I=STARCHORUS._internals,sleep=STARCHORUS.wait,o={};await sleep(2500);STARCHORUS.frame();const st=STARCHORUS.stats(),b=st.bluetooth,E=i=>document.getElementById(i);o.counts=[E("n-ap").textContent,E("n-cl").textContent].join("/");
+o.layers=[b===null,st.activity.channels,st.activity.max,STARCHORUS.legendRows().find(r=>r.kind==="activity").visible,document.querySelector("[data-band=bt]").hidden].join("/");
+o.bt=b&&[b.addresses,b.marks,b.rotating,b.fixed,b.window,b.hold,b.void,E("n-bt-cell").hidden,E("n-bt").textContent,STARCHORUS.legendRows().find(r=>r.kind==="bt").visible].join("/");
+o.marks=I.S.btOrder.map(k=>(k.rot?"h":"f")+k.n+":"+I.LAYOUT.rings.filter(r=>k.rssi<r).length).sort().join();o.fresh=I.S.btOrder.map(k=>k.freshTier).join("");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 rp_run demo "$RP_EV_DEMO" demo "$RP_Q"
-rp_row "radio: demo: #n-ap 11 and #n-cl 33 unchanged, ten whiskers from the demo's own channels (largest share .3), the legend row for them, no Bluetooth layer" '{"counts":"11/33","errors":0,"layers":"true/10/0.3/true/true"}'
+rp_row "radio: demo: #n-ap 11 and #n-cl 33 unchanged, ten whiskers from the demo's own channels (largest share .3), the legend row for them, and the demo's own Bluetooth layer: 8 addresses in 6 marks (one hollow of 3 rotating, 5 filled) at signal levels 1 and 2, freshness tiers 001001, window 6 s and hold 120 s, the BT button shown, the counter cell with 8, the legend row" \
+  '{"counts":"11/33","errors":0,"layers":"false/10/0.3/true/false","bt":"8/6/3/5/6/120/false/false/8/true","marks":"f1:1,f1:1,f1:2,f1:2,f1:2,h3:1","fresh":"001001"}'
 
 # ---- the traffic cue: the rate of a station is its counter's delta over the last captures (at most three), never over a quieter or restarted run.
 # Loads 40 s apart: +80 frames = 2.0/s, level 2; +3 = below the floor, not drawn; a counter that fell, a first sight, a spacing over the limit: no rate;

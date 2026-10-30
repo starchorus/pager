@@ -181,7 +181,7 @@ function demoData() {
   const demoAges = [4, 12, 45, 130, 70, 240, 320, 520, 760, 1400, 20];   // seconds before `generated`, per AP in the list below
   const doc = {
     generated: GEN,
-    center: { label: "YOU ARE HERE" },
+    center: { label: "YOU ARE HERE", bt_window: 6, bt_hold: 120 },
     source: "demo",
     aps: [
       mk("HomeWiFi", "2.4", 6, -44, "WPA2", 4, "44:4e:6d", "Vendor A", { width: 40, rate: 300, phy: "n" }),
@@ -200,6 +200,7 @@ function demoData() {
   };
   doc.aps.forEach((a, i) => { a.last_seen = GEN - demoAges[i]; });
   doc.activity = [[2412, 0.12], [2422, 0.05], [2427, 0.03], [2437, 0.3], [2452, 0.06], [2462, 0.18], [5180, 0.07], [5220, 0.09], [5500, 0.04], [5745, 0.06]].map(([freq, share]) => ({ freq, share }));
+  doc.bluetooth = [[-49, 1], [-53, 1], [-57, 1], [-46, 2], [-64, 3], [-71], [-77, 2], [-58, 3]].map(([rssi, co], i) => Object.assign({ addr: "02:00:00:00:04:1" + i, addr_type: BT_TYPES[i < 3 ? 2 : i & 1], rssi, last_seen: GEN - 2 * i * i }, co && { company: 65530 + co, company_name: "Maker " + "ABC"[co - 1] }));   // §3.1: 3 rotating of one company, 5 fixed
   return doc;
 }
 
