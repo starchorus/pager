@@ -22,7 +22,11 @@
 #     doc-truth binds its fixture table (a commit of it alone used to land without that check); it runs T1 and then the documents mode.
 #   Still outside both: a commit that stages only files that match neither filter (a stray file in the top directory). T1 has nothing
 #   to say about those.
-# When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too.
+# When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too. The probe
+#   keeps the reports of its last green run under out/mutation-memo of the work tree (gitignored) and replays them when every input is the
+#   same; the export has no such directory, so the hook points the probe at the work tree's (STARCHORUS_MUTATE_MEMO_DIR): a staged checker
+#   proved green in the tree beforehand (QUICK_MUTATE=1 sh tools/quick.sh hook) replays in a second, anything changed since runs in full
+#   (about sixteen minutes), and a full green run here primes that memo for the next run in the tree.
 # On red: only the red rows are shown, exit 1, nothing is committed. If quick.sh cannot run at all (exit 2: a tool such as jq is
 # missing, "MISSING: <tool>") the hook says so instead of "red" and refuses the commit as well.
 # Emergency exit: `git commit --no-verify`. It leaves no trace in git, so the commit text must say why and name the substitute
@@ -68,7 +72,7 @@ run_docs() {   # the documents mode on the same export
   verdict "$tmp/quick-docs.out" "$rc" "the documents mode (tools/quick.sh docs)"
 }
 if [ "$need_t1" = 0 ]; then run_docs; exit 0; fi   # documents only
-if printf '%s\n' "$staged" | grep -Eq '^tools/passivity-(check|mutate)\.sh$'; then QUICK_MUTATE=1; export QUICK_MUTATE; fi
+if printf '%s\n' "$staged" | grep -Eq '^tools/passivity-(check|mutate)\.sh$'; then QUICK_MUTATE=1; STARCHORUS_MUTATE_MEMO_DIR="$top/out/mutation-memo"; export QUICK_MUTATE STARCHORUS_MUTATE_MEMO_DIR; fi
 ( cd "$tmp" && sh tools/quick.sh hook ) > "$tmp/quick.out" 2>&1; rc=$?
 verdict "$tmp/quick.out" "$rc" "tier T1 (tools/quick.sh)"
 if [ "$need_docs" = 1 ]; then run_docs; fi   # a mixed commit: T1 was green, the documents come next

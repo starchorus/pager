@@ -32,8 +32,10 @@ run needs Google Chrome and takes over 20 minutes; if nobody else has, the maint
 stages the passivity checker itself (`tools/passivity-check.sh` or `tools/passivity-mutate.sh`) runs a mutation
 probe on top: it re-proves that each rule still turns the checker red, in shards on every core but two, about
 sixteen minutes on a 14-core machine as of 30 October 2026 and longer on a slow or busy one (a run whose inputs are
-those of the last green run replays that result in a second; the hook's fresh export has no such memory unless
-`STARCHORUS_MUTATE_MEMO_DIR` points it at a lasting directory). It is working, not hung; the parent process sits at
+those of the last green run replays that result in a second from `out/mutation-memo` of the work tree; the hook points
+its export at that memo, so a checker proved green in the tree beforehand — `QUICK_MUTATE=1 sh tools/quick.sh hook` —
+replays at the commit instead of running twice, and a full run at the commit primes the memo for the next run in the
+tree). It is working, not hung; the parent process sits at
 near-zero CPU while its shards do the work. Let it finish. `--no-verify` is not the answer.
 
 A new read or output path is described in [SECURITY.md](SECURITY.md) and in the [README](README.md)
