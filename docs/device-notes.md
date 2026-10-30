@@ -322,8 +322,8 @@ say; the devbench rows in §6a do.
 
 Firmware 2.0 ships the Pager's own resident Bluetooth scanner, which fills a SQLite database at
 `/root/recon/blue5.db`. On that firmware the Bluetooth layer can read that database instead of running a window
-of its own (§2b). This is design (read from the code); on firmware 2.0 no real `blue5.db` has been read here
-yet (**open**, below).
+of its own (§2b). The design was read from the code and, on 30 October 2026, run against a real 2.0 `blue5.db` on
+the device (the measurements are at the end of this section).
 
 **Selection.** `STARCHORUS_BT_SOURCE` is `auto` (default), `blue5` or `window`, and is read only when
 `STARCHORUS_BLUETOOTH=1` (it does not switch Bluetooth on). `auto` takes the database when
@@ -345,6 +345,13 @@ turned to spaces and is cut to 32; `connectable` only when 1; the address sub-ty
 the top two address bits (public, random-static, random-resolvable, random-nonresolvable). `last_seen` is the
 database's own value, not the cycle's `generated`.
 
+**Company names.** `bt_device.company` is the Bluetooth SIG identifier alone (the table has no name column),
+where the window source had btmon's decoded name. The collector names the identifier from the firmware's own list
+`/lib/hak5/bt_companies.txt` (`STARCHORUS_BT_COMPANIES_FILE`, `auto` | path), one `XXXX<TAB>Name` line per
+identifier, the id four upper-case hex digits (measured 30 October 2026: 104,985 bytes, 4,041 lines; `004C` is
+`Apple, Inc.`), read once at start and again with the hourly vendor re-check, like the OUI file; a name is cut to
+48 characters. Without a usable list the identifier stands alone, `company id N` on the page and the Overview.
+
 **The document.** The `bluetooth` array is as in §2b; `center` carries `bt_hold` and `bt_source` = `blue5`
 and **no** `bt_window` (there is no window of ours this cycle; page and Overview read a missing `bt_window` as
 not void). `STARCHORUS_BT_WINDOW` does not apply, and the source needs `sqlite3` and a readable file, not
@@ -359,9 +366,18 @@ and `blue5` are denied by name in `tools/passivity-check.sh`. Whatever mode the 
 own setting, outside Starchorus's control (the hard rule at the head of this file); reading the result sends
 nothing.
 
-**Still to check on the device** (**open**): one real read of a 2.0 `blue5.db` and its cost on the device; the
-columns of `bt_device` and the address encoding against a real file; and that `auto` selects it as described.
-The column list above is from the fixture the collector's self-test builds, not from a device file.
+**Checked on the device (30 October 2026, firmware 24.10.1).** The collector ran with the payload's defaults and
+`bluetooth=on`: `auto` selected the database (`Bluetooth: reads the Pager's own Bluetooth database each cycle,
+read-only (STARCHORUS_BT_SOURCE=auto)` in `collect.log`), the Overview's Bluetooth screen showed 27 addresses (7
+rotating, 20 fixed) by company, and the page carried the `bluetooth` array. The live file was 262,144 bytes at the
+time (the code comment's 40 kB is low; the 4 MiB copy cap holds). The schema of a copy (`sqlite3 -readonly`,
+`.schema`): `hak5(version INT, created INT, uuid TEXT)`, `scan(id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT,
+time INT, name TEXT)` and `bt_device(scan INT, mac TEXT, first_seen INT, last_seen INT, transports INT, le_random
+INT, connectable INT, rssi INT, rssi_min INT, rssi_max INT, rssi_avg INT, tx_power INT, company INT, cod INT,
+packets INT, name BLOB, name_complete INT, ad_flags INT, appearance INT, svc16 TEXT, svc_other INT, mfr BLOB,
+svcd BLOB, PRIMARY KEY(scan, mac) ON CONFLICT REPLACE)`: every column the query reads is there, with more beside
+them that the query does not touch (`ad_flags`, `appearance`, `svc16`, `svc_other`, `mfr`, `svcd`), and `mac` is
+twelve hex digits as assumed. **Still open:** the cost of the read on the device, per cycle.
 
 ---
 

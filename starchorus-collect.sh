@@ -93,6 +93,11 @@
 #                        oui.txt / macchanger / Wireshark-manuf files work (also from a USB
 #                        stick). Missing/unusable file => no "vendor" field ("randomized"
 #                        is still derived from the MAC itself), one log line.  (default auto)
+#   STARCHORUS_BT_COMPANIES_FILE  auto | path. The Bluetooth company-identifier list that names the
+#                        companies the blue5 source reports by number alone (id<TAB>name, the id four
+#                        hex digits: the firmware's /lib/hak5/bt_companies.txt). auto takes that file
+#                        when it parses. Missing/unusable file => the company id alone, as before, one
+#                        log line. The window source names companies itself.          (default auto)
 #   Everything that depends on device behaviour that is not verified yet is a FLAG, default OFF:
 #   STARCHORUS_HOPINFO        1 = top-level "channels": [{"freq", "last_heard"}] from the recon.db `time`
 #                        column (the front-end never calls an AP "gone" without it).  (default 0)
@@ -193,6 +198,7 @@ PINEAP_CALLS=${STARCHORUS_PINEAP_CALLS:-recent}
 PIDDIR=${STARCHORUS_PIDDIR:-$OUTDIR}
 VENDOR=${STARCHORUS_VENDOR:-1}
 OUI_FILE=${STARCHORUS_OUI_FILE:-auto}
+BTCO_FILE=${STARCHORUS_BT_COMPANIES_FILE:-auto}   # auto | path: the Bluetooth company-identifier list (id<TAB>name) that names the companies the blue5 source reports by number
 # Flags, default OFF: see the header (docs/device-notes.md).
 HOPINFO=${STARCHORUS_HOPINFO:-0}
 SURVEY=${STARCHORUS_SURVEY:-0}
@@ -230,6 +236,8 @@ OUI_IDX_MAX=1500    # an octet with more lines than this in the OUI file is inde
 VENDOR_NEWF=""      # this instance's temp file of new cache lines (removed by cleanup)
 CACHE_LOCKED=0      # lock depth: >0 while this instance holds $OUI_CACHE.lock (released by cleanup)
 VENDOR_STATE=""     # last logged vendor-setup state: setup_vendor logs only when it changes
+BTCO_PATH=""        # the Bluetooth company list in use ("" = none: the blue5 source then reports company ids alone)
+BTCO_STATE=""       # last logged company-list state: setup_btco logs only when it changes
 STARTED_AIRODUMP=0  # 1 if THIS instance started airodump (only then does cleanup stop it)
 AD_PID=""           # the pid of that airodump: cleanup stops this one, never the one a later start wrote into the shared pidfile
 LOCK_BUDGET=100     # cache_lock: wait at most this long (0.1-s units) for a live holder
@@ -1077,6 +1085,7 @@ SELECT '#STARCHORUS_BT5OK#';
 # bt_blue5_read: $1 = ts. Reads blue5.db (its RAM copy) into $BT_F.out, the file add_layers reads (SC_BTP), as B-lines with the real
 # last_seen. 0 = a complete read, the records (maybe none) in $BT_F.out; 1 = transient (no copy, a bad clock, or no complete answer:
 # the caller makes it a void cycle, mode 2, so the held records fade instead of the layer blinking off). The blue5 tools are never run.
+# The company name, which blue5.db does not hold, is filled from the company list (btco_fill) when one is in use.
 bt_blue5_read() {
     case $1 in ''|0|*[!0-9]*) return 1 ;; esac
     bt_blue5_copy "$BLUE5_DB" || return 1
@@ -1085,7 +1094,7 @@ bt_blue5_read() {
     bt_blue5_done
     case $br_raw in *"#STARCHORUS_BT5OK#"*) ;; *) return 1 ;; esac
     br_um=$(umask); umask 077
-    printf '%s\n' "$br_raw" | grep "^B$RECON_TAB" | clean_ctrl > "$BT_F.out" 2>/dev/null
+    printf '%s\n' "$br_raw" | grep "^B$RECON_TAB" | btco_fill | clean_ctrl > "$BT_F.out" 2>/dev/null
     umask "$br_um"
     return 0
 }
@@ -1896,6 +1905,51 @@ find_oui_file() {
         oui_format_ok "$c" && { printf '%s\n' "$c"; return 0; }
     done
     return 1
+}
+
+# The Bluetooth company list. The blue5 source reports a company by its Bluetooth SIG identifier alone (blue5.db has no name
+# column), where the window source had btmon's decoded name. The firmware ships the list beside the OUI file as
+# /lib/hak5/bt_companies.txt, one `XXXX<TAB>Name` line per identifier (four hex digits, upper case). It is a text file that is
+# read, like the OUI file; nothing is started. A candidate is usable only if it is a regular file whose first 300 lines hold such
+# a line, so a file of another shape cannot turn every identifier into a blank name.
+btco_format_ok() {
+    file_usable "$1" || return 1
+    head -n 300 "$1" 2>/dev/null | grep -q -E '^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][[:space:]]'
+}
+# Prints the file to use and returns 0; 1 = none; 2 = the explicit STARCHORUS_BT_COMPANIES_FILE exists but does not parse.
+find_btco_file() {
+    if [ "$BTCO_FILE" != "auto" ]; then
+        btco_format_ok "$BTCO_FILE" && { printf '%s\n' "$BTCO_FILE"; return 0; }
+        file_usable "$BTCO_FILE" && return 2
+        return 1
+    fi
+    btco_format_ok /lib/hak5/bt_companies.txt && { printf '%s\n' /lib/hak5/bt_companies.txt; return 0; }
+    return 1
+}
+# setup_btco: choose the company list, where setup_vendor chooses the OUI file; it logs only when its state changes.
+setup_btco() {
+    BTCO_PATH=$(find_btco_file); bc_r=$?
+    if [ -z "$BTCO_PATH" ]; then
+        if [ "$bc_r" = 2 ]; then
+            bc_s="bad:$BTCO_FILE"
+            [ "$BTCO_STATE" = "$bc_s" ] || log "warning: no usable company list in STARCHORUS_BT_COMPANIES_FILE=$BTCO_FILE (expected id<TAB>name lines); Bluetooth companies by id alone"
+        else
+            bc_s="none"
+            [ "$BTCO_STATE" = "$bc_s" ] || log "no Bluetooth company list found (STARCHORUS_BT_COMPANIES_FILE=$BTCO_FILE); Bluetooth companies by id alone"
+        fi
+        BTCO_STATE=$bc_s; return 0
+    fi
+    [ "$BTCO_STATE" = "$BTCO_PATH" ] || log "Bluetooth companies: $BTCO_PATH"
+    BTCO_STATE=$BTCO_PATH
+}
+# btco_fill: stdin = the B-lines of the blue5 source, stdout = the same lines with the company name (field 7) filled from the
+# list where field 6 holds an identifier and the name is still blank; without a list the lines pass unchanged. The identifier is
+# looked up as four upper-case hex digits; the first line of an identifier wins; a name is cut to 48 characters, the page's own cap.
+btco_fill() {
+    if [ -z "$BTCO_PATH" ]; then cat; return 0; fi
+    awk -F"$RECON_TAB" -v OFS="$RECON_TAB" -v tbl="$BTCO_PATH" '
+        BEGIN { while ((getline l < tbl) > 0) { if (l ~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][\t ]/) { k = toupper(substr(l, 1, 4)); v = substr(l, 6); sub(/^[\t ]+/, "", v); sub(/[\r\t ]+$/, "", v); if (v != "" && !(k in nm)) nm[k] = v } } close(tbl) }
+        { if (NF >= 7 && $6 ~ /^[0-9]+$/ && $7 == "") { k = sprintf("%04X", $6 + 0); if (k in nm) $7 = substr(nm[k], 1, 48) } print }'
 }
 
 # The OUI index. Without an index a new prefix costs a pass over the whole OUI file (38,959 lines on the device, about 14 s of its CPU in awk), and in a
@@ -4534,6 +4588,16 @@ lay_selftest() {
         if [ "$b5_rc" = 0 ] && [ "$b5_ar" = 0 ] && [ "$b5_cnt" = 5 ] && [ "$b5_src" = 1 ] && [ "$b5_win" = 0 ] && [ "$b5_dup" = 1 ] && [ "$b5_sub" = 1 ] && [ "$b5_nm" = 1 ] && [ "$b5_ex" = 0 ] && json_ok < "$b5/doc.json"; then
             st_pass "blue5: bt_blue5_read maps blue5.db read-only to 5 records (newest per address, LE/rssi/age/MAC filtered, subtype from the address top bits, TAB in a name -> space, 0/65535 company dropped); center bt_source=blue5, no bt_window"
         else st_fail "blue5 read: rc $b5_rc ar $b5_ar cnt $b5_cnt src $b5_src win $b5_win dup $b5_dup sub $b5_sub nm $b5_nm ex $b5_ex"; fi
+        # the company list names the identifier the database holds (76 = 004C): that record gets company_name; an identifier the list lacks (12) stays bare
+        printf '0000\tEricsson AB\n004C\tApple, Inc.\n0076\tCreative Technology Ltd.\n' > "$b5/companies.txt"; b5_sCP=$BTCO_PATH; BTCO_PATH="$b5/companies.txt"; BT_HELD=""
+        bt_blue5_read "$b5_ts"; b5_nrc=$?; lay_doc $b5_ts > "$b5/doc2.json"; add_layers "$b5/doc2.json" 1 blue5
+        b5_l2=$(grep '^  "bluetooth": ' "$b5/doc2.json")
+        b5_apl=0; printf '%s' "$b5_l2" | grep -q '"addr": "aa:bb:cc:00:00:0a", "addr_type": "public", "rssi": -40, "reports": 7, "last_seen": [0-9]*, "company": 76, "company_name": "Apple, Inc."' && b5_apl=1
+        b5_bare=0; printf '%s' "$b5_l2" | grep -q '"addr": "c0:aa:bb:00:00:02"[^}]*"company": 12,' && ! printf '%s' "$b5_l2" | grep -q '"addr": "c0:aa:bb:00:00:02"[^}]*"company_name"' && b5_bare=1
+        BTCO_PATH=$b5_sCP
+        if [ "$b5_nrc" = 0 ] && [ "$b5_apl" = 1 ] && [ "$b5_bare" = 1 ] && json_ok < "$b5/doc2.json"; then
+            st_pass "blue5: the company list names an identifier the database holds (76 -> Apple, Inc.) and leaves one it lacks (12) bare"
+        else st_fail "blue5 companies: rc $b5_nrc apple $b5_apl bare $b5_bare"; fi
         BLUE5_DB="$b5/none-such.db"; bt_blue5_read "$b5_ts"; b5_fc=$?
         if [ "$b5_fc" != 0 ]; then st_pass "blue5: a missing blue5.db -> bt_blue5_read fails closed (no Bluetooth this cycle, the live file is never read)"; else st_fail "blue5: fail-closed rc $b5_fc"; fi
         BLUE5_DB=$b5_sBL; TMPDIR_RAM=$b5_sTR; BT_F=$b5_sBF; BT5_MAX=$b5_sMX; BT_HELD=$b5_sH
@@ -5397,8 +5461,14 @@ selftest() {
     # alerts.log, which would put a layer (and a recent line) into every document and fail the cycle and vendor cases for a reason that is no fault of the collector.
     STARCHORUS_BLUETOOTH=0; STARCHORUS_TRAFFIC=0; STARCHORUS_APCLI_RO=0; STARCHORUS_ALLOW_ACTIVE=0; STARCHORUS_SYSFS_BT=/nonexistent/starchorus-selftest-bt
     STARCHORUS_ALERTS=0; STARCHORUS_ALERT_DIR=/nonexistent/starchorus-selftest-alerts
+    # The Bluetooth source is pinned to the window, and the firmware's database and the company list to paths that do not exist: on a 2.0 Pager
+    # /root/recon/blue5.db is there, and `auto` would read the device's real database (real addresses in a test's output) where the cases
+    # expect their own stand-ins. A case that reads blue5.db or a company list sets BLUE5_DB or BTCO_PATH itself, inside its block.
+    STARCHORUS_BT_SOURCE=window; STARCHORUS_BLUE5_DB=/nonexistent/starchorus-selftest-blue5.db; STARCHORUS_BT_COMPANIES_FILE=/nonexistent/starchorus-selftest-bt-companies.txt
     export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT STARCHORUS_ALERTS STARCHORUS_ALERT_DIR
+    export STARCHORUS_BT_SOURCE STARCHORUS_BLUE5_DB STARCHORUS_BT_COMPANIES_FILE
     BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT; ALERTS=0; ALERT_DIR=$STARCHORUS_ALERT_DIR
+    BT_SOURCE=window; BLUE5_DB=$STARCHORUS_BLUE5_DB; BT_SRC=window; BTCO_FILE=$STARCHORUS_BT_COMPANIES_FILE; BTCO_PATH=""
     tdir=$(mktemp -d 2>/dev/null || echo /tmp/starchorus-selftest.$$)
     mkdir -p "$tdir"
     OUTDIR="$tdir"; CAPDIR="$tdir/cap"; mkdir -p "$CAPDIR"
@@ -7661,6 +7731,7 @@ trap cleanup EXIT
 
 # Locate the local OUI file + cache once (logs once if none; never fatal).
 setup_vendor
+[ "$BLUETOOTH" = 1 ] && setup_btco   # the company list for the blue5 source; without Bluetooth there is nothing to name and no log line
 
 [ -z "$INTERVAL_BAD" ] || log "STARCHORUS_INTERVAL must be whole seconds from 1 to 3600 (got '$INTERVAL_BAD'); using 5"
 resolve_source
@@ -7718,7 +7789,7 @@ while :; do
     cycle_step
     # Every 120 cycles (10 min at the default interval) re-check the OUI file: a replaced /
     # rewritten file (firmware update, swapped USB stick) restarts the cache. Cheap: a few stats.
-    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; fi
+    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; [ "$BLUETOOTH" = 1 ] && setup_btco; fi
     # A plain foreground sleep: under busybox ash a caught INT/TERM is handled after the current
     # sleep returns, so --stop takes effect within at most the longer of one INTERVAL and the backoff below (3600 s at most). Backgrounding the sleep and
     # `wait`-ing on it does NOT deliver the trap sooner under ash.
