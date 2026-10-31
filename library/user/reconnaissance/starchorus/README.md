@@ -230,6 +230,15 @@ Environment variables, all optional:
 | `STARCHORUS_COLLECTOR` | `1` | `0` starts no collector; the menu then refuses to run, and `payload.sh start` serves the page alone. Environment only. |
 | `STARCHORUS_DISPLAY_TEMPLATE` | – | a template line for the Overview's summary with `{aps}`, `{b24}`, `{b5}`, `{b6}`, `{open}`, `{crowding}`, `{gen}`; otherwise the first line of `/root/loot/starchorus/display.tpl`. |
 
+**Watch list** `/root/loot/starchorus/watch.list` (`$STARCHORUS_DIR/watch.list`): a text file you write
+by hand, with no key in `settings.conf`. One entry per line: an address (`aa:bb:cc:00:00:01`,
+`aa-bb-cc-00-00-01` or `aabbcc000001`) or a network name (byte for byte, 1 to 32 bytes), `mac:` or
+`ssid:` in front where a name looks like an address, `#` for a comment. From the next refresh on,
+every access point, station and Bluetooth record whose address or name is listed carries
+`"watched": true` in `starchorus.json`; at most 64 entries count, from at most 512 lines. The collector
+reads the file and nothing else: the list is in no document and no log, and the page server does not
+serve it. The page does not show the mark yet.
+
 **Settings file** `/root/loot/starchorus/settings.conf` (`$STARCHORUS_DIR/settings.conf`): the menu
 and `payload.sh set` write it, and only the keys that were changed, as `KEY=VALUE` lines via a
 temporary file and a rename. The payload reads it line by line and never executes it: only the keys

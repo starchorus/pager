@@ -201,6 +201,14 @@ CFL_WK=$(grep -oE '(wcand\(|wty = )"[a-z_]+"' starchorus-collect.sh | sed 's/.*"
 CFL_WV=$(sed -n 's/^AL_TYPES = (\(.*\))  *#.*/\1/p' tools/gen-testdata.py | tr -d '" ' | tr ',' '\n' | grep -v '^deauth$' | grep . | LC_ALL=C sort -u | tr '\n' ' ')
 CFL_WS=0; [ -n "$CFL_WK" ] && [ "$CFL_WK" = "$CFL_WV" ] && CFL_WS=1
 rowif "collector fields: WIDS off by default (collector $CFL_WD/1, README row $CFL_WR/1) and the five kinds the collector raises are the validator's types beside deauth ($CFL_WS: $CFL_WK)" [ "$CFL_WD/$CFL_WR/$CFL_WS" = 1/1/1 ]
+# ---- the watch list (0.2.7): the collector names no function watch* (the guard's sink word), reads the list with getline alone (no command takes an entry), the
+# README and the package README document the file, and the validator takes `watched` on access points, stations and Bluetooth records only when true.
+CFL_WLF=$(grep -cE '^watch[A-Za-z_]*\(\)' starchorus-collect.sh)
+CFL_WLG=$(grep -c 'getline line < f) > 0) {' starchorus-collect.sh)
+CFL_WLR=$(grep -c 'watch\.list' README.md)/$(grep -c 'watch\.list' packaging/hak5/README.md)
+CFL_WLV=$(grep -cE '^OPT_(AP|CL|BT) = \{.*"watched"' tools/gen-testdata.py)/$(grep -c 'watched is written only when true' tools/gen-testdata.py)
+case $CFL_WLR in [1-9]*/[1-9]*) CFL_WLRO=1 ;; *) CFL_WLRO=0 ;; esac
+rowif "collector fields: the watch list: no function named watch* ($CFL_WLF/0), the list read by getline ($CFL_WLG lines), documented in the README and the package README ($CFL_WLR), the validator takes watched only when true on the three records ($CFL_WLV)" [ "$CFL_WLF/$CFL_WLRO/$CFL_WLV" = 0/1/3/3 ]
 # the row bites: a list with "track" and "north" is judged twice
 CFL_RWB=$(printf 'track\nnorth\nairborne\n' | grep -ciE 'direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
 rowif "collector fields: the Remote ID word row bites (track and north are judged: $CFL_RWB)" [ "$CFL_RWB" = 2 ]
@@ -228,7 +236,8 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'blue5: bt_blue5_read maps' 'blue5: the company list names' 'blue5: a missing blue5.db' 'blue5 class: Apple message types' 'blue5 class: 16-bit services' \
                'blue5 class: appearance categories' 'blue5 class: the rank' 'blue5 class: refusals' 'blue5 class: the class survives hold' 'blue5 class: a database without the columns' \
                'remote id: the single messages' 'remote id: refusals' 'remote id: a latitude beyond 90' 'remote id: the identity and the operator fields' 'remote id: of twenty candidates' \
-               'wids: the switch' 'wids: own_name' 'wids: sec_profiles' 'wids: sec_weaker and chan_changed' 'wids: bt_fixed_new' 'wids: ten own_name candidates' 'wids: hostile names'; do
+               'wids: the switch' 'wids: own_name' 'wids: sec_profiles' 'wids: sec_weaker and chan_changed' 'wids: bt_fixed_new' 'wids: ten own_name candidates' 'wids: hostile names' \
+               'watch list: the forms' 'watch list: an address that is also' 'watch list: limits' 'watch list: no file' 'watch list: hostile entries' 'watch list: a whole cycle'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"

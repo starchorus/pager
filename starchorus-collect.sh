@@ -110,6 +110,13 @@
 #                        in the same document. Refused, with no field and no error: a station, a BSSID not in this document's aps[] and
 #                        one of our own transmitters. Nothing is transmitted or looked up. Also read from the first line of
 #                        $STARCHORUS_OUTDIR/homing.target (the device writes it). Coarse: one reading per cycle.  (default: none)
+#   STARCHORUS_WATCH_FILE     tests only: the watch list to read instead of $STARCHORUS_OUTDIR/watch.list. The list is a text file the operator writes by
+#                        hand, one entry per line: an address (six hex pairs with : or -, or twelve hex digits) or a name (byte for byte, 1 to 32 bytes),
+#                        optionally prefixed mac: or ssid:; # starts a comment, a BOM and CR are dropped. Every record whose address or name is listed gets
+#                        "watched": true right after its address: access points (by bssid or by ssid; a hidden network has no name to match), their
+#                        clients and the unassociated stations (by mac), Bluetooth records (by addr); homing, alerts and center are never touched. At most
+#                        64 entries from at most 512 lines or 8 KiB; a line that is neither an address nor a name is said once. The list never leaves the
+#                        device: it is not in the document, not in the log, and the page server does not serve it. Read once per cycle, read-only.  (default: empty)
 #   STARCHORUS_APCLI_RO       1 = apcli_ro() may run its three literal read-only list lines (see there); nothing calls it
 #                        except the pineap source, which switches it on for itself (spec §14.6). The refusal rules are self-tested.  (default 0)
 #   STARCHORUS_BLUETOOTH      1 = every cycle runs ONE passive Bluetooth LE scan window (STARCHORUS_BT_WINDOW seconds, in the background
@@ -225,6 +232,8 @@ ALERT_DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}   # where the co
 BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
 BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
+WL_FILE=${STARCHORUS_WATCH_FILE:-}                # the watch list (0.2.7): a text file of addresses and names the operator writes by hand; empty = $OUTDIR/watch.list (wl_file)
+WL_ON=0             # 1 = the watch list is a readable regular file with something in it this cycle (wl_look)
 HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}         # "aa:bb:cc:dd:ee:ff" or empty (then $OUTDIR/homing.target, if it exists)
 HOMING_PEAK=""; HOMING_POLLS=0               # peak hold across cycles (a new maximum resets, 12 quiet cycles decay it)
 
@@ -4204,6 +4213,78 @@ rs_cfg() {   # RS_CFGNOW = what the document depends on besides recon.db: a chan
     RS_CFGNOW="$MAX_AGE|$INTERVAL|$VENDOR|$HOPINFO|$OUTFILE|$RECON_DB|$OUI_PATH|$CENTER_LABEL|$BLUETOOTH|$TRAFFIC"
 }
 homing_off() { [ -z "$HOMING_BSSID" ] && [ ! -e "$OUTDIR/homing.target" ]; }   # no target, no file: no process needed to know
+
+# The watch list (0.2.7): $OUTDIR/watch.list, or STARCHORUS_WATCH_FILE (tests). wl_look: three shell tests and no process (the file must be a readable
+# regular file with something in it; a directory, a pipe or an unreadable file is said once per episode). wl_apply: one awk over the finished document
+# (after the layers, on what is published) that marks the records whose address or name is listed with "watched": true right after the address: access
+# points by bssid or by ssid (never a probe, a Bluetooth name or a hidden network), their clients and the unassociated stations by mac, the Bluetooth records
+# by addr. The list is read with getline, its entries are only ever hash keys (never in a command, never in a regex), a name is compared after jesc so that
+# it meets the document's own escaping, and at most 64 entries are taken from at most 512 lines or 8 KiB. post_keep guards the shape: a pass that fails
+# leaves the document as it was. The list leaves the device never: not in the document, not in the log.
+wl_file() { if [ -n "$WL_FILE" ]; then printf '%s' "$WL_FILE"; else printf '%s/watch.list' "$OUTDIR"; fi; }
+wl_look() {
+    WL_ON=0; wl_f=$(wl_file)
+    [ -e "$wl_f" ] || return 0
+    if [ -f "$wl_f" ] && [ -r "$wl_f" ]; then [ -s "$wl_f" ] && WL_ON=1
+    else bt_issue wlread "Watch list: $wl_f is not a readable file; no marks this cycle"
+    fi
+    return 0
+}
+wl_apply() {   # $1 = the document; the marks in place (post_keep)
+    [ "$WL_ON" = 1 ] || return 0
+    wl_st="$TMPDIR_RAM/starchorus-wl-$$.stat"; wl_um=$(umask); umask 077; : > "$wl_st" 2>/dev/null; umask "$wl_um"
+    SC_WL="$(wl_file)" SC_WLS="$wl_st" LC_ALL=C awk "$AWK_JSON_HELPERS"'
+        function wl_mac(s,   t) {   # six hex pairs with : or -, or twelve hex digits -> lower-case xx:xx:xx:xx:xx:xx; "" when it is no address
+            t = tolower(s); gsub(/-/, ":", t)
+            if (t ~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/) return t
+            if (t ~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$/) return substr(t, 1, 2) ":" substr(t, 3, 2) ":" substr(t, 5, 2) ":" substr(t, 7, 2) ":" substr(t, 9, 2) ":" substr(t, 11, 2)
+            return ""
+        }
+        function wl_marks(line, key,   out, p, q, a, rest) {   # every KEY"xx:xx:xx:xx:xx:xx" whose address is listed gets , "watched": true after its value
+            out = ""; rest = line
+            while ((p = index(rest, key)) > 0) {
+                q = p + length(key); a = tolower(substr(rest, q, 17))
+                if (substr(rest, q + 17, 1) == "\"" && (a in wmac)) { out = out substr(rest, 1, q + 17) ", \"watched\": true"; rest = substr(rest, q + 18); nmk++ }
+                else { out = out substr(rest, 1, q - 1); rest = substr(rest, q) }
+            }
+            return out rest
+        }
+        BEGIN {
+            f = ENVIRON["SC_WL"]; nl = 0; nb = 0; ne = 0; bad = 0; over = 0; nmk = 0
+            while (nl < 512 && nb < 8192 && (getline line < f) > 0) {
+                nl++; nb += length(line) + 1
+                if (nl == 1 && substr(line, 1, 3) == "\357\273\277") line = substr(line, 4)
+                sub(/\r$/, "", line); sub(/^[ \t]+/, "", line)
+                if (line == "" || substr(line, 1, 1) == "#") continue
+                kind = ""; v = line
+                if (tolower(substr(line, 1, 4)) == "mac:") { kind = "mac"; v = substr(line, 5) } else if (tolower(substr(line, 1, 5)) == "ssid:") { kind = "ssid"; v = substr(line, 6) }
+                m = ""; if (kind != "ssid") m = wl_mac(v)
+                if (m == "" && (kind == "mac" || length(v) < 1 || length(v) > 32)) { bad++; continue }   # judged before the cap: a bad line is said wherever it stands
+                if (ne >= 64) { over = 1; continue }
+                if (m != "") { if (!(m in wmac)) { wmac[m] = 1; ne++ } } else { k = jesc(v); if (!(k in wsid)) { wsid[k] = 1; ne++ } }
+            }
+            close(f)
+        }
+        {
+            if (index($0, "    {\"bssid\": \"") == 1) {
+                match($0, /^    \{"bssid": "[^"]*"/); hl = RLENGTH
+                a = tolower(substr($0, 16, hl - 16)); mark = (a in wmac)
+                if (!mark && match($0, /"ssid": "([^"\\]|\\.)*"/)) { s = substr($0, RSTART + 9, RLENGTH - 10); if (s != "" && (s in wsid)) mark = 1 }
+                if (mark) { $0 = substr($0, 1, hl) ", \"watched\": true" substr($0, hl + 1); nmk++ }
+                $0 = wl_marks($0, "\"mac\": \"")
+            } else if (index($0, "    {\"mac\": \"") == 1) $0 = wl_marks($0, "\"mac\": \"")
+            else if (index($0, "  \"bluetooth\": [") == 1) $0 = wl_marks($0, "\"addr\": \"")
+            print
+        }
+        END { sf = ENVIRON["SC_WLS"]; printf "entries %d\nbad %d\nover %d\nmarks %d\n", ne, bad, over, nmk > sf; close(sf) }
+    ' < "$1" > "$1.w" 2>/dev/null
+    wl_rc=$?
+    post_keep "$1" w "$wl_rc" 0 || { rm -f "$wl_st" 2>/dev/null; return 1; }
+    wl_b=$(sed -n 's/^bad //p' "$wl_st" 2>/dev/null); wl_o=$(sed -n 's/^over //p' "$wl_st" 2>/dev/null); rm -f "$wl_st" 2>/dev/null
+    case $wl_b in ''|0|*[!0-9]*) ;; *) bt_issue wlbad "Watch list: $wl_b line(s) are neither an address nor a name of 1 to 32 bytes; they are skipped" ;; esac
+    [ "$wl_o" != 1 ] || bt_issue wlover "Watch list: more than 64 entries; the first 64 are taken"
+    return 0
+}
 recon_unchanged() {   # $1 = now, RS_RAW = this cycle's sample. 0 = the document of the last full pass still stands
     [ "$SKIP_UNCHANGED" = 1 ] && [ -n "$RS_SIG" ] && [ "${1:-0}" -gt 0 ] 2>/dev/null || return 1
     [ "$RS_SKIPS" -lt "$SKIP_MAX" ] && [ -n "$RS_DOCV" ] && [ "$SURVEY" != 1 ] && [ "$OWN" != 1 ] || return 1
@@ -4337,6 +4418,7 @@ run_cycle() {
     # the layers of this cycle, on the document that is published (never on the base kept above)
     alerts_look
     if [ "$BLUETOOTH" = 1 ] || [ "$TRAFFIC" = 1 ] || [ "$AL_ON" = 1 ] || [ "$WIDS" = 1 ]; then run_layers "$tmp"; fi
+    wl_look; if [ "$WL_ON" = 1 ] && [ "$rc_keep" != 1 ]; then wl_apply "$tmp"; fi   # the watch list marks what is published, after the layers (never the kept base)
     if [ "$rc_keep" = 1 ]; then rm -f "$tmp" 2>/dev/null
     elif ! mv -f "$tmp" "$OUTFILE" 2>/dev/null; then    # atomic replace
         rc_pub=1; rm -f "$tmp" 2>/dev/null
@@ -5407,6 +5489,84 @@ lay_selftest() {
     BT_SRC=$lw_sbs; BLUE5_DB=$lw_sbl5; TMPDIR_RAM=$lw_sram; BT_F=$lw_sbf; BT_HELD=$lw_sh; BT5_MAX=$lw_smx; BT5_SV=""; AL_ON=0
     unset -f lw_add lw_doc lw_run lw_al lw_seq; unset lw_body lw_x
 
+    # 32) watch list: marks from $OUTDIR/watch.list (STARCHORUS_WATCH_FILE) on access points, clients, stations and Bluetooth records, byte for byte; the forms a line
+    # may take; the limits; no file, an empty one, a directory and an unreadable one leave the document byte-identical; names match aps[].ssid alone; hostile
+    # entries; a whole cycle. Every address and name is made up. wl_doc writes the document as a cycle leaves it before the marks (homing on the generated line,
+    # the bluetooth and alerts lines before aps); wl_run = wl_look and wl_apply on it, the log in $wl_d/log, the episode carried like a cycle does.
+    wl_d="$LAY/wl"; mkdir -p "$wl_d"
+    wl_sf=$WL_FILE; wl_so=$OUTDIR; wl_sts=$ts; wl_srs=$RESOLVED; wl_scm=$CAP_METHOD; wl_sof=$OUTFILE; wl_sve=$VENDOR
+    WL_FILE="$wl_d/watch.list"; OUTDIR="$wl_d"; ts=1789300000; BT_CUR=" "; BT_LOGGED=" "
+    wl_doc() {
+        printf '{\n  "generated": %s, "homing": {"bssid": "02:00:5e:b0:00:21", "dbm": -50, "peak": -50, "t": %s},\n  "center": {"label": "x"},\n' "$ts" "$ts"
+        printf '  "bluetooth": [{"addr": "aa:bb:cc:00:00:01", "addr_type": "public", "rssi": -50, "reports": 1, "last_seen": %s, "name": "Meadow"}, {"addr": "aa:bb:cc:00:00:02", "addr_type": "public", "rssi": -60, "reports": 1, "last_seen": %s}],\n' "$ts" "$ts"
+        printf '  "alerts": [{"type": "deauth", "t": %s, "ap": "02:00:5e:b0:00:22", "n": 1}],\n  "aps": [\n' "$ts"
+        printf '    {"bssid": "02:00:5e:b0:00:01", "ssid": "HomeNet", "channel": 6, "band": "2.4 GHz", "freq": 2437, "rssi": -50, "security": "WPA2/PSK/CCMP", "clients": [{"mac": "02:00:5e:b0:00:02", "rssi": -60}, {"mac": "02:00:5e:b0:00:12", "rssi": -61, "probes": ["Meadow"]}]},\n'
+        printf '    {"bssid": "02:00:5e:b0:00:04", "ssid": "Meadow", "channel": 1, "band": "2.4 GHz", "freq": 2412, "rssi": -55, "security": "Open", "clients": []},\n'
+        printf '    {"bssid": "02:00:5e:b0:00:05", "ssid": "Ho\\"me\\\\Net]", "channel": 11, "band": "2.4 GHz", "freq": 2462, "rssi": -65, "security": "Open", "clients": []},\n'
+        printf '    {"bssid": "02:00:5e:b0:00:21", "ssid": "", "channel": 11, "band": "2.4 GHz", "freq": 2462, "rssi": -70, "security": "WPA2/PSK/CCMP", "clients": []}\n  ],\n  "unassociated": [\n'
+        printf '    {"mac": "02:00:5e:b0:00:03", "rssi": -70, "probes": ["HomeNet"]},\n    {"mac": "02:00:5e:b0:00:22", "rssi": -72}\n  ]\n}\n'
+    }
+    wl_run() { wl_doc > "$wl_d/doc.json"; BT_CUR=" "; { wl_look; wl_apply "$wl_d/doc.json"; } 2> "$wl_d/log"; BT_LOGGED=$BT_CUR; }
+    # the forms: six pairs with - or :, twelve hex, the prefixes mac: and ssid:, a comment, CRLF, a BOM, leading blanks, a duplicate, blank lines
+    printf '\357\273\277# the list\r\nAA-BB-CC-00-00-01\r\n\r\n02005eb00002\r\nmac:02:00:5E:B0:00:03\r\nssid:HomeNet\r\n  Meadow\r\nMeadow\r\n' > "$WL_FILE"
+    wl_run; wl_doc > "$wl_d/before.json"
+    wl_m1=$(grep -c '{"bssid": "02:00:5e:b0:00:01", "watched": true, "ssid": "HomeNet"' "$wl_d/doc.json")
+    wl_m2=$(grep -c '{"mac": "02:00:5e:b0:00:02", "watched": true, "rssi": -60}' "$wl_d/doc.json")
+    wl_m3=$(grep -c '^    {"mac": "02:00:5e:b0:00:03", "watched": true, "rssi": -70' "$wl_d/doc.json")
+    wl_m4=$(grep -c '{"bssid": "02:00:5e:b0:00:04", "watched": true, "ssid": "Meadow"' "$wl_d/doc.json")
+    wl_m5=$(grep -c '{"addr": "aa:bb:cc:00:00:01", "watched": true, "addr_type"' "$wl_d/doc.json")
+    wl_mn=$(grep -o '"watched": true' "$wl_d/doc.json" | grep -c .)
+    wl_u1=$(grep -c '"mac": "02:00:5e:b0:00:12", "rssi": -61, "probes": \["Meadow"\]' "$wl_d/doc.json")
+    wl_u2=$(grep -c '"addr": "aa:bb:cc:00:00:02", "addr_type"' "$wl_d/doc.json")
+    wl_u3=$(grep -c '"bssid": "02:00:5e:b0:00:05", "ssid"' "$wl_d/doc.json")
+    wl_u4=$(grep -c '"last_seen": 1789300000, "name": "Meadow"}' "$wl_d/doc.json")
+    if [ "$wl_m1/$wl_m2/$wl_m3/$wl_m4/$wl_m5/$wl_mn/$wl_u1/$wl_u2/$wl_u3/$wl_u4" = 1/1/1/1/1/5/1/1/1/1 ] && json_ok < "$wl_d/doc.json" && [ ! -s "$wl_d/log" ] \
+       && [ "$(wc -l < "$wl_d/doc.json" | tr -d ' ')" = "$(wc -l < "$wl_d/before.json" | tr -d ' ')" ]; then
+        st_pass "watch list: the forms (six pairs with - or :, twelve hex, the prefixes mac: and ssid:, a comment, CRLF, a BOM, leading blanks, a duplicate, blank lines) mark an access point by name, a client, a station and a Bluetooth record by address, byte for byte right after the address; a probe for a listed name, a Bluetooth name and unlisted records stay as they are"
+    else st_fail "watch list: forms ($wl_m1/$wl_m2/$wl_m3/$wl_m4/$wl_m5 marks $wl_mn, untouched $wl_u1/$wl_u2/$wl_u3/$wl_u4, log [$(cat "$wl_d/log")])"; fi
+    # an address that is also the homing target or an alert's access point: its own record is marked, homing, alerts and center are never touched
+    printf '02:00:5e:b0:00:21\n02:00:5e:b0:00:22\n' > "$WL_FILE"; wl_run
+    wl_h=$(grep -c '"homing": {"bssid": "02:00:5e:b0:00:21", "dbm"' "$wl_d/doc.json"); wl_a=$(grep -c '"ap": "02:00:5e:b0:00:22", "n": 1}' "$wl_d/doc.json")
+    wl_hid=$(grep -c '{"bssid": "02:00:5e:b0:00:21", "watched": true, "ssid": ""' "$wl_d/doc.json"); wl_st2=$(grep -c '{"mac": "02:00:5e:b0:00:22", "watched": true, "rssi": -72}' "$wl_d/doc.json")
+    wl_mn=$(grep -o '"watched": true' "$wl_d/doc.json" | grep -c .)
+    if [ "$wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn" = 1/1/1/1/2 ] && json_ok < "$wl_d/doc.json"; then
+        st_pass "watch list: an address that is also the homing target or an alert's access point marks its own record (a hidden network by address, a station) and nothing in homing, alerts or center"
+    else st_fail "watch list: homing and alerts ($wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn)"; fi
+    # the limits: 70 entries (the first 64 count), two lines that are neither, 600 lines (read to 512); said once per episode
+    { printf '02:00:5e:b0:00:01\n'; wl_i=2; while [ "$wl_i" -le 69 ]; do printf '02:00:5e:b0:01:%02x\n' "$wl_i"; wl_i=$((wl_i + 1)); done
+      printf '02:00:5e:b0:00:04\nmac:notamac\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\n'; wl_i=73; while [ "$wl_i" -lt 600 ]; do printf '#\n'; wl_i=$((wl_i + 1)); done; printf '02:00:5e:b0:00:03\n'; } > "$WL_FILE"
+    BT_LOGGED=" "; wl_run; cp "$wl_d/log" "$wl_d/log1"; wl_run
+    wl_l1=$(grep -c '{"bssid": "02:00:5e:b0:00:01", "watched": true' "$wl_d/doc.json"); wl_l4=$(grep -c '"bssid": "02:00:5e:b0:00:04", "ssid"' "$wl_d/doc.json"); wl_l3=$(grep -c '^    {"mac": "02:00:5e:b0:00:03", "rssi"' "$wl_d/doc.json")
+    wl_lo=$(grep -c 'Watch list: more than 64 entries' "$wl_d/log1"); wl_lb=$(grep -c 'Watch list: 2 line(s) are neither an address nor a name' "$wl_d/log1"); wl_l2=$(grep -c . "$wl_d/log")
+    if [ "$wl_l1/$wl_l4/$wl_l3/$wl_lo/$wl_lb/$wl_l2" = 1/1/1/1/1/0 ] && [ "$(wc -l < "$WL_FILE" | tr -d ' ')" = 600 ]; then
+        st_pass "watch list: limits: of 70 entries the first 64 are taken (the 70th marks nothing) and said once, two lines that are neither an address nor a name are said once, a 600-line file is read to line 512 (an address on line 600 marks nothing); the same episode is not said again"
+    else st_fail "watch list: limits ($wl_l1/$wl_l4/$wl_l3 over $wl_lo bad $wl_lb second run $wl_l2 lines; file $(wc -l < "$WL_FILE" | tr -d ' ') lines)"; fi
+    # no file, an empty file, a directory, an unreadable file
+    wl_doc > "$wl_d/ref.json"
+    rm -f "$WL_FILE"; wl_run; wl_n1=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ ! -s "$wl_d/log" ] && wl_n1=1
+    : > "$WL_FILE"; wl_run; wl_n2=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ ! -s "$wl_d/log" ] && wl_n2=1
+    rm -f "$WL_FILE"; mkdir "$WL_FILE"; BT_LOGGED=" "; wl_run; wl_n3=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ "$(grep -c 'Watch list: .* is not a readable file' "$wl_d/log")" = 1 ] && wl_n3=1; rmdir "$WL_FILE"
+    printf 'HomeNet\n' > "$WL_FILE"; chmod 000 "$WL_FILE"; BT_LOGGED=" "; wl_run; wl_n4=0
+    if [ -r "$WL_FILE" ]; then wl_n4=1; else cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ "$(grep -c 'is not a readable file' "$wl_d/log")" = 1 ] && wl_n4=1; fi; chmod 600 "$WL_FILE"
+    if [ "$wl_n1/$wl_n2/$wl_n3/$wl_n4" = 1/1/1/1 ]; then st_pass "watch list: no file, an empty file, a directory and an unreadable file leave the document byte-identical; the directory and the unreadable file are said once, the others not at all"
+    else st_fail "watch list: absence ($wl_n1/$wl_n2/$wl_n3/$wl_n4, log [$(cat "$wl_d/log")])"; fi
+    # hostile entries: a name with a quote, a backslash and a bracket; a JSON-shaped line; ssid: before an address text; mac: before a name
+    printf 'Ho"me\\Net]\n", "x": 1\nssid:02:00:5e:b0:00:02\nmac:HomeNet\n' > "$WL_FILE"; BT_LOGGED=" "; wl_run
+    wl_x1=$(grep -c -F '{"bssid": "02:00:5e:b0:00:05", "watched": true, "ssid": "Ho\"me\\Net]"' "$wl_d/doc.json")
+    wl_xn=$(grep -o '"watched": true' "$wl_d/doc.json" | grep -c .); wl_xb=$(grep -c 'Watch list: 1 line(s) are neither' "$wl_d/log")
+    if [ "$wl_x1/$wl_xn/$wl_xb" = 1/1/1 ] && json_ok < "$wl_d/doc.json"; then
+        st_pass "watch list: hostile entries: a name with a quote, a backslash and a bracket matches the network written with them escaped; a JSON-shaped line is a name that matches nothing; ssid: before an address text makes it a name that marks no station; mac: before a name is said as neither"
+    else st_fail "watch list: hostile ($wl_x1/$wl_xn/$wl_xb: $(grep 'b0:00:05' "$wl_d/doc.json" | cut -c1-120))"; fi
+    # a whole cycle (capture source, the sample CSV): the default place $OUTDIR/watch.list; with the file the published document carries the marks, without it none
+    RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$wl_d/cycle.json"; VENDOR=0; WL_FILE=""; rm -f "$wl_d/watch.list"
+    printf 'HomeNet\n' > "$wl_d/watch.list"; run_cycle 2>/dev/null >/dev/null; wl_c1=$(grep -c '"watched": true' "$OUTFILE"); wl_c1h=$(grep -c '"watched": true, "ssid": "HomeNet"' "$OUTFILE")
+    rm -f "$wl_d/watch.list"; run_cycle 2>/dev/null >/dev/null; wl_c0=$(grep -c '"watched": true' "$OUTFILE")
+    if [ "$wl_c1" -ge 1 ] 2>/dev/null && [ "$wl_c1" = "$wl_c1h" ] && [ "$wl_c0" = 0 ] && json_ok < "$OUTFILE"; then
+        st_pass "watch list: a whole cycle reads the default place and marks the listed name on the published document; without the file the next cycle publishes none"
+    else st_fail "watch list: a whole cycle (marks $wl_c1, of them HomeNet $wl_c1h, without the file $wl_c0)"; fi
+    WL_FILE=$wl_sf; OUTDIR=$wl_so; ts=$wl_sts; RESOLVED=$wl_srs; CAP_METHOD=$wl_scm; OUTFILE=$wl_sof; VENDOR=$wl_sve; WL_ON=0; BT_CUR=" "; BT_LOGGED=" "
+    unset -f wl_doc wl_run
+
     TMPDIR_RAM=$lsv_ram; BT_F=$lsv_bf; ts=$lsv_ts; BT_HELD=$lsv_held; BT_WIN=$lsv_win; TRAFFIC=$lsv_tr; BLUETOOTH=$lsv_bl; BT_CUR=$lsv_cur; BT_LOGGED=$lsv_lg
     unset -f lay_doc lay_win lay_get lay_tr; unset A B C t0
 }
@@ -5989,14 +6149,14 @@ selftest() {
     # block (bt_env, the apcli stubs, a child's own environment). The alert log is out of reach too: a device that has logged an alert has a non-empty
     # alerts.log, which would put a layer (and a recent line) into every document and fail the cycle and vendor cases for a reason that is no fault of the collector.
     STARCHORUS_BLUETOOTH=0; STARCHORUS_TRAFFIC=0; STARCHORUS_APCLI_RO=0; STARCHORUS_ALLOW_ACTIVE=0; STARCHORUS_SYSFS_BT=/nonexistent/starchorus-selftest-bt
-    STARCHORUS_ALERTS=0; STARCHORUS_ALERT_DIR=/nonexistent/starchorus-selftest-alerts
+    STARCHORUS_ALERTS=0; STARCHORUS_ALERT_DIR=/nonexistent/starchorus-selftest-alerts; STARCHORUS_WATCH_FILE=/nonexistent/starchorus-selftest-watch.list
     # The Bluetooth source is pinned to the window, and the firmware's database and the company list to paths that do not exist: on a 2.0 Pager
     # /root/recon/blue5.db is there, and `auto` would read the device's real database (real addresses in a test's output) where the cases
     # expect their own stand-ins. A case that reads blue5.db or a company list sets BLUE5_DB or BTCO_PATH itself, inside its block.
     STARCHORUS_BT_SOURCE=window; STARCHORUS_BLUE5_DB=/nonexistent/starchorus-selftest-blue5.db; STARCHORUS_BT_COMPANIES_FILE=/nonexistent/starchorus-selftest-bt-companies.txt
-    export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT STARCHORUS_ALERTS STARCHORUS_ALERT_DIR
+    export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT STARCHORUS_ALERTS STARCHORUS_ALERT_DIR STARCHORUS_WATCH_FILE
     export STARCHORUS_BT_SOURCE STARCHORUS_BLUE5_DB STARCHORUS_BT_COMPANIES_FILE
-    BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT; ALERTS=0; ALERT_DIR=$STARCHORUS_ALERT_DIR
+    BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT; ALERTS=0; ALERT_DIR=$STARCHORUS_ALERT_DIR; WL_FILE=$STARCHORUS_WATCH_FILE
     BT_SOURCE=window; BLUE5_DB=$STARCHORUS_BLUE5_DB; BT_SRC=window; BTCO_FILE=$STARCHORUS_BT_COMPANIES_FILE; BTCO_PATH=""
     tdir=$(mktemp -d 2>/dev/null || echo /tmp/starchorus-selftest.$$)
     mkdir -p "$tdir"

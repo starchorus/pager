@@ -148,6 +148,14 @@ Pager's CPU; 'Show Last' also offers 'All (may be slow)'. Marking the Pager's ow
 environment variables only. The Settings row 'Alerts' installs or removes the companion alert
 `alert-deauth.sh` and stores no key.
 
+A watch list needs no key either: write addresses or network names, one per line, into
+`/root/loot/starchorus/watch.list` (an address as `aa:bb:cc:00:00:01`, `aa-bb-cc-00-00-01` or
+`aabbcc000001`; a name byte for byte, 1 to 32 bytes; `mac:` or `ssid:` in front where a name looks
+like an address; `#` starts a comment). From the next refresh on, every access point, station and
+Bluetooth record whose address or name is on the list carries `"watched": true` in `starchorus.json`;
+at most 64 entries count. The list stays on the Pager: it is in no document and no log, and the page
+server does not serve it. The page does not show the mark yet.
+
 ## Network exposure
 
 The page and `starchorus.json` contain every MAC address and SSID the Pager has recorded. By
