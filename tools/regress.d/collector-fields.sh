@@ -162,6 +162,22 @@ rowif "collector fields: alerts on by default (STARCHORUS_ALERTS 1, window 600 s
 # the row bites: a README table with another default for the switch, and no mention of the file, is counted as 0 / 1 / 0
 rowif "collector fields: the alerts documentation row bites (a wrong default of the switch and no file mention count $CFL_ANB, not 1/1/n)" [ "$CFL_ANB" = 0/1/0 ]
 
+# ---- Bluetooth classes (0.2.7): the blue5 query lets the manufacturer data out of SQLite only as hex(substr(mfr,1,3)) (the company id and the type byte,
+# never the payload), the class words are the fixed tables in AWK_LAYERS (fourteen, each at most 24 characters, none a word the neutral-language judge rejects,
+# never "scanner"), and the page validator's BT_CLASSES is the same list, so a word added on one side alone is red.
+CFL_MF=$(grep -c 'hex(substr(mfr,1,3))' starchorus-collect.sh)
+CFL_MFX=$(grep -cE 'hex\(mfr\)|substr\(mfr,1,[^3]|quote\(mfr|CAST\(mfr' starchorus-collect.sh)
+CFL_CW=$(grep -oE '(mcl|scl|acl)\[[^]]*\] = "[^"]*"' starchorus-collect.sh | sed 's/.*= "//; s/"$//' | LC_ALL=C sort -u)
+CFL_CWN=$(printf '%s\n' "$CFL_CW" | grep -c .)
+CFL_CWL=$(printf '%s\n' "$CFL_CW" | awk 'length($0) > 24 || $0 == ""' | grep -c .)
+CFL_CWJ=$(printf '%s\n' "$CFL_CW" | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|scanner|rssi|dbm')
+CFL_CWV=$(sed -n 's/^BT_CLASSES = (\(.*\))  *#.*/\1/p' tools/gen-testdata.py | tr ',' '\n' | sed 's/^ *"//; s/" *$//' | grep . | LC_ALL=C sort -u)
+CFL_CWS=0; [ -n "$CFL_CW" ] && [ "$CFL_CW" = "$CFL_CWV" ] && CFL_CWS=1
+rowif "collector fields: Bluetooth classes: mfr leaves SQLite only as hex(substr(mfr,1,3)) ($CFL_MF/1, other reads $CFL_MFX/0); $CFL_CWN words of at most 24 characters ($CFL_CWL over), none judged ($CFL_CWJ), the validator's BT_CLASSES is the same list ($CFL_CWS)" [ "$CFL_MF/$CFL_MFX/$CFL_CWN/$CFL_CWL/$CFL_CWJ/$CFL_CWS" = 1/0/14/0/0/1 ]
+# the row bites: a list with "scanner" and a 25-character word is judged and over
+CFL_CWB=$(printf 'scanner\nphone\n' | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|scanner|rssi|dbm')/$(printf 'a twenty-five char word!!\n' | awk 'length($0) > 24 || $0 == ""' | grep -c .)
+rowif "collector fields: the class-word row bites (scanner is judged, a 25-character word is over: $CFL_CWB)" [ "$CFL_CWB" = 1/1 ]
+
 # The self-test has one line per family of the new cases (a case that stops running would otherwise only lower a count that nobody reads): the output
 # of the run that tools/static.sh made (out/PREFIX-selftest.txt); without it (a drop-in run on its own) the row says so.
 cfl_fam() {   # FILE -> the families that have no PASS line in the self-test output FILE
@@ -181,7 +197,9 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'bt_end: the wait polls every 0.5 s' 'bt_begin: a monitor that has written only its banner' 'traffic: a share below 0.001' \
                'traffic: a whole cycle with only Traffic on' 'traffic: every second cycle: three cycles' 'traffic: every second cycle: an answer' \
                'alerts: ten lines' 'alerts: skip rules' 'alerts: 25 APs' 'alerts: no file' 'alerts: a directory' 'alerts: a read that fails' 'alerts: the switch' 'alerts: with Traffic' \
-               'STARCHORUS_ALERT_WINDOW: values' 'STARCHORUS_ALERT_WINDOW: the log line' 'alerts: the window'; do
+               'STARCHORUS_ALERT_WINDOW: values' 'STARCHORUS_ALERT_WINDOW: the log line' 'alerts: the window' \
+               'blue5: bt_blue5_read maps' 'blue5: the company list names' 'blue5: a missing blue5.db' 'blue5 class: Apple message types' 'blue5 class: 16-bit services' \
+               'blue5 class: appearance categories' 'blue5 class: the rank' 'blue5 class: refusals' 'blue5 class: the class survives hold' 'blue5 class: a database without the columns'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"

@@ -766,7 +766,8 @@ OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth"
 OPT_CL = {"vendor", "last_seen", "randomized", "probes", "packets"}
 BT_TYPES = ("public", "random-static", "random-resolvable", "random-nonresolvable", "random")   # bluetooth[].addr_type
 BT_KEYS = ("addr", "addr_type", "rssi", "reports", "last_seen")                                 # always written
-OPT_BT = {"company", "company_name", "name", "connectable"}                                      # written only when the advertisement has them
+OPT_BT = {"company", "company_name", "name", "connectable", "class"}                             # written only when the advertisement has them
+BT_CLASSES = ("beacon", "computer", "device message", "display", "finder frame", "input device", "keyring", "media player", "pairing frame", "phone", "remote control", "sensor", "tag", "watch")   # bluetooth[].class: the collector's fixed table (0.2.7), what the advertisement claims to be
 IWSCAN_OPT_AP = {"vendor"}    # build_from_iwscan() emits no rate/last_seen/width/phy
 
 
@@ -830,6 +831,8 @@ def validate_bluetooth(bt):
                 p.append("%s: %s must be a non-empty string of <= %d characters" % (w, k, n))
         if "connectable" in b and b["connectable"] is not True:
             p.append(w + ": connectable is written only when true")
+        if "class" in b and b["class"] not in BT_CLASSES:
+            p.append(w + ": class must be one of the collector's class words")
     order = [(-b["rssi"], b["addr"]) for b in bt if isinstance(b, dict) and isinstance(b.get("rssi"), int) and isinstance(b.get("addr"), str)]
     if order != sorted(order):
         p.append("bluetooth must be sorted strongest first (rssi descending, then addr)")

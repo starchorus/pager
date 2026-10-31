@@ -308,6 +308,8 @@ BT_SRC=window       # bt_pick's choice this cycle: window (our own passive scan)
 BT5_DB=""           # the RAM copy of blue5.db this cycle (bt_blue5_copy sets it, bt_blue5_done frees it); "" = none
 BT5_RAM=0           # 1 = BT5_DB is a copy of ours to remove after reading
 BT5_MAX=4194304     # cap on the blue5.db copy: above this, no Bluetooth this cycle (it is ~40 KB on the device; RAM only)
+BT5_SV=""           # 1 = blue5.db answered only the narrow query (no mfr, appearance or svc16 column, an older firmware): no classes until the vendor re-check retries the full one
+BT5_SVLOG=0         # 1 = the narrow-query line has been logged; the return to the full query is logged once as well
 BT_HELD=""          # last cycle's Bluetooth records (tab separated: the B fields, last_seen, carry); in memory, like RS_DOCV: a file would outlive a killed collector
 BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those of the cycle before: a message is logged once per episode (bt_issue)
 BT_LOGGED=" "
@@ -1055,8 +1057,21 @@ bt_blue5_done() {
 #   * rssi is rssi_avg (steadier than the last sample) and must be a real reading (-127..-1); reports is packets, floored at 1; company
 #     is kept only as a real id (0 and 65535 mean "no id"); the name BLOB has TAB/LF/CR turned to spaces and is cut to 32;
 #   * only addresses seen within BT_HOLD (120 s) of ts are kept, and never one stamped later than ts (a clock that moved back);
-#   * one row per address, the newest, via MAX(last_seen) with its bare columns in a sub-query (the single-aggregate form SQLite defines).
+#   * one row per address, the newest, via MAX(last_seen) with its bare columns in a sub-query (the single-aggregate form SQLite defines);
+#   * fields 11-13, the class columns of the firmware's 2.0 schema (device-notes §2c), cut IN SQL so that only what the table in AWK_LAYERS can
+#     name leaves the database: of mfr the first three bytes as hex (the company id, little-endian, and the byte after it: Apple's message
+#     type), never the payload with its rotating identifiers; appearance only as a whole number 1..65535; svc16 only when it is text of hex
+#     digits, commas and blanks, 40 characters at most. Anything else is '' (no class). With BT5_SV=1 (a database that lacks the columns,
+#     an older firmware: bt_blue5_read sets it when the full query gives no sentinel) the same statement carries three empty fields instead,
+#     so the B-line keeps its 13 fields and the layer its records; the vendor re-check clears BT5_SV and the full query is tried again.
 bt_blue5_sql() {
+    if [ "$BT5_SV" = 1 ]; then b5_cx="'', '', ''"; b5_ci=""
+    else
+        b5_cx="CASE WHEN typeof(mfr)='blob' AND length(mfr)>=3 THEN hex(substr(mfr,1,3)) ELSE '' END,
+  CASE WHEN typeof(appearance)='integer' AND appearance BETWEEN 1 AND 65535 THEN appearance ELSE '' END,
+  CASE WHEN typeof(svc16)='text' AND svc16 NOT GLOB '*[^0-9A-Fa-f, ]*' THEN upper(substr(svc16,1,40)) ELSE '' END"
+        b5_ci="mfr, appearance, svc16,"
+    fi
     sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
 SELECT 'B',
   lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)),
@@ -1071,8 +1086,9 @@ SELECT 'B',
   '',
   substr(replace(replace(replace(CAST(name AS TEXT),char(9),' '),char(10),' '),char(13),' '),1,32),
   CASE WHEN connectable=1 THEN 1 ELSE 0 END,
-  lastseen
-FROM (SELECT mac, le_random, rssi_avg, packets, company, name, connectable, MAX(last_seen) AS lastseen
+  lastseen,
+  $b5_cx
+FROM (SELECT mac, le_random, rssi_avg, packets, company, name, connectable, $b5_ci MAX(last_seen) AS lastseen
       FROM bt_device
       WHERE transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
         AND rssi_avg IS NOT NULL AND rssi_avg BETWEEN -127 AND -1
@@ -1085,12 +1101,26 @@ SELECT '#STARCHORUS_BT5OK#';
 # bt_blue5_read: $1 = ts. Reads blue5.db (its RAM copy) into $BT_F.out, the file add_layers reads (SC_BTP), as B-lines with the real
 # last_seen. 0 = a complete read, the records (maybe none) in $BT_F.out; 1 = transient (no copy, a bad clock, or no complete answer:
 # the caller makes it a void cycle, mode 2, so the held records fade instead of the layer blinking off). The blue5 tools are never run.
-# The company name, which blue5.db does not hold, is filled from the company list (btco_fill) when one is in use.
+# The company name, which blue5.db does not hold, is filled from the company list (btco_fill) when one is in use. A copy that gives the full
+# query no complete answer is asked the narrow one once (BT5_SV=1, kept until the vendor re-check clears it): a database without the class
+# columns keeps its Bluetooth layer, without classes, and the switch is logged once each way; a copy that answers neither is the transient case.
 bt_blue5_read() {
     case $1 in ''|0|*[!0-9]*) return 1 ;; esac
     bt_blue5_copy "$BLUE5_DB" || return 1
     BT_F="$TMPDIR_RAM/starchorus-bt-$$.txt"
     br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
+    case $br_raw in
+        *"#STARCHORUS_BT5OK#"*)
+            if [ "$BT5_SV" != 1 ] && [ "$BT5_SVLOG" = 1 ]; then log "Bluetooth: blue5.db answers the full query again (mfr, appearance, svc16); classes are back"; BT5_SVLOG=0; fi ;;
+        *)
+            if [ "$BT5_SV" != 1 ]; then
+                BT5_SV=1; br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
+                case $br_raw in
+                    *"#STARCHORUS_BT5OK#"*) [ "$BT5_SVLOG" = 1 ] || log "Bluetooth: blue5.db has no mfr, appearance or svc16 column (an older firmware); addresses without a class until the next re-check"; BT5_SVLOG=1 ;;
+                    *) BT5_SV="" ;;
+                esac
+            fi ;;
+    esac
     bt_blue5_done
     case $br_raw in *"#STARCHORUS_BT5OK#"*) ;; *) return 1 ;; esac
     br_um=$(umask); umask 077
@@ -1598,15 +1628,39 @@ AWK_LAYERS='
         for (i = int((n - 2) / 2); i >= 0; i--) sift(i, n - 1, ix)
         for (i = n - 1; i > 0; i--) { t = ix[0]; ix[0] = ix[i]; ix[i] = t; sift(0, i - 1, ix) }
     }
-    function addrec(a, ty_, r_, n_, co_, cn_, nm_, cc_, ls_, ca_) {
+    function addrec(a, ty_, r_, n_, co_, cn_, nm_, cc_, ls_, ca_, cl_) {
         ad[nrec] = a; tp[nrec] = ty_; rr[nrec] = r_ + 0; rp[nrec] = n_ + 0; cmp[nrec] = co_; cnm[nrec] = cn_; nmx[nrec] = nm_
-        cnx[nrec] = cc_ + 0; lsn[nrec] = ls_ + 0; car[nrec] = ca_ + 0; have[a] = 1; nrec++
+        cnx[nrec] = cc_ + 0; lsn[nrec] = ls_ + 0; car[nrec] = ca_ + 0; cls[nrec] = cl_; have[a] = 1; nrec++
+    }
+    function hexv(s,   i, d, v) {   # a string of upper-case hex digits -> its value; -1 when a character is none
+        v = 0
+        for (i = 1; i <= length(s); i++) { d = index("0123456789ABCDEF", substr(s, i, 1)); if (!d) return -1; v = v * 16 + d - 1 }
+        return v
+    }
+    # btclass: the class a record advertises, from the three cut columns of the blue5 source (the mfr head, appearance, svc16; see bt_blue5_sql)
+    # and the company of the record: a word of the tables in BEGIN, or "". The rank is the manufacturer message type first (the Continuity type
+    # byte of Apple, taken only when the company id of the head is the company of the row), then an unambiguous 16-bit service, then the
+    # appearance category (appearance / 64; the health categories and the barcode scanner are left out on purpose). It names what the
+    # advertisement claims to be, never a reading of ours, and a window line (no fields 11-13) gets none. (No apostrophe here: the awk text is a
+    # single-quoted shell string.)
+    function btclass(mh, ap, sv, co,   n, i, t, k) {
+        if (mh ~ /^[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]$/ && co ~ /^[0-9]+$/ && hexv(substr(mh, 3, 2) substr(mh, 1, 2)) == co + 0 && (mh in mcl)) return mcl[mh]
+        if (sv != "") { n = split(sv, t, /[^0-9A-F]+/); for (i = 1; i <= n; i++) if (length(t[i]) == 4 && (t[i] in scl)) return scl[t[i]] }
+        if (ap ~ /^[0-9]+$/ && ap + 0 >= 1 && ap + 0 <= 65535) { k = int(ap / 64); if (k in acl) return acl[k] }
+        return ""
     }
     BEGIN {
         ts = ENVIRON["SC_TS"] + 0; hold = ENVIRON["SC_HOLD"] + 0; win = ENVIRON["SC_WIN"] + 0
         mode = ENVIRON["SC_BTMODE"] + 0; trf = ENVIRON["SC_TRAFFIC"] + 0; btsrc = ENVIRON["SC_BTSRC"]
         nrec = 0; added = 0; cdone = 0; adone = 0; btline = ""; actline = ""; tstat = "off"; nout = 0
         alline = ""; alent = 0; alskip = 0; alnap = 0
+        # the class tables (btclass): Apple Continuity message types by the mfr head (company 004C little-endian, then the type byte);
+        # 16-bit services (Fast Pair, Eddystone, HID, environmental sensing); appearance categories 1..21 without the health ones and 11
+        mcl["4C0012"] = "finder frame"; mcl["4C0007"] = "pairing frame"; mcl["4C0002"] = "beacon"
+        mcl["4C0010"] = "device message"; mcl["4C000F"] = "device message"; mcl["4C000C"] = "device message"; mcl["4C0005"] = "device message"
+        scl["FE2C"] = "pairing frame"; scl["FEAA"] = "beacon"; scl["1812"] = "input device"; scl["181A"] = "sensor"
+        acl[1] = "phone"; acl[2] = "computer"; acl[3] = "watch"; acl[5] = "display"; acl[6] = "remote control"; acl[8] = "tag"; acl[9] = "keyring"
+        acl[10] = "media player"; acl[15] = "input device"; acl[21] = "sensor"
         alf = ENVIRON["SC_ALF"]
         if (alf != "" && ts > 0) {
             alwin = ENVIRON["SC_ALWIN"] + 0
@@ -1641,7 +1695,7 @@ AWK_LAYERS='
                 if (split(line, c, "\t") >= 9 && c[1] == "B") {
                     ls = (c[10] ~ /^[0-9]+$/) ? c[10] + 0 : ts   # a blue5 B-line carries the real last_seen in a 10th field; a window line has none (-> ts, heard now)
                     if (ls > ts) ls = ts                         # never later than the document that holds it (a clock that moved back)
-                    if (ls >= ts - hold) addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ls, 0)
+                    if (ls >= ts - hold) addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ls, 0, btclass(c[11], c[12], c[13], c[6]))   # fields 11-13 (blue5 only): the class columns, cut in SQL
                 }
             }
             close(f)
@@ -1649,9 +1703,9 @@ AWK_LAYERS='
         if (mode != 0) {
             f = ENVIRON["SC_BTH"]
             while ((getline line < f) > 0) {
-                if (split(line, c, "\t") < 10 || (c[1] in have)) continue
+                if ((hfn = split(line, c, "\t")) < 10 || (c[1] in have)) continue
                 if (c[9] + 0 > ts || c[9] + 0 < ts - hold || c[10] + 1 > 4) continue
-                addrec(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] + 1)
+                addrec(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] + 1, (hfn >= 11) ? c[11] : "")   # field 11 = the class (0.2.7); a held line without it carries none
             }
             close(f)
             sortix(nrec, ix)
@@ -1665,8 +1719,9 @@ AWK_LAYERS='
                 if (cnm[i] != "") o = o ", \"company_name\": \"" jesc(cnm[i]) "\""
                 if (nmx[i] != "") o = o ", \"name\": \"" jesc(nmx[i]) "\""
                 if (cnx[i]) o = o ", \"connectable\": true"
+                if (cls[i] != "") o = o ", \"class\": \"" jesc(cls[i]) "\""   # the last key, only when set: a record without one is byte-identical to one of 0.2.6
                 o = o "}"
-                printf "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\n", ad[i], tp[i], rr[i], rp[i], cmp[i], cnm[i], nmx[i], cnx[i], lsn[i], car[i] > nf
+                printf "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n", ad[i], tp[i], rr[i], rp[i], cmp[i], cnm[i], nmx[i], cnx[i], lsn[i], car[i], cls[i] > nf
             }
             close(nf)
             btline = "  \"bluetooth\": [" o "],"
@@ -4600,6 +4655,62 @@ lay_selftest() {
         else st_fail "blue5 companies: rc $b5_nrc apple $b5_apl bare $b5_bare"; fi
         BLUE5_DB="$b5/none-such.db"; bt_blue5_read "$b5_ts"; b5_fc=$?
         if [ "$b5_fc" != 0 ]; then st_pass "blue5: a missing blue5.db -> bt_blue5_read fails closed (no Bluetooth this cycle, the live file is never read)"; else st_fail "blue5: fail-closed rc $b5_fc"; fi
+
+        # 25c) the class columns of the 2.0 schema (the fixture's second set, clock 2000000): one word per record from the tables in AWK_LAYERS, ranked
+        # mfr > svc16 > appearance; a record without a class is byte-identical to 0.2.6's; nothing raw (hex heads, service ids, column names) reaches the document
+        b5c_sCP=$BTCO_PATH; BTCO_PATH=""; b5c_ts=2000000; BLUE5_DB="$b5_db"; BT_HELD=""; ts=$b5c_ts; BT5_SV=""; BT5_SVLOG=0
+        bt_blue5_read "$b5c_ts" 2> "$b5/c.log"; b5c_rc=$?; lay_doc $b5c_ts > "$b5/c.json"; add_layers "$b5/c.json" 1 blue5; b5c_ar=$?
+        BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null)
+        b5c_l=$(grep '^  "bluetooth": ' "$b5/c.json"); b5c_cnt=$(printf '%s' "$b5c_l" | grep -o '"addr":' | grep -c .)
+        b5c_cls() {   # $1 = the last octet of an address of the class set -> its class, or - without one
+            b5c_r=$(printf '%s' "$b5c_l" | sed 's/}, {/}\
+{/g' | grep "\"addr\": \"aa:bb:cc:00:01:$1\"")
+            case $b5c_r in *'"class": "'*) b5c_r=${b5c_r#*\"class\": \"}; printf '%s' "${b5c_r%%\"*}" ;; *) printf '%s' - ;; esac
+        }
+        b5c_j() { b5c_o=""; for b5c_a in "$@"; do b5c_o="$b5c_o$(b5c_cls "$b5c_a")|"; done; printf '%s' "$b5c_o"; }
+        b5c_m=$(b5c_j 01 02 03 04 05 06 07 08)
+        if [ "$b5c_rc/$b5c_ar/$b5c_cnt" = 0/0/40 ] && [ "$b5c_m" = "finder frame|pairing frame|beacon|device message|device message|device message|device message|-|" ] && json_ok < "$b5/c.json"; then
+            st_pass "blue5 class: Apple message types from the mfr head (12 finder frame, 07 pairing frame, 02 beacon, 10/0F/0C/05 device message, an unlisted type none); 40 records, valid JSON"
+        else st_fail "blue5 class: Apple types (rc $b5c_rc ar $b5c_ar cnt $b5c_cnt: $b5c_m)"; fi
+        b5c_s=$(b5c_j 09 0a 0b 0c 0d 26 27)
+        if [ "$b5c_s" = "pairing frame|beacon|input device|sensor|-|pairing frame|pairing frame|" ]; then
+            st_pass "blue5 class: 16-bit services (FE2C pairing frame, FEAA beacon, 1812 input device, 181A sensor, an unlisted FD59 none, a list's second token, lower case)"
+        else st_fail "blue5 class: services ($b5c_s)"; fi
+        b5c_p=$(b5c_j 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d)
+        if [ "$b5c_p" = "phone|computer|watch|display|remote control|tag|keyring|media player|input device|sensor|-|-|-|-|-|-|" ]; then
+            st_pass "blue5 class: appearance categories (1 phone to 21 sensor); 0, 70000 and the thermometer, heart-rate, pulse-oximeter and barcode-scanner categories give none"
+        else st_fail "blue5 class: appearance ($b5c_p)"; fi
+        b5c_k=$(b5c_j 1e 1f 20 28)
+        if [ "$b5c_k" = "finder frame|pairing frame|phone|pairing frame|" ]; then
+            st_pass "blue5 class: the rank is mfr, then svc16, then appearance, and the newest row of an address names it"
+        else st_fail "blue5 class: rank ($b5c_k)"; fi
+        b5c_n=$(b5c_j 21 22 23 24 25)
+        b5c_raw=$(printf '%s' "$b5c_l" | grep -c -i -e '4c00' -e 'fe2c' -e 'mfr' -e 'svc16' -e 'appearance' -e 'fd59')
+        if [ "$b5c_n" = "-|-|-|-|-|" ] && [ "$b5c_raw" = 0 ]; then
+            st_pass "blue5 class: refusals (a head whose company is not the row's, mfr as text, two bytes, a quote or a TAB in svc16) and no raw column reaches the document"
+        else st_fail "blue5 class: refusals ($b5c_n raw $b5c_raw)"; fi
+        # the class survives hold (a void window carries it, the last key of the record) and the window source (9 fields) never has one
+        ts=$((b5c_ts + 30)); lay_doc $ts > "$b5/c2.json"; add_layers "$b5/c2.json" 2 blue5
+        b5c_h=$(grep -c '"addr": "aa:bb:cc:00:01:01", "addr_type": "public", "rssi": -50, "reports": 1, "last_seen": 2000000, "company": 76, "connectable": true, "class": "finder frame"}' "$b5/c2.json")
+        BT_HELD=""; ts=$b5c_ts; printf 'B\taa:bb:cc:00:01:01\tpublic\t-50\t1\t76\t\t\t1\n' > "$BT_F.out"; lay_doc $b5c_ts > "$b5/c3.json"; add_layers "$b5/c3.json" 1
+        b5c_w=$(grep -c '"class"' "$b5/c3.json"); b5c_w1=$(grep -c '"addr": "aa:bb:cc:00:01:01"' "$b5/c3.json")
+        if [ "$b5c_h/$b5c_w/$b5c_w1" = 1/0/1 ] && json_ok < "$b5/c2.json" && json_ok < "$b5/c3.json"; then
+            st_pass "blue5 class: the class survives hold (a void window carries it as the record's last key) and a window line gives none"
+        else st_fail "blue5 class: hold $b5c_h window $b5c_w/$b5c_w1"; fi
+        # a database without the class columns (the 0.2.6 schema): the full query gives no sentinel, the narrow one answers; BT5_SV holds until the re-check
+        # clears it; the records are byte-identical to the 2.0 fixture's at the same clock (no class there either); the switch is logged once each way
+        BLUE5_DB="$LAY_BLUE5_OLD"; BT_HELD=""; ts=$b5_ts; BT5_SV=""; BT5_SVLOG=0
+        bt_blue5_read "$b5_ts" 2> "$b5/o.log"; b5o_rc=$?; b5o_sv=$BT5_SV; lay_doc $b5_ts > "$b5/o.json"; add_layers "$b5/o.json" 1 blue5
+        b5o_l=$(grep '^  "bluetooth": ' "$b5/o.json")
+        bt_blue5_read "$b5_ts" 2>> "$b5/o.log"; b5o_rc2=$?; b5o_sv2=$BT5_SV; b5o_n=$(grep -c 'has no mfr, appearance or svc16 column' "$b5/o.log")
+        BLUE5_DB="$b5_db"; bt_blue5_read "$b5_ts" 2> "$b5/o2.log"; b5o_rc3=$?; b5o_sv3=$BT5_SV; b5o_n3=$(grep -c . "$b5/o2.log")   # the full query waits for the re-check...
+        BT5_SV=""; bt_blue5_read "$b5_ts" 2> "$b5/o3.log"; b5o_rc4=$?; b5o_sv4=$BT5_SV; b5o_b=$(grep -c 'answers the full query again' "$b5/o3.log")   # ...which clears BT5_SV
+        lay_doc $b5_ts > "$b5/o4.json"; add_layers "$b5/o4.json" 1 blue5; b5o_l4=$(grep '^  "bluetooth": ' "$b5/o4.json")
+        b5o_same=0; [ "$b5o_l" = "$b5_line" ] && [ "$b5o_l4" = "$b5_line" ] && b5o_same=1
+        if [ "$b5o_rc/$b5o_sv/$b5o_rc2/$b5o_sv2/$b5o_n/$b5o_rc3/$b5o_sv3/$b5o_n3/$b5o_rc4/$b5o_sv4/$b5o_b/$b5o_same" = 0/1/0/1/1/0/1/0/0//1/1 ] && ! grep -q '"class"' "$b5/o.json"; then
+            st_pass "blue5 class: a database without the columns (the 0.2.6 schema) answers the narrow query, logged once, BT5_SV until the re-check clears it; its records are byte-identical to the 2.0 fixture's at the same clock"
+        else st_fail "blue5 class: narrow schema (rc/sv $b5o_rc/$b5o_sv then $b5o_rc2/$b5o_sv2, logged $b5o_n; rich with BT5_SV $b5o_rc3/$b5o_sv3 logged $b5o_n3; cleared $b5o_rc4/$b5o_sv4 back $b5o_b; same lines $b5o_same)"; fi
+        BT5_SV=""; BT5_SVLOG=0; BTCO_PATH=$b5c_sCP
         BLUE5_DB=$b5_sBL; TMPDIR_RAM=$b5_sTR; BT_F=$b5_sBF; BT5_MAX=$b5_sMX; BT_HELD=$b5_sH
     fi
 
@@ -5551,15 +5662,50 @@ CSV
 
     # ---- 1b) Bluetooth, the per-cycle layers and the traffic call: the text of a window (no process), the layers (files), a window against stand-ins
     bt_parse_selftest "$tdir"
-    # blue5 fixture for the layers selftest, built here where a non-read-only sqlite3 is a test fixture (not a production read); lay_selftest reads it
-    LAY_BLUE5_FIX="$tdir/blue5-fix.db"
-    if have sqlite3; then rm -f "$LAY_BLUE5_FIX"; sqlite3 "$LAY_BLUE5_FIX" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,PRIMARY KEY(scan,mac));
-INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name) VALUES
+    # blue5 fixtures for the layers selftest, built here where a non-read-only sqlite3 is a test fixture (not a production read); lay_selftest reads them.
+    # Two schemas with the same first rows (scans 1 and 2, clock 1000000): the device's 2.0 schema (device-notes §2c: ad_flags, appearance, svc16,
+    # svc_other, mfr, svcd beside the 0.2.6 columns), whose second set (scans 3 and 4, clock 2000000) carries the class columns, and the 0.2.6
+    # schema without them, the control for the narrow query. Every address is made up.
+    LAY_BLUE5_FIX="$tdir/blue5-fix.db"; LAY_BLUE5_OLD="$tdir/blue5-old.db"
+    if have sqlite3; then
+        rm -f "$LAY_BLUE5_FIX" "$LAY_BLUE5_OLD"
+        b5x_rows="INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name) VALUES
  (1,'AABBCC000001',1000000,1,0,1,-50,10,76,'Pub'),(1,'C0AABB000002',1000000,1,1,1,-60,5,12,'Stat'),
  (1,'40AABB000003',1000000,1,1,0,-70,1,46517,'Res'),(1,'AABBCC000005',1000000,1,0,1,-55,0,65535,'t'||char(9)||'n'),
  (1,'AABBCC000006',1000000,1,0,1,NULL,10,76,'x'),(1,'AABBCC000007',999800,1,0,1,-50,10,76,'old'),
  (1,'AABBCC000009',1000000,2,0,1,-50,10,76,'cls'),(1,'AABBCC00000A',999990,1,0,1,-90,3,76,'o'),
- (2,'AABBCC00000A',1000000,1,0,1,-40,7,76,'n');" 2>/dev/null; else LAY_BLUE5_FIX=""; fi
+ (2,'AABBCC00000A',1000000,1,0,1,-40,7,76,'n');"
+        sqlite3 "$LAY_BLUE5_OLD" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,PRIMARY KEY(scan,mac));
+$b5x_rows" 2>/dev/null
+        # the class set: Apple types 12/07/02/10/0F/0C/05 and an unlisted 99; services FE2C/FEAA/1812/181A and the unlisted FD59; the appearance categories
+        # 1,2,3,5,6,8,9,10,15,21 (64 each) and the refused 0, 70000, 12, 13, 49, 11; the rank (1E-20); the refusals (21-25: a Microsoft head under
+        # company 76, mfr as text, two bytes, a quote, a TAB); a list and lower case (26, 27); an address whose newest row changes its class (28)
+        sqlite3 "$LAY_BLUE5_FIX" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,ad_flags INT,appearance INT,svc16 TEXT,svc_other INT,mfr BLOB,svcd BLOB,PRIMARY KEY(scan,mac) ON CONFLICT REPLACE);
+$b5x_rows
+INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name,mfr,appearance,svc16) VALUES
+ (3,'AABBCC000101',2000000,1,0,1,-50,1,76,'',X'4C001219AABBCCDD',NULL,NULL),(3,'AABBCC000102',2000000,1,0,1,-51,1,76,'',X'4C00071900',NULL,NULL),
+ (3,'AABBCC000103',2000000,1,0,1,-52,1,76,'',X'4C000215',NULL,NULL),(3,'AABBCC000104',2000000,1,0,1,-53,1,76,'',X'4C001005',NULL,NULL),
+ (3,'AABBCC000105',2000000,1,0,1,-54,1,76,'',X'4C000F05',NULL,NULL),(3,'AABBCC000106',2000000,1,0,1,-55,1,76,'',X'4C000C0E',NULL,NULL),
+ (3,'AABBCC000107',2000000,1,0,1,-56,1,76,'',X'4C000512',NULL,NULL),(3,'AABBCC000108',2000000,1,0,1,-57,1,76,'',X'4C009901',NULL,NULL),
+ (3,'AABBCC000109',2000000,1,0,1,-58,1,224,'',NULL,NULL,'FE2C'),(3,'AABBCC00010A',2000000,1,0,1,-59,1,NULL,'',NULL,NULL,'FEAA'),
+ (3,'AABBCC00010B',2000000,1,0,1,-60,1,NULL,'',NULL,NULL,'1812'),(3,'AABBCC00010C',2000000,1,0,1,-61,1,NULL,'',NULL,NULL,'181A'),
+ (3,'AABBCC00010D',2000000,1,0,1,-62,1,NULL,'',NULL,NULL,'FD59'),
+ (3,'AABBCC00010E',2000000,1,0,1,-63,1,NULL,'',NULL,64,NULL),(3,'AABBCC00010F',2000000,1,0,1,-64,1,NULL,'',NULL,128,NULL),
+ (3,'AABBCC000110',2000000,1,0,1,-65,1,NULL,'',NULL,192,NULL),(3,'AABBCC000111',2000000,1,0,1,-66,1,NULL,'',NULL,320,NULL),
+ (3,'AABBCC000112',2000000,1,0,1,-67,1,NULL,'',NULL,384,NULL),(3,'AABBCC000113',2000000,1,0,1,-68,1,NULL,'',NULL,512,NULL),
+ (3,'AABBCC000114',2000000,1,0,1,-69,1,NULL,'',NULL,576,NULL),(3,'AABBCC000115',2000000,1,0,1,-70,1,NULL,'',NULL,640,NULL),
+ (3,'AABBCC000116',2000000,1,0,1,-71,1,NULL,'',NULL,961,NULL),(3,'AABBCC000117',2000000,1,0,1,-72,1,NULL,'',NULL,1344,NULL),
+ (3,'AABBCC000118',2000000,1,0,1,-73,1,NULL,'',NULL,0,NULL),(3,'AABBCC000119',2000000,1,0,1,-74,1,NULL,'',NULL,70000,NULL),
+ (3,'AABBCC00011A',2000000,1,0,1,-75,1,NULL,'',NULL,768,NULL),(3,'AABBCC00011B',2000000,1,0,1,-76,1,NULL,'',NULL,832,NULL),
+ (3,'AABBCC00011C',2000000,1,0,1,-77,1,NULL,'',NULL,3136,NULL),(3,'AABBCC00011D',2000000,1,0,1,-78,1,NULL,'',NULL,704,NULL),
+ (3,'AABBCC00011E',2000000,1,0,1,-79,1,76,'',X'4C001219',64,'FE2C'),(3,'AABBCC00011F',2000000,1,0,1,-80,1,76,'',X'4C009901',64,'FE2C'),
+ (3,'AABBCC000120',2000000,1,0,1,-81,1,NULL,'',NULL,64,'FD59'),
+ (3,'AABBCC000121',2000000,1,0,1,-82,1,76,'',X'06000109',NULL,NULL),(3,'AABBCC000122',2000000,1,0,1,-83,1,76,'','4c001219',NULL,NULL),
+ (3,'AABBCC000123',2000000,1,0,1,-84,1,76,'',X'4C00',NULL,NULL),(3,'AABBCC000124',2000000,1,0,1,-85,1,NULL,'',NULL,NULL,'FE2C\"'),
+ (3,'AABBCC000125',2000000,1,0,1,-86,1,NULL,'',NULL,NULL,'FE2C'||char(9)||'1812'),
+ (3,'AABBCC000126',2000000,1,0,1,-87,1,NULL,'',NULL,NULL,'FCB2, FE2C'),(3,'AABBCC000127',2000000,1,0,1,-88,1,NULL,'',NULL,NULL,'fe2c'),
+ (3,'AABBCC000128',1999990,1,0,1,-89,1,76,'',X'4C001219',NULL,NULL),(4,'AABBCC000128',2000000,1,0,1,-45,1,76,'',X'4C00071900',NULL,NULL);" 2>/dev/null
+    else LAY_BLUE5_FIX=""; LAY_BLUE5_OLD=""; fi
     lay_selftest "$tdir"
     printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"
     write_empty 1710000000 "no data" > "$tdir/emit-empty.json"; lay_check "write_empty document" "$tdir/emit-empty.json"
@@ -7789,7 +7935,7 @@ while :; do
     cycle_step
     # Every 120 cycles (10 min at the default interval) re-check the OUI file: a replaced /
     # rewritten file (firmware update, swapped USB stick) restarts the cache. Cheap: a few stats.
-    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; [ "$BLUETOOTH" = 1 ] && setup_btco; fi
+    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; [ "$BLUETOOTH" = 1 ] && setup_btco; BT5_SV=""; fi   # BT5_SV: the full blue5 query is tried again (bt_blue5_read)
     # A plain foreground sleep: under busybox ash a caught INT/TERM is handled after the current
     # sleep returns, so --stop takes effect within at most the longer of one INTERVAL and the backoff below (3600 s at most). Backgrounding the sleep and
     # `wait`-ing on it does NOT deliver the trap sooner under ash.

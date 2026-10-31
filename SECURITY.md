@@ -303,7 +303,10 @@ capture already present, so nothing new leaves the device.
 
 The Bluetooth marks, the memory of which signal ring each address was last drawn in, and the stations' frame rates are held only in
 memory too (no storage key): a Bluetooth address is display and export only, with no baseline, identity, note or event, and a rotating
-address is never linked to another across a rotation.
+address is never linked to another across a rotation. A record's `class` (0.2.7) is one of fourteen fixed words for what the advertisement
+claims to be (a beacon, a pairing frame, a phone), taken from three columns of the firmware's database that are cut inside SQLite to the
+first three bytes of the manufacturer data, the appearance number and the 16-bit service ids, never the payload with its rotating
+identifiers; it is a claim the advertiser makes, not an identity, and it is held like the rest of the record, in memory only.
 
 The observations are derived notes in neutral language, without judgement. A note appears only once
 it has held for two captures in a row, and never for the device's own transmitters or for phone

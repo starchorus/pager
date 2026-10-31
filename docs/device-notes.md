@@ -345,6 +345,23 @@ turned to spaces and is cut to 32; `connectable` only when 1; the address sub-ty
 the top two address bits (public, random-static, random-resolvable, random-nonresolvable). `last_seen` is the
 database's own value, not the cycle's `generated`.
 
+**The class columns (0.2.7).** From the 2.0 schema (below) the same query reads three more columns, cut inside
+SQLite so that only what the collector's table can name leaves the database: the first three bytes of `mfr` as hex
+(the company id, little-endian, and the byte after it, Apple's message type; never the payload with its rotating
+identifiers), `appearance` as a whole number 1…65535, and `svc16` only when it is text of hex digits, commas and
+blanks (40 characters at most). The layers' awk turns them into `class`, one of fourteen words: from Apple's type
+byte `finder frame` (12), `pairing frame` (07), `beacon` (02) and `device message` (10, 0F, 0C, 05), taken only when
+the head's company is the row's `company`; from the services `pairing frame` (FE2C), `beacon` (FEAA), `input
+device` (1812) and `sensor` (181A); from the appearance category (appearance / 64) `phone`, `computer`, `watch`,
+`display`, `remote control`, `tag`, `keyring`, `media player`, `input device` and `sensor`, the health categories and
+the barcode scanner left out on purpose. The rank is manufacturer type, then service, then appearance; a record
+without a class is byte-identical to 0.2.6's, and the class is carried through the hold like the rest of the record.
+A database without those columns (the 0.2.6 schema, which the self-test keeps as its control fixture) gives the full
+query no answer: the collector then asks the narrow one, logs the switch once, and tries the full query again with
+the vendor re-check. Measured on the device on 30 October 2026: `mfr` filled in 1,840 of 1,963 rows (1,830 of them
+Apple's), `svc16` in 120 (FCB2 in 107, which names no class), `appearance` in 1. The share of the type bytes and
+the cost of the three columns per cycle are still to be measured there.
+
 **Company names.** `bt_device.company` is the Bluetooth SIG identifier alone (the table has no name column),
 where the window source had btmon's decoded name. The collector names the identifier from the firmware's own list
 `/lib/hak5/bt_companies.txt` (`STARCHORUS_BT_COMPANIES_FILE`, `auto` | path), one `XXXX<TAB>Name` line per
@@ -376,8 +393,9 @@ time INT, name TEXT)` and `bt_device(scan INT, mac TEXT, first_seen INT, last_se
 INT, connectable INT, rssi INT, rssi_min INT, rssi_max INT, rssi_avg INT, tx_power INT, company INT, cod INT,
 packets INT, name BLOB, name_complete INT, ad_flags INT, appearance INT, svc16 TEXT, svc_other INT, mfr BLOB,
 svcd BLOB, PRIMARY KEY(scan, mac) ON CONFLICT REPLACE)`: every column the query reads is there, with more beside
-them that the query does not touch (`ad_flags`, `appearance`, `svc16`, `svc_other`, `mfr`, `svcd`), and `mac` is
-twelve hex digits as assumed. Later that day, with the self-test pinned to its own stand-ins and the company list read,
+them that the query did not touch then (`ad_flags`, `appearance`, `svc16`, `svc_other`, `mfr`, `svcd`; since 0.2.7
+the query cuts `mfr`, `appearance` and `svc16` for the class, see above, and leaves `ad_flags`, `svc_other` and
+`svcd` alone), and `mac` is twelve hex digits as assumed. Later that day, with the self-test pinned to its own stand-ins and the company list read,
 `tools/install.sh` ended VERIFIED on this firmware for the first time: the collector's self-test ALL PASS on the device
 (531 checks as of 30 October 2026, where the development machine runs 543: cases gated on tools the device lacks), the
 Overview's ALL PASS (113 checks as of the same day), all seven files byte-identical, and the Overview's Bluetooth screen naming `Apple, Inc.`
