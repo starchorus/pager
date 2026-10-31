@@ -4,11 +4,12 @@
 # BusyBox, a Chrome regression run (T2 = sh tools/regress.sh stays local, before a release).
 # The runner may have a different ShellCheck version from the development machine and report more strictly
 # (for instance SC2015 on A && B || C); green locally does not mean green on the runner, and the runner decides.
+# On request only, since 31 October 2026: the pre-commit hook runs the same tier on every commit, and the mutation
+# probe takes about an hour on a hosted runner, so a run on every push spent the account's compute for nothing new.
+# Start it from the Actions tab (Run workflow) before a release, or when the runner's own verdict is wanted.
 name: quick (T1)
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
