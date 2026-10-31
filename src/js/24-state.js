@@ -20,7 +20,7 @@ const S = {
   sourceKind: "none", sourceLabel: "", sourceKey: "", sourceApCount: 0, liveFeed: false, lastGen: null, stalePolls: 0, staleMs: 0, lostPolls: 0, gaps: [], fresh: false, ingestSeq: 0,   // D3/D4 (§38)
   captureSeq: 0, ev: { lastGen: null, arrived: 0, departed: 0, newStations: 0, newInClouds: 0 },   // D2: one event record per source (see eventsBegin)
   sky: { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] }, crowding: { level: 1, busiest: null },   // D11: per-source EWMA reference of channel occupancy (skyUpdate), crowding 1–5
-  pinned: new Set(), hover: null, locked: null,
+  pinned: new Set(), wl: new Set(), hover: null, locked: null,
   clock: 0, skyA: 0, dirty: true, settling: false, settlePhase: 0, settleCapped: false, relayHold: false, relayT0: 0, layoutDirty: true, fixedTime: null, moving: false,
   perf: { fps: 0, frameMs: 16.6, lod: 0, lodBase: 0, dpr: 1, dprStep: 0, dprStart: 0, down: 0, capMs: 0, lateMs: 1.4 * RENDER.budgetMs,
           slowRun: 0, fastRun: 0, ambRun: 0, bT0: 0, bN: 0, bLate: 0, bMin: Infinity, bMin2: Infinity, upT: 0, upAt: 0, upWait: 0, probe: -1, probeMs: 0, probeT: -1e9, rSeen: 0,

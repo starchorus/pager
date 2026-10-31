@@ -71,13 +71,16 @@ cases = [
   ("packets negative", lambda d: d["unassociated"][0].update(packets=-1)), ("packets text", lambda d: d["unassociated"][0].update(packets="x")),
   ("class word", lambda d: d["bluetooth"][0].update({"class": "scanner"})), ("class type", lambda d: d["bluetooth"][0].update({"class": 7})),
   ("class empty", lambda d: d["bluetooth"][0].update({"class": ""})),
+  ("watched false", lambda d: d["bluetooth"][0].update(watched=False)), ("watched on an access point as text", lambda d: d["aps"][0].update(watched="true")),
+  ("watched on a station as 1", lambda d: d["unassociated"][0].update(watched=1)),
 ]
 bad = [n for n, f in cases if not g.validate(mut(f))]
 good = mut(lambda d: [b.update({"class": g.BT_CLASSES[i % len(g.BT_CLASSES)]}) for i, b in enumerate(d["bluetooth"])])   # a class on every record validates
-print("ok" if not g.validate(doc) and not g.validate(good) and not bad else "clean=%s classed=%s unflagged=%s" % (g.validate(doc), g.validate(good), bad))
+marked = mut(lambda d: (d["aps"][0].update(watched=True), d["unassociated"][0].update(watched=True), d["bluetooth"][0].update(watched=True)))   # watched on the three records validates
+print("ok" if not g.validate(doc) and not g.validate(good) and not g.validate(marked) and not bad else "clean=%s classed=%s marked=%s unflagged=%s" % (g.validate(doc), g.validate(good), g.validate(marked), bad))
 PY
 )
-rowif "radio: the validator flags 19 broken variants of the fixture (order, duplicate, type, range, key, window, activity, packets, class) and passes the fixture, also with a class on every record [$RP_VB]" [ "$RP_VB" = ok ]
+rowif "radio: the validator flags 22 broken variants of the fixture (order, duplicate, type, range, key, window, activity, packets, class, watched only when true) and passes the fixture, also with a class on every record and with watched on an access point, a station and a Bluetooth record [$RP_VB]" [ "$RP_VB" = ok ]
 
 RP_FZ=$(python3 - <<'PY'
 import importlib.util, json, os, sys, tempfile
@@ -87,15 +90,15 @@ gen = fz.load_contract(); fx = fz.Fixtures("tests/fixtures", gen, fz.page_fields
 keys = set(fx.fields["bt"]); hints = fx.hint["bt"]
 muts, big = fz.build(fx, 20260918, "fuzz-canary.tmp", 50)
 names = [m["n"] for m in muts]
-want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable", "class"}
+want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable", "class", "watched"}
 mine = [n for n in names if ":bt." in n]
-ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("class") == "str" and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
+ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("class") == "str" and all("watched" in fx.hint[k] for k in ("ap", "client", "bt")) and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
      and any(n.startswith("1:bt.addr:missing") for n in names) and any(n.startswith("6:bt.company_name:h") for n in names) and any(n.startswith("6:bt.class:h") for n in names) and any(n.startswith("3:bluetooth[0]=") for n in names) \
      and {"bluetooth", "activity"} <= set(fx.fields["top"]) and "packets" in fx.fields["client"] and "ssid_recorded" not in fx.fields["ap"]
 print("ok" if ok else "keys=%s hints=%s mutants=%d" % (sorted(keys ^ want), hints, len(mine)))
 PY
 )
-rowif "radio: the fuzz key list derives bluetooth[] (ten keys, text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
+rowif "radio: the fuzz key list derives bluetooth[] (eleven keys with watched, which the page reads on access points, stations and Bluetooth records; text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
 
 # ---- size: each new function inside its limit (the specification's, three of them measured: rebuildBt, btTip, pkRate), the page inside the cap
 RP_FNB=$(python3 - "$H" <<'PY'
@@ -502,7 +505,7 @@ RP_WANT_CUE='{"errors":0,"legOff":"false","legOn":"true:station ticks = frames h
 rp_probe stale "$RP_EV_CUE" "$RP_WANT_CUE" stale 'const gT = n.cue && !stale ? 1 : 0;' 'const gT = n.cue ? 1 : 0;'
 rp_probe fresh "$RP_EV_DRAWN" "$RP_WANT_DRAWN" drawn 'setAlpha(ctx, k.alphaDraw * k.freshA); blit(ctx, getSprite("bt", "bt"' 'setAlpha(ctx, k.alphaDraw); blit(ctx, getSprite("bt", "bt"'
 rp_probe rank "$RP_EV_RANK" "$RP_WANT_RANK" hitUndrawn 'if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch));' 'if (k.target === 1) near(k, hitRadius(k, touch));'
-rp_probe clsalways "$RP_EV_EXP" "$RP_WANT_EXP" bt 'return c && { class: c };' 'return { class: c };'
+rp_probe clsalways "$RP_EV_EXP" "$RP_WANT_EXP" bt '...c && { class: c }, ' '...{ class: c }, '
 rp_probe clscount "$RP_EV_CLS" "$RP_WANT_CLS" "bt:-:2,bt:65535:1" 'k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x' 'x'
 RP_PN=$(echo "$RP_PROBES" | wc -w | tr -d ' ')
 RP_PK=0; [ "$RP_PN" = 10 ] && [ -z "$RP_PBAD" ] && RP_PK=1

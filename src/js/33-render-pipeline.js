@@ -14,8 +14,8 @@ function fR(ctx, x, y, w, h) { ctx.fillRect(x, y, w, h); if (S.countCalls) DC.fi
 function sT(ctx) { ctx.stroke(); if (S.countCalls) DC.stroke++; }
 function fT(ctx, text, x, y, halo) { if (halo) ctx.strokeText(text, x, y); ctx.fillText(text, x, y); if (S.countCalls) DC.fillText++; }
 // DC.shadowBlur / DC.gradient stay 0: the hot path neither blurs live nor builds gradients (bloom and halos are baked in §31)
-function isForced(id) { return id === S.hover || id === S.locked || S.pinned.has(id); }   // hovered, locked or pinned: always drawn and labelled
-function anyForced() { return S.hover != null || S.locked != null || S.pinned.size > 0; }   // false: isForced() is false for every node (an id is never null), so a scan that only looks for forced nodes finds none
+function isForced(id) { return id === S.hover || id === S.locked || S.pinned.has(id) || S.wl.has(id); }   // hovered, locked, pinned or watched: always drawn and labelled
+function anyForced() { return S.hover != null || S.locked != null || S.pinned.size > 0 || S.wl.size > 0; }   // false: isForced() is false for every node (an id is never null), so a scan that only looks for forced nodes finds none
 function beginFrame() {
   spriteSlot = 0;
   ctxHud.clearRect(0, 0, W, H);

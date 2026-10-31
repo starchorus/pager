@@ -880,6 +880,7 @@ function applyRandom() {   // the Random switch: randOut = folded into a shown c
 }
 const btOn = (k) => k.kind === "bt" ? S.ui.filters.bt : S.ui.random === "cloud";   // key 4 for S.bt, X for S.clouds
 const btRot = (t) => t !== "public" && t !== "random-static";
+const btCmp = (a, b) => !!b.m[0].watched - !!a.m[0].watched || b.rssi - a.rssi || cmpStr(a.id, b.id);   // §3.1 watched first
 function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating = per company and ring (3 dB hysteresis)
   const L = doc.bluetooth, W = doc.center.bt_window ?? null, hold = doc.center.bt_hold ?? 120, keep = !!L && W === 0 && !L.length, grp = new Map(), lv = new Map(), rg = LAYOUT.rings;
   S.btDoc = L ? { window: W, hold, void: W === 0 } : null;
@@ -887,7 +888,7 @@ function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating 
     const rot = btRot(b.addr_type), p = rot && !rp ? S.btLvl.get(b.addr) : null;
     let l = signalLevel(b.rssi);
     if (p != null && b.rssi >= (rg[p] ?? -999) - BT.hystDb && b.rssi < (rg[p - 1] ?? 999) + BT.hystDb) l = p;
-    const key = "bt:" + (rot ? (b.company ?? "-") + ":" + l : b.addr);
+    const key = "bt:" + (rot && !b.watched ? (b.company ?? "-") + ":" + l : b.addr);
     lv.set(b.addr, l); (grp.get(key) || grp.set(key, []).get(key)).push(b);
   }
   if (!keep && !rp) S.btLvl = lv;
@@ -902,7 +903,7 @@ function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating 
     const fr = freshOf(k.lastSeen, gen); k.freshTier = fr.tier; k.freshAT = ENCODING.fresh.alpha[fr.tier ?? 0];
     if (keep ? gen != null && gen - k.lastSeen > hold : !grp.has(id)) k.target = 0;
   });
-  S.btOrder = Array.from(S.bt.values()).filter(k => k.target === 1).sort((a, b) => b.rssi - a.rssi || cmpStr(a.id, b.id)); S.btOrder.forEach((k, i) => { k.rank = i; });
+  S.btOrder = Array.from(S.bt.values()).filter(k => k.target === 1).sort(btCmp); S.btOrder.forEach((k, i) => { k.rank = i; });
 }
 function btStats() {   // §3.10 counts over the live marks
   if (!S.btDoc) return null;

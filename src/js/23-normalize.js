@@ -57,7 +57,7 @@ function normClient(c, fallbackId) {
     if (seen.size) probes = Array.from(seen);
   }
   return { mac, rssi, vendor, last_seen: numOrNull(c.last_seen), packets: numOrNull(c.packets), probes,
-    randomized: c.randomized === true || (!vendor && ulBit(mac)) };
+    randomized: c.randomized === true || (!vendor && ulBit(mac)), watched: c.watched === true };
 }
 function normBt(r) {   // §3.1 bluetooth[]: the strongest 256, null without an array
   if (!Array.isArray(r)) return null;
@@ -73,7 +73,7 @@ function normBt(r) {   // §3.1 bluetooth[]: the strongest 256, null without an 
 // 0.2.7: each key only when set
 function btOpt(b) {
   const c = strOrNull(b.class, 24);
-  return c && { class: c };
+  return { ...c && { class: c }, ...b.watched === true && { watched: true } };
 }
 const normAct = (r) => Array.isArray(r) ? r.slice(0, 69).flatMap(x => { const f = isObj(x) ? numOrNull(x.freq) : null, s = isObj(x) ? numOrNull(x.share) : null; return f > 0 && s > 0 && s <= 1 ? [{ freq: f, share: s }] : []; }) : null;   // §3.1 activity[]
 function normalizeDoc(raw) {
@@ -124,7 +124,7 @@ function normalizeDoc(raw) {
     let resp = numOrNull(a.responded_ssids); resp = resp != null && resp >= 2 ? Math.round(resp) : null;
     const ap = { bssid, ssid: stripCtl(a.ssid, 32), hid: stripN > 0, channel, freq, band: bandOf(a.band, freq, channel), bandF: bandOf(a.band, freq, null), rssi,
       security: stripCtl(a.security, 48), vendor, rate: numOrNull(a.rate), width, last_seen: numOrNull(a.last_seen), phy, caps,
-      beacons: numOrNull(a.beacons), packets: numOrNull(a.packets), akm: strs(a.akm, 12, 24), cipher, auth: strs(a.auth, 6, 16), responded_ssids: resp, clients: [] };
+      beacons: numOrNull(a.beacons), packets: numOrNull(a.packets), akm: strs(a.akm, 12, 24), cipher, auth: strs(a.auth, 6, 16), responded_ssids: resp, watched: a.watched === true, clients: [] };
     const cl = Array.isArray(a.clients) ? a.clients : [];
     cl.forEach((c, j) => { if (!isObj(c)) return; ap.clients.push(normClient(c, bssid + ":c" + j)); });
     const prev = apMap.get(bssid);

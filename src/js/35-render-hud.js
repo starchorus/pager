@@ -14,7 +14,7 @@ function labelDevCarriers() {   // §8.8: device id → the one member that carr
 // drawHud walks it, fonts and raster only place; STARCHORUS.labelCandidates() returns it for cross-theme tests.
 function labelCandidateList(devCarrier) {
   const trans = S.view.blend > 0.02 && S.view.blend < 0.98;
-  const prio = (n) => (n.id === S.locked ? 4 : 0) + (n.id === S.hover ? 3 : 0) + (S.pinned.has(n.id) ? 2 : 0);
+  const prio = (n) => (n.id === S.locked ? 4 : 0) + (n.id === S.hover ? 3 : 0) + (S.pinned.has(n.id) || S.wl.has(n.id) ? 2 : 0);
   const cand = [];
   for (const ap of S.apOrder) {
     if (ap.hidden) continue;

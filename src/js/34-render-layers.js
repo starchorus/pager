@@ -383,6 +383,7 @@ function drawClients() {
       setAlpha(ctx, alpha * c.freshA); blit(ctx, s, sx, sy, px);
     }
     if (S.identity.size || S.rules.length) { const idn = identityOf(c.id); if (idn !== "unknown") { setAlpha(ctx, alpha); drawIdentityFrame(ctx, sx, sy, px + 4, ENCODING.identity[idn]); } }   // D7: a classified station wears the frame, like a star
+    if (S.wl.has(c.id)) { setAlpha(ctx, alpha); drawPinMark(ctx, sx, sy, px + ENCODING.selectionRingOffsetPx); }   // watch.list only
   }
   setAlpha(ctx, 1);
 }
@@ -392,6 +393,7 @@ function drawBt() {   // §3.3 the strongest 48 marks, up to LOD 2
   for (const k of S.bt.values()) {
     if (k.alphaDraw <= 0.02 || k.rank >= BT.drawMax) continue;
     setAlpha(ctx, k.alphaDraw * k.freshA); blit(ctx, getSprite("bt", "bt", tierFor(k.px), k.rot ? (k.n > 1 ? "hd" : "h") : "f"), k.sx, k.sy, k.px);
+    if (k.m[0].watched) { setAlpha(ctx, k.alphaDraw); drawPinMark(ctx, k.sx, k.sy, k.px + ENCODING.selectionRingOffsetPx); }
   }
   setAlpha(ctx, 1);
 }
@@ -431,12 +433,12 @@ function drawBubbles() {
   ringFlush(ctx);
   setAlpha(ctx, 1);
 }
-function drawSelectionMarks(ctx, n, alpha) {   // selection ring when locked, pin mark (outside the ring) when pinned
+function drawSelectionMarks(ctx, n, alpha) {   // selection ring when locked, pin mark (outside the ring) when pinned or watched
   if (n.id === S.locked) {
     setAlpha(ctx, alpha); ctx.strokeStyle = THEME.accent.selection; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(n.sx, n.sy, n.px + ENCODING.selectionRingOffsetPx, 0, Math.PI * 2); sT(ctx);
   }
-  if (S.pinned.has(n.id)) { setAlpha(ctx, alpha); drawPinMark(ctx, n.sx, n.sy, n.px + ENCODING.selectionRingOffsetPx + (n.id === S.locked ? 5 : 0)); }
+  if (S.pinned.has(n.id) || S.wl.has(n.id)) { setAlpha(ctx, alpha); drawPinMark(ctx, n.sx, n.sy, n.px + ENCODING.selectionRingOffsetPx + (n.id === S.locked ? 5 : 0)); }
 }
 function drawPinMark(ctx, x, y, r) {   // D5: a 290° arc, gap at 12 o'clock, a radial notch at each end
   const g = ENCODING.pin.gapDeg * Math.PI / 360, a0 = -Math.PI / 2 + g, a1 = -Math.PI / 2 - g + 2 * Math.PI, nt = ENCODING.pin.notchPx;

@@ -237,7 +237,7 @@ by hand, with no key in `settings.conf`. One entry per line: an address (`aa:bb:
 every access point, station and Bluetooth record whose address or name is listed carries
 `"watched": true` in `starchorus.json`; at most 64 entries count, from at most 512 lines. The collector
 reads the file and nothing else: the list is in no document and no log, and the page server does not
-serve it. The page does not show the mark yet.
+serve it. The page draws the pin mark on them, names the list in the tooltip and the detail sheet, and counts them in the report.
 
 **Settings file** `/root/loot/starchorus/settings.conf` (`$STARCHORUS_DIR/settings.conf`): the menu
 and `payload.sh set` write it, and only the keys that were changed, as `KEY=VALUE` lines via a

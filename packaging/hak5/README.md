@@ -154,7 +154,7 @@ A watch list needs no key either: write addresses or network names, one per line
 like an address; `#` starts a comment). From the next refresh on, every access point, station and
 Bluetooth record whose address or name is on the list carries `"watched": true` in `starchorus.json`;
 at most 64 entries count. The list stays on the Pager: it is in no document and no log, and the page
-server does not serve it. The page does not show the mark yet.
+server does not serve it. The page draws the pin mark on them, names the list in the tooltip and the detail sheet, and counts them in the report.
 
 ## Network exposure
 

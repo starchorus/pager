@@ -9,10 +9,10 @@ function pubNode(n) {
     band: n.band, channel: n.channel, freq: n.freq, rssi: n.rssi, security: n.security, sec: n.sec, vendor: n.vendor, rate: n.rate,
     width: n.width, phy: n.phy, caps: n.caps, beacons: n.beacons, last_seen: n.last_seen, clientCount: n.clientCount, ageS: n.ageS, freshTier: n.freshTier, akm: n.akm, cipher: n.cipher, auth: n.auth, respondedSsids: n.respondedSsids, packets: n.packets, mobile: n.mobile, baseState: n.baseState || null, isNew: isNewAp(n), newSeq: n.newSeq, changedSeq: n.changedSeq, cueSeq: n.cueSeq,
     phyEstimate: phyEstimate(n), pmf: pmfDerived(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt,
-    sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: null, bubbleBlend: 0, pinned: S.pinned.has(n.id) };
+    sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: null, bubbleBlend: 0, pinned: S.pinned.has(n.id), watched: S.wl.has(n.id) };
   return { id: n.id, kind: "client", mac: n.mac, rssi: n.rssi, vendor: n.vendor, randomized: n.randomized, last_seen: n.last_seen, ageS: n.ageS, freshTier: n.freshTier, isNew: isNewAp(n),
     packets: n.packets, fps: n.fps == null ? null : r3(n.fps), glow: n.cue ? n.gl : 0, parent: n.parent, free: n.free, affinity: !!n.affinity, probeVia: n.probeVia || null, probes: n.probes ? n.probes.slice() : null, band: n.band, basePxMax: r3(n.basePxMax),
-    sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: n.bubble, bubbleBlend: r3(n.bubbleBlend), pinned: S.pinned.has(n.id), cloud: n.cloud || null, randOut: !!n.randOut };
+    sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: n.bubble, bubbleBlend: r3(n.bubbleBlend), pinned: S.pinned.has(n.id), watched: S.wl.has(n.id), cloud: n.cloud || null, randOut: !!n.randOut };
 }
 function nodeVisible(n) { return n.target === 1 && n.alphaDraw > 0.05 && (n.kind !== "ap" || (S.ui.filters[n.band] !== false && !isEssFolded(n.id))); }
 function eventsObj() {   // D2: counters of the LAST capture of this source (per station: STARCHORUS.node(mac).isNew); "<5" is a display rule
@@ -31,7 +31,7 @@ function statsObj() {
     groups: st.groups, bubbles: S.bubbles.size, visibleClients: vis, visibleAps: st.aps, alarms: st.alarms, hidden, revealed: S.revealed,
     bands: st.bands, bandsTotal: st.bandsT, security: Object.assign({}, S.security), fresh: Object.assign({}, st.fresh || freshZero()),
     freshClients: Object.assign({}, st.freshCl || freshZero()),   // D1 over the present stations (fresh stays APs only)
-    events: eventsObj(), crowding: S.crowding.level, deviations: S.sky.dev.length, baseline: Object.assign({}, S.base), observations: S.obs.length, changeEntries: Array.from(S.chg.values()).reduce((a, x) => a + x.length, 0), watch: S.watch.length,
+    events: eventsObj(), crowding: S.crowding.level, deviations: S.sky.dev.length, baseline: Object.assign({}, S.base), observations: S.obs.length, changeEntries: Array.from(S.chg.values()).reduce((a, x) => a + x.length, 0), watch: S.watch.length, wl: S.wl.size,
     hop: S.hop === null ? null : { channels: S.hop.length, busy: S.hop.filter(c => c.busy_pct != null).length }, own: { bssids: S.own.bssids.size, ssids: S.own.ssids.size },   // counts only, never the values
     theme: S.ui.theme, view: S.ui.view, mode: S.mode, source: S.source, generated: S.generated, centerLabel: S.centerLabel,
     sourceKind: S.sourceKind, sourceLabel: S.sourceLabel, liveFeed: S.liveFeed, stalePolls: S.stalePolls, captureStale: captureStale(), captureOffline: captureOffline(),

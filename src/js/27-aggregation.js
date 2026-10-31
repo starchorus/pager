@@ -5,8 +5,8 @@ function newBubble(id, gx, gz) {
     meanRssi: null, vendors: [], randomized: 0, expandedUntil: null, born: S.clock };
 }
 function rebuildBubbles() {
-  const active = S.clientOrder.filter(c => c.free && c.target === 1 && !c.randOut);   // §8.8a
-  for (const c of S.clientOrder) if (!c.free || c.randOut) c.bubble = null;
+  const active = S.clientOrder.filter(c => c.free && c.target === 1 && !c.randOut && !S.wl.has(c.id));   // §8.8a; watched: never in a bubble
+  for (const c of S.clientOrder) if (!c.free || c.randOut || S.wl.has(c.id)) c.bubble = null;
   const nFree = active.length;
   const forced = aggForced();
   if (!S.ui.agg && !forced) {

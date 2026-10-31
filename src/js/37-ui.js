@@ -142,7 +142,7 @@ function renderHome() {
 }
 // ---- export (text formats, local): access points AND stations (a received association may be filed); mobile hotspots and own transmitters (and an own/mobile parent) left out
 function exportModel() {
-  const withNotes = (o, id) => { const nt = S.notes.get(id); if (nt && nt.a) o.alias = nt.a; if (nt && nt.t.length) o.tags = nt.t.slice(); return o; };   // alias/tags only: note text is NOT exported
+  const withNotes = (o, id) => { const nt = S.notes.get(id); if (nt && nt.a) o.alias = nt.a; if (nt && nt.t.length) o.tags = nt.t.slice(); if (S.wl.has(id)) o.watched = true; return o; };   // alias/tags only: note text is NOT exported
   const aps = S.apOrder.filter(n => !eventSkip(n)).map(n => withNotes({ bssid: n.bssid, ssid: n.ssidKnown || n.ssid || "", band: n.band, channel: n.channel, security: n.security || ENCODING.security[n.sec].label, class: n.sec, rssi: n.rssi, heard: heardWord(n) }, n.id));
   let mob = 0; S.aps.forEach(n => { if (n.target === 1 && n.mobile) mob++; });
   const clouds = S.cloudOrder.length > 0;
@@ -184,10 +184,10 @@ function exportText(fmt) {
     const cl = m.clouds || null, outside = cl ? m.stations.filter(x => x.cloud == null) : m.stations;
     const staTop = outside.slice().sort((a, b) => rssiOf(b) - rssiOf(a) || (a.mac < b.mac ? -1 : 1)).slice(0, STA_SITREP_MAX)
       .map(x => "  " + (x.alias || x.mac) + " · " + fmtBand(x.band) + (x.rssi != null ? " · " + x.rssi + " dBm" : "") + " · " + (x.association ? "assoc " + x.association : x.probes.length ? "named probes " + x.probes.length : "free"));
-    const cap = m.generated != null ? new Date(m.generated * 1000).toISOString().slice(0, 19) + "Z" : "undated";
+    const cap = m.generated != null ? new Date(m.generated * 1000).toISOString().slice(0, 19) + "Z" : "undated", nw = m.aps.concat(m.stations).filter(x => x.watched).length;
     return ["SITREP · Starchorus", EXPORT_FOOTER, "", "Capture: " + cap + " · source: " + m.source,
       "Access points: " + m.aps.length + " · stations: " + m.stations.length + " (" + m.station_counts.free + " free, " + m.station_counts.associated + " associated) · mobile hotspots: " + m.mobile_hotspots]
-      .concat(cl ? ["Randomised: " + m.station_counts.randomised + " · " + m.station_counts.in_clouds + " of them in " + cl.length + (cl.length === 1 ? " cloud" : " clouds") + " (an estimate, not a device count)"] : [],
+      .concat(nw ? ["Watched: " + nw + " (in watch.list on the device)"] : [], cl ? ["Randomised: " + m.station_counts.randomised + " · " + m.station_counts.in_clouds + " of them in " + cl.length + (cl.length === 1 ? " cloud" : " clouds") + " (an estimate, not a device count)"] : [],
       ["Bands: " + by(a => a.band), "Security: " + by(a => a.class), "Crowding: " + m.crowding + " of 5", "", "Strongest:"], top, ["", "Stations (strongest " + Math.min(outside.length, STA_SITREP_MAX) + " of " + outside.length + (cl ? " outside clouds" : "") + "):"], staTop,
       cl ? ["", "Clouds of randomised addresses (an estimate):"].concat(cl.map(c => "  " + c.id + " · " + c.addresses + " addresses · " + c.rssi + " dBm (" + c.rssi_min + " to " + c.rssi_max + ")" + (c.cadence_s != null ? " · " + cadText(c.cadence_s) : "") + " · named probes " + c.probes.length)) : [],
       ["", "Observations:"], S.obs.length ? S.obs.map(o => "  " + o.text) : ["  none"], ["", EXPORT_FOOTER]).join("\n") + "\n";
@@ -576,7 +576,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow note" data-kind="id-head">identity (APP-6, set in detail):</div>');
   for (const k of ["friend", "neutral", "hostile"]) rows.push('<div class="legrow note" data-kind="id-' + k + '">' + identitySwatch(ENCODING.identity[k]) + '<span>' + esc(ENCODING.identity[k].label) + '</span></div>');
   rows.push('<div class="legrow note" data-kind="selected">' + swFrame('<circle cx="6" cy="6" r="4.6" fill="none" stroke="var(--accent-selection)" stroke-width="1.5"/>') + '<span>selected</span></div>');
-  rows.push('<div class="legrow note" data-kind="pinned">' + pinSwatch() + '<span>pinned</span></div>');
+  rows.push('<div class="legrow note" data-kind="pinned">' + pinSwatch() + '<span id="leg-pin">pinned</span></div>');
   rows.push(block("look"));
   rows.push('<div class="legrow note" id="leg-height" data-kind="height" hidden>height = band (2.4 below · 5 mid · 6 above)</div>');
   rows.push('<div id="leg-rx">' + esc(copyFor("legRx")) + '</div>');
@@ -604,6 +604,7 @@ function legendVisibility() {   // D10: a mark's row exists exactly while that m
   const bb = document.querySelector('[data-band="bt"]'); if (bb) bb.hidden = !S.btDoc;
   vis("leg-alert", S.alerts.some(alertNode)); vis("leg-bt", bo); vis("leg-activity", S.actN > 0); vis("leg-cue", !captureStale() && S.clientOrder.some(c => c.cue));
   txt("leg-geometry", "rings = received signal (dBm), not range · " + (bo ? "Bluetooth and Wi-Fi share the rings, not the scale · " : "") + "direction is not measured");
+  txt("leg-pin", S.wl.size || bo && S.btOrder.some(k => k.m[0].watched) ? "pinned, or in watch.list" : "pinned");
 }
 function updateLegendCounts() {
   const s = S._stats || { bands: { "2.4": 0, "5": 0, "6": 0 }, bandUnknown: 0 };
@@ -663,9 +664,9 @@ function probeCell(list) { return esc(probeWords(list)) + (list && list.length ?
 function btTip(k) {   // §3.5 the tooltip line (plain text)
   return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen)) + btTail(k);
 }
-function btTail(k) {   // 0.2.7: the classes of its addresses, counted
+function btTail(k) {   // 0.2.7: the classes of its addresses, counted, and the watch.list mark
   const w = k.m.map(b => b.class).filter(Boolean).sort();
-  return w.length ? " · advertising as " + [...new Set(w)].map(x => k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x).join(", ") : "";
+  return (w.length ? " · advertising as " + [...new Set(w)].map(x => k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x).join(", ") : "") + (k.m[0].watched ? " · in watch.list" : "");
 }
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid
@@ -699,6 +700,7 @@ function showTip(n) {
     html += kv("Probes", esc(probeWords(n.probes, 3)));
     html += kv("Signal", esc(fmtSignal(n.rssi))) + '</div>';
   }
+  if (S.wl.has(n.id)) html += '<div class="sub">in watch.list</div>';
   tipBody.innerHTML = html; tip.style.opacity = "1";
   // mini-sparkline for APs with ≥3 samples — persistent canvas, drawn only on hover change
   const h = n.kind === "ap" ? S.hist.get(n.id) : null;
@@ -776,6 +778,7 @@ function openDetail(id) {
     if (hh && hh.n) { const info = STARCHORUS.hist(n.id); if (info) t += row("History", esc("min " + (info.min ?? "—") + " · max " + (info.max ?? "—") + (withLast ? " · last " + (info.last ?? "—") : "") + " · " + info.n + " samples")); }
     t += row("Last seen", n.last_seen != null ? esc(fmtAge(lastSeenAge(n))) : "—");
     t += row("Freshness", esc(heardWord(n)));
+    if (S.wl.has(n.id)) t += row("Listed", "in watch.list on the device; edit that file to take the mark off");
     const nt = S.notes.get(n.id) || { a: "", n: "", t: [] };
     if (identitySource(n.id) === "rule-matched") t += row("Identity", esc(identityOf(n.id) + " (rule-matched)"));
     return t + '<tr><th>Alias</th><td><input id="nt-a" maxlength="24" value="' + esc(nt.a) + '"></td></tr><tr><th>Notes</th><td><input id="nt-n" maxlength="120" value="' + esc(nt.n) + '"></td></tr><tr><th>Tags</th><td><input id="nt-t" maxlength="52" placeholder="up to 4, comma separated" value="' + esc(nt.t.join(", ")) + '"></td></tr>';
@@ -1147,8 +1150,8 @@ detailSpark.addEventListener("keydown", (e) => {
   const v = info.s[cur];
   detailSpark.setAttribute("aria-label", "Signal history: " + (v === -128 ? "gap" : v + " dBm") + " · sample " + (cur + 1) + " of " + info.s.length);
 });
-function cyclePinned(dir) {   // [ / ] step through pinned nodes
-  const arr = Array.from(S.pinned).filter(nodeById); if (!arr.length) return;
+function cyclePinned(dir) {   // [ / ] step through pinned and watched nodes
+  const arr = [...new Set([...S.pinned, ...S.wl])].filter(nodeById); if (!arr.length) return;
   let i = arr.indexOf(S.locked);
   i = i < 0 ? (dir > 0 ? 0 : arr.length - 1) : ((i + dir) % arr.length + arr.length) % arr.length;
   select(arr[i]);
@@ -1250,7 +1253,7 @@ function phoneLayout(fromResize) {   // D21 the phone pass of layoutEdges(): the
   ds.card = card;   // first: the CSS shows this card before it is measured
   el("sheet-lead").hidden = el("t-legend").hidden = !ctl; title.hidden = el("sheet-close").hidden = ctl;
   title.textContent = card === "detail" ? detailTitle.textContent : PH_TITLE[card === "drawer" ? ds.drawer : card] || "";
-  el("sheet-prev").hidden = el("sheet-next").hidden = !(card === "detail" && S.pinned.size >= 2);
+  el("sheet-prev").hidden = el("sheet-next").hidden = !(card === "detail" && new Set([...S.pinned, ...S.wl]).size >= 2);
   const sc = el("t-scope"), row = el("sheet-row"), room = row.clientWidth - [...row.children].reduce((s, c) => s + (c === sc || !c.scrollWidth ? 0 : c.scrollWidth + 8), -8) >= 52;
   sc.hidden = !ctl; if (room !== (sc.parentNode === row)) (room ? row : el("grp-look")).insertBefore(sc, room ? el("t-legend") : null);
   syncPressed("t-legend", S.ui.legendCard); el("sheet").setAttribute("aria-label", ctl ? "Controls" : title.textContent);
