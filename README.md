@@ -532,9 +532,11 @@ The collector produces exactly the format the page reads:
 - Additional fields, such as `vendor`, `last_seen`, `akm`, `cipher`, `auth`, `channels[]` or
   `homing`, are omitted when unknown; they are never `null`.
 - Opt-in layers, each absent while its switch is off: `bluetooth[]` (`addr`, `addr_type`, `rssi`, `reports`, `last_seen`, and `company`,
-  `company_name`, `name`, `connectable`, `class` when advertised: addresses heard in the last passive scan and the ones held for two minutes,
+  `company_name`, `name`, `connectable`, `class`, `remote_id` when advertised: addresses heard in the last passive scan and the ones held for two minutes,
   at most 256, strongest first; `class` is one of fourteen fixed words for what the advertisement itself claims to be, such as `beacon`,
-  `finder frame`, `pairing frame` or `phone`, read from the Pager's own Bluetooth database and never an identification), with
+  `finder frame`, `pairing frame` or `phone`, read from the Pager's own Bluetooth database and never an identification; `remote_id` carries
+  what a drone's Remote ID broadcast says, as broadcast and unchecked: the aircraft type, the id type and id, the status, position and
+  altitude it reports, and the operator's position and id, never a direction or a distance of ours), with
   `center.bt_window` (the scan's length in seconds, `0` when this cycle had no valid scan) and
   `center.bt_hold`; `activity[]` (`freq`, `share`: the share of the frames heard on that frequency among all frequencies from 2400 MHz up,
   never a count) and the absolute `packets` counter on stations. `channels[]` is unchanged, so the baseline and the Watchlist never read

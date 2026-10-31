@@ -177,6 +177,24 @@ rowif "collector fields: Bluetooth classes: mfr leaves SQLite only as hex(substr
 # the row bites: a list with "scanner" and a 25-character word is judged and over
 CFL_CWB=$(printf 'scanner\nphone\n' | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|scanner|rssi|dbm')/$(printf 'a twenty-five char word!!\n' | awk 'length($0) > 24 || $0 == ""' | grep -c .)
 rowif "collector fields: the class-word row bites (scanner is judged, a 25-character word is over: $CFL_CWB)" [ "$CFL_CWB" = 1/1 ]
+# ---- Remote ID (0.2.7): svcd leaves SQLite only as hex and only behind the test for the service head FAFF0D (one line, no other read of the column), the three
+# word lists of the decoder (UA types, status, id types) are the validator's RID_UA, RID_STATUS and RID_IDT word for word, and none of the words is one the
+# neutral-language judge or the direction judge of the Scope rejects (no direction, bearing or distance word among what a broadcast is said to carry).
+CFL_RS=$(grep -c "instr(hex(svcd),'FAFF0D')>0 THEN hex(svcd) ELSE '' END" starchorus-collect.sh)
+CFL_RSX=$(grep -cE 'quote\(svcd|CAST\(svcd|substr\(svcd|svcd[^)]*AS TEXT' starchorus-collect.sh)
+cfl_rw() {   # NAME -> the words of the collector's split("...", NAME, " ") list, one per line
+  sed -n 's/.*split("\([^"]*\)", '"$1"', " ").*/\1/p' starchorus-collect.sh | tr ' ' '\n' | grep .
+}
+cfl_rv() {   # NAME -> the words of the validator's NAME = (...) tuple, one per line
+  sed -n 's/^'"$1"' = (\(.*\))$/\1/p' tools/gen-testdata.py | tr -d '" ' | tr ',' '\n' | grep .
+}
+CFL_RWS=0; [ -n "$(cfl_rw RUA)" ] && [ "$(cfl_rw RUA)" = "$(cfl_rv RID_UA)" ] && [ "$(cfl_rw RST)" = "$(cfl_rv RID_STATUS)" ] && [ "$(cfl_rw RIT)" = "$(cfl_rv RID_IDT)" ] && CFL_RWS=1
+CFL_RWN=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -c .)
+CFL_RWJ=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
+rowif "collector fields: Remote ID: svcd leaves SQLite only as hex behind the FAFF0D test ($CFL_RS/1, other reads $CFL_RSX/0); the decoder's $CFL_RWN words are the validator's three lists ($CFL_RWS) and none is judged ($CFL_RWJ)" [ "$CFL_RS/$CFL_RSX/$CFL_RWS/$CFL_RWN/$CFL_RWJ" = 1/0/1/26/0 ]
+# the row bites: a list with "track" and "north" is judged twice
+CFL_RWB=$(printf 'track\nnorth\nairborne\n' | grep -ciE 'direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
+rowif "collector fields: the Remote ID word row bites (track and north are judged: $CFL_RWB)" [ "$CFL_RWB" = 2 ]
 
 # The self-test has one line per family of the new cases (a case that stops running would otherwise only lower a count that nobody reads): the output
 # of the run that tools/static.sh made (out/PREFIX-selftest.txt); without it (a drop-in run on its own) the row says so.
@@ -199,7 +217,8 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'alerts: ten lines' 'alerts: skip rules' 'alerts: 25 APs' 'alerts: no file' 'alerts: a directory' 'alerts: a read that fails' 'alerts: the switch' 'alerts: with Traffic' \
                'STARCHORUS_ALERT_WINDOW: values' 'STARCHORUS_ALERT_WINDOW: the log line' 'alerts: the window' \
                'blue5: bt_blue5_read maps' 'blue5: the company list names' 'blue5: a missing blue5.db' 'blue5 class: Apple message types' 'blue5 class: 16-bit services' \
-               'blue5 class: appearance categories' 'blue5 class: the rank' 'blue5 class: refusals' 'blue5 class: the class survives hold' 'blue5 class: a database without the columns'; do
+               'blue5 class: appearance categories' 'blue5 class: the rank' 'blue5 class: refusals' 'blue5 class: the class survives hold' 'blue5 class: a database without the columns' \
+               'remote id: the single messages' 'remote id: refusals' 'remote id: a latitude beyond 90' 'remote id: the identity and the operator fields' 'remote id: of twenty candidates'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"

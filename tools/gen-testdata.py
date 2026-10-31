@@ -766,7 +766,11 @@ OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth"
 OPT_CL = {"vendor", "last_seen", "randomized", "probes", "packets"}
 BT_TYPES = ("public", "random-static", "random-resolvable", "random-nonresolvable", "random")   # bluetooth[].addr_type
 BT_KEYS = ("addr", "addr_type", "rssi", "reports", "last_seen")                                 # always written
-OPT_BT = {"company", "company_name", "name", "connectable", "class"}                             # written only when the advertisement has them
+OPT_BT = {"company", "company_name", "name", "connectable", "class", "remote_id"}                # written only when the advertisement has them
+RID_KEYS = ("ua_type", "id_type", "uas_id", "status", "lat", "lon", "alt_m", "operator_lat", "operator_lon", "operator_id")   # bluetooth[].remote_id (0.2.7), in this order, each only when the broadcast carried it
+RID_UA = ("none", "aeroplane", "multirotor", "gyroplane", "vtol", "ornithopter", "glider", "kite", "free-balloon", "captive-balloon", "airship", "free-fall", "rocket", "tethered", "obstacle", "other")
+RID_STATUS = ("undeclared", "ground", "airborne", "emergency", "failure")
+RID_IDT = ("none", "serial", "registration", "utm", "session")
 BT_CLASSES = ("beacon", "computer", "device message", "display", "finder frame", "input device", "keyring", "media player", "pairing frame", "phone", "remote control", "sensor", "tag", "watch")   # bluetooth[].class: the collector's fixed table (0.2.7), what the advertisement claims to be
 IWSCAN_OPT_AP = {"vendor"}    # build_from_iwscan() emits no rate/last_seen/width/phy
 
@@ -791,6 +795,31 @@ def validate_alerts(al):
     aps = [e["ap"] for e in al if isinstance(e, dict) and isinstance(e.get("ap"), str)]
     if len(aps) != len(set(aps)):
         p.append("alerts: one entry per access point")
+    return p
+
+
+def validate_remote_id(w, r):
+    """bluetooth[].remote_id (0.2.7): an object with at least one key, the keys from RID_KEYS in that order, the words from the fixed lists, ids of
+    1-20 characters [A-Za-z0-9._-], lat/lon numbers inside their ranges (both or neither, the operator's likewise), alt_m a number."""
+    if not isinstance(r, dict) or not r:
+        return [w + ": remote_id must be an object with at least one key"]
+    p = []
+    if [k for k in RID_KEYS if k in r] != list(r):
+        p.append(w + ": remote_id keys must be from ua_type, id_type, uas_id, status, lat, lon, alt_m, operator_lat, operator_lon, operator_id, in that order")
+    for k, words in (("ua_type", RID_UA), ("status", RID_STATUS), ("id_type", RID_IDT)):
+        if k in r and r[k] not in words:
+            p.append("%s: remote_id.%s must be one of the fixed words" % (w, k))
+    for k in ("uas_id", "operator_id"):
+        if k in r and not (isinstance(r[k], str) and re.fullmatch(r"[A-Za-z0-9._-]{1,20}", r[k])):
+            p.append("%s: remote_id.%s must be 1-20 characters of A-Z a-z 0-9 . _ -" % (w, k))
+    for a, b in (("lat", "lon"), ("operator_lat", "operator_lon")):
+        if (a in r) != (b in r):
+            p.append("%s: remote_id.%s and %s go together" % (w, a, b))
+        for k, m in ((a, 90), (b, 180)):
+            if k in r and not (isinstance(r[k], (int, float)) and not isinstance(r[k], bool) and -m <= r[k] <= m):
+                p.append("%s: remote_id.%s must be a number within +-%d" % (w, k, m))
+    if "alt_m" in r and not (isinstance(r["alt_m"], (int, float)) and not isinstance(r["alt_m"], bool)):
+        p.append(w + ": remote_id.alt_m must be a number")
     return p
 
 
@@ -833,6 +862,8 @@ def validate_bluetooth(bt):
             p.append(w + ": connectable is written only when true")
         if "class" in b and b["class"] not in BT_CLASSES:
             p.append(w + ": class must be one of the collector's class words")
+        if "remote_id" in b:
+            p += validate_remote_id(w, b["remote_id"])
     order = [(-b["rssi"], b["addr"]) for b in bt if isinstance(b, dict) and isinstance(b.get("rssi"), int) and isinstance(b.get("addr"), str)]
     if order != sorted(order):
         p.append("bluetooth must be sorted strongest first (rssi descending, then addr)")

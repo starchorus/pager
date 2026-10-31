@@ -253,7 +253,10 @@ range. Handle this data with care:
   alone. Do not make it more widely reachable than necessary, and clear out `STARCHORUS_OUTDIR` when
   you no longer need the data (with the `pineap` source also `$STARCHORUS_TMPDIR/starchorus-sec.txt`).
 - **No profiling of people.** The tool visualises the radio environment; it is not meant for
-  tracking individuals.
+  tracking individuals. Remote ID broadcasts (drones, 0.2.7) are passed on as the text they carry, the
+  aircraft's and the operator's position among them, because the sender broadcasts them in the open for
+  anyone to read; Starchorus draws no map, no path and no direction from them and keeps them like every
+  other Bluetooth record, in memory only.
 
 ### What the page stores in the browser
 

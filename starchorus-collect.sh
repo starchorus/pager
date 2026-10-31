@@ -1061,16 +1061,20 @@ bt_blue5_done() {
 #   * fields 11-13, the class columns of the firmware's 2.0 schema (device-notes §2c), cut IN SQL so that only what the table in AWK_LAYERS can
 #     name leaves the database: of mfr the first three bytes as hex (the company id, little-endian, and the byte after it: Apple's message
 #     type), never the payload with its rotating identifiers; appearance only as a whole number 1..65535; svc16 only when it is text of hex
-#     digits, commas and blanks, 40 characters at most. Anything else is '' (no class). With BT5_SV=1 (a database that lacks the columns,
-#     an older firmware: bt_blue5_read sets it when the full query gives no sentinel) the same statement carries three empty fields instead,
-#     so the B-line keeps its 13 fields and the layer its records; the vendor re-check clears BT5_SV and the full query is tried again.
+#     digits, commas and blanks, 40 characters at most. Anything else is '' (no class);
+#   * field 14, svcd (the service data) as hex, only when it is a blob of 8 to 232 bytes that holds the Remote ID service head FAFF0D (the
+#     service FFFA, little-endian, then the app code 0D): the decoder in AWK_LAYERS reads the broadcast's messages from it; any other service
+#     data stays in the database. With BT5_SV=1 (a database that lacks the columns, an older firmware: bt_blue5_read sets it when the full
+#     query gives no sentinel) the same statement carries four empty fields instead, so the B-line keeps its 14 fields and the layer its
+#     records; the vendor re-check clears BT5_SV and the full query is tried again.
 bt_blue5_sql() {
-    if [ "$BT5_SV" = 1 ]; then b5_cx="'', '', ''"; b5_ci=""
+    if [ "$BT5_SV" = 1 ]; then b5_cx="'', '', '', ''"; b5_ci=""
     else
         b5_cx="CASE WHEN typeof(mfr)='blob' AND length(mfr)>=3 THEN hex(substr(mfr,1,3)) ELSE '' END,
   CASE WHEN typeof(appearance)='integer' AND appearance BETWEEN 1 AND 65535 THEN appearance ELSE '' END,
-  CASE WHEN typeof(svc16)='text' AND svc16 NOT GLOB '*[^0-9A-Fa-f, ]*' THEN upper(substr(svc16,1,40)) ELSE '' END"
-        b5_ci="mfr, appearance, svc16,"
+  CASE WHEN typeof(svc16)='text' AND svc16 NOT GLOB '*[^0-9A-Fa-f, ]*' THEN upper(substr(svc16,1,40)) ELSE '' END,
+  CASE WHEN typeof(svcd)='blob' AND length(svcd) BETWEEN 8 AND 232 AND instr(hex(svcd),'FAFF0D')>0 THEN hex(svcd) ELSE '' END"
+        b5_ci="mfr, appearance, svc16, svcd,"
     fi
     sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
 SELECT 'B',
@@ -1111,12 +1115,12 @@ bt_blue5_read() {
     br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
     case $br_raw in
         *"#STARCHORUS_BT5OK#"*)
-            if [ "$BT5_SV" != 1 ] && [ "$BT5_SVLOG" = 1 ]; then log "Bluetooth: blue5.db answers the full query again (mfr, appearance, svc16); classes are back"; BT5_SVLOG=0; fi ;;
+            if [ "$BT5_SV" != 1 ] && [ "$BT5_SVLOG" = 1 ]; then log "Bluetooth: blue5.db answers the full query again (mfr, appearance, svc16, svcd); classes and Remote ID are back"; BT5_SVLOG=0; fi ;;
         *)
             if [ "$BT5_SV" != 1 ]; then
                 BT5_SV=1; br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
                 case $br_raw in
-                    *"#STARCHORUS_BT5OK#"*) [ "$BT5_SVLOG" = 1 ] || log "Bluetooth: blue5.db has no mfr, appearance or svc16 column (an older firmware); addresses without a class until the next re-check"; BT5_SVLOG=1 ;;
+                    *"#STARCHORUS_BT5OK#"*) [ "$BT5_SVLOG" = 1 ] || log "Bluetooth: blue5.db has no mfr, appearance, svc16 or svcd column (an older firmware); addresses without a class or Remote ID until the next re-check"; BT5_SVLOG=1 ;;
                     *) BT5_SV="" ;;
                 esac
             fi ;;
@@ -1628,9 +1632,85 @@ AWK_LAYERS='
         for (i = int((n - 2) / 2); i >= 0; i--) sift(i, n - 1, ix)
         for (i = n - 1; i > 0; i--) { t = ix[0]; ix[0] = ix[i]; ix[i] = t; sift(0, i - 1, ix) }
     }
-    function addrec(a, ty_, r_, n_, co_, cn_, nm_, cc_, ls_, ca_, cl_) {
+    function addrec(a, ty_, r_, n_, co_, cn_, nm_, cc_, ls_, ca_, cl_, ra_, rp_) {
         ad[nrec] = a; tp[nrec] = ty_; rr[nrec] = r_ + 0; rp[nrec] = n_ + 0; cmp[nrec] = co_; cnm[nrec] = cn_; nmx[nrec] = nm_
-        cnx[nrec] = cc_ + 0; lsn[nrec] = ls_ + 0; car[nrec] = ca_ + 0; cls[nrec] = cl_; have[a] = 1; nrec++
+        cnx[nrec] = cc_ + 0; lsn[nrec] = ls_ + 0; car[nrec] = ca_ + 0; cls[nrec] = cl_; rida[nrec] = ra_; ridp[nrec] = rp_; have[a] = 1; nrec++
+    }
+    # Remote ID (ASTM F3411, the Bluetooth service FFFA with the app code 0D), decoded from the hex of svcd that bt_blue5_sql lets through, in
+    # POSIX awk alone (a byte from two index() calls, little-endian numbers as doubles). Read: Basic ID (type 0), Location (1), System (4) and
+    # Operator ID (5), single or in a Message Pack (type F, up to nine 25-byte messages). Not read: Authentication, Self-ID, direction, speed,
+    # timestamps, accuracies. What the broadcast says is passed on as it stands: ids only as [A-Za-z0-9._-], positions only inside their
+    # ranges, 0/0 and an altitude of 0 meaning unknown; a claim of the sender, never a reading, a direction or a distance of ours.
+    function rhb(h, i) { return (index("0123456789ABCDEF", substr(h, 2 * i + 1, 1)) - 1) * 16 + index("0123456789ABCDEF", substr(h, 2 * i + 2, 1)) - 1 }
+    function ru16(h, i) { return rhb(h, i) + 256 * rhb(h, i + 1) }
+    function ri32(h, i,   v) { v = rhb(h, i) + 256 * rhb(h, i + 1) + 65536 * rhb(h, i + 2) + 16777216 * rhb(h, i + 3); return v >= 2147483648 ? v - 4294967296 : v }
+    function ridtx(h, i, n,   k, c, s, z) {   # an id of n bytes: [A-Za-z0-9._-] then NUL padding; "" when anything else is in it
+        s = ""; z = 0
+        for (k = 0; k < n; k++) {
+            c = rhb(h, i + k)
+            if (c == 0) { z = 1; continue }
+            if (z) return ""
+            if (c >= 48 && c <= 57) s = s substr("0123456789", c - 47, 1)
+            else if (c >= 65 && c <= 90) s = s substr("ABCDEFGHIJKLMNOPQRSTUVWXYZ", c - 64, 1)
+            else if (c >= 97 && c <= 122) s = s substr("abcdefghijklmnopqrstuvwxyz", c - 96, 1)
+            else if (c == 45) s = s "-"
+            else if (c == 46) s = s "."
+            else if (c == 95) s = s "_"
+            else return ""
+        }
+        return s
+    }
+    function rll(v, m) { return (v >= -m * 10000000 && v <= m * 10000000) ? sprintf("%.7f", v / 10000000) : "" }
+    function rmsg(h, o,   t, x, a, b) {   # one 25-byte message at byte o: fills the R_ fields it carries
+        t = int(rhb(h, o) / 16)
+        if (t == 0) { x = rhb(h, o + 1); R_idt = int(x / 16); R_ua = x % 16; R_id = (R_idt == 1 || R_idt == 2) ? ridtx(h, o + 2, 20) : "" }
+        else if (t == 1) {
+            R_st = int(rhb(h, o + 1) / 16); a = ri32(h, o + 5); b = ri32(h, o + 9)
+            if (!(a == 0 && b == 0)) { R_lat = rll(a, 90); R_lon = rll(b, 180); if (R_lat == "" || R_lon == "") { R_lat = ""; R_lon = "" } }
+            x = ru16(h, o + 15); R_alt = x ? sprintf("%.1f", x / 2 - 1000) : ""
+        }
+        else if (t == 4) { a = ri32(h, o + 2); b = ri32(h, o + 6); if (!(a == 0 && b == 0)) { R_olat = rll(a, 90); R_olon = rll(b, 180); if (R_olat == "" || R_olon == "") { R_olat = ""; R_olon = "" } } }
+        else if (t == 5) R_oid = ridtx(h, o + 2, 20)
+    }
+    function ridec(h,   p, q, o, n, k) {   # the hex of svcd -> the R_ fields; 0 when it holds no Remote ID message
+        R_idt = ""; R_ua = ""; R_st = ""; R_id = ""; R_lat = ""; R_lon = ""; R_alt = ""; R_olat = ""; R_olon = ""; R_oid = ""
+        if (h !~ /^[0-9A-F]+$/ || length(h) % 2 || length(h) > 464) return 0
+        p = index(h, "FAFF0D"); while (p && (p - 1) % 2) { q = index(substr(h, p + 1), "FAFF0D"); p = q ? p + q : 0 }
+        if (!p) return 0
+        o = (p - 1) / 2 + 4; n = length(h) / 2
+        if (o + 25 > n) return 0
+        if (int(rhb(h, o) / 16) == 15) {
+            k = rhb(h, o + 2); if (k < 1 || k > 9 || rhb(h, o + 1) != 25 || o + 3 + 25 * k > n) return 0
+            o += 3; while (k-- > 0) { rmsg(h, o); o += 25 }
+        } else rmsg(h, o)
+        return 1
+    }
+    function ridmerge(a,   n, f, k) {   # the identity string held for the address (six |-separated fields), overridden by what this cycle decoded (R_)
+        n = split(a, f, "|"); for (k = n + 1; k <= 6; k++) f[k] = ""
+        if (R_ua != "") { f[1] = ((R_ua + 1) in RUA) ? RUA[R_ua + 1] : ""; f[2] = ((R_idt + 1) in RIT) ? RIT[R_idt + 1] : ""; f[3] = R_id }
+        if (R_olat != "") { f[4] = R_olat; f[5] = R_olon }
+        if (R_oid != "") f[6] = R_oid
+        if (f[1] f[2] f[3] f[4] f[5] f[6] == "") return ""
+        return f[1] "|" f[2] "|" f[3] "|" f[4] "|" f[5] "|" f[6]
+    }
+    function ridpos(   s) {   # the position fields of this cycle alone, never carried: status, lat, lon, alt_m
+        s = ""
+        if (R_st != "" && ((R_st + 1) in RST)) s = s ", \"status\": \"" RST[R_st + 1] "\""
+        if (R_lat != "") s = s ", \"lat\": " R_lat ", \"lon\": " R_lon
+        if (R_alt != "") s = s ", \"alt_m\": " R_alt
+        return s
+    }
+    function ridobj(a, pfrag,   n, f, s, k) {   # the identity string and the position fragment of this cycle -> the keys of remote_id, in their order
+        n = split(a, f, "|"); for (k = n + 1; k <= 6; k++) f[k] = ""
+        for (k = 1; k <= 6; k++) if (f[k] !~ /^[A-Za-z0-9._-]*$/) f[k] = ""   # a held field is ours, but only the characters the decoder writes pass
+        s = ""
+        if (f[1] != "") s = s ", \"ua_type\": \"" f[1] "\""
+        if (f[2] != "") s = s ", \"id_type\": \"" f[2] "\""
+        if (f[3] != "") s = s ", \"uas_id\": \"" f[3] "\""
+        s = s pfrag
+        if (f[4] ~ /^-?[0-9]+\.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/ && f[5] ~ /^-?[0-9]+\.[0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/) s = s ", \"operator_lat\": " f[4] ", \"operator_lon\": " f[5]
+        if (f[6] != "") s = s ", \"operator_id\": \"" f[6] "\""
+        return substr(s, 3)
     }
     function hexv(s,   i, d, v) {   # a string of upper-case hex digits -> its value; -1 when a character is none
         v = 0
@@ -1661,6 +1741,11 @@ AWK_LAYERS='
         scl["FE2C"] = "pairing frame"; scl["FEAA"] = "beacon"; scl["1812"] = "input device"; scl["181A"] = "sensor"
         acl[1] = "phone"; acl[2] = "computer"; acl[3] = "watch"; acl[5] = "display"; acl[6] = "remote control"; acl[8] = "tag"; acl[9] = "keyring"
         acl[10] = "media player"; acl[15] = "input device"; acl[21] = "sensor"
+        # the Remote ID words (ridmerge, ridpos): the UA types 0-15, the status 0-4 and the id types 0-4 of ASTM F3411; rcand counts the decodes of a cycle
+        rcand = 0
+        split("none aeroplane multirotor gyroplane vtol ornithopter glider kite free-balloon captive-balloon airship free-fall rocket tethered obstacle other", RUA, " ")
+        split("undeclared ground airborne emergency failure", RST, " ")
+        split("none serial registration utm session", RIT, " ")
         alf = ENVIRON["SC_ALF"]
         if (alf != "" && ts > 0) {
             alwin = ENVIRON["SC_ALWIN"] + 0
@@ -1689,13 +1774,22 @@ AWK_LAYERS='
             for (ali = 0; ali < alent; ali++) alo = alo (ali ? ", " : "") sprintf("{\"type\": \"deauth\", \"t\": %d, \"ap\": \"%s\", \"n\": %d}", alst[ali], alsa[ali], alcnt[alsa[ali]])
             if (alent > 0) alline = "  \"alerts\": [" alo "],"
         }
+        if (mode != 0) {   # the Remote ID identity held for an address (field 12 of a held line), merged when the address is heard again this cycle
+            f = ENVIRON["SC_BTH"]
+            while ((getline line < f) > 0) if (split(line, c, "\t") >= 12 && c[12] != "") hid[c[1]] = c[12]
+            close(f)
+        }
         if (mode == 1) {
             f = ENVIRON["SC_BTP"]
             while ((getline line < f) > 0) {
                 if (split(line, c, "\t") >= 9 && c[1] == "B") {
                     ls = (c[10] ~ /^[0-9]+$/) ? c[10] + 0 : ts   # a blue5 B-line carries the real last_seen in a 10th field; a window line has none (-> ts, heard now)
                     if (ls > ts) ls = ts                         # never later than the document that holds it (a clock that moved back)
-                    if (ls >= ts - hold) addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ls, 0, btclass(c[11], c[12], c[13], c[6]))   # fields 11-13 (blue5 only): the class columns, cut in SQL
+                    if (ls >= ts - hold) {
+                        riA = (c[2] in hid) ? hid[c[2]] : ""; riP = ""
+                        if (c[14] != "" && rcand < 8) { rcand++; if (ridec(c[14])) { riA = ridmerge(riA); riP = ridpos() } }   # field 14 (blue5 only): the Remote ID service data; eight decodes a cycle, the strongest first
+                        addrec(c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], ls, 0, btclass(c[11], c[12], c[13], c[6]), riA, riP)   # fields 11-13 (blue5 only): the class columns, cut in SQL
+                    }
                 }
             }
             close(f)
@@ -1705,7 +1799,7 @@ AWK_LAYERS='
             while ((getline line < f) > 0) {
                 if ((hfn = split(line, c, "\t")) < 10 || (c[1] in have)) continue
                 if (c[9] + 0 > ts || c[9] + 0 < ts - hold || c[10] + 1 > 4) continue
-                addrec(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] + 1, (hfn >= 11) ? c[11] : "")   # field 11 = the class (0.2.7); a held line without it carries none
+                addrec(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] + 1, (hfn >= 11) ? c[11] : "", (hfn >= 12) ? c[12] : "", "")   # field 11 = the class, 12 = the Remote ID identity (0.2.7); a held line without them carries none, and a position is never carried
             }
             close(f)
             sortix(nrec, ix)
@@ -1719,9 +1813,10 @@ AWK_LAYERS='
                 if (cnm[i] != "") o = o ", \"company_name\": \"" jesc(cnm[i]) "\""
                 if (nmx[i] != "") o = o ", \"name\": \"" jesc(nmx[i]) "\""
                 if (cnx[i]) o = o ", \"connectable\": true"
-                if (cls[i] != "") o = o ", \"class\": \"" jesc(cls[i]) "\""   # the last key, only when set: a record without one is byte-identical to one of 0.2.6
+                if (cls[i] != "") o = o ", \"class\": \"" jesc(cls[i]) "\""   # only when set: a record without one is byte-identical to one of 0.2.6
+                if (rida[i] != "" || ridp[i] != "") { ro = ridobj(rida[i], ridp[i]); if (ro != "") o = o ", \"remote_id\": {" ro "}" }   # the last key, only with a field
                 o = o "}"
-                printf "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%s\n", ad[i], tp[i], rr[i], rp[i], cmp[i], cnm[i], nmx[i], cnx[i], lsn[i], car[i], cls[i] > nf
+                printf "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n", ad[i], tp[i], rr[i], rp[i], cmp[i], cnm[i], nmx[i], cnx[i], lsn[i], car[i], cls[i], rida[i] > nf
             }
             close(nf)
             btline = "  \"bluetooth\": [" o "],"
@@ -4702,7 +4797,7 @@ lay_selftest() {
         BLUE5_DB="$LAY_BLUE5_OLD"; BT_HELD=""; ts=$b5_ts; BT5_SV=""; BT5_SVLOG=0
         bt_blue5_read "$b5_ts" 2> "$b5/o.log"; b5o_rc=$?; b5o_sv=$BT5_SV; lay_doc $b5_ts > "$b5/o.json"; add_layers "$b5/o.json" 1 blue5
         b5o_l=$(grep '^  "bluetooth": ' "$b5/o.json")
-        bt_blue5_read "$b5_ts" 2>> "$b5/o.log"; b5o_rc2=$?; b5o_sv2=$BT5_SV; b5o_n=$(grep -c 'has no mfr, appearance or svc16 column' "$b5/o.log")
+        bt_blue5_read "$b5_ts" 2>> "$b5/o.log"; b5o_rc2=$?; b5o_sv2=$BT5_SV; b5o_n=$(grep -c 'has no mfr, appearance, svc16 or svcd column' "$b5/o.log")
         BLUE5_DB="$b5_db"; bt_blue5_read "$b5_ts" 2> "$b5/o2.log"; b5o_rc3=$?; b5o_sv3=$BT5_SV; b5o_n3=$(grep -c . "$b5/o2.log")   # the full query waits for the re-check...
         BT5_SV=""; bt_blue5_read "$b5_ts" 2> "$b5/o3.log"; b5o_rc4=$?; b5o_sv4=$BT5_SV; b5o_b=$(grep -c 'answers the full query again' "$b5/o3.log")   # ...which clears BT5_SV
         lay_doc $b5_ts > "$b5/o4.json"; add_layers "$b5/o4.json" 1 blue5; b5o_l4=$(grep '^  "bluetooth": ' "$b5/o4.json")
@@ -4710,6 +4805,66 @@ lay_selftest() {
         if [ "$b5o_rc/$b5o_sv/$b5o_rc2/$b5o_sv2/$b5o_n/$b5o_rc3/$b5o_sv3/$b5o_n3/$b5o_rc4/$b5o_sv4/$b5o_b/$b5o_same" = 0/1/0/1/1/0/1/0/0//1/1 ] && ! grep -q '"class"' "$b5/o.json"; then
             st_pass "blue5 class: a database without the columns (the 0.2.6 schema) answers the narrow query, logged once, BT5_SV until the re-check clears it; its records are byte-identical to the 2.0 fixture's at the same clock"
         else st_fail "blue5 class: narrow schema (rc/sv $b5o_rc/$b5o_sv then $b5o_rc2/$b5o_sv2, logged $b5o_n; rich with BT5_SV $b5o_rc3/$b5o_sv3 logged $b5o_n3; cleared $b5o_rc4/$b5o_sv4 back $b5o_b; same lines $b5o_same)"; fi
+        # 25d) Remote ID (ASTM F3411) from svcd: the fixture's third set (clock 3000000) holds single messages, packs and refusals (eight candidates, the cap), the
+        # one at 3200000 the ranges and ids, the one at 4000000 twenty candidates
+        b5r_ts=3000000; BLUE5_DB="$b5_db"; BT_HELD=""; ts=$b5r_ts; BT5_SV=""; BT5_SVLOG=0
+        bt_blue5_read "$b5r_ts" 2> "$b5/r.log"; b5r_rc=$?; lay_doc $b5r_ts > "$b5/r.json"; add_layers "$b5/r.json" 1 blue5; b5r_ar=$?
+        BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null)
+        b5r_l=$(grep '^  "bluetooth": ' "$b5/r.json"); b5r_cnt=$(printf '%s' "$b5r_l" | grep -o '"addr":' | grep -c .)
+        b5r_rid() {   # $1 = the last octet of an address of the Remote ID set -> the keys of its remote_id object, or - without one
+            b5r_r=$(printf '%s' "$b5r_l" | sed 's/}, {/}\
+{/g' | grep "\"addr\": \"aa:bb:cc:00:02:$1\"")
+            case $b5r_r in *'"remote_id": {'*) b5r_r=${b5r_r#*\"remote_id\": \{}; printf '%s' "${b5r_r%%\}*}" ;; *) printf '%s' - ;; esac
+        }
+        b5r_full='"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001", "status": "airborne", "lat": 0.5000000, "lon": -30.2500000, "alt_m": 120.5, "operator_lat": 0.7500000, "operator_lon": -30.5000000, "operator_id": "OP-TEST_01"'
+        b5r_ok=1
+        [ "$(b5r_rid 01)" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001"' ] || b5r_ok=0
+        [ "$(b5r_rid 02)" = '"status": "airborne", "lat": 0.5000000, "lon": -30.2500000, "alt_m": 120.5' ] || b5r_ok=0
+        [ "$(b5r_rid 03)" = '"operator_lat": 0.7500000, "operator_lon": -30.5000000' ] || b5r_ok=0
+        [ "$(b5r_rid 04)" = '"operator_id": "OP-TEST_01"' ] || b5r_ok=0
+        [ "$(b5r_rid 05)" = "$b5r_full" ] && [ "$(b5r_rid 06)" = "$b5r_full" ] || b5r_ok=0
+        if [ "$b5r_rc/$b5r_ar/$b5r_cnt/$b5r_ok" = 0/0/12/1 ] && json_ok < "$b5/r.json"; then
+            st_pass "remote id: the single messages Basic ID, Location, System and Operator ID, and a pack of all four, also behind an AD type byte, give the keys in their order; 12 records, valid JSON"
+        else st_fail "remote id: messages (rc $b5r_rc ar $b5r_ar cnt $b5r_cnt ok $b5r_ok: 01 $(b5r_rid 01) | 02 $(b5r_rid 02) | 05 $(b5r_rid 05))"; fi
+        b5r_n="$(b5r_rid 07)$(b5r_rid 08)$(b5r_rid 09)$(b5r_rid 11)$(b5r_rid 12)$(b5r_rid 13)"
+        b5r_raw=$(printf '%s' "$b5r_l" | grep -c -i -e 'faff0d' -e 'svcd')
+        b5r_plain=$(grep -c '{"addr": "aa:bb:cc:00:02:13", "addr_type": "public", "rssi": -68, "reports": 1, "last_seen": 3000000}' "$b5/r.json")
+        if [ "$b5r_n/$b5r_raw/$b5r_plain" = ------/0/1 ]; then
+            st_pass "remote id: refusals (the app code 0C, a pack count beyond its bytes, a message size other than 25, svcd as text, a blob over 232 bytes, NULL); no raw bytes reach the document and a record without Remote ID is unchanged"
+        else st_fail "remote id: refusals ($b5r_n raw $b5r_raw plain $b5r_plain)"; fi
+        # cycle 2 (30 s on): the address of the Basic ID now broadcasts a Location: identity carried, position from this cycle; cycle 3 (void): identity, operator fields, never a position
+        ts=$((b5r_ts + 30)); bt_blue5_read $ts 2>/dev/null; lay_doc $ts > "$b5/r2.json"; add_layers "$b5/r2.json" 1 blue5; BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null)
+        b5r_l=$(grep '^  "bluetooth": ' "$b5/r2.json"); b5r_m1=$(b5r_rid 01)
+        ts=$((b5r_ts + 60)); lay_doc $ts > "$b5/r3.json"; add_layers "$b5/r3.json" 2 blue5
+        b5r_l=$(grep '^  "bluetooth": ' "$b5/r3.json"); b5r_h1=$(b5r_rid 01); b5r_h2=$(b5r_rid 02); b5r_h3=$(b5r_rid 03); b5r_h4=$(b5r_rid 04); b5r_h5=$(b5r_rid 05)
+        if [ "$b5r_m1" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001", "status": "airborne", "lat": 0.5000000, "lon": -30.2500000, "alt_m": 120.5' ] \
+           && [ "$b5r_h1" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001"' ] && [ "$b5r_h2" = - ] && [ "$b5r_h3" = '"operator_lat": 0.7500000, "operator_lon": -30.5000000' ] \
+           && [ "$b5r_h4" = '"operator_id": "OP-TEST_01"' ] && [ "$b5r_h5" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001", "operator_lat": 0.7500000, "operator_lon": -30.5000000, "operator_id": "OP-TEST_01"' ] \
+           && json_ok < "$b5/r2.json" && json_ok < "$b5/r3.json"; then
+            st_pass "remote id: the identity and the operator fields carry through hold and merge with a later message of the same address; a position is never carried"
+        else st_fail "remote id: hold (merged $b5r_m1 | held 01 $b5r_h1 | 02 $b5r_h2 | 03 $b5r_h3 | 05 $b5r_h5)"; fi
+        # the ranges and ids (clock 3200000, seven candidates)
+        ts=3200000; BT_HELD=""; bt_blue5_read $ts 2>/dev/null; lay_doc $ts > "$b5/r5.json"; add_layers "$b5/r5.json" 1 blue5
+        b5r_l=$(grep '^  "bluetooth": ' "$b5/r5.json"); b5r_c5=$(printf '%s' "$b5r_l" | grep -o '"addr":' | grep -c .)
+        b5r_v=1
+        [ "$(b5r_rid 0a)" = '"status": "airborne", "alt_m": 120.5' ] || b5r_v=0
+        [ "$(b5r_rid 0b)" = '"status": "airborne"' ] || b5r_v=0
+        [ "$(b5r_rid 0c)" = '"ua_type": "multirotor", "id_type": "serial"' ] && [ "$(b5r_rid 0d)" = '"ua_type": "multirotor", "id_type": "serial"' ] || b5r_v=0
+        [ "$(b5r_rid 0e)" = '"ua_type": "aeroplane", "id_type": "registration", "uas_id": "D-REG.42"' ] || b5r_v=0
+        [ "$(b5r_rid 0f)" = '"ua_type": "gyroplane", "id_type": "utm"' ] || b5r_v=0
+        [ "$(b5r_rid 10)" = - ] || b5r_v=0
+        if [ "$b5r_v/$b5r_c5" = 1/7 ] && json_ok < "$b5/r5.json"; then
+            st_pass "remote id: a latitude beyond 90 drops the position and keeps the altitude; 0/0 and an altitude of 0 are unknown; an id with a quote or non-ASCII is dropped and a UTM id is no text; a registration id passes; a message too short gives nothing"
+        else st_fail "remote id: ranges and ids (records $b5r_c5; 0a $(b5r_rid 0a) | 0b $(b5r_rid 0b) | 0c $(b5r_rid 0c) | 0e $(b5r_rid 0e) | 0f $(b5r_rid 0f) | 10 $(b5r_rid 10))"; fi
+        # twenty candidates in one cycle: the strongest eight are decoded
+        ts=4000000; BT_HELD=""; bt_blue5_read $ts 2>/dev/null; lay_doc $ts > "$b5/r4.json"; add_layers "$b5/r4.json" 1 blue5
+        b5r_l=$(grep '^  "bluetooth": ' "$b5/r4.json"); b5r_c4=$(printf '%s' "$b5r_l" | grep -o '"addr":' | grep -c .); b5r_d4=$(printf '%s' "$b5r_l" | grep -o '"remote_id"' | grep -c .)
+        b5r_s8=$(printf '%s' "$b5r_l" | sed 's/}, {/}\
+{/g' | grep '"addr": "aa:bb:cc:00:03:08"' | grep -c '"remote_id"'); b5r_s9=$(printf '%s' "$b5r_l" | sed 's/}, {/}\
+{/g' | grep '"addr": "aa:bb:cc:00:03:09"' | grep -c '"remote_id"')
+        if [ "$b5r_c4/$b5r_d4/$b5r_s8/$b5r_s9" = 20/8/1/0 ] && json_ok < "$b5/r4.json"; then
+            st_pass "remote id: of twenty candidates in one cycle the strongest eight are decoded, the rest keep their records without it"
+        else st_fail "remote id: cap ($b5r_c4 records, $b5r_d4 decoded, eighth $b5r_s8, ninth $b5r_s9)"; fi
         BT5_SV=""; BT5_SVLOG=0; BTCO_PATH=$b5c_sCP
         BLUE5_DB=$b5_sBL; TMPDIR_RAM=$b5_sTR; BT_F=$b5_sBF; BT5_MAX=$b5_sMX; BT_HELD=$b5_sH
     fi
@@ -5704,7 +5859,31 @@ INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_a
  (3,'AABBCC000123',2000000,1,0,1,-84,1,76,'',X'4C00',NULL,NULL),(3,'AABBCC000124',2000000,1,0,1,-85,1,NULL,'',NULL,NULL,'FE2C\"'),
  (3,'AABBCC000125',2000000,1,0,1,-86,1,NULL,'',NULL,NULL,'FE2C'||char(9)||'1812'),
  (3,'AABBCC000126',2000000,1,0,1,-87,1,NULL,'',NULL,NULL,'FCB2, FE2C'),(3,'AABBCC000127',2000000,1,0,1,-88,1,NULL,'',NULL,NULL,'fe2c'),
- (3,'AABBCC000128',1999990,1,0,1,-89,1,76,'',X'4C001219',NULL,NULL),(4,'AABBCC000128',2000000,1,0,1,-45,1,76,'',X'4C00071900',NULL,NULL);" 2>/dev/null
+ (3,'AABBCC000128',1999990,1,0,1,-89,1,76,'',X'4C001219',NULL,NULL),(4,'AABBCC000128',2000000,1,0,1,-45,1,76,'',X'4C00071900',NULL,NULL);
+INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name,svcd) VALUES
+ (5,'AABBCC000201',3000000,1,0,0,-50,1,NULL,'',X'FAFF0D010212544553542D49442E303030310000000000000000000000'),
+ (5,'AABBCC000202',3000000,1,0,0,-51,1,NULL,'',X'FAFF0D011220000000404B4C006037F8ED0000C1080000000000000000'),
+ (5,'AABBCC000203',3000000,1,0,0,-52,1,NULL,'',X'FAFF0D014201E0707200C011D2ED010000000000000000000000000000'),
+ (5,'AABBCC000204',3000000,1,0,0,-53,1,NULL,'',X'FAFF0D0152004F502D544553545F303100000000000000000000000000'),
+ (5,'AABBCC000205',3000000,1,0,0,-54,1,NULL,'',X'FAFF0D01F219040212544553542D49442E3030303100000000000000000000001220000000404B4C006037F8ED0000C10800000000000000004201E0707200C011D2ED01000000000000000000000000000052004F502D544553545F303100000000000000000000000000'),
+ (5,'AABBCC000206',3000000,1,0,0,-55,1,NULL,'',X'16FAFF0D01F219040212544553542D49442E3030303100000000000000000000001220000000404B4C006037F8ED0000C10800000000000000004201E0707200C011D2ED01000000000000000000000000000052004F502D544553545F303100000000000000000000000000'),
+ (5,'AABBCC000207',3000000,1,0,0,-56,1,NULL,'',X'FAFF0C010212544553542D49442E303030310000000000000000000000'),
+ (5,'AABBCC000208',3000000,1,0,0,-57,1,NULL,'',X'FAFF0D01F219090212544553542D49442E303030310000000000000000000000'),
+ (5,'AABBCC000209',3000000,1,0,0,-58,1,NULL,'',X'FAFF0D01F218010212544553542D49442E303030310000000000000000000000'),
+ (5,'AABBCC00020A',3200000,1,0,0,-59,1,NULL,'',X'FAFF0D011220000000807F3D3600E1F5050000C1080000000000000000'),
+ (5,'AABBCC00020B',3200000,1,0,0,-60,1,NULL,'',X'FAFF0D0112200000000000000000000000000000000000000000000000'),
+ (5,'AABBCC00020C',3200000,1,0,0,-61,1,NULL,'',X'FAFF0D01021254452253543C783E000000000000000000000000000000'),
+ (5,'AABBCC00020D',3200000,1,0,0,-62,1,NULL,'',X'FAFF0D01021254C39C562D310000000000000000000000000000000000'),
+ (5,'AABBCC00020E',3200000,1,0,0,-63,1,NULL,'',X'FAFF0D010221442D5245472E3432000000000000000000000000000000'),
+ (5,'AABBCC00020F',3200000,1,0,0,-64,1,NULL,'',X'FAFF0D010233000102030405060708090A0B0C0D0E0F00000000000000'),
+ (5,'AABBCC000210',3200000,1,0,0,-65,1,NULL,'',X'FAFF0D010212544553542D49442E'),
+ (5,'AABBCC000211',3000000,1,0,0,-66,1,NULL,'','FAFF0D010212544553542D49442E303030310000000000000000000000'),
+ (5,'AABBCC000212',3000000,1,0,0,-67,1,NULL,'',X'FAFF0D01'||zeroblob(300)),
+ (5,'AABBCC000213',3000000,1,0,0,-68,1,NULL,'',NULL),
+ (6,'AABBCC000201',3000030,1,0,0,-50,2,NULL,'',X'FAFF0D011220000000404B4C006037F8ED0000C1080000000000000000');
+WITH RECURSIVE s(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM s WHERE i<20)
+INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name,svcd)
+ SELECT 7,'AABBCC0003'||printf('%02X',i),4000000,1,0,0,-39-i,1,NULL,'',X'FAFF0D01F219040212544553542D49442E3030303100000000000000000000001220000000404B4C006037F8ED0000C10800000000000000004201E0707200C011D2ED01000000000000000000000000000052004F502D544553545F303100000000000000000000000000' FROM s;" 2>/dev/null
     else LAY_BLUE5_FIX=""; LAY_BLUE5_OLD=""; fi
     lay_selftest "$tdir"
     printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"

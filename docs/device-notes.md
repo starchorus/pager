@@ -362,6 +362,18 @@ the vendor re-check. Measured on the device on 30 October 2026: `mfr` filled in 
 Apple's), `svc16` in 120 (FCB2 in 107, which names no class), `appearance` in 1. The share of the type bytes and
 the cost of the three columns per cycle are still to be measured there.
 
+**Remote ID (0.2.7).** The same query also lets `svcd` (the service data) out as hex, only when it is a blob of 8
+to 232 bytes that holds the service head `FAFF0D` (the service `FFFA`, little-endian, and the app code `0D` of
+ASTM F3411); the layers' awk decodes the Basic ID, Location, System and Operator ID messages, single or in a
+Message Pack of up to nine, into `remote_id` (`ua_type`, `id_type`, `uas_id`, `status`, `lat`, `lon`, `alt_m`,
+`operator_lat`, `operator_lon`, `operator_id`, each only when the broadcast carried it), for at most eight
+addresses a cycle, the strongest first. Ids pass only as `[A-Za-z0-9._-]`, positions only inside their ranges, 0/0
+and an altitude of 0 mean unknown. The identity and the operator fields carry through the hold and merge with a
+later message of the same address (the firmware may keep one message per address); a position is never carried
+from an earlier cycle. On the device (30 October 2026) 117 of 1,963 rows held `svcd`; how the firmware frames it
+(with the AD type byte in front or without, one message or several) is still to be read there, which the decoder
+does not depend on: it finds the head wherever it stands.
+
 **Company names.** `bt_device.company` is the Bluetooth SIG identifier alone (the table has no name column),
 where the window source had btmon's decoded name. The collector names the identifier from the firmware's own list
 `/lib/hak5/bt_companies.txt` (`STARCHORUS_BT_COMPANIES_FILE`, `auto` | path), one `XXXX<TAB>Name` line per
