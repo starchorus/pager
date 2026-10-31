@@ -56,6 +56,27 @@ Starchorus never transmits. The one exception, an active scan, needs an explicit
 (`STARCHORUS_ALLOW_ACTIVE=1`) and is off by default. The code is under GPL-3.0-or-later; the
 embedded font is under the SIL OFL 1.1 (see [Licence](#licence)).
 
+## Passivity, checked
+
+`sh tools/passivity-check.sh` reads the page and the shell files that Starchorus ships, and goes red
+if the page gains a way to send; if a command of the AP service stands outside the functions allowed
+to hold one (`apcli_ro` among them, whose read-only command lines are pinned byte for byte); if a
+Bluetooth tool is named outside its own functions; if a `sqlite3` call lacks `-readonly`; or if a
+script runs a named program that transmits, connects out or changes a radio or an interface (a few
+pinned lines excepted). It runs in the pre-commit hook and in the full regression run.
+
+`sh tools/passivity-mutate.sh` shows that each of those rules can fail. In copies of the shipped files,
+none of which is ever run, it plants one violation at a time, and the checker has to go red on exactly
+the rows expected of it. As of 31 October 2026, counted from its table, it holds 796 mutations; 131
+controls (look-alikes that are allowed and have to stay green); 349 alternatives (a planted sample for
+each word and pattern the checker lists); and 454 blinded parts of the checker (each of which it has
+to notice). Every one of the checker's 27 rows goes red at least once. The last full run, on
+30 October 2026, came out as expected on every entry.
+
+The check reads source text, not the air: it shows what the shipped files can ask of a radio and
+says nothing about what a radio does. [SECURITY.md](SECURITY.md#static-check) has every rule, the
+pinned lines and what was measured on the device.
+
 ## Why a sky
 
 A Wi-Fi survey usually arrives as a table: dozens of rows of BSSIDs, channels and dBm figures,
@@ -205,7 +226,7 @@ resort (or when forced with `STARCHORUS_SOURCE=iwscan`). The capture then carrie
 
 The details are in [SECURITY.md](SECURITY.md): the passivity contract, every read and output path,
 and every browser storage key with its limit. `sh tools/passivity-check.sh` checks the rules
-statically.
+statically; what it refuses, and how that is itself tested, is under [Passivity, checked](#passivity-checked).
 
 ## Quick start
 

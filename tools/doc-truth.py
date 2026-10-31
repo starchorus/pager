@@ -26,14 +26,24 @@ CHECKS
   contract  [--want N]   the "# Contract:" header of the four scripts that carry one (collector, display script and its library copy,
             the library payload.sh) and of the companion alert (alert-deauth.sh: it fixes the alerts.log line format the collector parses)
             is one number, and N where --want is given (the radio pair's interface number is 3).
+  figures   the figures that the documents state about the passivity probe (its mutations and controls, its alternatives, the blinded parts of the checker
+            that --meta plants, and the rows of the checker) are the ones counted from the table of tools/passivity-mutate.sh READ AS TEXT, nothing run:
+            mut and mutr1 entries with and without an expectation (their sixth argument), alt samples, metaprobe calls, the names in ROWS. README.md has
+            to state all five; every statement of one in README.md, packaging/hak5/README.md, tools/README.md and the newest section of CHANGELOG.md
+            is the counted number (an older section is history and is not read). The region of the mut/mutr1 entries and the list of alt samples are red
+            if they hold another command (an assignment apart), so that a loop cannot hide entries from the count; a floor per figure keeps a broken
+            reading from passing as a small table.
 GUARDS AGAINST: a list or number that is copied by hand goes stale without any row noticing (a new shell script in no shell list; a
-                README that names a check count the selftest no longer has; a doc that names a collector version other than the current one).
+                README that names a check count the selftest no longer has; a doc that names a collector version other than the current one;
+                a figure of the passivity probe, dated by hand, that the table has outgrown: tools/README.md said 347 alternatives when the table had 349).
 NEGATIVE PROBE: tools/regress.d/doc-truth.sh breaks one input per check in a copy (rename a source literal, a wrong count, a header
-                bump, an unlisted script, ...) and demands red; the same check on the real tree must be green.
+                bump, an unlisted script, a figure one too high, an entry one too few, ...) and demands red; the same check on the real tree must be green.
 NOT PROVEN:     a mention is not a proof that the text around it is true (headers vs. the page binds a number, not a sentence);
                 prose that says a thing in words is not checked (a count spelled out, "forty-two", or a version more than 40
                 characters after the name, or a claim wrapped over more than one line end, is not seen; HTML other than &nbsp; is not decoded); a fixture row's numbers other than those named above are not read; a row whose
                 APs / free clients / clients[] / GHz split / source are stated in a form the patterns do not read is red, not skipped.
+                The figures are counted from the text of the table, not from a run of the probe: the last lines of a full run print the same ones
+                (a loop around metaprobe calls would be counted once; the mut/mutr1 and alt lists refuse a loop).
 Dev machine only; nothing here sends anything or runs a script of the repository.
 """
 import argparse
@@ -472,8 +482,180 @@ def chk_contract(a, root):
         "in" if n_comp else "NOT in", "" if a.want is None else " (want %d)" % a.want), prob)
 
 
+# ------------------------------------------------------------------ figures
+PM_FILE = "tools/passivity-mutate.sh"
+# The floors only go up; each carries the command that measures it. A reading that finds fewer has not read a small table, it is broken.
+MIN_PM_ENTRIES = 900   # mut and mutr1 entries; measure: grep -cE '^(mut|mutr1) ' tools/passivity-mutate.sh   (measured: 927, 31 October 2026)
+MIN_PM_ALTS = 340      # alt samples; measure: grep -cE '^alt ' tools/passivity-mutate.sh   (measured: 349)
+MIN_PM_META = 440      # metaprobe calls; measure: grep -cE '^[[:space:]]+metaprobe ' tools/passivity-mutate.sh   (measured: 454)
+MIN_PM_ROWS = 20       # rows named in ROWS; measure: sed -n "s/^ROWS='\(.*\)'\$/\1/p" tools/passivity-mutate.sh | tr '|' '\n' | grep -c .   (measured: 27)
+# How a document states a figure: the kind, the words the message uses, and the pattern (a number with its thousands commas, then the noun; a line end may stand in the blank)
+FIGURES = (
+    ("mutations", "mutations", re.compile(r"\b(\d[\d,]*)\s+mutations\b")),
+    ("controls", "controls", re.compile(r"\b(\d[\d,]*)\s+controls\b")),
+    ("alternatives", "alternatives", re.compile(r"\b(\d[\d,]*)\s+alternatives\b")),
+    ("parts", "blinded parts of the checker", re.compile(r"\b(\d[\d,]*)\s+(?:blinded\s+)?parts\s+of\s+the\s+checker\b")),
+    ("rows", "rows", re.compile(r"\bchecker's\s+(\d[\d,]*)\s+rows\b")),
+)
+FIGURE_FORM = {"mutations": "796 mutations", "controls": "131 controls", "alternatives": "349 alternatives",
+               "parts": "454 blinded parts of the checker", "rows": "the checker's 27 rows"}   # the forms the message shows (the numbers are examples)
+FIGURE_WORDS = {kind: words for kind, words, _ in FIGURES}
+FIGURE_DOCS = ("README.md", "packaging/hak5/README.md", "tools/README.md", "CHANGELOG.md")   # CHANGELOG.md: its newest section only
+FIGURE_NEED = {"README.md": tuple(k for k, _, _ in FIGURES)}   # the README states all five; the others only have to be right where they state one
+
+
+def sh_commands(text, first_line):
+    """The commands of a piece of shell text as (line, words), split the way sh splits the shapes the table of passivity-mutate.sh uses, and nothing more:
+    blanks separate words; '...' is literal; "..." is literal but for a backslash before \\ " $ ` or a newline; a backslash outside quotes takes the next
+    character literally (before a newline it joins the lines); a # that begins a word is a comment to the end of the line; an unquoted newline ends the command.
+    A quote left open at the end is the word <open quote>, which no reading accepts. It is not a shell: no expansion, no here-document, no nesting."""
+    cmds, words, cur, have, q = [], [], [], False, None
+    line, start, i, n = first_line, first_line, 0, len(text)
+    while i < n:
+        c = text[i]
+        if q == "'":
+            if c == "'":
+                q = None
+            else:
+                cur.append(c)
+        elif q == '"':
+            if c == '"':
+                q = None
+            elif c == "\\" and i + 1 < n and text[i + 1] in '\\"$`\n':
+                if text[i + 1] == "\n":
+                    line += 1
+                else:
+                    cur.append(text[i + 1])
+                i += 1
+            else:
+                cur.append(c)
+        elif c in "'\"":
+            q, have = c, True
+        elif c == "\\" and i + 1 < n:
+            if text[i + 1] == "\n":
+                line += 1
+            else:
+                cur.append(text[i + 1])
+                have = True
+            i += 1
+        elif c in " \t":
+            if have:
+                words.append("".join(cur))
+                cur, have = [], False
+        elif c == "#" and not have:
+            while i + 1 < n and text[i + 1] != "\n":
+                i += 1
+        elif c == "\n":
+            if have:
+                words.append("".join(cur))
+                cur, have = [], False
+            if words:
+                cmds.append((start, words))
+            words, start = [], line + 1
+        else:
+            cur.append(c)
+            have = True
+        if c == "\n":
+            line += 1
+        i += 1
+    if have:
+        words.append("".join(cur))
+    if q:
+        words.append("<open quote>")
+    if words:
+        cmds.append((start, words))
+    return cmds
+
+
+def pm_region(lines, start, stop):
+    """(text, number of its first line, problem): the lines between the start marker (it must occur once) and the first stop marker after it."""
+    a = [k for k, ln in enumerate(lines) if re.match(start, ln)]
+    if len(a) != 1:
+        return None, 0, "the marker %r occurs %d times in %s (want 1): the check has to follow the new layout of the table" % (start, len(a), PM_FILE)
+    b = [k for k, ln in enumerate(lines) if k > a[0] and re.match(stop, ln)]
+    if not b:
+        return None, 0, "the marker %r does not follow the marker %r in %s: the check has to follow the new layout of the table" % (stop, start, PM_FILE)
+    return "\n".join(lines[a[0] + 1:b[0]]), a[0] + 2, None
+
+
+def pm_figures(root):
+    """(figures, problems): what the table of tools/passivity-mutate.sh holds, counted from its text (nothing is run). mut and mutr1 take NAME FILE KIND A B EXPECT
+    ($1 to $6 of mut_one: later words are ignored there), and an empty EXPECT makes the entry a control; alt takes FAMILY KEY SAMPLE ROW; metaprobe takes NAME FILE OLD NEW ONLY WANT."""
+    text = rd(root, PM_FILE)
+    lines = text.split("\n")
+    prob, fig = [], {"mutations": 0, "controls": 0, "alternatives": 0, "parts": 0, "rows": 0}
+    reg, at, why = pm_region(lines, r"# =+ the table:", r"# =+ alternatives:")
+    odd = []
+    if why:
+        prob.append(why)
+    else:
+        for ln, w in sh_commands(reg, at):
+            if w[0] in ("mut", "mutr1") and len(w) >= 7:
+                fig["controls" if w[6] == "" else "mutations"] += 1
+            else:
+                odd.append("%s:%d `%s`" % (PM_FILE, ln, " ".join(w[:3])[:60]))
+    reg, at, why = pm_region(lines, r"alt\(\) \{", r"split_alts\(\) \{")
+    if why:
+        prob.append(why)
+    else:
+        for ln, w in sh_commands(reg, at):
+            if w[0] == "alt" and len(w) == 5:
+                fig["alternatives"] += 1
+            elif not re.match(r"[A-Za-z_][A-Za-z0-9_]*=", w[0]):   # an assignment (TAB=...) is the one other command the list holds
+                odd.append("%s:%d `%s`" % (PM_FILE, ln, " ".join(w[:3])[:60]))
+    for o in odd[:5]:
+        prob.append("the entries of the table hold a command that is no entry (a loop, a function, a call of five or six words?): %s; write the entries out, or teach doc-truth.py to read it" % o)
+    reg, at, why = pm_region(lines, r"# =+ meta: the probe of the probe", r"fi$")
+    if why:
+        prob.append(why)
+    else:
+        fig["parts"] = sum(1 for _, w in sh_commands(reg, at) if w[0] == "metaprobe" and len(w) >= 7)
+    rows = re.findall(r"^ROWS='([^']*)'$", text, re.M)
+    if len(rows) != 1:
+        prob.append("%s has %d ROWS='...' lines (want 1)" % (PM_FILE, len(rows)))
+    else:
+        fig["rows"] = len([x for x in rows[0].split("|") if x])
+    for what, got, floor in (("mut/mutr1 entries", fig["mutations"] + fig["controls"], MIN_PM_ENTRIES), ("alt samples", fig["alternatives"], MIN_PM_ALTS),
+                             ("metaprobe calls", fig["parts"], MIN_PM_META), ("rows", fig["rows"], MIN_PM_ROWS)):
+        if got < floor:
+            prob.append("only %d %s were read in %s (floor %d): the reading is broken, not the table small" % (got, what, PM_FILE, floor))
+    return fig, prob
+
+
+def newest_section(text):
+    """(text, number of its first line) of the newest section of a changelog: from the first `## ` line to the next one."""
+    ls = text.split("\n")
+    heads = [i for i, ln in enumerate(ls) if ln.startswith("## ")]
+    if not heads:
+        return text, 1
+    return "\n".join(ls[heads[0]:heads[1] if len(heads) > 1 else len(ls)]), heads[0] + 1
+
+
+def chk_figures(a, root):
+    fig, prob = pm_figures(root)
+    nst = 0
+    for doc in FIGURE_DOCS:
+        text, first = plain(rd(root, doc)), 1
+        if doc == "CHANGELOG.md":
+            text, first = newest_section(text)
+        seen = set()
+        for kind, words, rx in FIGURES:
+            for m in rx.finditer(text):
+                seen.add(kind)
+                nst += 1
+                said = int(m.group(1).replace(",", ""))
+                if said != fig[kind]:
+                    prob.append("%s:%d says %d %s, the table of %s has %d (recount it, and date it \"as of\")" % (
+                        doc, first + text.count("\n", 0, m.start()), said, words, PM_FILE, fig[kind]))
+        for kind in FIGURE_NEED.get(doc, ()):
+            if kind not in seen:
+                prob.append("%s no longer states the number of %s in a form this check reads (\"%s\")" % (doc, FIGURE_WORDS[kind], FIGURE_FORM[kind]))
+    return result("the table of %s, read as text, holds %d mutations, %d controls, %d alternatives and %d blinded parts of the checker, and names %d rows; "
+                  "%d statements in %d documents compared" % (PM_FILE, fig["mutations"], fig["controls"], fig["alternatives"], fig["parts"], fig["rows"], nst, len(FIGURE_DOCS)), prob)
+
+
 CHECKS = {"lists": chk_lists, "sources": chk_sources, "census": chk_census, "fixtures": chk_fixtures,
-          "prose": chk_prose, "runlist": chk_runlist, "headers": chk_headers, "contract": chk_contract}
+          "prose": chk_prose, "runlist": chk_runlist, "headers": chk_headers, "contract": chk_contract, "figures": chk_figures}
 
 
 def main():
