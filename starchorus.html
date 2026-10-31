@@ -1445,9 +1445,14 @@ function normBt(r) {   // §3.1 bluetooth[]: the strongest 256, null without an 
     if (!isObj(b)) continue;
     const addr = normMac(b.addr), rssi = dbmOrNull(b.rssi), co = numOrNull(b.company);
     if (isMac(addr) && rssi != null && !(m.has(addr) && m.get(addr).rssi >= rssi)) m.set(addr, { addr, addr_type: BT_TYPES.includes(b.addr_type) ? b.addr_type : "random", rssi, reports: numOrNull(b.reports), last_seen: numOrNull(b.last_seen),
-      company: co >= 0 && co < 65536 && co % 1 === 0 ? co : null, company_name: strOrNull(b.company_name, 48), name: strOrNull(b.name, 32), connectable: b.connectable === true });
+      company: co >= 0 && co < 65536 && co % 1 === 0 ? co : null, company_name: strOrNull(b.company_name, 48), name: strOrNull(b.name, 32), connectable: b.connectable === true, ...btOpt(b) });
   }
   return Array.from(m.values()).sort((a, b) => b.rssi - a.rssi || cmpStr(a.addr, b.addr)).slice(0, BT.cap);
+}
+// 0.2.7: each key only when set
+function btOpt(b) {
+  const c = strOrNull(b.class, 24);
+  return c && { class: c };
 }
 const normAct = (r) => Array.isArray(r) ? r.slice(0, 69).flatMap(x => { const f = isObj(x) ? numOrNull(x.freq) : null, s = isObj(x) ? numOrNull(x.share) : null; return f > 0 && s > 0 && s <= 1 ? [{ freq: f, share: s }] : []; }) : null;   // §3.1 activity[]
 function normalizeDoc(raw) {
@@ -1579,7 +1584,7 @@ function demoData() {
   };
   doc.aps.forEach((a, i) => { a.last_seen = GEN - demoAges[i]; });
   doc.activity = [[2412, 0.12], [2422, 0.05], [2427, 0.03], [2437, 0.3], [2452, 0.06], [2462, 0.18], [5180, 0.07], [5220, 0.09], [5500, 0.04], [5745, 0.06]].map(([freq, share]) => ({ freq, share }));
-  doc.bluetooth = [[-49, 1], [-53, 1], [-57, 1], [-46, 2], [-64, 3], [-71], [-77, 2], [-58, 3]].map(([rssi, co], i) => Object.assign({ addr: "02:00:00:00:04:1" + i, addr_type: BT_TYPES[i < 3 ? 2 : i & 1], rssi, last_seen: GEN - 2 * i * i }, co && { company: 65530 + co, company_name: "Maker " + "ABC"[co - 1] }));   // §3.1: 3 rotating of one company, 5 fixed
+  doc.bluetooth = [[-49, 1, "finder frame"], [-53, 1, "finder frame"], [-57, 1, "beacon"], [-46, 2, "keyring"], [-64, 3], [-71], [-77, 2], [-58, 3]].map(([rssi, co, cl], i) => Object.assign({ addr: "02:00:00:00:04:1" + i, addr_type: BT_TYPES[i < 3 ? 2 : i & 1], rssi, last_seen: GEN - 2 * i * i }, co && { company: 65530 + co, company_name: "Maker " + "ABC"[co - 1] }, cl && { class: cl }));   // §3.1: 3 rotating of one company, 5 fixed
   return doc;
 }
 
@@ -6303,7 +6308,11 @@ function probeWords(list, max) {   // a station's probes in one wording: wildcar
 }
 function probeCell(list) { return esc(probeWords(list)) + (list && list.length ? ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>' : ""); }
 function btTip(k) {   // §3.5 the tooltip line (plain text)
-  return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen));
+  return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen)) + btTail(k);
+}
+function btTail(k) {   // 0.2.7: the classes of its addresses, counted
+  const w = k.m.map(b => b.class).filter(Boolean).sort();
+  return w.length ? " · advertising as " + [...new Set(w)].map(x => k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x).join(", ") : "";
 }
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid

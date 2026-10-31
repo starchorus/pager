@@ -7,10 +7,12 @@
 # GUARDS AGAINST: a mark drawn by angle instead of the free-station radius; a mark that blinks at a ring boundary; a void window that
 #   blanks the marks; a layer that moves the Wi-Fi sky, appears on a 0.1 document or changes with the order of bluetooth[]; activity that
 #   leaks into the visited set of the D19 ghosts and the Watchlist; a cue that is normalised by the busiest station, aliases with a batch
-#   writer or outlives the feed; a hostile Bluetooth or station text that runs script; a new function that grows past its limit.
+#   writer or outlives the feed; a hostile Bluetooth or station text that runs script; a new function that grows past its limit; a class written when its record
+#   has none; a folded mark's classes without their count.
 # NEGATIVE PROBE: one-line copies of the page (served to headless Chrome on 127.0.0.1 only) -- marks by angle, hysteresis 0, activity in
 #   S.hop, a rate over the last two samples only, no cue floor, no stale guard, marks drawn without their age, a hit test over marks that are not
-#   drawn: each turns exactly its own row red (the unmutated page is the control: the rows themselves).
+#   drawn, a class written when unset, a folded mark's classes without their count: each turns exactly its own row red (the unmutated page is the control:
+#   the rows themselves).
 # NOT PROVEN: that a scan on the Pager sees what the fixture shows (device checks A1-A16 of the specification, docs/device-notes.md 2b); the Bluetooth
 #   detail sheet, the tags, the CSV rows, the SITREP line, bt(), two of the three cue idioms (the halo and the bloom), the Air line, the hover line, the
 #   whisker title and the reveal fade are not in this release (docs/architecture.md 14.10, 'Not in 0.2.0', lists them): no row proves what is not there,
@@ -26,7 +28,7 @@ RP_Q="?poll=0&spin=0&intro=0&debug=1"
 # layout, so it keeps the whole wait. A run on a served fixture is ready when the boot poll has replaced the built-in sky (its apsTotal is above 0 from the first frame,
 # so a count would be met at once); the demo run takes the bare --ready.
 RP_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
-RP_READY_RUNS=" ing fill id void cell drawn rank key tip host ord abs sky demo rate cue bud apart exp mut-angle mut-hysteresis mut-hop mut-twosamples mut-floor mut-stale mut-fresh mut-rank "
+RP_READY_RUNS=" ing fill id void cell drawn rank key tip host cls ord abs sky demo rate cue bud apart exp mut-angle mut-hysteresis mut-hop mut-twosamples mut-floor mut-stale mut-fresh mut-rank mut-clsalways mut-clscount "
 rp_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 # rp_run NAME EVAL_FILE_TEXT [FIXTURE] [QUERY] [cdp args]: one run, the value of the eval (normalised JSON) in RP_V and the page's error count in RP_E
 rp_run() {
@@ -67,12 +69,15 @@ cases = [
   ("activity unsorted", lambda d: d["activity"].reverse()), ("activity share 0", lambda d: d["activity"][0].update(share=0)),
   ("activity sum", lambda d: d["activity"][0].update(share=0.9)), ("activity below 2400", lambda d: d["activity"][0].update(freq=1000)),
   ("packets negative", lambda d: d["unassociated"][0].update(packets=-1)), ("packets text", lambda d: d["unassociated"][0].update(packets="x")),
+  ("class word", lambda d: d["bluetooth"][0].update({"class": "scanner"})), ("class type", lambda d: d["bluetooth"][0].update({"class": 7})),
+  ("class empty", lambda d: d["bluetooth"][0].update({"class": ""})),
 ]
 bad = [n for n, f in cases if not g.validate(mut(f))]
-print("ok" if not g.validate(doc) and not bad else "clean=%s unflagged=%s" % (g.validate(doc), bad))
+good = mut(lambda d: [b.update({"class": g.BT_CLASSES[i % len(g.BT_CLASSES)]}) for i, b in enumerate(d["bluetooth"])])   # a class on every record validates
+print("ok" if not g.validate(doc) and not g.validate(good) and not bad else "clean=%s classed=%s unflagged=%s" % (g.validate(doc), g.validate(good), bad))
 PY
 )
-rowif "radio: the validator flags 16 broken variants of the fixture (order, duplicate, type, range, key, window, activity, packets) and passes the fixture [$RP_VB]" [ "$RP_VB" = ok ]
+rowif "radio: the validator flags 19 broken variants of the fixture (order, duplicate, type, range, key, window, activity, packets, class) and passes the fixture, also with a class on every record [$RP_VB]" [ "$RP_VB" = ok ]
 
 RP_FZ=$(python3 - <<'PY'
 import importlib.util, json, os, sys, tempfile
@@ -82,21 +87,21 @@ gen = fz.load_contract(); fx = fz.Fixtures("tests/fixtures", gen, fz.page_fields
 keys = set(fx.fields["bt"]); hints = fx.hint["bt"]
 muts, big = fz.build(fx, 20260918, "fuzz-canary.tmp", 50)
 names = [m["n"] for m in muts]
-want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable"}
+want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable", "class"}
 mine = [n for n in names if ":bt." in n]
-ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
-     and any(n.startswith("1:bt.addr:missing") for n in names) and any(n.startswith("6:bt.company_name:h") for n in names) and any(n.startswith("3:bluetooth[0]=") for n in names) \
+ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("class") == "str" and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
+     and any(n.startswith("1:bt.addr:missing") for n in names) and any(n.startswith("6:bt.company_name:h") for n in names) and any(n.startswith("6:bt.class:h") for n in names) and any(n.startswith("3:bluetooth[0]=") for n in names) \
      and {"bluetooth", "activity"} <= set(fx.fields["top"]) and "packets" in fx.fields["client"] and "ssid_recorded" not in fx.fields["ap"]
 print("ok" if ok else "keys=%s hints=%s mutants=%d" % (sorted(keys ^ want), hints, len(mine)))
 PY
 )
-rowif "radio: the fuzz key list derives bluetooth[] (nine keys, text and number hints read from normBt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
+rowif "radio: the fuzz key list derives bluetooth[] (ten keys, text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
 
 # ---- size: each new function inside its limit (the specification's, three of them measured: rebuildBt, btTip, pkRate), the page inside the cap
 RP_FNB=$(python3 - "$H" <<'PY'
 import re, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-LIM = {"normBt": 900, "rebuildBt": 1800, "drawBt": 700, "btTip": 500, "pkRate": 680, "drawActivity": 600}
+LIM = {"normBt": 900, "btOpt": 250, "rebuildBt": 1800, "drawBt": 700, "btTip": 500, "btTail": 400, "pkRate": 680, "drawActivity": 600}
 bad = []
 for n, lim in LIM.items():
     m = re.search(r"^function %s\(.*?^\}" % n, t, re.S | re.M)
@@ -108,7 +113,7 @@ if not 0 < b <= 600: bad.append("traffic bake %d/600" % b)
 print("ok:%d" % len(t.encode()) if not bad and len(t.encode()) <= 650000 else "bad: %s page %d" % (",".join(bad), len(t.encode())))
 PY
 )
-rowif "radio: page size: normBt 900, rebuildBt 1800, drawBt 700, btTip 500, pkRate 680, drawActivity 600, the traffic bake 600 bytes, the page <= 650000 [$RP_FNB]" [ "${RP_FNB%%:*}" = ok ]
+rowif "radio: page size: normBt 900, btOpt 250, rebuildBt 1800, drawBt 700, btTip 500, btTail 400, pkRate 680, drawActivity 600, the traffic bake 600 bytes, the page <= 650000 [$RP_FNB]" [ "${RP_FNB%%:*}" = ok ]
 
 # ---- Bluetooth: ingest. Nine addresses fold into six marks (three rotating Maker A addresses in ring 1 are ONE mark, two without a company
 # in ring 2 are ONE, the public and the static address are marks of their own), every mark sits at the radius of its signal on the shared
@@ -265,6 +270,26 @@ rp_run host "$RP_EV_HOST"
 rp_row "radio: hostile strings: a hostile company name runs no script in the tooltip, the escaped text is there, no <img> or <script> in it, control characters gone" \
   '{"errors":0,"exp":["\"><script>window.__x=1</script>","<img src=x onerror=window.__x=1>","ABC"],"noScript":true,"t":[["Bluetooth LE · <img src=x onerror=window.__x=1> · 1 rotating address · -50 dBm · not a device count",true],["Bluetooth LE · \"><script>window.__x=1</script> · 1 rotating address · -62 dBm · not a device count",true],["Bluetooth LE · ABC · 1 rotating address · -74 dBm · not a device count",true]]}'
 
+# ---- Bluetooth: the class (0.2.7). What the addresses of a mark advertise as ends its tooltip line: one class, or in a folded mark each class with its
+# count, in alphabetical order; a record without a class of text (none, an empty one, a number) adds nothing, so the line of a mark none of whose addresses
+# has one is the line of 0.2.6 (the tooltip row above is that control); a class is text from the air: control characters removed, cut at 24 characters,
+# escaped (no element, no script). The marks are the same with and without classes (a class never groups); the JSON export carries it per address, after
+# connectable and only when set, the CSV and the SITREP do not
+RP_EV_CLS="(async()=>{$RP_JS"'
+const C={"02:00:00:00:04:01":"finder frame","02:00:00:00:04:02":"finder frame","02:00:00:00:04:03":"beacon","02:00:00:00:04:09":"phone","02:00:00:00:04:05":"pairing frame","02:00:00:00:04:06":42,"02:00:00:00:04:04":"","02:00:00:00:04:08":"<img src=x onerror=window.__x=1>","02:00:00:00:04:07":" A\u0000\u0007B\r\nC "};
+const marks=()=>[...S.bt.values()].filter(k=>k.target===1).map(k=>k.id+"="+k.n).sort().join(" ");
+const tip=(id)=>{const n=STARCHORUS.nodeScreen(id);STARCHORUS.hover(n.sx,n.sy);const b=document.getElementById("tip-body");return b.querySelector("img,script")?"ELEMENT":b.textContent;};
+ld(d=>{d.aps=[];d.unassociated=[];},G,"rp-cls0");await sleep(300);const plain=marks();
+ld(d=>{d.aps=[];d.unassociated=[];d.bluetooth.forEach(b=>{if(b.addr in C)b.class=C[b.addr];});},G,"rp-cls");await sleep(1600);
+o.sameMarks=marks()===plain;for(const id of [...S.bt.keys()].sort())o[id]=tip(id);STARCHORUS.hover(5,5);o.noScript=window.__x===undefined;
+const J=JSON.parse(STARCHORUS.exportText("json")).bluetooth,keys=(a)=>Object.keys(J.find(b=>b.addr==="02:00:00:00:04:"+a)).join(",");
+o.exp=J.filter(b=>"class" in b).map(b=>b.addr.slice(-2)+"="+b.class).sort().join(" ");o.keys=keys("01")+"|"+keys("04");
+o.notCsvSitrep=!/finder|phone|pairing|beacon/.test(STARCHORUS.exportText("csv")+STARCHORUS.exportText("sitrep"));
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RP_WANT_CLS='{"bt:-:2":"Bluetooth LE · company not advertised · 2 rotating addresses · -66 dBm strongest · not a device count · advertising as pairing frame ×1","bt:-:3":"Bluetooth LE · company not advertised · 1 rotating address · -83 dBm · not a device count · advertising as ABC","bt:02:00:00:00:04:08":"Bluetooth LE · company not advertised · -77 dBm · static address · last heard in a window 75 s ago · advertising as <img src=x onerror=windo","bt:02:00:00:00:04:09":"Bluetooth LE · Maker A · -63 dBm · public address · last heard in a window 4 s ago · advertising as phone","bt:65535:1":"Bluetooth LE · Maker A · 3 rotating addresses · -50 dBm strongest · not a device count · advertising as beacon ×1, finder frame ×2","bt:65535:2":"Bluetooth LE · Maker A · 1 rotating address · -72 dBm · not a device count","errors":0,"exp":"01=finder frame 02=finder frame 03=beacon 05=pairing frame 07=ABC 08=<img src=x onerror=windo 09=phone","keys":"addr,addr_type,rssi,reports,company,company_name,name,connectable,class,heard,mark|addr,addr_type,rssi,reports,company,company_name,name,connectable,heard,mark","noScript":true,"notCsvSitrep":true,"sameMarks":true}'
+rp_run cls "$RP_EV_CLS"
+rp_row "radio: bluetooth class: 'advertising as beacon ×1, finder frame ×2' at the end of a folded mark's line, 'advertising as phone' at a single address's, 'pairing frame ×1' where one of two has one, nothing for an empty or a numeric class; a hostile class cut at 24 characters and escaped, control characters gone; the same marks as without classes; class in the JSON export per address after connectable and only when set, not in the CSV or the SITREP" "$RP_WANT_CLS"
+
 # ---- Bluetooth: order and cap. Six orders of bluetooth[] give the same counts, marks and positions; 300 records keep the strongest 256 addresses
 RP_EV_ORD="(async()=>{$RP_JS"'
 const lcg=(s)=>()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
@@ -316,10 +341,11 @@ rp_row "radio: the layers leave the Wi-Fi sky where it was: the 10 stars and 20 
 RP_EV_DEMO='(async()=>{const I=STARCHORUS._internals,sleep=STARCHORUS.wait,o={};await sleep(2500);STARCHORUS.frame();const st=STARCHORUS.stats(),b=st.bluetooth,E=i=>document.getElementById(i);o.counts=[E("n-ap").textContent,E("n-cl").textContent].join("/");
 o.layers=[b===null,st.activity.channels,st.activity.max,STARCHORUS.legendRows().find(r=>r.kind==="activity").visible,document.querySelector("[data-band=bt]").hidden].join("/");
 o.bt=b&&[b.addresses,b.marks,b.rotating,b.fixed,b.window,b.hold,b.void,E("n-bt-cell").hidden,E("n-bt").textContent,STARCHORUS.legendRows().find(r=>r.kind==="bt").visible].join("/");
-o.marks=I.S.btOrder.map(k=>(k.rot?"h":"f")+k.n+":"+I.LAYOUT.rings.filter(r=>k.rssi<r).length).sort().join();o.fresh=I.S.btOrder.map(k=>k.freshTier).join("");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+o.marks=I.S.btOrder.map(k=>(k.rot?"h":"f")+k.n+":"+I.LAYOUT.rings.filter(r=>k.rssi<r).length).sort().join();o.fresh=I.S.btOrder.map(k=>k.freshTier).join("");
+const tip=(k)=>{const n=STARCHORUS.nodeScreen(k.id);STARCHORUS.hover(n.sx,n.sy);return document.getElementById("tip-body").textContent;};o.cls=I.S.btOrder.map(k=>tip(k).split(" · advertising as ")[1]||"-").join("|");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 rp_run demo "$RP_EV_DEMO" demo "$RP_Q"
-rp_row "radio: demo: #n-ap 11 and #n-cl 33 unchanged, ten whiskers from the demo's own channels (largest share .3), the legend row for them, and the demo's own Bluetooth layer: 8 addresses in 6 marks (one hollow of 3 rotating, 5 filled) at signal levels 1 and 2, freshness tiers 001001, window 6 s and hold 120 s, the BT button shown, the counter cell with 8, the legend row" \
-  '{"counts":"11/33","errors":0,"layers":"false/10/0.3/true/false","bt":"8/6/3/5/6/120/false/false/8/true","marks":"f1:1,f1:1,f1:2,f1:2,f1:2,h3:1","fresh":"001001"}'
+rp_row "radio: demo: #n-ap 11 and #n-cl 33 unchanged, ten whiskers from the demo's own channels (largest share .3), the legend row for them, and the demo's own Bluetooth layer: 8 addresses in 6 marks (one hollow of 3 rotating, 5 filled) at signal levels 1 and 2, freshness tiers 001001, window 6 s and hold 120 s, the BT button shown, the counter cell with 8, the legend row; strongest first, the marks advertise as keyring, as beacon ×1 and finder frame ×2 (the fold), and the other four as nothing" \
+  '{"counts":"11/33","errors":0,"layers":"false/10/0.3/true/false","bt":"8/6/3/5/6/120/false/false/8/true","marks":"f1:1,f1:1,f1:2,f1:2,f1:2,h3:1","fresh":"001001","cls":"keyring|beacon ×1, finder frame ×2|-|-|-|-"}'
 
 # ---- the traffic cue: the rate of a station is its counter's delta over the last captures (at most three), never over a quieter or restarted run.
 # Loads 40 s apart: +80 frames = 2.0/s, level 2; +3 = below the floor, not drawn; a counter that fell, a first sight, a spacing over the limit: no rate;
@@ -399,9 +425,9 @@ o.keys=Object.keys(J).join(",");o.apKeys=[...new Set(J.aps.flatMap(a=>Object.key
 o.rate=J.stations.filter(s=>s.rate!==undefined).map(s=>s.mac+"="+s.rate).join(",");
 o.head=csv[0];o.widths=[...new Set(csv.filter(l=>l&&l[0]!=="#").map(l=>l.split(",").length))].join();o.csvBt=csv.filter(l=>/^bluetooth,/.test(l)).length;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RP_WANT_EXP='{"apKeys":"band,bssid,channel,class,heard,rssi,security,ssid","bt":"9:addr,addr_type,rssi,reports,company,company_name,name,connectable,heard,mark","counts":"{\"addresses\":9,\"marks\":6,\"rotating\":7,\"fixed\":2,\"window\":6,\"hold\":120}","csvBt":0,"errors":0,"head":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding,bluetooth,bluetooth_counts","noTime":true,"rate":"02:00:00:00:02:01=2.5","widths":"14"}'
 rp_run exp "$RP_EV_EXP"
-rp_row "radio: exports: JSON bluetooth[] (9 addresses, the mark of each, a heard word, no exact time), bluetooth_counts, no name field on a hidden network, a station rate of 2.5; the CSV is the 0.1 table, 14 columns, every row as wide, no Bluetooth row" \
-  '{"apKeys":"band,bssid,channel,class,heard,rssi,security,ssid","bt":"9:addr,addr_type,rssi,reports,company,company_name,name,connectable,heard,mark","counts":"{\"addresses\":9,\"marks\":6,\"rotating\":7,\"fixed\":2,\"window\":6,\"hold\":120}","csvBt":0,"errors":0,"head":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding,bluetooth,bluetooth_counts","noTime":true,"rate":"02:00:00:00:02:01=2.5","widths":"14"}'
+rp_row "radio: exports: JSON bluetooth[] (9 addresses, the mark of each, a heard word, no exact time), bluetooth_counts, no name field on a hidden network, a station rate of 2.5; the CSV is the 0.1 table, 14 columns, every row as wide, no Bluetooth row" "$RP_WANT_EXP"
 RP_DB=$(grep -c 'doc.unassociated.length \* 160 + (doc.bluetooth ? doc.bluetooth.length \* 150 : 0);' "$H")
 rowif "radio: docBytes counts bluetooth[] at 150 bytes a record ($RP_DB)" [ "$RP_DB" = 1 ]
 
@@ -410,7 +436,7 @@ rowif "radio: docBytes counts bluetooth[] at 150 bytes a record ($RP_DB)" [ "$RP
 RP_P10_RE='(?a)\b(evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood)\b'
 RP_EV_TXT="(async()=>{$RP_JS"'
 const seen=new Set(),add=(s)=>{for(const l of String(s==null?"":s).split("\n")){const t=l.trim();if(t)seen.add(t);}};
-const d0=JSON.parse(JSON.stringify(fx));d0.unassociated.forEach(u=>{if(u.mac==="02:00:00:00:02:01")u.packets=1000;});STARCHORUS.load(d0,"rp-txt");d0.generated+=40;d0.unassociated.forEach(u=>{if(u.mac==="02:00:00:00:02:01")u.packets=1100;});STARCHORUS.load(d0,"rp-txt");await sleep(1800);
+const d0=JSON.parse(JSON.stringify(fx));d0.unassociated.forEach(u=>{if(u.mac==="02:00:00:00:02:01")u.packets=1000;});d0.bluetooth.forEach((b,i)=>{b.class=["finder frame","beacon","pairing frame","device message","phone","computer","watch","display","remote control"][i];});STARCHORUS.load(d0,"rp-txt");d0.generated+=40;d0.unassociated.forEach(u=>{if(u.mac==="02:00:00:00:02:01")u.packets=1100;});STARCHORUS.load(d0,"rp-txt");await sleep(1800);
 for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);STARCHORUS.openDrawer(null);await sleep(300);STARCHORUS.frame();add(document.getElementById("legend").innerText);
  for(const id of ["bt:65535:1","bt:02:00:00:00:04:09","bt:02:00:00:00:04:08","bt:-:3"]){const n=STARCHORUS.nodeScreen(id);STARCHORUS.hover(n.sx,n.sy);add(document.getElementById("tip-body").textContent);}
  for(const id of ["02:00:00:00:01:06","02:00:00:00:02:01"]){STARCHORUS.select(id);add(document.getElementById("detail-title").textContent);add(document.getElementById("detail-body").innerText);const n=STARCHORUS.nodeScreen(id);STARCHORUS.hover(n.sx,n.sy);add(document.getElementById("tip-body").textContent);STARCHORUS.deselect();}
@@ -423,7 +449,7 @@ RP_TN=$(wc -l < "out/$P-rp-txt.txt" | tr -d ' ')
 RP_TH=$(python3 - "out/$P-rp-txt.txt" "$RP_P10_RE" <<'PY'
 import re, sys
 t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
-need = ["Bluetooth LE (passive scan)", "not a device count", "station ticks = frames heard", "Frames heard", "thin line in a channel bar"]
+need = ["Bluetooth LE (passive scan)", "not a device count", "station ticks = frames heard", "Frames heard", "thin line in a channel bar", "advertising as"]
 miss = [n for n in need if n not in t]
 hits = [m.group(0) for m in re.finditer(sys.argv[2], t, re.I)]
 print("ok" if not hits and not miss else "hits=%s missing=%s" % (hits[:5], miss))
@@ -476,6 +502,8 @@ RP_WANT_CUE='{"errors":0,"legOff":"false","legOn":"true:station ticks = frames h
 rp_probe stale "$RP_EV_CUE" "$RP_WANT_CUE" stale 'const gT = n.cue && !stale ? 1 : 0;' 'const gT = n.cue ? 1 : 0;'
 rp_probe fresh "$RP_EV_DRAWN" "$RP_WANT_DRAWN" drawn 'setAlpha(ctx, k.alphaDraw * k.freshA); blit(ctx, getSprite("bt", "bt"' 'setAlpha(ctx, k.alphaDraw); blit(ctx, getSprite("bt", "bt"'
 rp_probe rank "$RP_EV_RANK" "$RP_WANT_RANK" hitUndrawn 'if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch));' 'if (k.target === 1) near(k, hitRadius(k, touch));'
+rp_probe clsalways "$RP_EV_EXP" "$RP_WANT_EXP" bt 'return c && { class: c };' 'return { class: c };'
+rp_probe clscount "$RP_EV_CLS" "$RP_WANT_CLS" "bt:-:2,bt:65535:1" 'k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x' 'x'
 RP_PN=$(echo "$RP_PROBES" | wc -w | tr -d ' ')
-RP_PK=0; [ "$RP_PN" = 8 ] && [ -z "$RP_PBAD" ] && RP_PK=1
-rowif "radio: the probes bite ($RP_PN of 8: marks by angle, hysteresis 0, activity in S.hop, a rate over two samples, no cue floor, no stale guard, marks drawn without their age, hit test over marks that are not drawn), each turns exactly its keys red${RP_PBAD}" [ "$RP_PK" = 1 ]
+RP_PK=0; [ "$RP_PN" = 10 ] && [ -z "$RP_PBAD" ] && RP_PK=1
+rowif "radio: the probes bite ($RP_PN of 10: marks by angle, hysteresis 0, activity in S.hop, a rate over two samples, no cue floor, no stale guard, marks drawn without their age, hit test over marks that are not drawn, a class written when unset, a fold's classes without their count), each turns exactly its keys red${RP_PBAD}" [ "$RP_PK" = 1 ]

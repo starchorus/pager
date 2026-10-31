@@ -138,7 +138,9 @@ Starchorus 0.2.6.2. The main parts carry the same number:
   data, not necessarily the maker), shown by its name where the scan or the firmware's company list reports one. Key `4` and the 'BT' button hide the layer; the
   counter 'BT addresses' (it keeps its count while the marks are hidden, and reads a dash when a scan failed and nothing is held) and
   the legend say which window the figure covers. Without a valid scan this cycle the marks are kept for two minutes and dim by age. A
-  mark has a tooltip, no detail sheet in this release.
+  mark has a tooltip, no detail sheet in this release. From the firmware's own database the tooltip also says what the addresses
+  advertise as, in one of fourteen fixed words such as 'finder frame', 'beacon' or 'phone', each with its count in a folded mark
+  ('advertising as beacon ×1, finder frame ×2'): a claim the advertisement makes, never an identification of a device.
 - **Channel activity and traffic** (opt-in, Settings > Traffic, or `STARCHORUS_TRAFFIC=1`): the AP service's frame count per frequency
   becomes a thin whisker in each channel bar, a **relative share** of the frames heard, with its own scale and never a device count; the
   Bands screen of the Overview shows it as text bars. A station that is heard often wears four short ticks round its dot, in three

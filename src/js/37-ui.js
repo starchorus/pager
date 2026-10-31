@@ -661,7 +661,11 @@ function probeWords(list, max) {   // a station's probes in one wording: wildcar
 }
 function probeCell(list) { return esc(probeWords(list)) + (list && list.length ? ' <span style="color:var(--ink-muted)">' + esc(copyFor("probeHint")) + '</span>' : ""); }
 function btTip(k) {   // §3.5 the tooltip line (plain text)
-  return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen));
+  return "Bluetooth LE · " + (k.companyName || (k.company != null ? "company id " + k.company : "company not advertised")) + " · " + (k.rot ? k.n + " rotating address" + (k.n > 1 ? "es · " + k.m[0].rssi + " dBm strongest" : " · " + k.rssi + " dBm") + " · not a device count" : k.rssi + " dBm · " + k.m[0].addr_type.replace("random-", "") + " address · last heard in a window " + fmtAge(S.generated - k.lastSeen)) + btTail(k);
+}
+function btTail(k) {   // 0.2.7: the classes of its addresses, counted
+  const w = k.m.map(b => b.class).filter(Boolean).sort();
+  return w.length ? " · advertising as " + [...new Set(w)].map(x => k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x).join(", ") : "";
 }
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid
