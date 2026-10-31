@@ -34,7 +34,8 @@ DEVICE = {"mbssidBits": 3, "seqWindow": 4, "radioWindow": 16, "seqTight": 2}
 BANDS = ("2.4", "5", "6")
 # the page's ENCODING.security classes (enterprise, wpa3-transition and tkip-weak are decided also by the collector's akm/cipher)
 SEC_KEYS = ("open", "wep", "wpa", "wpa2", "wpa3", "owe", "enterprise", "wpa3-transition", "tkip-weak", "unknown")
-PROBE_RIPPLE = ("stats.aps", "stats.bands", "stats.groups", "essClusters()")   # classes that planted fault (a) moves in radio-pair.json besides its own (see judge)
+PROBE_RIPPLE = ("stats.aps", "stats.bands", "stats.groups", "essClusters()")   # classes that planted fault (a) moves in the PROBE_RIPPLE_FIXTURES besides its own (see judge)
+PROBE_RIPPLE_FIXTURES = ("radio-pair", "wids")   # the fixtures whose access points all carry the synthetic locally administered prefix 02: with consecutive last bytes
 FIELDS = ("apsTotal", "aps", "clients", "free", "assoc", "groups", "bands", "bandsTotal", "security", "alarms", "hidden", "devices", "essMerged")
 # Floors, only ever raised. The selftest holds every field of FIELDS to a case of its own; the judge holds the run to the floors.
 MIN_FIELDS = 13     # len(FIELDS); measure: sed -n 's/.*const KEYS = \[\(.*\)\];/\1/p' tools/evals/data-oracle.js | tr ',' '\n' | grep -c '"'   (the counters the eval reads: 13)
@@ -483,9 +484,10 @@ def judge(rep_f, bundle_f, page_f, open_f, mode):
         # the page copy carries three planted faults (see tools/regress.d/data-oracle.sh): a randomised pair that clusters, an ESS
         # count that needs three devices, clients counted twice when they probe. Exactly these classes may turn red, and all of them.
         want = {"stats.devices", "devices()", "deviceOf", "stats.essMerged", "stats.clients"}
-        # the APs of radio-pair.json carry the synthetic locally administered prefix 02: with consecutive last bytes, so fault (a) clusters them
-        # and the ESS fold follows: its sets, groups, visible APs and band counts move too. Those four classes, in that one fixture, are the same fault.
-        finds = [(n, w) for n, w in finds if not (n.split("/")[0] == "radio-pair" and n.split(":", 1)[-1] in PROBE_RIPPLE)]
+        # the APs of radio-pair.json and wids.json (since 0.2.7) carry the synthetic locally administered prefix 02: with consecutive last bytes, so
+        # fault (a) clusters them and the ESS fold follows: its sets, groups, visible APs and band counts move too. Those four classes, in those
+        # two fixtures (PROBE_RIPPLE_FIXTURES), are the same fault; in any other fixture they stay unplanned.
+        finds = [(n, w) for n, w in finds if not (n.split("/")[0] in PROBE_RIPPLE_FIXTURES and n.split(":", 1)[-1] in PROBE_RIPPLE)]
         got_c = {n.split(":", 1)[1] for n, w in finds if ":" in n and not n.startswith("rule ")}
         other = [n for n, w in finds if not (":" in n and n.split(":", 1)[1] in want)]
         for c in sorted(want - got_c):
@@ -715,6 +717,8 @@ def selftest():
     case("judge probe: one planted class missing is BLIND (red)", run(lambda r: (plant(r), fx_of(r, "field-probes")["modes"]["off"]["stats"].__setitem__("clients", model(docs["field-probes"])["off"]["clients"])), "probe") == 1)
     case("judge probe: the ripple of fault (a) in radio-pair (visible APs, bands, groups, ESS sets) is the same fault", run(lambda r: (plant(r), fx_of(r, "radio-pair")["modes"]["on"]["stats"].__setitem__("aps", 1), fx_of(r, "radio-pair")["modes"]["on"]["stats"].__setitem__("bands", {"2.4": 0, "5": 0, "6": 0})), "probe") == 0)
     case("judge probe: another class in radio-pair is red", run(lambda r: (plant(r), fx_of(r, "radio-pair")["modes"]["off"]["stats"].__setitem__("free", 0)), "probe") == 1)
+    case("judge probe: the ripple of fault (a) in wids (nine locally administered, consecutive access points) is the same fault", run(lambda r: (plant(r), fx_of(r, "wids")["modes"]["off"]["stats"].__setitem__("aps", 1), fx_of(r, "wids")["modes"]["on"]["stats"].__setitem__("bands", {"2.4": 0, "5": 0, "6": 0}), fx_of(r, "wids")["modes"]["off"].__setitem__("ess", [{"ssid": "x", "id": "x", "apCount": 9, "deviceIds": ["02:00:00:00:07:01"]}])), "probe") == 0)
+    case("judge probe: another class in wids is red", run(lambda r: (plant(r), fx_of(r, "wids")["modes"]["on"]["stats"].__setitem__("free", 0)), "probe") == 1)
     case("judge probe: the ripple in another fixture is red", run(lambda r: (plant(r), fx_of(r, "legacy")["modes"]["on"]["stats"].__setitem__("aps", 1)), "probe") == 1)
     case("judge probe: an unplanned class is red", run(lambda r: (plant(r), fx_of(r, "legacy")["modes"]["off"]["stats"].__setitem__("free", 0)), "probe") == 1)
     # 3. the ground truth against broken copies of devices.json
