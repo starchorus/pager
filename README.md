@@ -215,7 +215,10 @@ Only the following is permitted:
 - the alert log (`STARCHORUS_ALERTS`, on by default, and nothing happens without the file): the collector reads `alerts.log`, a text file that
   the companion alert payload `alert-deauth.sh` appends to when the firmware's own alert engine reports many deauth/disassoc frames heard for an
   access point. Starchorus listens to no frame for it and sends nothing; the companion writes times and addresses to a file and calls no display,
-  sound, LED or vibration command (see [SECURITY.md](SECURITY.md)).
+  sound, LED or vibration command (see [SECURITY.md](SECURITY.md));
+- with `STARCHORUS_WIDS=1` (off by default), five more kinds of alert derived from the document of the cycle, a memory of the access points and
+  the firmware's Bluetooth database alone (the table below names them); nothing is read from the air for them, and the page does not show
+  them yet.
 
 The collector creates its own monitor interface only if none exists, and removes it again on exit.
 It never touches the recon radio or the management radio.
@@ -454,6 +457,7 @@ All variables are optional.
 | `STARCHORUS_TRAFFIC` | `0` | `1` = `RECON CHANNELS` on the first cycle and then every second one (written as `activity[]`, a relative share per frequency; the cycle in between publishes the answer of the cycle before, because the AP service counts over a window of 20 to 30 s and its command-line client costs about half a second of CPU per call on the Pager; at the payload's 30-s interval the call comes about once a minute) and the frame counter `packets` of each station from the recon database. Payload key: `traffic on\|off` (Settings > Traffic). |
 | `STARCHORUS_ALERTS` | `1` | `1` = each cycle reads `$STARCHORUS_OUTDIR/alerts.log` when that file exists (the companion alert payload writes it; see Alerts above) and writes `alerts[]`; without the file nothing is read and no key is written. `0` = never read it (any value but `1` reads nothing), which also locks the Settings row 'Alerts' on the Pager. Environment only. |
 | `STARCHORUS_ALERT_WINDOW` | `600` | How long a report counts, in whole seconds, 60 to 86400; anything else is 600, with one log line. Environment only. |
+| `STARCHORUS_WIDS` | `0` | `1` = five more kinds of alert in `alerts[]`, derived from what the collector already holds and never from the air: `own_name` (a name of `own_ssids` sent by an address that is not in `own_bssids`; needs `STARCHORUS_OWN=1`), `sec_profiles` (one name, two or more security families), `sec_weaker` and `chan_changed` (an access point whose profile stood for five minutes and then changed to a weaker family or to another channel, the new profile held for a minute; a memory of at most 500 access points, in RAM, forgotten after a day without the address), `bt_fixed_new` (a public or random-static Bluetooth address whose first row is younger than ten minutes, stronger than -50 dBm with three reports, from the `blue5` source and a database older than an hour). At most eight of them beside the deauth entries, one per address, a deauth entry always first; they live for `STARCHORUS_ALERT_WINDOW` seconds. Off until measured on the device; the page shows none of them yet. |
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 

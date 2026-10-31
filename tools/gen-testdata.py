@@ -762,11 +762,11 @@ OPT_TOP = {"note", "channels", "bluetooth", "activity", "alerts"}   # additive o
 OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids", "bt_window", "bt_hold"}
 AP_KEYS = ("bssid", "ssid", "channel", "band", "freq", "rssi", "security", "clients")
 # akm/cipher/auth/responded_ssids exist on APs only (never on a station, P1); packets is accepted when a source reports it
-OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth", "responded_ssids", "packets"}
-OPT_CL = {"vendor", "last_seen", "randomized", "probes", "packets"}
+OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth", "responded_ssids", "packets", "watched"}
+OPT_CL = {"vendor", "last_seen", "randomized", "probes", "packets", "watched"}   # watched (0.2.7): the collector's mark from watch.list, written only when true
 BT_TYPES = ("public", "random-static", "random-resolvable", "random-nonresolvable", "random")   # bluetooth[].addr_type
 BT_KEYS = ("addr", "addr_type", "rssi", "reports", "last_seen")                                 # always written
-OPT_BT = {"company", "company_name", "name", "connectable", "class", "remote_id"}                # written only when the advertisement has them
+OPT_BT = {"company", "company_name", "name", "connectable", "class", "remote_id", "watched"}     # written only when the advertisement has them (watched: the watch.list mark)
 RID_KEYS = ("ua_type", "id_type", "uas_id", "status", "lat", "lon", "alt_m", "operator_lat", "operator_lon", "operator_id")   # bluetooth[].remote_id (0.2.7), in this order, each only when the broadcast carried it
 RID_UA = ("none", "aeroplane", "multirotor", "gyroplane", "vtol", "ornithopter", "glider", "kite", "free-balloon", "captive-balloon", "airship", "free-fall", "rocket", "tethered", "obstacle", "other")
 RID_STATUS = ("undeclared", "ground", "airborne", "emergency", "failure")
@@ -775,20 +775,23 @@ BT_CLASSES = ("beacon", "computer", "device message", "display", "finder frame",
 IWSCAN_OPT_AP = {"vendor"}    # build_from_iwscan() emits no rate/last_seen/width/phy
 
 
+AL_TYPES = ("deauth", "own_name", "sec_weaker", "chan_changed", "sec_profiles", "bt_fixed_new")   # alerts[].type: deauth from alerts.log, the five others with STARCHORUS_WIDS=1 (0.2.7)
+
+
 def validate_alerts(al):
-    """alerts[] (0.2): {type, t, ap, n} in that order, type "deauth", t a whole number of seconds, ap a lower-case MAC, n a whole count above 0;
-    at most 20, newest first, one entry per access point."""
+    """alerts[] (0.2): {type, t, ap, n} in that order, type one of AL_TYPES, t a whole number of seconds, ap a lower-case MAC (an access point, or for
+    bt_fixed_new a Bluetooth address), n a whole count above 0; at most 20, newest first, one entry per address."""
     if not isinstance(al, list):
         return ["alerts must be an array"]
     p = []
     if len(al) > 20:
         p.append("alerts: more than 20 entries")
     for i, e in enumerate(al):
-        ok = (isinstance(e, dict) and list(e) == ["type", "t", "ap", "n"] and e["type"] == "deauth"
+        ok = (isinstance(e, dict) and list(e) == ["type", "t", "ap", "n"] and e["type"] in AL_TYPES
               and all(isinstance(e[k], int) and not isinstance(e[k], bool) for k in ("t", "n")) and e["t"] >= 0 and e["n"] > 0
               and isinstance(e["ap"], str) and re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", e["ap"]) is not None)
         if not ok:
-            p.append("alerts[%d]: needs type deauth, a whole t >= 0, a lower-case MAC ap and a whole n > 0, in that order" % i)
+            p.append("alerts[%d]: needs a type of %s, a whole t >= 0, a lower-case MAC ap and a whole n > 0, in that order" % (i, ", ".join(AL_TYPES)))
     ts = [e["t"] for e in al if isinstance(e, dict) and isinstance(e.get("t"), int)]
     if ts != sorted(ts, reverse=True):
         p.append("alerts must be sorted by t, newest first")
@@ -860,6 +863,8 @@ def validate_bluetooth(bt):
                 p.append("%s: %s must be a non-empty string of <= %d characters" % (w, k, n))
         if "connectable" in b and b["connectable"] is not True:
             p.append(w + ": connectable is written only when true")
+        if "watched" in b and b["watched"] is not True:
+            p.append(w + ": watched is written only when true")
         if "class" in b and b["class"] not in BT_CLASSES:
             p.append(w + ": class must be one of the collector's class words")
         if "remote_id" in b:
@@ -975,6 +980,8 @@ def validate(doc, legacy=False):
             p.append("%s: legacy must not carry optional keys" % where)
         if "packets" in c and not (isinstance(c["packets"], int) and not isinstance(c["packets"], bool) and c["packets"] >= 0):
             p.append("%s: packets must be an integer >= 0" % where)
+        if "watched" in c and c["watched"] is not True:
+            p.append("%s: watched is written only when true" % where)
 
     for i, ap in enumerate(doc["aps"]):
         w = "aps[%d]" % i
@@ -1003,6 +1010,8 @@ def validate(doc, legacy=False):
             p.append("%s: unknown AP keys %s" % (w, sorted(extra)))
         if legacy and set(ap) - set(AP_KEYS):
             p.append("%s: legacy must not carry optional keys" % w)
+        if "watched" in ap and ap["watched"] is not True:
+            p.append("%s: watched is written only when true" % w)
         for k in ("akm", "auth"):
             if k in ap and not (isinstance(ap[k], list) and ap[k] and all(isinstance(x, str) for x in ap[k])):
                 p.append("%s: %s must be a non-empty list of strings" % (w, k))

@@ -192,6 +192,15 @@ CFL_RWS=0; [ -n "$(cfl_rw RUA)" ] && [ "$(cfl_rw RUA)" = "$(cfl_rv RID_UA)" ] &&
 CFL_RWN=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -c .)
 CFL_RWJ=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
 rowif "collector fields: Remote ID: svcd leaves SQLite only as hex behind the FAFF0D test ($CFL_RS/1, other reads $CFL_RSX/0); the decoder's $CFL_RWN words are the validator's three lists ($CFL_RWS) and none is judged ($CFL_RWJ)" [ "$CFL_RS/$CFL_RSX/$CFL_RWS/$CFL_RWN/$CFL_RWJ" = 1/0/1/26/0 ]
+# ---- WIDS (0.2.7): the switch defaults to 0 in the collector and the README documents it so; the five kinds the collector raises (wcand) are the
+# validator's AL_TYPES beside deauth, word for word.
+CFL_WD=$(grep -cE '^WIDS=\$\{STARCHORUS_WIDS:-0\}( |$)' starchorus-collect.sh)
+# shellcheck disable=SC2016  # the backticks are the Markdown's
+CFL_WR=$(grep -c '^| `STARCHORUS_WIDS` | `0` |' README.md)
+CFL_WK=$(grep -oE '(wcand\(|wty = )"[a-z_]+"' starchorus-collect.sh | sed 's/.*"\([a-z_]*\)"/\1/' | LC_ALL=C sort -u | tr '\n' ' ')   # the kinds: raised directly (wcand) or chosen first (wty), both in AWK_LAYERS
+CFL_WV=$(sed -n 's/^AL_TYPES = (\(.*\))  *#.*/\1/p' tools/gen-testdata.py | tr -d '" ' | tr ',' '\n' | grep -v '^deauth$' | grep . | LC_ALL=C sort -u | tr '\n' ' ')
+CFL_WS=0; [ -n "$CFL_WK" ] && [ "$CFL_WK" = "$CFL_WV" ] && CFL_WS=1
+rowif "collector fields: WIDS off by default (collector $CFL_WD/1, README row $CFL_WR/1) and the five kinds the collector raises are the validator's types beside deauth ($CFL_WS: $CFL_WK)" [ "$CFL_WD/$CFL_WR/$CFL_WS" = 1/1/1 ]
 # the row bites: a list with "track" and "north" is judged twice
 CFL_RWB=$(printf 'track\nnorth\nairborne\n' | grep -ciE 'direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
 rowif "collector fields: the Remote ID word row bites (track and north are judged: $CFL_RWB)" [ "$CFL_RWB" = 2 ]
@@ -218,7 +227,8 @@ cfl_fam() {   # FILE -> the families that have no PASS line in the self-test out
                'STARCHORUS_ALERT_WINDOW: values' 'STARCHORUS_ALERT_WINDOW: the log line' 'alerts: the window' \
                'blue5: bt_blue5_read maps' 'blue5: the company list names' 'blue5: a missing blue5.db' 'blue5 class: Apple message types' 'blue5 class: 16-bit services' \
                'blue5 class: appearance categories' 'blue5 class: the rank' 'blue5 class: refusals' 'blue5 class: the class survives hold' 'blue5 class: a database without the columns' \
-               'remote id: the single messages' 'remote id: refusals' 'remote id: a latitude beyond 90' 'remote id: the identity and the operator fields' 'remote id: of twenty candidates'; do
+               'remote id: the single messages' 'remote id: refusals' 'remote id: a latitude beyond 90' 'remote id: the identity and the operator fields' 'remote id: of twenty candidates' \
+               'wids: the switch' 'wids: own_name' 'wids: sec_profiles' 'wids: sec_weaker and chan_changed' 'wids: bt_fixed_new' 'wids: ten own_name candidates' 'wids: hostile names'; do
     grep -qF "PASS: $_cf_p" "$1" || _cf_m="$_cf_m [$_cf_p]"
   done
   printf '%s' "$_cf_m"
