@@ -9,7 +9,8 @@
 #                 keeps more than 2,000 lines, or fails; personal data (an e-mail address, a home directory, a key) in any packaged file; a
 #                 missing or altered LICENSE; a generator that leaves a stale file behind or writes despite differing
 #                 Overview copies, or that removes the repo's own payload sources when told to build into the repo root (also when the root, the payload directory or a path
-#                 inside it is written in other letter case on a case-insensitive file system, which a string comparison misses); a packaged payload that cannot install itself from its own directory.
+#                 inside it is written in other letter case on a case-insensitive file system, which a string comparison misses); a packaged payload that cannot install itself from its own directory;
+#                 a packaged README that no longer says what the project checks (the phrase 'passivity check') or where that check ends (the phrase 'source text').
 # NEGATIVE PROBE: a file added to the generator's map, or the page packaged under its repo name => "file list" red; README.md
 #                 source edited after the build => "byte-identical" red; the Category line changed => "header" red; the
 #                 cmp guard removed from the generator => "refuses" red; the root-or-source guard removed => "OUTDIR = the repo root" red; the identity
@@ -17,6 +18,8 @@
 #                 The companion alert: out of the map, not executable in the repo, an Author line or the licence line removed, another
 #                 Version or shebang => "file list" / "header" red; its lower-casing, address test, message-free line, cap (a limit of
 #                 2,001 or a tail of 1,999), umask, flock call or exit status changed => "companion alert" red (each tried on a copy).
+#                 The README's required phrases are read by one function (hkp_readme_bad): a copy of the packaged README without the paragraph on the passivity check, and copies with either of
+#                 its two phrases worded differently, must each be named for exactly what they lack => "README phrase check bites" red when the list lost a phrase or the function stopped reading.
 # NOT PROVEN:     that Hak5 accepts the directory (their review is by hand); anything on the device; the payload's first-run
 #                 install under BusyBox (payload-ui.sh runs it with stand-ins under sh/dash); the companion alert under the device's
 #                 shell and its own flock or tail (the run here has a stand-in flock and the machine's other tools).
@@ -92,14 +95,32 @@ HKP_PD=$(($(cat "$HKP_P"/* 2>/dev/null | grep -ciE '[a-z0-9._%+-]+@[a-z0-9-]+\.[
 HKP_URL=$(grep -ohE 'https?://[A-Za-z0-9.-]+' "$HKP_P/payload.sh" "$HKP_P/starchorus-serve.sh" | grep -cvE '^http://$|https?://<device-ip>' )
 [ "$HKP_URL" = 0 ] || HKP_BAD="$HKP_BAD url:$HKP_URL"
 HKP_RM="$HKP_P/README.md"
-for HKP_s in 'https://github.com/starchorus/pager' 'not affiliated with, sponsored or endorsed by Hak5' 'trademarks of Hak5 LLC' \
-  'GPL-3.0-or-later' '**Payloads**, then **Reconnaissance**, then **Starchorus**' 'never transmits' '## Network exposure' \
-  '/root/loot/starchorus/settings.conf'; do
-  grep -qF "$HKP_s" "$HKP_RM" 2>/dev/null || HKP_BAD="$HKP_BAD readme[$HKP_s]"
-done
+# What the README has to say, each phrase on one line of the file (grep -F reads a line at a time): the project link, the trademark sentence, the licence, the menu path, the network exposure,
+# the settings file and, since 0.2.7, what the project checks and where the check ends ('passivity check', 'source text').
+hkp_readme_bad() {   # hkp_readme_bad FILE: ` readme[PHRASE]` for each required phrase that FILE lacks
+  for _hs in 'https://github.com/starchorus/pager' 'not affiliated with, sponsored or endorsed by Hak5' 'trademarks of Hak5 LLC' \
+    'GPL-3.0-or-later' '**Payloads**, then **Reconnaissance**, then **Starchorus**' 'never transmits' '## Network exposure' \
+    '/root/loot/starchorus/settings.conf' 'passivity check' 'source text'; do
+    grep -qF -- "$_hs" "$1" 2>/dev/null || printf ' readme[%s]' "$_hs"
+  done
+}
+HKP_BAD="$HKP_BAD$(hkp_readme_bad "$HKP_RM")"
 grep -qE '\]\((\.\./|[a-z-]+\.md|tools/|docs/)' "$HKP_RM" 2>/dev/null && HKP_BAD="$HKP_BAD readme-relative-link"
 { [ "$(sed -n 1p "$HKP_P/LICENSE" 2>/dev/null | tr -s ' ' | sed 's/^ //')" = "GNU GENERAL PUBLIC LICENSE" ] && grep -q 'Version 3, 29 June 2007' "$HKP_P/LICENSE"; } || HKP_BAD="$HKP_BAD license"
 rowif "hak5 package: no personal data or remote URL, README complete, LICENSE = GPL v3 (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+
+# ---- 4b · the phrase check bites: the same function reads three copies of the packaged README (never the package itself): one without the paragraph on the passivity check, one with
+#           'passivity check' worded differently and one with 'source text' worded differently. Each has to be named for exactly what it lacks, so a list that lost a phrase and a function that
+#           stopped reading both show here, as a copy that stays clean.
+HKP_BAD=""
+HKP_RN="$HKP_T/readme copies"; mkdir -p "$HKP_RN"
+awk 'BEGIN { RS = ""; ORS = "\n\n" } !/passivity check|source text/' "$HKP_RM" > "$HKP_RN/without.md"
+sed 's/passivity check/safety check/g' "$HKP_RM" > "$HKP_RN/no-check.md"
+sed 's/source text/source file/g' "$HKP_RM" > "$HKP_RN/no-text.md"
+[ "$(hkp_readme_bad "$HKP_RN/without.md")" = " readme[passivity check] readme[source text]" ] || HKP_BAD="$HKP_BAD without"
+[ "$(hkp_readme_bad "$HKP_RN/no-check.md")" = " readme[passivity check]" ] || HKP_BAD="$HKP_BAD no-check"
+[ "$(hkp_readme_bad "$HKP_RN/no-text.md")" = " readme[source text]" ] || HKP_BAD="$HKP_BAD no-text"
+rowif "hak5 package: the README phrase check bites (a copy without the paragraph on the passivity check names 'passivity check' and 'source text', a copy with either reworded names that one; bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
 # ---- 5 · the generator: a rebuild drops a stale file; differing Overview copies are refused and nothing is written
 HKP_BAD=""

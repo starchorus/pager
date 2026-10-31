@@ -4,7 +4,8 @@
 # GUARDS AGAINST: a hand-typed list (shell files of the shellcheck/passivity checks) or number in prose (check counts, fixture sizes, versions)
 #                 goes stale unseen (a shell file in no shell list, a check count that no longer matches, a version that is not the current one).
 # NEGATIVE PROBE: one break per check in a copy (unlisted script, renamed source literal, wrong number, header bump,
-#                 swapped run list, ...) => red; the row "probes bite" repeats this every time (dummy copy, nothing runs in it).
+#                 swapped run list, a figure of the passivity probe one too high in a document, an entry one too few in the table of
+#                 tools/passivity-mutate.sh, ...) => red; the row "probes bite" repeats this every time (dummy copy, nothing runs in it).
 # NOT PROVEN:     that the text around a number is right (header against page binds a number, not a sentence); prose in words is
 #                 not read (nor a statement that runs over more than one line break); tools/* is exempted from the §14.6 scope except
 #                 tools/device-probe.sh, which runs on the device and is kept in the scope (--keep: it has to be in the list of the checker, and no
@@ -48,6 +49,7 @@ dtr_row "prose" prose
 dtr_row "spec §11.0 run list = regress.sh loop" runlist
 dtr_row "script headers = page version" headers
 dtr_row "Contract 3 in the four script headers" contract --want 3
+dtr_row "passivity probe figures" figures
 
 # ---- the probes: the same checks on a COPY of the tree (no .git, no out/) with exactly one broken input each. Nothing in the copy runs.
 DTR_w=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-doctruth.XXXXXX")
@@ -61,9 +63,9 @@ if [ "$(git -C "$R" rev-parse --show-toplevel 2>/dev/null)" = "$R" ]; then
 else
   tar -C "$R" --exclude ./out --exclude ./.git -cf - . | tar -xf - -C "$DTR_w"
 fi
-dtr_mut() {   # dtr_mut FILE MODE A [B]   modes: none | create (file with the line A) | append (line A) | replace (A -> B, A exactly once) | delline (the one line holding A)
+dtr_mut() {   # dtr_mut FILE MODE A [B]   modes: none | create (file with the line A) | append (line A) | replace (A -> B, A exactly once) | delline (the one line holding A) | bump (the number that the first match of the regex A captures, plus B or 1)
   python3 -B -c '
-import os, sys
+import os, re, sys
 mode, p, a = sys.argv[1:4]; b = sys.argv[4] if len(sys.argv) > 4 else ""
 if mode == "none":
     sys.exit(0)
@@ -81,6 +83,12 @@ if mode == "delline":
     if len(k) != 1:
         sys.stderr.write("target text on %d lines (want 1): %s\n" % (len(k), a)); sys.exit(3)
     del ls[k[0]]; open(p, "w", encoding="utf-8").write("\n".join(ls)); sys.exit(0)
+if mode == "bump":
+    m = re.search(a, s)
+    if not m:
+        sys.stderr.write("no match for the regex: %s\n" % a); sys.exit(3)
+    n = int(m.group(1).replace(",", "")) + int(b or 1)
+    open(p, "w", encoding="utf-8").write(s[:m.start(1)] + str(n) + s[m.end(1):]); sys.exit(0)
 sys.exit(2)
 ' "$2" "$1" "$3" "${4:-}"
 }
@@ -106,7 +114,7 @@ DTR_cbad=""
   dtr_run "$DTR_w" lists $DTR_PCL --exception "$DTR_SCOPE_EXC" --keep "$DTR_KEEP"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad lists(scope)"
 }
 dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
-for DTR_c in sources fixtures prose runlist headers; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
+for DTR_c in sources fixtures prose runlist headers figures; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
 dtr_run "$DTR_w" contract --want 3; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad contract"
 [ -z "$DTR_cbad" ] || echo "    the unbroken copy is not green for:$DTR_cbad"
 grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
@@ -198,7 +206,27 @@ checks.' ''
   dtr_probe 1 'Contract 3 in 3 of 4 script headers and in the companion alert' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3   # the label counts the scripts that have a header: three of four
   dtr_probe 1 'Contract 3 in 4 of 4 script headers and NOT in the companion alert' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
   dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh has no `# Contract:` header' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
+  # figures: the passivity probe's numbers in the documents against the table of tools/passivity-mutate.sh, read as text. Each of the five figures one too high in the README (the
+  # statement +1), and the table one entry short for each (a mutation, a control, an alternative sample, a metaprobe call, a row); a statement gone from the README; a figure one too
+  # high in each other document (the package README; tools/README.md two too low, as it stood with its 347 alternatives; the newest section of the CHANGELOG); the older sections of
+  # the CHANGELOG are history and stay unread (control); a loop in the table, which would hide entries from the count, is refused. Nothing here types a number the table will outgrow.
+  dtr_probe 1 ' mutations, the table of tools/passivity-mutate.sh has ' figures README.md bump '(\d[\d,]*)\s+mutations' ''
+  dtr_probe 1 ' controls, the table of tools/passivity-mutate.sh has ' figures README.md bump '(\d[\d,]*)\s+controls' ''
+  dtr_probe 1 ' alternatives, the table of tools/passivity-mutate.sh has ' figures README.md bump '(\d[\d,]*)\s+alternatives' ''
+  dtr_probe 1 ' blinded parts of the checker, the table of tools/passivity-mutate.sh has ' figures README.md bump '(\d[\d,]*)\s+(?:blinded\s+)?parts\s+of\s+the\s+checker' ''
+  dtr_probe 1 ' rows, the table of tools/passivity-mutate.sh has ' figures README.md bump 'checker.s\s+(\d[\d,]*)\s+rows' ''
+  dtr_probe 1 ' mutations, the table of tools/passivity-mutate.sh has ' figures tools/passivity-mutate.sh delline 'mut post-bare ' ''
+  dtr_probe 1 ' controls, the table of tools/passivity-mutate.sh has ' figures tools/passivity-mutate.sh delline 'mut docroot-ok-www ' ''
+  dtr_probe 1 ' alternatives, the table of tools/passivity-mutate.sh has ' figures tools/passivity-mutate.sh delline "alt netsurf 'method:'" ''
+  dtr_probe 1 ' blinded parts of the checker, the table of tools/passivity-mutate.sh has ' figures tools/passivity-mutate.sh delline 'metaprobe netx-window-open ' ''
+  dtr_probe 1 ' rows, the table of tools/passivity-mutate.sh has ' figures tools/passivity-mutate.sh replace "|§14.7 denylist'" "'"
+  dtr_probe 1 'README.md no longer states the number of blinded parts of the checker' figures README.md delline 'blinded parts of the checker' ''
+  dtr_probe 1 'packaging/hak5/README.md:' figures packaging/hak5/README.md bump '(\d[\d,]*)\s+mutations' ''
+  dtr_probe 1 'tools/README.md:' figures tools/README.md bump '(\d[\d,]*)\s+alternatives' '-2'
+  dtr_probe 1 'CHANGELOG.md:' figures CHANGELOG.md bump '(\d[\d,]*)\s+controls' ''
+  dtr_probe 0 '' figures CHANGELOG.md bump '(\d[\d,]*)\s+alternatives \(one for every word of the new lists\)' ''
+  dtr_probe 1 'hold a command that is no entry' figures tools/passivity-mutate.sh replace '# ---- page: the network surface' 'for zz in 1 2; do mut zz-$zz starchorus.html append x "" y; done'
 }
 rm -rf "$DTR_w"
-DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 66 ] && DTR_pok=1
-rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 66), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]
+DTR_pok=0; [ "$DTR_pbad" = 0 ] && [ -z "$DTR_cbad" ] && [ "$DTR_pn" -ge 82 ] && DTR_pok=1
+rowif "doc truth probes bite: $((DTR_pn - DTR_pbad))/$DTR_pn broken copies as expected (≥ 82), unbroken copy green: ${DTR_cbad:-yes}" [ "$DTR_pok" = 1 ]

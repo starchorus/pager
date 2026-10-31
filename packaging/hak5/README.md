@@ -44,6 +44,15 @@ a last resort behind the environment variable
 `STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it. The optional companion alert `alert-deauth.sh` only
 writes the times and addresses of the firmware's own deauth/disassoc alert to a file, when the firmware raises it; it listens to nothing and sends nothing.
 
+The project's passivity check (`tools/passivity-check.sh` in the repository) is run on these
+scripts and on the page before every release. It goes red if one of them gains a way to send, holds
+a command of the AP service outside the functions allowed to hold one, names a Bluetooth tool
+outside its own functions, opens `sqlite3` without `-readonly`, or runs a named program that
+transmits, connects out or changes a radio or an interface. A second script plants violations in
+copies of them, none of which is run, to show that each rule can fail (796 mutations and 131
+controls, as of 31 October 2026). It reads source text, not the air. The rules are listed under
+"Static check" at <https://github.com/starchorus/pager/blob/main/SECURITY.md>.
+
 One collector runs per Pager, so that two loops never share the monitor interface or radio: starting
 or stopping any instance stops every other collector loop on the device, and each loop so stopped is
 named in the collector's LOG with its pid and working directory.
