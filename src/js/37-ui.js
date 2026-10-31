@@ -170,13 +170,15 @@ function exportModel() {
   return out;
 }
 function exportText(fmt) {
-  const m = exportModel();
+  const m = exportModel(), R = (m.bluetooth || []).filter(b => b.remote_id);   // 0.2.7: none = the text of 0.2.6
   if (fmt === "csv") {
     const q = (v) => { const s = v == null ? "" : String(v), t = /^[=+@\t\r-]/.test(s) && !isFinite(s) ? "'" + s : s; return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const head = "kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud";   // one table, a leading kind column, every row the same width
     const apRow = (a) => ["ap", a.bssid, a.ssid, a.band, a.channel, a.security, a.rssi, a.heard, a.alias || "", (a.tags || []).join(" "), "", "", "", ""];
     const stRow = (x) => ["station", x.mac, "", x.band, "", "", x.rssi, x.heard, x.alias || "", (x.tags || []).join(" "), x.association || "", x.randomized ? "1" : "", (x.probes || []).join(" "), x.cloud || ""];
-    return [head].concat(m.aps.map(a => apRow(a).map(q).join(","))).concat(m.stations.map(x => stRow(x).map(q).join(","))).concat(["# " + EXPORT_FOOTER]).join("\n") + "\n";
+    const e = R.length ? ",,,,,,,,,," : "";   // ten Remote ID columns, empty on the other rows
+    return [head + (e && "," + RID_KEYS.join(","))].concat(m.aps.map(a => apRow(a).map(q).join(",") + e)).concat(m.stations.map(x => stRow(x).map(q).join(",") + e))
+      .concat(R.map(b => "remote_id," + b.addr + ",,,,," + b.rssi + "," + b.heard + ",,,,,,," + RID_KEYS.map(k => q(ridV(b.remote_id, k))).join(",")), e ? ["# " + RID_NOTE] : [], ["# " + EXPORT_FOOTER]).join("\n") + "\n";
   }
   if (fmt === "sitrep") {
     const by = (fn) => { const c = {}; for (const a of m.aps) c[fn(a)] = (c[fn(a)] || 0) + 1; return Object.keys(c).sort().map(k => k + " " + c[k]).join(" · "); };
@@ -190,6 +192,7 @@ function exportText(fmt) {
       .concat(nw ? ["Watched: " + nw + " (in watch.list on the device)"] : [], cl ? ["Randomised: " + m.station_counts.randomised + " · " + m.station_counts.in_clouds + " of them in " + cl.length + (cl.length === 1 ? " cloud" : " clouds") + " (an estimate, not a device count)"] : [],
       ["Bands: " + by(a => a.band), "Security: " + by(a => a.class), "Crowding: " + m.crowding + " of 5", "", "Strongest:"], top, ["", "Stations (strongest " + Math.min(outside.length, STA_SITREP_MAX) + " of " + outside.length + (cl ? " outside clouds" : "") + "):"], staTop,
       cl ? ["", "Clouds of randomised addresses (an estimate):"].concat(cl.map(c => "  " + c.id + " · " + c.addresses + " addresses · " + c.rssi + " dBm (" + c.rssi_min + " to " + c.rssi_max + ")" + (c.cadence_s != null ? " · " + cadText(c.cadence_s) : "") + " · named probes " + c.probes.length)) : [],
+      R.length ? ["", RID_NOTE + ":"].concat(R.flatMap(b => ["  " + b.addr + " · " + b.rssi + " dBm · " + b.heard].concat(ridRows(b.remote_id).map(([k, v]) => "    " + k + ": " + v)))) : [],
       ["", "Observations:"], S.obs.length ? S.obs.map(o => "  " + o.text) : ["  none"], ["", EXPORT_FOOTER]).join("\n") + "\n";
   }
   return JSON.stringify(m, null, 1) + "\n";
@@ -668,10 +671,20 @@ function btTail(k) {   // 0.2.7: the classes of its addresses, counted, and the 
   const w = k.m.map(b => b.class).filter(Boolean).sort();
   return (w.length ? " · advertising as " + [...new Set(w)].map(x => k.n > 1 ? x + " ×" + w.filter(y => y === x).length : x).join(", ") : "") + (k.m[0].watched ? " · in watch.list" : "");
 }
+const RID_NOTE = "Remote ID · as broadcast, not checked", ridV = (r, k) => r[k] == null ? "" : typeof r[k] == "number" ? r[k].toFixed(k === "alt_m" ? 1 : 7) : r[k];
+function ridRows(r) {   // 0.2.7 Remote ID as [label, text] rows: tooltip, sheet, SITREP
+  const v = (k) => ridV(r, k), j = (a, b) => [v(a), v(b)].filter(Boolean).join(" · "), p = (o) => v(o + "lat") && "lat " + v(o + "lat") + ", lon " + v(o + "lon");
+  return [["Aircraft", j("ua_type", "status")], ["ID", j("uas_id", "id_type")], ["Position", p("")], ["Altitude", v("alt_m") && v("alt_m") + " m"], ["Operator position", p("operator_")], ["Operator ID", v("operator_id")]].filter(x => x[1]);
+}
+function ridSheet(k, r) {   // no input, identity, pin or member list
+  let h = '<div class="obsnote">' + esc(btTip(k)) + "</div><table>";
+  for (const [t, v] of [["Address", k.m[0].addr], ["Name", k.m[0].name], ["Freshness", heardWord(k)], ...ridRows(r)]) if (v) h += row(t, esc(v));
+  return h + '</table><div class="obsnote">' + RID_NOTE + "</div>";
+}
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid
   let html = "";
-  if (n.kind === "bt") html = '<div class="ssid">' + esc(btTip(n)) + "</div>";
+  if (n.kind === "bt") { const r = n.m[0].remote_id; html = '<div class="ssid">' + esc(btTip(n)) + "</div>" + (r ? '<div class="sub">' + RID_NOTE + '</div><div class="grid">' + ridRows(r).map(([k, v]) => kv(k, esc(v))).join("") + "</div>" : ""); }
   else if (n.kind === "cloud") {   // §8.8a
     html += '<div class="ssid">random cloud</div><div class="sub">' + esc(n.n + " randomised addresses" + (n.cadenceS != null && !cloudMixed(n) ? " · " + cadText(n.cadenceS) : "")) + '</div><div class="grid">';
     html += kv("Signal", esc(fmtSignal(n.rssi) + " · range " + n.rssiMin + " to " + n.rssiMax + " dBm")) + kv("Heard", esc(heardWord(n)));
@@ -741,13 +754,14 @@ function cloudSheet(kc) {   // §8.8a the sheet of a random cloud: an estimate f
 function openDetail(id) {
   const opening = id !== detailShown;
   if (opening) { detailShown = id; detail.scrollTop = 0; }   // another node opens at the top; a re-open of the same one (poll, theme, toggle) keeps the reader's offset
-  const bb = S.bubbles.get(id), kc = bb ? null : S.clouds.get(id);   // the two aggregates, a density bubble (§4.6) and a random cloud (§8.8a): one sheet with a member list
-  if (bb || kc) {
+  const bb = S.bubbles.get(id), kc = bb ? null : S.clouds.get(id), kb = S.bt.get(id), kr = kb && kb.m[0].remote_id;   // the two aggregates, a density bubble (§4.6) and a random cloud (§8.8a): one sheet with a member list; a mark with Remote ID
+  if (bb || kc || kr) {
     detail.hidden = false; detailSpark.hidden = true;
-    const title = kc ? kc.n + " randomised addresses" : bb.n + " clients", expand = () => kc ? expandCloud(id) : expandBubble(id);
+    const title = kr ? "Remote ID" : kc ? kc.n + " randomised addresses" : bb.n + " clients", expand = () => kc ? expandCloud(id) : expandBubble(id);
     detailTitle.textContent = title;
     let body;
-    if (kc) body = cloudSheet(kc);
+    if (kr) body = ridSheet(kb, kr);
+    else if (kc) body = cloudSheet(kc);
     else {
       body = "<table>";
       body += row("Members", String(bb.n));

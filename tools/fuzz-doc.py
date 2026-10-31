@@ -380,9 +380,10 @@ def build(fx, seed, canary, nbig):
         for e in d["aps"]:
             e["caps"] = [hs]
         d["source"] = "airodump-csv"
-        if radio is not None:   # the text a Bluetooth advertiser writes: a name and a company name
+        if radio is not None:   # the text a Bluetooth advertiser writes: a name and a company name, and (0.2.7) the words, ids and positions of a Remote ID broadcast
             d["bluetooth"] = [dict(addr="02:00:00:00:f6:%02x" % i, addr_type="random-resolvable", rssi=-50 - i, reports=1, last_seen=1789299990,
-                                   company=65535, company_name=hs if i == 0 else hs[:48], name=hs if i == 0 else hs[:32]) for i in range(3)]
+                                   company=65535, company_name=hs if i == 0 else hs[:48], name=hs if i == 0 else hs[:32],
+                                   remote_id=dict.fromkeys(("ua_type", "id_type", "uas_id", "status", "lat", "lon", "operator_id"), hs if i == 0 else hs[:20])) for i in range(3)]
             d["center"]["bt_window"], d["center"]["bt_hold"] = 6, 120
         require_unique_ids("6:all-text:h%d" % hi, d)
         b.add(6, "6:all-text:h%d" % hi, d, anchor=True)

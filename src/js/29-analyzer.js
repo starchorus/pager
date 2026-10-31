@@ -888,7 +888,7 @@ function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating 
     const rot = btRot(b.addr_type), p = rot && !rp ? S.btLvl.get(b.addr) : null;
     let l = signalLevel(b.rssi);
     if (p != null && b.rssi >= (rg[p] ?? -999) - BT.hystDb && b.rssi < (rg[p - 1] ?? 999) + BT.hystDb) l = p;
-    const key = "bt:" + (rot && !b.watched ? (b.company ?? "-") + ":" + l : b.addr);
+    const key = "bt:" + (rot && !b.watched && !b.remote_id ? (b.company ?? "-") + ":" + l : b.addr);
     lv.set(b.addr, l); (grp.get(key) || grp.set(key, []).get(key)).push(b);
   }
   if (!keep && !rp) S.btLvl = lv;

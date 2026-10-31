@@ -16,7 +16,8 @@
 # NOT PROVEN: that a scan on the Pager sees what the fixture shows (device checks A1-A16 of the specification, docs/device-notes.md 2b); the Bluetooth
 #   detail sheet, the tags, the CSV rows, the SITREP line, bt(), two of the three cue idioms (the halo and the bloom), the Air line, the hover line, the
 #   whisker title and the reveal fade are not in this release (docs/architecture.md 14.10, 'Not in 0.2.0', lists them): no row proves what is not there,
-#   and the doc-drift drop-in keeps the user-facing documents from claiming them.
+#   and the doc-drift drop-in keeps the user-facing documents from claiming them. A mark with Remote ID (0.2.7) has a sheet, CSV columns and a SITREP
+#   block: tools/regress.d/remote-id.sh proves those.
 #
 # Runs WITHOUT ?fixed: nodes must fade in for the drawing checks. The fixture is served as starchorus.json, so an eval may fetch it and
 # derive its variants (a void window, a moved address, a rated station, 300 records) from this one file.
@@ -90,15 +91,16 @@ gen = fz.load_contract(); fx = fz.Fixtures("tests/fixtures", gen, fz.page_fields
 keys = set(fx.fields["bt"]); hints = fx.hint["bt"]
 muts, big = fz.build(fx, 20260918, "fuzz-canary.tmp", 50)
 names = [m["n"] for m in muts]
-want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable", "class", "watched"}
+want = {"addr", "addr_type", "rssi", "reports", "last_seen", "company", "company_name", "name", "connectable", "class", "watched", "remote_id"}
 mine = [n for n in names if ":bt." in n]
-ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("class") == "str" and all("watched" in fx.hint[k] for k in ("ap", "client", "bt")) and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
+ok = want <= keys and hints.get("name") == "str" and hints.get("company_name") == "str" and hints.get("class") == "str" and hints.get("remote_id") == "any" and all("watched" in fx.hint[k] for k in ("ap", "client", "bt")) and hints.get("reports") == "num" and hints.get("last_seen") == "num" and hints.get("company") == "num" and len(mine) > 100 \
      and any(n.startswith("1:bt.addr:missing") for n in names) and any(n.startswith("6:bt.company_name:h") for n in names) and any(n.startswith("6:bt.class:h") for n in names) and any(n.startswith("3:bluetooth[0]=") for n in names) \
+     and any(n.startswith("2:bt.remote_id:") for n in names) \
      and {"bluetooth", "activity"} <= set(fx.fields["top"]) and "packets" in fx.fields["client"] and "ssid_recorded" not in fx.fields["ap"]
 print("ok" if ok else "keys=%s hints=%s mutants=%d" % (sorted(keys ^ want), hints, len(mine)))
 PY
 )
-rowif "radio: the fuzz key list derives bluetooth[] (eleven keys with watched, which the page reads on access points, stations and Bluetooth records; text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
+rowif "radio: the fuzz key list derives bluetooth[] (twelve keys with watched, which the page reads on access points, stations and Bluetooth records, and remote_id since 0.2.7; text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
 
 # ---- size: each new function inside its limit (the specification's, three of them measured: rebuildBt, btTip, pkRate), the page inside the cap
 RP_FNB=$(python3 - "$H" <<'PY'

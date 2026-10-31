@@ -393,7 +393,8 @@ function drawBt() {   // §3.3 the strongest 48 marks, up to LOD 2
   for (const k of S.bt.values()) {
     if (k.alphaDraw <= 0.02 || k.rank >= BT.drawMax) continue;
     setAlpha(ctx, k.alphaDraw * k.freshA); blit(ctx, getSprite("bt", "bt", tierFor(k.px), k.rot ? (k.n > 1 ? "hd" : "h") : "f"), k.sx, k.sy, k.px);
-    if (k.m[0].watched) { setAlpha(ctx, k.alphaDraw); drawPinMark(ctx, k.sx, k.sy, k.px + ENCODING.selectionRingOffsetPx); }
+    drawSelectionMarks(ctx, k, k.alpha);   // the selected mark (Remote ID, 0.2.7)
+    if (k.m[0].watched) { setAlpha(ctx, k.alphaDraw); drawPinMark(ctx, k.sx, k.sy, k.px + ENCODING.selectionRingOffsetPx + (k.id === S.locked ? 5 : 0)); }
   }
   setAlpha(ctx, 1);
 }

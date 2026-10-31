@@ -336,7 +336,9 @@ data.
 - Addresses the page groups into a cloud carry the cloud's id in JSON and in a trailing CSV column; the cloud entry holds counts,
   signal range, times and probed network names, all received, and is marked as an estimate.
 - With a Bluetooth capture the JSON export holds the `bluetooth` addresses (an array, with `bluetooth_counts`), each with its signal, company,
-  advertised name and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column.
+  advertised name, `remote_id` where an address broadcasts one, and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column,
+  except that while an address broadcasts Remote ID it gains ten `remote_id` columns on the right and a row for each such address; the SITREP then has a
+  block for them. Both say 'as broadcast, not checked', and a position stands as numbers, never as a direction or a distance.
 - It contains none of the device's own transmitters, no probable phone hotspots (not even as a
   station's link; only their number) and no note texts.
 - The report format lists the page's Observations, the alert notes among them; the note of the fifth kind of alert names the newly heard fixed address.

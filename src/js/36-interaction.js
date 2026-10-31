@@ -37,7 +37,7 @@ function setHover(id) {
 }
 function select(id) {
   if (id == null) { deselect(); return null; }
-  const n = nodeById(id); if (!n || n.kind === "bt") return null;   // no sheet for a mark in this release
+  const n = nodeById(id); if (!n || n.kind === "bt" && !n.m[0].remote_id) return null;   // a mark has a sheet only with Remote ID
   S.locked = id; S.dirty = true;
   const fc = S.aps.has(id) ? essOfFolded(id) : null; if (fc) expandEss(fc.id);   // §8.8 click a folded ESS node → expand 6 s
   if (tS >= 0.5 && !scopeOn) flyTo(n);               // 3D: turn the node to the front + dolly in; the device stays centred
