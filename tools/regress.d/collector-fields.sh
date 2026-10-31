@@ -182,6 +182,8 @@ rowif "collector fields: the class-word row bites (scanner is judged, a 25-chara
 # neutral-language judge or the direction judge of the Scope rejects (no direction, bearing or distance word among what a broadcast is said to carry).
 CFL_RS=$(grep -c "instr(hex(svcd),'FAFF0D')>0 THEN hex(svcd) ELSE '' END" starchorus-collect.sh)
 CFL_RSX=$(grep -cE 'quote\(svcd|CAST\(svcd|substr\(svcd|svcd[^)]*AS TEXT' starchorus-collect.sh)
+CFL_RSH=$(grep -c 'hex(svcd)' starchorus-collect.sh)   # exactly the one line above: a second hex(svcd) anywhere is red
+CFL_MFH=$(grep -c 'hex(substr(mfr' starchorus-collect.sh)   # the same for mfr: one line cuts it, nothing else reads it as hex
 cfl_rw() {   # NAME -> the words of the collector's split("...", NAME, " ") list, one per line
   sed -n 's/.*split("\([^"]*\)", '"$1"', " ").*/\1/p' starchorus-collect.sh | tr ' ' '\n' | grep .
 }
@@ -191,7 +193,7 @@ cfl_rv() {   # NAME -> the words of the validator's NAME = (...) tuple, one per 
 CFL_RWS=0; [ -n "$(cfl_rw RUA)" ] && [ "$(cfl_rw RUA)" = "$(cfl_rv RID_UA)" ] && [ "$(cfl_rw RST)" = "$(cfl_rv RID_STATUS)" ] && [ "$(cfl_rw RIT)" = "$(cfl_rv RID_IDT)" ] && CFL_RWS=1
 CFL_RWN=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -c .)
 CFL_RWJ=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
-rowif "collector fields: Remote ID: svcd leaves SQLite only as hex behind the FAFF0D test ($CFL_RS/1, other reads $CFL_RSX/0); the decoder's $CFL_RWN words are the validator's three lists ($CFL_RWS) and none is judged ($CFL_RWJ)" [ "$CFL_RS/$CFL_RSX/$CFL_RWS/$CFL_RWN/$CFL_RWJ" = 1/0/1/26/0 ]
+rowif "collector fields: Remote ID: svcd leaves SQLite only as hex behind the FAFF0D test ($CFL_RS/1, other reads $CFL_RSX/0, hex(svcd) lines $CFL_RSH/1, hex(substr(mfr lines $CFL_MFH/1); the decoder's $CFL_RWN words are the validator's three lists ($CFL_RWS) and none is judged ($CFL_RWJ)" [ "$CFL_RS/$CFL_RSX/$CFL_RSH/$CFL_MFH/$CFL_RWS/$CFL_RWN/$CFL_RWJ" = 1/0/1/1/1/26/0 ]
 # ---- WIDS (0.2.7): the switch defaults to 0 in the collector and the README documents it so; the five kinds the collector raises (wcand) are the
 # validator's AL_TYPES beside deauth, word for word.
 CFL_WD=$(grep -cE '^WIDS=\$\{STARCHORUS_WIDS:-0\}( |$)' starchorus-collect.sh)

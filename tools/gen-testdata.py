@@ -759,7 +759,7 @@ def build_clouds_mix_doc(kind, generated, center):
 # --------------------------------------------------------------------------- contract check
 REQUIRED_TOP = ("generated", "center", "source", "aps", "unassociated")
 OPT_TOP = {"note", "channels", "bluetooth", "activity", "alerts"}   # additive optional top-level keys the collector emits (channels[] = hop info; bluetooth[] and activity[] are the radio pair, contract 3; alerts[] the firmware's deauth/disassoc alert, 0.2)
-OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids", "bt_window", "bt_hold"}
+OPT_CENTER = {"max_age", "interval", "own_bssids", "own_ssids", "bt_window", "bt_hold", "bt_source"}   # bt_source: "blue5" from the firmware's database (0.2.6.2), then without bt_window
 AP_KEYS = ("bssid", "ssid", "channel", "band", "freq", "rssi", "security", "clients")
 # akm/cipher/auth/responded_ssids exist on APs only (never on a station, P1); packets is accepted when a source reports it
 OPT_AP = {"vendor", "rate", "last_seen", "width", "phy", "akm", "cipher", "auth", "responded_ssids", "packets", "watched"}
@@ -928,8 +928,10 @@ def validate(doc, legacy=False):
     for k in ("bt_window", "bt_hold"):
         if k in c and not (isinstance(c[k], int) and not isinstance(c[k], bool) and c[k] >= 0):
             p.append("center.%s must be a non-negative integer" % k)
-    if ("bt_window" in c or "bt_hold" in c) and not ("bluetooth" in doc and "bt_window" in c and "bt_hold" in c):
-        p.append("center.bt_window and center.bt_hold go together with a bluetooth array")
+    if "bt_source" in c and c["bt_source"] != "blue5":
+        p.append("center.bt_source must be blue5 when present")
+    if ("bt_window" in c or "bt_hold" in c or "bt_source" in c) and not ("bluetooth" in doc and "bt_hold" in c and ("bt_window" in c or c.get("bt_source") == "blue5")):
+        p.append("center.bt_window and center.bt_hold go together with a bluetooth array (the blue5 source carries bt_source and bt_hold and no bt_window)")
     if "bluetooth" in doc:
         p += validate_bluetooth(doc["bluetooth"])
     if "activity" in doc:

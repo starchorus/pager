@@ -337,7 +337,7 @@ and the copy is capped (a code comment puts the file at about 40 kB on the devic
 **no fall-back place and no read of the live file**: no copy means no Bluetooth that cycle. The scanner's
 `journal_mode` is `delete`, so a long read of the live file would hold a SHARED lock and stall its commits.
 
-**What is read.** One query with a completeness sentinel over the table `bt_device`: LE only
+**What is read.** One query with a completeness sentinel over the table `bt_device` (with `STARCHORUS_WIDS=1` a second SELECT in the same read-only call, for `bt_fixed_new`): LE only
 (`transports = 1`), a 12-hex address, `rssi_avg` between -127 and -1, the last-seen time within 120 s before the
 cycle clock and never after it, the newest row per address, the strongest first, no more than 256. `reports`
 is `packets` (floored at 1); `company` is kept only as a real id (not 0 or 65535); `name` has TAB, LF and CR
@@ -355,7 +355,7 @@ the head's company is the row's `company`; from the services `pairing frame` (FE
 device` (1812) and `sensor` (181A); from the appearance category (appearance / 64) `phone`, `computer`, `watch`,
 `display`, `remote control`, `tag`, `keyring`, `media player`, `input device` and `sensor`, the health categories and
 the barcode scanner left out on purpose. The rank is manufacturer type, then service, then appearance; a record
-without a class is byte-identical to 0.2.6's, and the class is carried through the hold like the rest of the record.
+without a class is byte-identical to 0.2.6.2's, and the class is carried through the hold like the rest of the record.
 A database without those columns (the 0.2.6 schema, which the self-test keeps as its control fixture) gives the full
 query no answer: the collector then asks the narrow one, logs the switch once, and tries the full query again with
 the vendor re-check. Measured on the device on 30 October 2026: `mfr` filled in 1,840 of 1,963 rows (1,830 of them
@@ -363,8 +363,8 @@ Apple's), `svc16` in 120 (FCB2 in 107, which names no class), `appearance` in 1.
 the cost of the three columns per cycle are still to be measured there.
 
 **Remote ID (0.2.7).** The same query also lets `svcd` (the service data) out as hex, only when it is a blob of 8
-to 232 bytes that holds the service head `FAFF0D` (the service `FFFA`, little-endian, and the app code `0D` of
-ASTM F3411); the layers' awk decodes the Basic ID, Location, System and Operator ID messages, single or in a
+to 255 bytes whose hex holds the service head `FAFF0D` (the service `FFFA`, little-endian, and the app code `0D` of
+ASTM F3411; the decoder then wants it on a byte boundary); the layers' awk decodes the Basic ID, Location, System and Operator ID messages, single or in a
 Message Pack of up to nine, into `remote_id` (`ua_type`, `id_type`, `uas_id`, `status`, `lat`, `lon`, `alt_m`,
 `operator_lat`, `operator_lon`, `operator_id`, each only when the broadcast carried it), for at most eight
 addresses a cycle, the strongest first. Ids pass only as `[A-Za-z0-9._-]`, positions only inside their ranges, 0/0
@@ -406,8 +406,8 @@ INT, connectable INT, rssi INT, rssi_min INT, rssi_max INT, rssi_avg INT, tx_pow
 packets INT, name BLOB, name_complete INT, ad_flags INT, appearance INT, svc16 TEXT, svc_other INT, mfr BLOB,
 svcd BLOB, PRIMARY KEY(scan, mac) ON CONFLICT REPLACE)`: every column the query reads is there, with more beside
 them that the query did not touch then (`ad_flags`, `appearance`, `svc16`, `svc_other`, `mfr`, `svcd`; since 0.2.7
-the query cuts `mfr`, `appearance` and `svc16` for the class, see above, and leaves `ad_flags`, `svc_other` and
-`svcd` alone), and `mac` is twelve hex digits as assumed. Later that day, with the self-test pinned to its own stand-ins and the company list read,
+the query cuts `mfr`, `appearance` and `svc16` for the class and lets `svcd` out for Remote ID, see above, and
+leaves `ad_flags` and `svc_other` alone), and `mac` is twelve hex digits as assumed. Later that day, with the self-test pinned to its own stand-ins and the company list read,
 `tools/install.sh` ended VERIFIED on this firmware for the first time: the collector's self-test ALL PASS on the device
 (531 checks as of 30 October 2026, where the development machine runs 543: cases gated on tools the device lacks), the
 Overview's ALL PASS (113 checks as of the same day), all seven files byte-identical, and the Overview's Bluetooth screen naming `Apple, Inc.`
