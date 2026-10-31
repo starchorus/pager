@@ -16,6 +16,8 @@ and with --extras "rate", "last_seen", "width", "phy" (APs) and "last_seen",
 a hidden network without a name); see build_radio_doc().
 --alerts is the hand-built fixture of the 0.2 alerts (alerts[]: two access points the firmware reported many
 deauth/disassoc frames for, and a report for an address the capture does not hold); see build_alerts_doc().
+--wids is the hand-built fixture of the five kinds of alert of 0.2.7 (STARCHORUS_WIDS=1: own_name, sec_profiles,
+sec_weaker, chan_changed, bt_fixed_new, and no deauth entry); see build_wids_doc().
 --source iw-scan-ACTIVE mirrors the collector's ACTIVE opt-in scan (STARCHORUS_ALLOW_ACTIVE=1):
 APs only, no clients, its security words, no extras. --validate also checks "source"
 and the source-specific shape (none / iw-scan-ACTIVE) and rejects unknown keys.
@@ -599,6 +601,41 @@ def build_alerts_doc(generated, center):
             "alerts": alerts, "aps": aps, "unassociated": unassoc}
 
 
+# --------------------------------------------------------------------------- WIDS fixture (0.2.7: the five kinds of STARCHORUS_WIDS=1)
+# Nine access points and three stations, every address in 02:00:00:00:07/08/09, center.own_bssids and own_ssids as STARCHORUS_OWN=1 writes them,
+# and alerts[] as the collector writes it with STARCHORUS_WIDS=1: one entry per address, at most eight, newest first, no deauth entry (so the
+# Overview, which counts deauth alone, prints no alert line). DOCUMENTED GROUND TRUTH (tools/regress.d/alerts.sh reads it):
+#
+#   02:00:00:00:07:01  "HomeNet"    2.4 GHz ch 6    the own transmitter (own_bssids)     chan_changed n 1   <- no ring, no note (own)
+#   02:00:00:00:07:02  "HomeNet"    5 GHz ch 36     the own name, foreign, the stronger  own_name n 2       <- ring and note
+#   02:00:00:00:07:03  "HomeNet"    2.4 GHz ch 11   the own name, foreign                -
+#   02:00:00:00:07:04  "Meadow"     2.4 GHz ch 1    WPA2                                 -
+#   02:00:00:00:07:05  "Meadow"     5 GHz ch 44     Open, the weaker of two families     sec_profiles n 2   <- ring and note
+#   02:00:00:00:07:06  "Orchard"    5 GHz ch 149    Open (WPA2 before)                   sec_weaker n 1     <- ring and note
+#   02:00:00:00:07:07  "Paddock"    2.4 GHz ch 11   (channel 6 before)                   chan_changed n 1   <- ring and note
+#   02:00:00:00:07:08  "Hotspot-7"  2.4 GHz ch 6    a probable phone hotspot (P3)        chan_changed n 1   <- no ring, no note (mobile)
+#   02:00:00:00:07:09  "Spinney"    6 GHz ch 37     WPA3                                 chan_changed n 2   <- ring and note (none once marked a friend)
+#   02:00:00:00:09:01  a Bluetooth address; the capture has no bluetooth[]              bt_fixed_new n 5   <- no ring, no note (no mark of it)
+#
+#   rings ....................... 5 (07:02, 07:05, 07:06, 07:07, 07:09)      notes ...... 5, in the order of alerts[]
+#   stations .................... 02:00:00:00:08:01 at 07:02, 08:02 and 08:03 free, each with a vendor (not randomised)
+WIDS_ALERTS = (("own_name", "07:02", 2, 0), ("sec_profiles", "07:05", 2, 0), ("bt_fixed_new", "09:01", 5, 20), ("chan_changed", "07:01", 1, 40),
+               ("sec_weaker", "07:06", 1, 95), ("chan_changed", "07:07", 1, 130), ("chan_changed", "07:08", 1, 170), ("chan_changed", "07:09", 2, 210))   # kind, address, n, age
+
+
+def build_wids_doc(generated, center):
+    g = generated
+    plan = [("HomeNet", "2.4GHz", 6, -40, "WPA2"), ("HomeNet", "5GHz", 36, -55, "WPA2"), ("HomeNet", "2.4GHz", 11, -70, "WPA2"),
+            ("Meadow", "2.4GHz", 1, -58, "WPA2"), ("Meadow", "5GHz", 44, -63, "Open"), ("Orchard", "5GHz", 149, -61, "Open"),
+            ("Paddock", "2.4GHz", 11, -66, "WPA2"), ("Hotspot-7", "2.4GHz", 6, -50, "WPA2"), ("Spinney", "6GHz", 37, -57, "WPA3")]
+    aps = [fixed_ap("02:00:00:00:07:%02x" % n, ssid, band, ch, rssi, sec, last_seen=g - 4 * n) for n, (ssid, band, ch, rssi, sec) in enumerate(plan, 1)]
+    aps[1]["clients"] = [{"mac": "02:00:00:00:08:01", "rssi": -60, "vendor": "Vendor G", "last_seen": g - 10}]
+    unassoc = [{"mac": "02:00:00:00:08:%02x" % i, "rssi": -60 - 5 * i, "vendor": "Vendor H", "last_seen": g - 15 * i} for i in (2, 3)]
+    alerts = [{"type": k, "t": g - age, "ap": "02:00:00:00:" + a, "n": n} for k, a, n, age in WIDS_ALERTS]
+    return {"generated": g, "center": {"label": center, "own_bssids": ["02:00:00:00:07:01"], "own_ssids": ["HomeNet"]}, "source": "recon-db",
+            "alerts": alerts, "aps": aps, "unassociated": unassoc}
+
+
 # --------------------------------------------------------------------------- radio-pair fixture (0.2: Bluetooth, activity, traffic)
 # Hand-built, synthetic (locally administered addresses 02:00:00:00:NN:NN, placeholder names, the Bluetooth SIG's test company id 65535; P9).
 # DOCUMENTED GROUND TRUTH (tools/regress.d/radio-pair.sh pins it, R3's parity rows read it):
@@ -1070,6 +1107,8 @@ def main(argv=None):
                     help="the radio-pair fixture (radio-pair.json: bluetooth[], activity[], station packets, a hidden network without a name; see build_radio_doc())")
     ap.add_argument("--alerts", action="store_true",
                     help="the alerts fixture (alerts.json: six access points, two of them alerted, and a report for an address the capture does not hold; see build_alerts_doc())")
+    ap.add_argument("--wids", action="store_true",
+                    help="the WIDS fixture (wids.json: nine access points and the five kinds of alert of STARCHORUS_WIDS=1 at plain, own, mobile and absent addresses; see build_wids_doc())")
     ap.add_argument("--devices", action="store_true",
                     help="emit the hand-built logical AP grouping fixture (devices.json, spec §8.8); see build_devices_doc()")
     ap.add_argument("--clouds", nargs="?", const="one", choices=("one", "two", "crowd", "strays", "wide", "dense", "drift", "same", "three", "long", "pair", "wander"),
@@ -1125,6 +1164,8 @@ def main(argv=None):
         doc = build_radio_doc(args.generated, args.center)
     elif args.alerts:
         doc = build_alerts_doc(args.generated, args.center)
+    elif args.wids:
+        doc = build_wids_doc(args.generated, args.center)
     elif args.clouds == "one":
         doc = build_clouds_doc(args.generated, args.center)
     elif args.clouds:

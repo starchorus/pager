@@ -87,10 +87,10 @@ function normalizeDoc(raw) {
       own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
     // optional alerts[] {type, t, ap, n}: local-live (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
-      if (!isObj(x) || x.type !== "deauth") return null;
+      if (!isObj(x) || !Object.keys(AL_TXT).includes(x.type)) return null;
       const ap = normMac(x.ap);
       const n = numOrNull(x.n);
-      return isMac(ap) && n != null && n > 0 ? { type: "deauth", t: numOrNull(x.t), ap, n: Math.round(n) } : null;
+      return isMac(ap) && n != null && n > 0 ? { type: x.type, t: numOrNull(x.t), ap, n: Math.round(n) } : null;
     }).filter(Boolean) : [],
     // optional homing reading {bssid, dbm, peak, t} for ONE target the device (or STARCHORUS_HOMING_BSSID) chose; validated at ingest (an observed key present this capture — an AP or a station; own transmitters refused)
     homing: isObj(raw.homing) && numOrNull(raw.homing.dbm) != null ? { bssid: normMac(raw.homing.bssid), dbm: dbmOrNull(raw.homing.dbm), peak: numOrNull(raw.homing.peak), t: numOrNull(raw.homing.t) } : null,

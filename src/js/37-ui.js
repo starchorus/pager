@@ -556,7 +556,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" id="leg-fresh-u" data-kind="fresh-undated" hidden>' + freshSwatch(ENCODING.fresh.alpha[0]) + '<span>' + esc(ENCODING.fresh.undated) + '</span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div>');
   rows.push('<div class="legrow note" data-kind="hidden">' + ringSwatch(ENCODING.hidden, "--status-hidden", 5.5) + '<span>hidden SSID</span></div>');
-  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + ringSwatch({ ring: "solid", widthPx: 1.5 }, "--status-alert", 5.5) + '<span>alert ring = many deauth/disassoc frames heard for this AP</span></div>');
+  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + ringSwatch({ ring: "solid", widthPx: 1.5 }, "--status-alert", 5.5) + '<span>alert ring = an alert for this AP, see Observations</span></div>');
   rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
   rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');

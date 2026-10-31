@@ -110,6 +110,7 @@ const CHG_MAX = 12, CHG_BSSIDS = 500, BASELINE_KEY = "starchorus.baseline.v1", B
 // station RSSI series in S.hist, stations in the baseline, station ghosts.
 const HIST_CL_MAX = 2400, BASELINE_CL_MAX = 2000, GHOST_CL_MAX = 40;
 const WATCH_KEY = "starchorus.watch.v1", WATCH_MAX = 20, OBS_MAX = 12, OBS_DWELL = 2, OBS_PROBE_S = 600;
+const AL_TXT = { deauth: "many deauth/disassoc frames heard for this AP", own_name: "own name also sent by another transmitter", sec_weaker: "security weaker than when first heard", chan_changed: "channel changed since first heard", sec_profiles: "one name, several security profiles", bt_fixed_new: "new fixed Bluetooth address, strong signal" };   // the note of each kind of alerts[]
 // library rules (persisted), alias/notes/tags per observed key (AP or station, <= 200), inventory, export, homing.
 const LIB_KEY = "starchorus.library.v1", NOTES_KEY = "starchorus.notes.v1", NOTES_MAX = 200, RULES_MAX = 20, INV_ROWS = 300;
 const EXPORT_FOOTER = "Starchorus · passive observation · not a government system · no official marking";

@@ -11,21 +11,30 @@
 #   word in what the feature says · R8 the running page makes no request but GET to its own origin while the alert is shown · R9 the planted copies of the page
 #   (below) · R10 the colour role of the alert token · R11 the Scope's blip of an alerted access point blinks in the ring's rhythm (frames, both levels, reduced motion, paused, Foundation's
 #   pulse sampled at the half second) · R12 the ring's band, as section 14.6 states it (it touches the selection ring)
+#   Since 0.2.7 the five kinds of STARCHORUS_WIDS=1 (tests/fixtures/wids.json, the ground truth in the header of build_wids_doc): R1b the fixture and three more
+#   refusals of the validator · R13 the page knows the validator's six kinds · R14 the words of the six notes and the legend row (P10, direction, distance; three
+#   planted words) · R15 the kinds on the page (notes, legend, rings in three themes, friend, own, band filter, the Bluetooth note, inherited type names, exports)
+#   · R16 four planted copies for the keys of R15
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
 #                 shows without a ring or hides with one (or with its band filtered off); a flicker that freezes when the sky does not spin (the frame loop is not asked for
 #                 it) or that renders sixty frames a second for a change twice a second; a ring that lands on the security ring, its double, the identity frame or the new-plot
 #                 mark; an alert that adds a word the neutral-language rule forbids, or a path that sends; a generator that lets a malformed alerts[] through; a step of the flicker that arms the
 #                 phosphor fade again (WarGames, persistence on: 22 frames for each step); a Scope whose alerted blip never blinks, or that renders sixty frames a second for it; a ring that moves so
-#                 that the band stated in section 14.6 is no longer true.
+#                 that the band stated in section 14.6 is no longer true. Since 0.2.7: a kind the page does not know, or a type name an object inherits taken for
+#                 one; a derived kind's ring or note at a friend, or a deauth one taken from it; a ring for bt_fixed_new; a Bluetooth note without a live fixed
+#                 mark of its address; a word in a note that P10, direction or distance forbid.
 # NEGATIVE PROBE: R9 runs the same evals on planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
 #                 the flicker factor replaced by 1, the reduced-motion test removed, no frame request, a frame request every frame, and a legend row that ignores the band
 #                 filter; a step that arms the phosphor fade again (R5), in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), and a ring thinned to
 #                 1.25 px at 11.4 (R12), are more. Each must turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
+#                 R14's three planted words and R16's four copies (a friend kept, bt_fixed_new as a Wi-Fi kind, the kinds looked up with `in`, the note without the live
+#                 test) are more.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
-#                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c).
+#                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (STARCHORUS_WIDS stays 0 until
+#                 it is measured on the device); where the nine stars of wids.json land on a phone.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only AL_* globals are set. Runs without ?fixed (nodes must fade in) and freezes the
 # clock itself (STARCHORUS.setFixedTime) for the samples; the WarGames persistence is switched off for them (it would blend neighbouring frames), and on in the one frame count of R5 that is about it.
 
@@ -70,7 +79,39 @@ r = subprocess.run([sys.executable, "tools/gen-testdata.py", "--validate", src],
 print("%d/%d unbroken %s%s" % (len(cases) - len(bad), len(cases), "OK" if r.returncode == 0 else "REFUSED", "" if not bad else " not refused: " + " ".join(bad)))
 PY
 )
-rowif "alerts: the validator refuses twelve broken alerts[] (a type that is not deauth, a count of 0 or a text, an upper-case or no address, another key order, an extra key, unsorted, a repeated access point, 21 entries, an object, a negative time) and passes the fixture [$AL_BROKEN]" [ "$AL_BROKEN" = "12/12 unbroken OK" ]
+rowif "alerts: the validator refuses twelve broken alerts[] (a type outside the six kinds, a count of 0 or a text, an upper-case or no address, another key order, an extra key, unsorted, a repeated access point, 21 entries, an object, a negative time) and passes the fixture [$AL_BROKEN]" [ "$AL_BROKEN" = "12/12 unbroken OK" ]
+
+# ---- R1b the fixture of the five kinds of 0.2.7 (tests/fixtures/wids.json = gen-testdata.py --wids, the ground truth in the header of build_wids_doc): the
+# generator's, valid, and three more refusals on its alerts[]: a kind outside the six, a second kind for one address, a name where the address belongs
+AL_WX="$F/wids.json"
+python3 tools/gen-testdata.py --wids --out "$AL_T/gen-wids.json" 2>/dev/null
+AL_WVL=$(python3 tools/gen-testdata.py --validate "$AL_WX" 2>&1 | tail -n 1)
+AL_OK=0; if cmp -s "$AL_WX" "$AL_T/gen-wids.json"; then case $AL_WVL in *" OK") AL_OK=1 ;; esac; fi
+rowif "alerts: wids.json = gen-testdata.py --wids byte for byte, and it validates" [ "$AL_OK" = 1 ]
+[ "$AL_OK" = 1 ] || echo "    validate: $AL_WVL"
+AL_WBR=$(python3 - "$AL_WX" "$AL_T" <<'PY'
+import copy, json, subprocess, sys
+src, out = sys.argv[1], sys.argv[2]
+d = json.load(open(src))
+def refused(name, f):
+    x = copy.deepcopy(d); f(x)
+    p = "%s/w-%s.json" % (out, name)
+    json.dump(x, open(p, "w"))
+    r = subprocess.run([sys.executable, "tools/gen-testdata.py", "--validate", p], capture_output=True, text=True)
+    return r.returncode == 1 and "alerts" in r.stdout
+old = d["alerts"][-1]["t"] - 1
+cases = [
+    ("foreign", lambda x: x["alerts"][0].update(type="chan_change")),
+    ("twokinds", lambda x: x["alerts"].append(dict(x["alerts"][0], type="sec_weaker", t=old))),
+    ("namekey", lambda x: x["alerts"].__setitem__(0, {"type": "own_name", "t": x["alerts"][0]["t"], "ssid": "HomeNet", "n": 2})),
+]
+bad = [n for n, f in cases if not refused(n, f)]
+r = subprocess.run([sys.executable, "tools/gen-testdata.py", "--validate", src], capture_output=True, text=True)
+kinds = ",".join(sorted({e["type"] for e in d["alerts"]}))
+print("%d/%d unbroken %s kinds %s%s" % (len(cases) - len(bad), len(cases), "OK" if r.returncode == 0 else "REFUSED", kinds, "" if not bad else " not refused: " + " ".join(bad)))
+PY
+)
+rowif "alerts: the validator refuses three broken alerts[] of wids.json (a kind outside the six, a second kind for one address, a name where the address belongs) and passes the fixture with its five kinds and no deauth entry [$AL_WBR]" [ "$AL_WBR" = "3/3 unbroken OK kinds bt_fixed_new,chan_changed,own_name,sec_profiles,sec_weaker" ]
 
 # ---- R2 / R3 the ring, read from the canvas at the point of the ring (the access point's screen position plus its radius plus the ring's offset of two rings' width)
 # (the last block of the eval makes both reported access points own transmitters of this device: no ring then, as the note is skipped for them too)
@@ -136,7 +177,7 @@ await ld(null,"al-warm");o.start=vis();
 o.tokens=TH.map(th=>{STARCHORUS.setTheme(th);const r=row();return r.visible&&r.paints.length>0&&r.paints.every(p=>p.tok==="status.alert"&&p.css===p.val)?1:0;}).join("");
 STARCHORUS.setTheme("foundation");
 const txt=document.getElementById("leg-alert").textContent;
-o.words=txt==="alert ring = many deauth/disassoc frames heard for this AP";
+o.words=txt==="alert ring = an alert for this AP, see Observations";
 o.notes=JSON.stringify(notes());
 await ld(d=>{d.alerts=[d.alerts[2]];},"al-unknown");o.unknown=vis();
 await ld(d=>{d.center.own_bssids=[A1,A4];},"al-own");o.own=vis();
@@ -367,3 +408,109 @@ AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_scope "$AL_T/p-fnd.html" "$AL_T/scope-fnd"
 AL_V=$(printf '%s' "$AL_S" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["frames"] <= 6, d["levels"] >= 2, d["fnd"] > 6, d["errors"])' 2>/dev/null)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_SOK" = bad ] && [ "$AL_V" = "True True True 0" ] && AL_OK=1
 rowif "alerts: the Foundation key bites: a smooth pulse asked for on every frame in the Scope renders more than 6 frames in 0.7 s there, while Whitehall's blip stays within 6 [copy differs in $AL_C1 line, Whitehall frames/levels, Foundation over 6, errors ${AL_V:-no-value}, verdict ${AL_SOK:-none}]" [ "$AL_OK" = 1 ]
+
+# ---- R13 the page knows the validator's kinds: the keys of AL_TXT are AL_TYPES of tools/gen-testdata.py, word for word (a kind the collector
+# learns and the page does not know would be dropped without a word, as every kind but deauth was before 0.2.7)
+AL_PK=$(sed -n 's/^const AL_TXT = { \(.*\) };.*/\1/p' "$H" | grep -oE '(^|, )[a-z_]+: "' | sed 's/^, //; s/: "$//' | LC_ALL=C sort | tr '\n' ' ')
+AL_VK=$(sed -n 's/^AL_TYPES = (\(.*\))  *#.*/\1/p' tools/gen-testdata.py | tr -d '" ' | tr ',' '\n' | grep . | LC_ALL=C sort | tr '\n' ' ')
+AL_KOK=0; [ -n "$AL_PK" ] && [ "$AL_PK" = "$AL_VK" ] && [ "$(printf '%s' "$AL_PK" | wc -w | tr -d ' ')" = 6 ] && AL_KOK=1
+rowif "alerts: the page knows the validator's six kinds (the keys of AL_TXT: $AL_PK= AL_TYPES)" [ "$AL_KOK" = 1 ]
+
+# ---- R14 the words of the kinds, read from the page source: the six notes of AL_TXT and the legend row's text hold no P10 word (the regex of
+# neutral-language.sh), no word of direction or distance (the judge of scope.sh) and none of track, pilot, locate, scanner. The judge bites: three
+# copies of the page, each with one planted word in one note, are found once each.
+AL_DR=$(sed -n 's/^    h = re.findall(r"\(.*\)", t)$/\1/p' tools/regress.d/scope.sh)   # the one definition of the direction and distance words, read where it lives
+cat > "$AL_T/words.py" <<'PY'
+import re, sys
+s = open(sys.argv[1], encoding="utf-8").read()
+m = re.findall(r'^const AL_TXT = \{ (.*) \};', s, re.M)
+l = re.findall(r'id="leg-alert"[^\n]*?<span>([^<]*)</span>', s)
+if len(m) != 1 or len(l) != 1 or not sys.argv[2] or not sys.argv[3]:
+    print("BROKEN"); sys.exit(0)
+txt = re.findall(r'[a-z_]+: "([^"]*)"', m[0]) + l
+bad = [t for t in txt if re.search(sys.argv[2], t, re.I) or re.search(sys.argv[3], t) or re.search(r"(?i)\b(track|pilot|locat|scanner)", t)]
+print("%d/%d" % (len(txt), len(bad)))
+PY
+al_words() { python3 -B "$AL_T/words.py" "$1" "$AL_P10" "$AL_DR" 2>&1 | head -n 1; }   # al_words PAGE -> texts read/texts with a forbidden word
+AL_WD=$(al_words "$H"); rm -f "$AL_T/p-w1.html" "$AL_T/p-w2.html" "$AL_T/p-w3.html"
+al_plant "$AL_T/p-w1.html" 'own_name: "own name also sent by another transmitter"' 'own_name: "own name also sent by a rogue transmitter"'; AL_WP1=$?
+al_plant "$AL_T/p-w2.html" 'chan_changed: "channel changed since first heard"' 'chan_changed: "channel changed since first heard nearby"'; AL_WP2=$?
+al_plant "$AL_T/p-w3.html" 'bt_fixed_new: "new fixed Bluetooth address, strong signal"' 'bt_fixed_new: "new fixed Bluetooth address, strong signal: track it"'; AL_WP3=$?
+AL_WB="$AL_WP1$AL_WP2$AL_WP3:$(al_words "$AL_T/p-w1.html") $(al_words "$AL_T/p-w2.html") $(al_words "$AL_T/p-w3.html")"
+rowif "alerts: the notes of the six kinds and the legend row say no P10 word, no word of direction or distance and none of track, pilot, locate, scanner [$AL_WD]; a copy with one planted word each (rogue, nearby, track) is found once [$AL_WB]" [ "$AL_WD/$AL_WB" = "7/0/000:7/1 7/1 7/1" ]
+
+# ---- R15 the five kinds of 0.2.7 on the page (tests/fixtures/wids.json, the ground truth in the header of build_wids_doc): the five notes exactly, in the order of
+# alerts[] and after the dwell of two captures; the legend row with its kind-neutral words; the ring at the five access points with a Wi-Fi kind and at none of the
+# others (the own transmitter, the phone hotspot, two without an entry) in all three themes; a friend loses the ring and the note of a derived kind and keeps a deauth
+# entry's; an own transmitter loses both; a band filtered off loses the ring and keeps the note; bt_fixed_new is a note only and only while the capture holds that
+# address as a fixed Bluetooth mark (not a rotating one, not in the capture it left, never a ring, not even at an access point of that address); a type that only an
+# object inherits (constructor, __proto__, toString) is dropped; the SITREP lists the notes, the JSON and CSV exports none of them.
+AL_EVW='(async()=>{const sleep=STARCHORUS.wait,I=STARCHORUS._internals,S=I.S,o={},TH=["foundation","wargames","whitehall"];
+const P="02:00:00:00:07:",R1=["02","05","06","07","09"].map(x=>P+x),R0=["01","03","04","08"].map(x=>P+x),SP=P+"09",BA="02:00:00:00:09:01";
+await sleep(1500);
+const fx=await (await fetch("starchorus.json")).json();
+let cnt=0;const ld1=async(mut,lab)=>{STARCHORUS.setFixedTime(null);const d=JSON.parse(JSON.stringify(fx));d.generated+=5*(++cnt);if(mut)mut(d);STARCHORUS.load(d,lab);await sleep(300);};
+const ld=async(mut,lab)=>{await ld1(mut,lab);await ld1(mut,lab);};   // a note shows once its alert has held for two captures (the observations dwell)
+const notes=()=>STARCHORUS.observations().filter(x=>x.group==="Alerts").map(x=>x.text);
+const row=()=>STARCHORUS.legendRows().find(r=>r.kind==="alert");
+const px=id=>{const n=STARCHORUS.nodeScreen(id);return n?STARCHORUS.pixel("sky",Math.floor(n.sx+n.px+11.5),Math.round(n.sy)).a:-999;};
+const sm=ids=>{for(let k=0;k<4;k++)STARCHORUS.frame();return ids.map(px);};
+const rings=async ids=>{STARCHORUS.setFixedTime(1000);await sleep(120);const k0=S.alerts,out=[];for(const id of ids){S.alerts=k0;const w=sm([id])[0];S.alerts=k0.filter(a=>a.ap!==id.replace(/^bt:/,""));const z=sm([id])[0];out.push(w-z>=60?1:Math.abs(w-z)<=2?0:"?");}S.alerts=k0;return out.join("");};   // each point against the same sky without the entries of its own address, so that the ring of a neighbour is in both
+const bt=t=>d=>{d.bluetooth=[{addr:BA,addr_type:t,rssi:-45,reports:5,last_seen:d.generated-20}];d.center.bt_window=6;d.center.bt_hold=120;};
+STARCHORUS.setToggles({crt:false});
+await ld(null,"wd-warm");
+o.notes=JSON.stringify(notes());
+o.legend=row().visible+"|"+document.getElementById("leg-alert").textContent;
+const rr=[];for(const th of TH){STARCHORUS.setTheme(th);rr.push(await rings(R1.concat(R0)));}o.rings=rr.join("|");
+STARCHORUS.setTheme("foundation");
+STARCHORUS.setIdentity(SP,"friend");const f1=await rings([SP]),k1=S.alerts;S.alerts=k1.concat([{type:"deauth",t:0,ap:SP,n:3}]);const f2=await rings([SP]);S.alerts=k1;
+await ld(null,"wd-friend");const f3=notes().length;
+await ld(d=>{d.alerts=d.alerts.filter(a=>a.ap!==SP).concat([{type:"deauth",t:d.generated-300,ap:SP,n:3}]);},"wd-friend-deauth");
+o.friend=[f1,f2,f3,notes().includes("many deauth/disassoc frames heard for this AP: Spinney (3)")].join("/");
+STARCHORUS.setIdentity(SP,"unknown");
+await ld(d=>{d.center.own_bssids.push(P+"02");},"wd-own");o.own=notes().length+"/"+(await rings([P+"02"]));
+await ld(null,"wd-back");STARCHORUS.setToggles({bands:{"5":false}});await sleep(300);o.bands=(await rings(R1))+"/"+notes().length+"/"+row().visible;
+STARCHORUS.setToggles({bands:{"5":true}});
+await ld(bt("public"),"wd-bt");await sleep(1200);const bn=STARCHORUS.nodeScreen("bt:"+BA);o.bt=[notes()[2],notes().length,!!(bn&&bn.visible),await rings(["bt:"+BA])].join("/");
+await ld1(null,"wd-bt");o.btGone=notes().length;   // the same source: the mark is still held, now without its address in the capture
+await ld(bt("random-resolvable"),"wd-bt-rot");o.btRot=notes().length;
+await ld(d=>{d.alerts.push({type:"bt_fixed_new",t:d.generated-400,ap:P+"04",n:3});},"wd-bt-ap");o.btAp=(await rings([P+"04"]))+"/"+notes().length;
+await ld(d=>{d.alerts=[{type:"constructor",t:d.generated,ap:P+"04",n:3},{type:"__proto__",t:d.generated,ap:P+"03",n:3},{type:"toString",t:d.generated,ap:P+"07",n:1}];},"wd-proto");o.proto=[notes().length,S.alerts.length,row().visible].join("/");
+await ld(null,"wd-exp");const T=notes(),sr=STARCHORUS.exportText("sitrep"),js=STARCHORUS.exportText("json"),cs=STARCHORUS.exportText("csv"),said=t=>t.slice(0,t.lastIndexOf(": "));
+o.exports=[T.length,T.filter(t=>sr.includes("\n  "+t+"\n")).length,T.filter(t=>js.includes(said(t))||cs.includes(said(t))).length].join("/");
+STARCHORUS.setFixedTime(null);o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+# al_wids PAGE PREFIX: the WIDS eval on PAGE (the page, or a planted copy); the value comes back in AL_W, with its keys sorted in AL_WN
+al_wids() {
+  AL_HK=$H; H=$1   # runq serves $H: point it at the copy for this one call, then put it back
+  runq "$AL_WX" "$AL_Q" "$2" --fps 0 --wait 3 --ready "$AL_RDY" --eval-timeout 120 --eval "$AL_EVW" >/dev/null 2>&1
+  H=$AL_HK
+  AL_W=$(evalv "$2.json" 1)
+  AL_WN=$(printf '%s' "$AL_W" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin),separators=(",",":"),sort_keys=True))' 2>/dev/null)
+}
+al_wids "$H" "$AL_T/wids"
+AL_WWANT='{"bands":"00011/5/true","bt":"new fixed Bluetooth address, strong signal: 02:00:00:00:09:01 (5)/6/true/0","btAp":"0/5","btGone":5,"btRot":5,"errors":0,"exports":"5/5/0","friend":"0/1/4/true","legend":"true|alert ring = an alert for this AP, see Observations","notes":"[\"own name also sent by another transmitter: HomeNet (2)\",\"one name, several security profiles: Meadow (2)\",\"security weaker than when first heard: Orchard (1)\",\"channel changed since first heard: Paddock (1)\",\"channel changed since first heard: Spinney (2)\"]","own":"4/0","proto":"0/0/false","rings":"111110000|111110000|111110000"}'
+rowif "alerts: the five kinds of 0.2.7 on wids.json: five notes exactly, the legend row in kind-neutral words, the ring at the five access points with a Wi-Fi kind and at none of the four others (own transmitter, phone hotspot, two without an entry) in three themes; a friend loses the derived ring and note and keeps a deauth one, an own transmitter loses both, a band filtered off keeps the note; bt_fixed_new a note only while the capture holds a fixed mark of it (not rotating, not after it left, never a ring, not at an access point of that address); inherited type names dropped; the SITREP lists the notes, JSON and CSV none [${AL_WN:-no-value}]" [ "$AL_WN" = "$AL_WWANT" ]
+[ "$AL_WN" = "$AL_WWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_W:-no-value}" | cut -c1-600)"
+
+# ---- R16 the keys of R15 bite: four planted copies, each differing from the page in exactly one line, each turns its own key (the copies boot without an error)
+al_wkey() { printf '%s' "$AL_W" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
+# a friend that keeps a derived kind's ring and note
+al_copy "$AL_T/p-wfriend.html" 'a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend") && S.aps.get(a.ap);' 'a.type !== "bt_fixed_new") && S.aps.get(a.ap);'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wfriend.html" "$AL_T/wids-friend"; AL_V=$(al_wkey friend errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "1/1/5/true,0" ] && AL_OK=1
+rowif "alerts: the friend key bites: a page whose derived kinds ignore the friend mark keeps their ring and note at a friend [copy differs in $AL_C1 line, friend/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# bt_fixed_new treated as a Wi-Fi kind: a ring and a note at an access point of that address
+al_copy "$AL_T/p-wbt.html" '(a.type === "deauth" || a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend")' '(a.type === "deauth" || identityOf(a.ap) !== "friend")'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wbt.html" "$AL_T/wids-bt"; AL_V=$(al_wkey btAp errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "1/6,0" ] && AL_OK=1
+rowif "alerts: the Bluetooth key bites: a page that treats bt_fixed_new as a Wi-Fi kind draws a ring and writes a note at an access point of that address [copy differs in $AL_C1 line, btAp/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# the kinds looked up with `in`: the names an object inherits pass
+al_copy "$AL_T/p-win.html" '!Object.keys(AL_TXT).includes(x.type)' '!(x.type in AL_TXT)'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-win.html" "$AL_T/wids-in"; AL_V=$(al_wkey proto errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "3/3/true,0" ] && AL_OK=1
+rowif "alerts: the kinds key bites: a page that looks the kind up with 'in' keeps constructor, __proto__ and toString as alerts, with a note and a ring each [copy differs in $AL_C1 line, proto/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# the Bluetooth note without the mark's live test: it outlives the capture the address left
+al_copy "$AL_T/p-wlive.html" '(S.bt.get("bt:" + a.ap) || {}).target === 1' 'S.bt.has("bt:" + a.ap)'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wlive.html" "$AL_T/wids-live"; AL_V=$(al_wkey btGone errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "6,0" ] && AL_OK=1
+rowif "alerts: the live key bites: a Bluetooth note that only asks whether the mark exists outlives the capture its address left [copy differs in $AL_C1 line, btGone/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]

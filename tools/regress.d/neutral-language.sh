@@ -7,7 +7,7 @@
 # box, logon, banners) + title/aria-label/placeholder/alt/meta content + document.title, in all
 # three themes -- idle, and with detail panel + tooltip open on the strongest AP, an associated
 # client, a free client and a bubble (when present) -- plus the chanbar tooltip text of every
-# occupied channel; fixtures demo, active, devices, field-probes and alerts (start themes cover both logons; alerts: the legend row and the alert notes).
+# occupied channel; fixtures demo, active, devices, field-probes, alerts and wids (start themes cover both logons; alerts and wids: the legend row and the alert notes).
 # Display script: LOG of both starchorus-display.sh copies (--once, EVERY screen x every fixture) plus every "…"
 # literal of the scripts (menu, spinner and dialog texts that --once never prints). The screen list is read
 # from each script (its screen_NAME() functions), not typed here: a typed list would silently miss a screen added
@@ -35,7 +35,7 @@ NTL_EVP10='(async()=>{const T0=STARCHORUS.getTheme(),seen=new Set(),tags=[];cons
 NTL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 NTL_RDD='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS))))'   # the demo run has no capture to wait for: this is what a bare --ready asks
 NTL_BAD=""; NTL_GR=""
-for NTL_RUN in demo:wargames active:whitehall devices:foundation field-probes:whitehall alerts:wargames; do
+for NTL_RUN in demo:wargames active:whitehall devices:foundation field-probes:whitehall alerts:wargames wids:whitehall; do
   NTL_FX=${NTL_RUN%%:*}; NTL_TH=${NTL_RUN#*:}
   if [ "$NTL_FX" = demo ]; then NTL_SRC=demo; NTL_RD=$NTL_RDD; else NTL_SRC="$F/$NTL_FX.json"; NTL_RD=$NTL_RDY; fi
   runq "$NTL_SRC" "?poll=0&spin=0&theme=$NTL_TH" "out/$P-p10-$NTL_FX" --wait 4 --fps 0 --ready "$NTL_RD" \

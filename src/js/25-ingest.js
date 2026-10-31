@@ -89,7 +89,8 @@ function isMobileLikely(n) {
   return MOBILE_SSID_RE.test(n.ssidKnown || n.ssid || "") || !!(n.caps && n.caps.includes("IBSS"));
 }
 const eventSkip = (n) => !n || n.mobile || S.own.bssids.has(n.id);   // mobile hotspots and this device's own transmitters
-const alertNode = (a) => { const n = S.aps.get(a.ap); return eventSkip(n) || S.ui.filters[n.band] === false ? null : n; };
+const alertAp = (a) => (a.type === "deauth" || a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend") && S.aps.get(a.ap);   // a friend keeps deauth only; Bluetooth has no star
+const alertNode = (a) => { const n = alertAp(a); return eventSkip(n) || S.ui.filters[n.band] === false ? null : n; };
 let alAt = Infinity;
 function chgPush(id, seq, t, kind, from, to) {
   let a = S.chg.get(id);

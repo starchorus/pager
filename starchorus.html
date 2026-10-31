@@ -885,6 +885,7 @@ const CHG_MAX = 12, CHG_BSSIDS = 500, BASELINE_KEY = "starchorus.baseline.v1", B
 // station RSSI series in S.hist, stations in the baseline, station ghosts.
 const HIST_CL_MAX = 2400, BASELINE_CL_MAX = 2000, GHOST_CL_MAX = 40;
 const WATCH_KEY = "starchorus.watch.v1", WATCH_MAX = 20, OBS_MAX = 12, OBS_DWELL = 2, OBS_PROBE_S = 600;
+const AL_TXT = { deauth: "many deauth/disassoc frames heard for this AP", own_name: "own name also sent by another transmitter", sec_weaker: "security weaker than when first heard", chan_changed: "channel changed since first heard", sec_profiles: "one name, several security profiles", bt_fixed_new: "new fixed Bluetooth address, strong signal" };   // the note of each kind of alerts[]
 // library rules (persisted), alias/notes/tags per observed key (AP or station, <= 200), inventory, export, homing.
 const LIB_KEY = "starchorus.library.v1", NOTES_KEY = "starchorus.notes.v1", NOTES_MAX = 200, RULES_MAX = 20, INV_ROWS = 300;
 const EXPORT_FOOTER = "Starchorus · passive observation · not a government system · no official marking";
@@ -1465,10 +1466,10 @@ function normalizeDoc(raw) {
       own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
     // optional alerts[] {type, t, ap, n}: local-live (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
-      if (!isObj(x) || x.type !== "deauth") return null;
+      if (!isObj(x) || !Object.keys(AL_TXT).includes(x.type)) return null;
       const ap = normMac(x.ap);
       const n = numOrNull(x.n);
-      return isMac(ap) && n != null && n > 0 ? { type: "deauth", t: numOrNull(x.t), ap, n: Math.round(n) } : null;
+      return isMac(ap) && n != null && n > 0 ? { type: x.type, t: numOrNull(x.t), ap, n: Math.round(n) } : null;
     }).filter(Boolean) : [],
     // optional homing reading {bssid, dbm, peak, t} for ONE target the device (or STARCHORUS_HOMING_BSSID) chose; validated at ingest (an observed key present this capture — an AP or a station; own transmitters refused)
     homing: isObj(raw.homing) && numOrNull(raw.homing.dbm) != null ? { bssid: normMac(raw.homing.bssid), dbm: dbmOrNull(raw.homing.dbm), peak: numOrNull(raw.homing.peak), t: numOrNull(raw.homing.t) } : null,
@@ -1753,7 +1754,8 @@ function isMobileLikely(n) {
   return MOBILE_SSID_RE.test(n.ssidKnown || n.ssid || "") || !!(n.caps && n.caps.includes("IBSS"));
 }
 const eventSkip = (n) => !n || n.mobile || S.own.bssids.has(n.id);   // mobile hotspots and this device's own transmitters
-const alertNode = (a) => { const n = S.aps.get(a.ap); return eventSkip(n) || S.ui.filters[n.band] === false ? null : n; };
+const alertAp = (a) => (a.type === "deauth" || a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend") && S.aps.get(a.ap);   // a friend keeps deauth only; Bluetooth has no star
+const alertNode = (a) => { const n = alertAp(a); return eventSkip(n) || S.ui.filters[n.band] === false ? null : n; };
 let alAt = Infinity;
 function chgPush(id, seq, t, kind, from, to) {
   let a = S.chg.get(id);
@@ -3120,7 +3122,7 @@ function obsCompute() {
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
-  for (const a of S.alerts) { const n = S.aps.get(a.ap); if (n && !eventSkip(n)) add("alert:" + a.ap, "Alerts", "many deauth/disassoc frames heard for this AP: " + (n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only
+  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only
   if (S.cloudOrder.length) {   // §8.8a
     const k = S.cloudOrder.length, a = S.cloudOrder.reduce((x, c) => x + c.n, 0), one = k === 1 && !cloudMixed(S.cloudOrder[0]);
     add("s-clouds", "Stations", a + " randomised addresses in " + k + (k === 1 ? " cloud" : " clouds") + (one ? ": probably one nearby device changing its address" : ": possibly one or more nearby devices changing their address"));
@@ -6196,7 +6198,7 @@ function buildLegend() {   // D10: one builder, four blocks (Measured / Derived 
   rows.push('<div class="legrow" id="leg-fresh-u" data-kind="fresh-undated" hidden>' + freshSwatch(ENCODING.fresh.alpha[0]) + '<span>' + esc(ENCODING.fresh.undated) + '</span><span class="cnt"></span></div>');
   rows.push('<div class="sep"></div>');
   rows.push('<div class="legrow note" data-kind="hidden">' + ringSwatch(ENCODING.hidden, "--status-hidden", 5.5) + '<span>hidden SSID</span></div>');
-  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + ringSwatch({ ring: "solid", widthPx: 1.5 }, "--status-alert", 5.5) + '<span>alert ring = many deauth/disassoc frames heard for this AP</span></div>');
+  rows.push('<div class="legrow note" id="leg-alert" data-kind="alert" hidden>' + ringSwatch({ ring: "solid", widthPx: 1.5 }, "--status-alert", 5.5) + '<span>alert ring = an alert for this AP, see Observations</span></div>');
   rows.push('<div class="legrow note" id="leg-activity" data-kind="activity" hidden>' + swFrame('<path d="M6 1.5v9" stroke="var(--ink-primary)" stroke-width="1.5"/>') + '<span>thin line in a channel bar = share of frames heard (relative)</span></div>');
   rows.push('<div class="legrow note" id="leg-cue" data-kind="traffic" hidden>' + swFrame('<circle cx="6" cy="6" r="4.8" fill="none" stroke="var(--client)" stroke-dasharray="1 2"/><circle cx="6" cy="6" r="1.8" fill="var(--client)"/>') + '<span>station ' + (THEME.render.trafficCue || "ticks") + ' = frames heard from it per second (depends on where the radio listens)</span></div>');
   rows.push('<div class="legrow note" id="leg-geometry" data-kind="geometry">rings = received signal (dBm), not range · direction is not measured</div>');
