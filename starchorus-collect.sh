@@ -98,8 +98,8 @@
 #                        hex digits: the firmware's /lib/hak5/bt_companies.txt). auto takes that file
 #                        when it parses. Missing/unusable file => the company id alone, as before, one
 #                        log line. The window source names companies itself. The list is read only for
-#                        an identifier no earlier cycle looked up (BTCO_MEMO, emptied at the hourly
-#                        re-check), not once per cycle.                                (default auto)
+#                        an identifier no earlier cycle looked up (BTCO_MEMO, emptied at the re-check
+#                        every 120 cycles), not once per cycle.                        (default auto)
 #   Everything that depends on device behaviour that is not verified yet is a FLAG, default OFF:
 #   STARCHORUS_HOPINFO        1 = top-level "channels": [{"freq", "last_heard"}] from the recon.db `time`
 #                        column (the front-end never calls an AP "gone" without it).  (default 0)
@@ -2284,7 +2284,7 @@ find_btco_file() {
 }
 # setup_btco: choose the company list, where setup_vendor chooses the OUI file; it logs only when its state changes.
 setup_btco() {
-    BTCO_MEMO=""   # at start and at every hourly re-check the identifiers are looked up afresh, so a changed list is read within the hour
+    BTCO_MEMO=""   # at start and at every re-check (120 cycles: an hour at the payload's interval of 30 s) the identifiers are looked up afresh, so a changed list is read by the next re-check
     BTCO_PATH=$(find_btco_file); bc_r=$?
     if [ -z "$BTCO_PATH" ]; then
         if [ "$bc_r" = 2 ]; then
@@ -2306,14 +2306,16 @@ setup_btco() {
 # only when a line carries an identifier the memo does not hold: on the device one pass over its 4,041 lines cost about 100 ticks of a
 # 520-tick cycle (1 November 2026), in every cycle, for a few dozen companies that do not change. The identifiers this pass looked up go to
 # $BT_F.co for btco_memo_take, which the caller runs after the pipeline (awk runs in a subshell here and cannot set the variable itself).
+# The list and the side file reach awk through the environment, never through -v, which reads backslash escapes in a path (the rule of
+# add_vendor). A list that cannot be read this cycle records nothing: its identifiers are looked up again next cycle.
 btco_fill() {
     if [ -z "$BTCO_PATH" ]; then cat; return 0; fi
-    SC_BTCO_MEMO=$BTCO_MEMO awk -F"$RECON_TAB" -v OFS="$RECON_TAB" -v tbl="$BTCO_PATH" -v co="$BT_F.co" '
-        BEGIN { n = split(ENVIRON["SC_BTCO_MEMO"], M, "\n"); for (i = 1; i <= n; i++) if (M[i] ~ /^[0-9A-F][0-9A-F][0-9A-F][0-9A-F]\t/) nm[substr(M[i], 1, 4)] = substr(M[i], 6) }
+    SC_BTCO_MEMO=$BTCO_MEMO SC_BTCO_TBL=$BTCO_PATH SC_BTCO_CO="$BT_F.co" awk -F"$RECON_TAB" -v OFS="$RECON_TAB" '
+        BEGIN { tbl = ENVIRON["SC_BTCO_TBL"]; co = ENVIRON["SC_BTCO_CO"]; n = split(ENVIRON["SC_BTCO_MEMO"], M, "\n"); for (i = 1; i <= n; i++) if (M[i] ~ /^[0-9A-F][0-9A-F][0-9A-F][0-9A-F]\t/) nm[substr(M[i], 1, 4)] = substr(M[i], 6) }
         { L[++nl] = $0; if (NF >= 7 && $6 ~ /^[0-9]+$/ && $7 == "") { k = sprintf("%04X", $6 + 0); if (!(k in nm) && !(k in miss)) { miss[k] = 1; nmiss++ } } }
         END {
-            if (nmiss) {
-                while ((getline l < tbl) > 0) if (l ~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][\t ]/) { k = toupper(substr(l, 1, 4)); if ((k in miss) && !(k in got)) { v = substr(l, 6); sub(/^[\t ]+/, "", v); sub(/[\r\t ]+$/, "", v); if (v != "") got[k] = substr(v, 1, 48) } }
+            if (nmiss && (getline l < tbl) > 0) {   # a list that cannot be read this cycle records nothing
+                do { if (l ~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][\t ]/) { k = toupper(substr(l, 1, 4)); if ((k in miss) && !(k in got)) { v = substr(l, 6); sub(/^[\t ]+/, "", v); sub(/[\r\t ]+$/, "", v); if (v != "") got[k] = substr(v, 1, 48) } } } while ((getline l < tbl) > 0)
                 close(tbl)
                 for (k in miss) { nm[k] = (k in got) ? got[k] : ""; print k "\t" nm[k] > co }
                 close(co)
@@ -2322,7 +2324,7 @@ btco_fill() {
         }'
 }
 # btco_memo_take: after the pipeline, fold the identifiers btco_fill looked up ($BT_F.co) into BTCO_MEMO, newest last and at most 512 lines;
-# a line that is not id<TAB>name is dropped. setup_btco empties the memo, so the list is read again at the hourly re-check and when it changes.
+# a line that is not id<TAB>name is dropped. setup_btco empties the memo, so the list is read again at the re-check every 120 cycles.
 btco_memo_take() {
     if [ -s "$BT_F.co" ]; then
         BTCO_MEMO=$(printf '%s\n' "$BTCO_MEMO" | cat - "$BT_F.co" | grep -E "^[0-9A-F][0-9A-F][0-9A-F][0-9A-F]$RECON_TAB" | tail -n 512)
@@ -5045,7 +5047,15 @@ lay_selftest() {
         b5_l2=$(grep '^  "bluetooth": ' "$b5/doc2.json")
         b5_apl=0; printf '%s' "$b5_l2" | grep -q '"addr": "aa:bb:cc:00:00:0a", "addr_type": "public", "rssi": -40, "reports": 7, "last_seen": [0-9]*, "company": 76, "company_name": "Apple, Inc."' && b5_apl=1
         b5_bare=0; printf '%s' "$b5_l2" | grep -q '"addr": "c0:aa:bb:00:00:02"[^}]*"company": 12,' && ! printf '%s' "$b5_l2" | grep -q '"addr": "c0:aa:bb:00:00:02"[^}]*"company_name"' && b5_bare=1
-        BTCO_PATH=$b5_sCP
+        # the memo (1 November 2026): the read with the list leaves the three identifiers it looked up in BTCO_MEMO (76 named, 12 and 46517 bare) and no side file; a read
+        # with the list gone still names 76 from the memo alone (the wiring of btco_memo_take in bt_blue5_read, which the direct cases of the memo cannot see)
+        b5_mm=$(printf '%s\n' "$BTCO_MEMO" | sort | tr '\t\n' '=|'); b5_mf=$([ -e "$BT_F.co" ] && echo yes || echo no)
+        BTCO_PATH="$b5/none-such-companies.txt"; BT_HELD=""; bt_blue5_read "$b5_ts"; b5_mrc=$?; lay_doc $b5_ts > "$b5/doc3.json"; add_layers "$b5/doc3.json" 1 blue5
+        b5_mapl=0; grep '^  "bluetooth": ' "$b5/doc3.json" | grep -q '"company": 76, "company_name": "Apple, Inc."' && b5_mapl=1
+        if [ "$b5_mm" = "000C=|004C=Apple, Inc.|B5B5=|" ] && [ "$b5_mf" = no ] && [ "$b5_mrc" = 0 ] && [ "$b5_mapl" = 1 ]; then
+            st_pass "blue5: bt_blue5_read leaves the identifiers it looked up in the memo (004C named, 000C and B5B5 bare) and no side file, and a read with the list gone still names 76 from the memo"
+        else st_fail "blue5 memo: memo [$b5_mm], side file $b5_mf, rc $b5_mrc, named from the memo $b5_mapl"; fi
+        BTCO_MEMO=""; BTCO_PATH=$b5_sCP
         if [ "$b5_nrc" = 0 ] && [ "$b5_apl" = 1 ] && [ "$b5_bare" = 1 ] && json_ok < "$b5/doc2.json"; then
             st_pass "blue5: the company list names an identifier the database holds (76 -> Apple, Inc.) and leaves one it lacks (12) bare"
         else st_fail "blue5 companies: rc $b5_nrc apple $b5_apl bare $b5_bare"; fi
@@ -6309,6 +6319,11 @@ selftest() {
     BTCO_MEMO=""; printf 'garbage\n004C\tApple, Inc.\n00zz\tx\n' > "$BT_F.co"; btco_memo_take
     if [ "$BTCO_MEMO" = "$(printf '004C\tApple, Inc.')" ]; then st_pass "btco_memo_take: a line that is not id<TAB>name is dropped"
     else st_fail "btco_memo_take: garbage kept [$(printf '%s' "$BTCO_MEMO" | tr '\t\n' '=|')]"; fi
+    BTCO_MEMO=""; BTCO_PATH="$tdir/co/gone.txt"
+    co_o4=$(printf 'B\t02:00:00:00:00:18\tpublic\t-57\t1\t76\t\t\t1\n' | btco_fill | tr '\t\n' '=|'); co_f4=$([ -e "$BT_F.co" ] && echo yes || echo no); btco_memo_take; co_m4=$BTCO_MEMO
+    BTCO_PATH="$tdir/co/list.txt"; co_o5=$(printf 'B\t02:00:00:00:00:18\tpublic\t-57\t1\t76\t\t\t1\n' | btco_fill | tr '\t\n' '=|'); btco_memo_take
+    if [ "$co_o4" = "B=02:00:00:00:00:18=public=-57=1=76===1|" ] && [ "$co_f4" = no ] && [ -z "$co_m4" ] && [ "$co_o5" = "B=02:00:00:00:00:18=public=-57=1=76=Apple, Inc.==1|" ] && [ "$BTCO_MEMO" = "$(printf '004C\tApple, Inc.')" ]; then st_pass "btco_fill: a list that cannot be read this cycle names nothing and records nothing (no side file, the memo untouched), so the next cycle with the list names the identifier"
+    else st_fail "btco_fill: unreadable list: pass [$co_o4], side file $co_f4, memo [$(printf '%s' "$co_m4" | tr '\t\n' '=|')], then [$co_o5], memo [$(printf '%s' "$BTCO_MEMO" | tr '\t\n' '=|')]"; fi
     BTCO_MEMO="0001${RECON_TAB}x"; BTCO_FILE="$tdir/co/list.txt"; BTCO_STATE=""; setup_btco 2>/dev/null
     if [ -z "$BTCO_MEMO" ] && [ "$BTCO_PATH" = "$tdir/co/list.txt" ]; then st_pass "setup_btco: the memo is emptied with the (hourly) choice of the list"
     else st_fail "setup_btco: memo [$BTCO_MEMO], path [$BTCO_PATH]"; fi
