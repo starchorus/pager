@@ -68,7 +68,7 @@ THEMES.foundation = {
     cohesion: { scale: [1, 1.3, 1.7, 2.3], alpha: [1, 0.85, 0.65, 0.45] },   // the dust's cohesion IS freshness — T0 dense and bright … T3 a loose haze (the core, radius and hit-test do not change)
     spiral: { dawnRad: 1.4, duskRad: 0.9 },                                // dawn: new dust spirals IN; dusk: leaving dust drifts OUT along a spiral (radians of turn)
     lit: true, shade: "rgba(176,122,60,1)" },   // the grains are LIT, not emitting — the side facing the centre is warm dust, the far side this bronze shade (ΔE 18.4 to alarm, so the ornament rule holds)
-  motion: { autoRotateRadPerS: 0.05, breathePeriodMs: 6000, breatheAmp: 0.06, fadeInMs: 900, fadeOutMs: 1400, cameraEaseMs: 1200,
+  motion: { breathePeriodMs: 6000, breatheAmp: 0.06, fadeInMs: 900, fadeOutMs: 1400, cameraEaseMs: 1200,
     cameraEasing: "easeInOutCubic", edgeTravelDotSpeed: 0, edgeTravelDotPx: 0, cursorBlinkMs: 0, introStyle: "coalesce", logonCharMs: [28, 58] },
   depth: { bokeh: { enabled: true, farSoftness: 2.4, nearSoftness: 1.0 },
     lensFlare: { enabled: true, maxStars: 2, lengthFactor: 6, alpha: 0.18 } },
@@ -109,7 +109,7 @@ THEMES.wargames = {
   crt: { scanlineOpacity: 0.10, scanlinePeriodPx: 3, scanlineWidthPx: 1, vignetteAlpha: 0.45, vignetteInner: 0.60, persistenceAlpha: 0.25, flickerAmp: 0.015, userToggle: true },
   particles: { perNode: [0, 0], spreadFactor: 0, sigmaFactor: 0, lifeMs: [0, 0], sizePx: [0, 0], alpha: [0, 0], driftPxPerS: 0, gatherMs: 0, dissolveMs: 0, maxTotal: 0, color: null,
     cohesion: { scale: [1, 1, 1, 1], alpha: [1, 1, 1, 1] }, spiral: { dawnRad: 0, duskRad: 0 }, lit: false, shade: null },
-  motion: { autoRotateRadPerS: 0.12, breathePeriodMs: 0, breatheAmp: 0, fadeInMs: 250, fadeOutMs: 400, cameraEaseMs: 600, cameraEasing: "easeOutQuad",
+  motion: { breathePeriodMs: 0, breatheAmp: 0, fadeInMs: 250, fadeOutMs: 400, cameraEaseMs: 600, cameraEasing: "easeOutQuad",
     edgeTravelDotSpeed: 0.35, edgeTravelDotPx: 1.5, cursorBlinkMs: 530, introStyle: "typed", logonCharMs: [28, 58] },
   depth: { bokeh: { enabled: false, farSoftness: 1.0, nearSoftness: 1.0 },
     lensFlare: { enabled: false, maxStars: 0, lengthFactor: 0, alpha: 0 } },
@@ -161,7 +161,7 @@ THEMES.whitehall = {
   crt: { scanlineOpacity: 0, scanlinePeriodPx: 0, scanlineWidthPx: 0, vignetteAlpha: 0, vignetteInner: 1, persistenceAlpha: 0, flickerAmp: 0, userToggle: false },
   particles: { perNode: [0, 0], spreadFactor: 0, sigmaFactor: 0, lifeMs: [0, 0], sizePx: [0, 0], alpha: [0, 0], driftPxPerS: 0, gatherMs: 0, dissolveMs: 0, maxTotal: 0, color: null,
     cohesion: { scale: [1, 1, 1, 1], alpha: [1, 1, 1, 1] }, spiral: { dawnRad: 0, duskRad: 0 }, lit: false, shade: null },
-  motion: { autoRotateRadPerS: 0.06, breathePeriodMs: 0, breatheAmp: 0, fadeInMs: 300, fadeOutMs: 500, cameraEaseMs: 800, cameraEasing: "easeOutQuad",
+  motion: { breathePeriodMs: 0, breatheAmp: 0, fadeInMs: 300, fadeOutMs: 500, cameraEaseMs: 800, cameraEasing: "easeOutQuad",
     edgeTravelDotSpeed: 0, edgeTravelDotPx: 0, cursorBlinkMs: 0, introStyle: "typed", logonCharMs: [37.5, 37.5] },   // a teleprinter types at a constant 37.5 ms per character
   depth: { bokeh: { enabled: false, farSoftness: 1.0, nearSoftness: 1.0 },
     lensFlare: { enabled: false, maxStars: 0, lengthFactor: 0, alpha: 0 } },
@@ -352,7 +352,7 @@ function fillAnim() {
   a.fadeInK = rate(m.fadeInMs); a.fadeOutK = rate(m.fadeOutMs);
   a.breathePeriodS = m.breathePeriodMs / 1000; a.breatheAmp = m.breatheAmp;
   a.blendK = rate(m.fadeInMs);
-  a.autoRotateRadPerS = m.autoRotateRadPerS; a.cameraEaseMs = m.cameraEaseMs;
+  a.cameraEaseMs = m.cameraEaseMs;
   a.cameraEasing = { easeInOutCubic, easeOutQuad, linear: (u) => u }[m.cameraEasing] || easeInOutCubic;
   a.edgeTravelDotSpeed = m.edgeTravelDotSpeed;
   a.flickerAmp = THEME.crt.flickerAmp;

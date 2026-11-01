@@ -71,8 +71,8 @@ function deviceClusterCount() { let n = 0; S.devices.forEach(d => { if (d.member
 function essMergedCount() { let n = 0; if (S.ui.essMerge) S.essClusters.forEach((c, id) => { if (c.deviceIds.length >= 2 && !isEssExpanded(id)) n++; }); return n; }
 function camObj() {
   const c = S.cam;
-  return { az: r3(c.az), el: r3(c.el), dist: r3(c.dist), target: c.target.map(r3), locked: S.locked, autoRot: S.ui.rotate,
-    ramp: r3(c.ramp), blend: r3(S.view.blend), zoom2d: r3(c.zoom2d), sky: r3(S.skyA), spin: S.ui.spin, tween: c.tween !== null };
+  return { az: r3(c.az), el: r3(c.el), dist: r3(c.dist), target: c.target.map(r3), locked: S.locked,
+    blend: r3(S.view.blend), zoom2d: r3(c.zoom2d), sky: r3(S.skyA), spin: S.ui.spin, tween: c.tween !== null };
 }
 // contrast hook — read-only, pure maths (no DOM, no clock, no randomness). A pair side is a token path
 // ("ink.muted"), a CSS colour ("#rrggbb", "rgb()/rgba()"), the keyword "ground" (brightest of surface.base and the

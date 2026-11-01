@@ -12,7 +12,7 @@ const LAYOUT = {
   settleEpsPx: 0.2, settleSyncIter: 32, settlePerFrame: 2, settleMaxIter: 600,
   orbitMinPx: 32, orbitSpreadPx: 18, orbitRankPx: 3, orbitLanes: 6, orbitMaxPx: 65, hexAbove: 8, hexBPx: 16,
   orbitSpeedBase: 0.45, orbitSpeedRefPx: 32, orbitSpeedExp: 1.5, hexSpinRadPerS: 0.08,
-  skySpinRadPerS: 2 * Math.PI / 300,   // sky spin (§4.2a): the whole sky turns rigidly around the device, one turn in 5 min
+  skySpinRadPerS: [0, 2 * Math.PI / 300, 2 * Math.PI / 60],   // sky spin (§4.2a) by S.ui.spin: the whole sky turns rigidly around the device, off · one turn in 5 min · in 1 min
   forceAggAbove: 600, forceAggDensity: 0.20
 };
 const AGG = { cellPx: 32, minCell: (nFree) => nFree <= 200 ? 4 : 3, minCluster: (nFree) => nFree <= 200 ? 6 : 8, maxCellsPerBubble: 4,
@@ -31,7 +31,7 @@ const CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1,
   yBand: { "2.4": -0.10, "5": 0, "6": 0.10, unknown: 0 }, yJitter: 0.04, freeYSpread: 0.36, freeZJitter: 0.03,
   fibonacciAbove: 60, hexY: 0.02,
   dragRadPerPx: 0.0055, wheelK: 0.0012, btnAz: 0.35, btnEl: 0.2, btnZoom: 1.25, dragThresholdPx: 4, touchThresholdPx: 10,
-  kAz: 7, kEl: 7, kDist: 5, kTarget: 4, kNode: 3, kBlend: 3.5, kReduced: 40, autoRamp: 1.2, idleResumeMs: 6000,
+  kAz: 7, kEl: 7, kDist: 5, kTarget: 4, kNode: 3, kBlend: 3.5, kReduced: 40,
   nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
   fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // depth fog + far size, theme-free (they gate 3D px, alphaDraw, labels, hit-test)
   minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
@@ -51,8 +51,7 @@ const HIT = { apPad: 6, clientPad: 5, bubblePad: 4, minPx: 12, touchMinPx: 16, p
 const KEYS = [
   { key: "T", desc: "Cycle theme (Foundation / Wargames / Whitehall)", btn: "t-theme" },
   { key: "V", desc: "Toggle 2D / 3D view", btn: "t-view" },
-  { key: "R", desc: "Auto-rotation (3D)", btn: "t-rotate" },
-  { key: "S", desc: "Sky spin: the whole sky slowly orbits the device (distance = signal stays exact)", btn: "t-spin" },
+  { key: "S", desc: "Sky spin about the device: off · slow, a turn in 5 min · fast, a turn a minute (cycles)", btn: "t-spin" },
   { key: "C", desc: "CRT scanlines, vignette, persistence (Wargames)", btn: "t-crt" },
   { key: "Space", desc: "Pause / resume", btn: "t-pause" },
   { key: "L", desc: "Labels", btn: "t-labels" },

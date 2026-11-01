@@ -138,7 +138,7 @@ function stepClouds(dt) {   // §8.8a, and the §3.1 marks
   if (moving) S.moving = true;
 }
 function stepSky(liveDt) {   // §4.2a: one shared angular rate → rigid, so no pair or zone distance ever changes
-  const w = S.ui.spin ? LAYOUT.skySpinRadPerS : 0;
+  const w = LAYOUT.skySpinRadPerS[S.ui.spin] || 0;
   if (S.fixedTime != null) S.skyA = (w * S.clock) % (2 * Math.PI);   // frozen frame: a pure function of the fixed clock
   else if (w > 0 && liveDt > 0 && !reduceMotion) {                     // paused (liveDt 0) / reduced motion: the sky holds still
     S.skyA = (S.skyA + w * liveDt) % (2 * Math.PI);

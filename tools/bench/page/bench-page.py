@@ -196,7 +196,7 @@ try:
     dt = t1 - t0
     b = c.evaluate("JSON.stringify(window.__b)")
     perf = c.evaluate("JSON.stringify(STARCHORUS.perf())") if has_dbg else None
-    ui = c.evaluate("JSON.stringify((()=>{const I=STARCHORUS._internals;if(!I)return null;const S=I.S;return {aps:S.aps.size,clients:S.clients.size,view:S.ui.view,paused:S.ui.paused,spin:S.ui.spin,rotate:S.ui.rotate,lod:S.perf.lod,dpr:S.perf.dpr,dprStep:S.perf.dprStep,down:S.perf.down,capMs:S.perf.capMs,moving:S.moving}})())")
+    ui = c.evaluate("JSON.stringify((()=>{const I=STARCHORUS._internals;if(!I)return null;const S=I.S;return {aps:S.aps.size,clients:S.clients.size,view:S.ui.view,paused:S.ui.paused,spin:S.ui.spin,lod:S.perf.lod,dpr:S.perf.dpr,dprStep:S.perf.dprStep,down:S.perf.down,capMs:S.perf.capMs,moving:S.moving}})())")
     out = {"label": label, "fixture": os.path.basename(fixture), "page": os.path.basename(page), "query": query, "size": size, "scale": scale,
            "mobile": mobile, "gpu": gpu, "visibility": vis, "seconds": round(dt, 2), "instrumented": inst_r, "measure": meas,
            "inpage": (json.loads(b) if isinstance(b, str) else None), "perf": (json.loads(perf) if isinstance(perf, str) else None),

@@ -27,6 +27,12 @@ function toggleBand(b) {
 const THEME_CYCLE = ["foundation", "wargames", "whitehall"];
 function nextTheme(id) { const i = THEME_CYCLE.indexOf(id); return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]; }
 function toggleTheme() { applyTheme(nextTheme(S.ui.theme), { intro: true }); }
+const SPIN_LOOK = ["No spin", "Slow spin", "Fast spin"];   // §4.2a; #t-spin names the next state, as #t-theme does
+function setSpin(v) {   // 0 off · 1 slow · 2 fast; true 1, false 0
+  v = +v; if (!SPIN_LOOK[v]) return S.ui.spin;
+  S.ui.spin = v; S.queryLocked.delete("spin"); saveUi(); updateControlsLook(); S.dirty = true; return v;
+}
+function cycleSpin() { return setSpin((S.ui.spin + 1) % 3); }
 function toggleCrt() { if (THEME.crt.userToggle) setToggle("crt", !S.ui.crt); }
 function applyCrt() { const crt = el("crt"); if (crt) crt.classList.toggle("on", THEME.crt.userToggle && S.ui.crt); }
 function setToggle(key, on) {
@@ -46,7 +52,7 @@ function setToggle(key, on) {
   updateControlsLook(); updateStats(); S.dirty = true;
   return on;
 }
-const BTN_OF = { labels: "t-labels", orbits: "t-orbits", links: "t-links", paused: "t-pause", agg: "t-agg", vendor: "t-vendor", nebula: "t-nebula", groups: "t-groups", rotate: "t-rotate", spin: "t-spin", crt: "t-crt", deviceLinks: "t-devices", essMerge: "t-merge", affinity: "t-probes", observations: "t-obs", baselineDiff: "t-baseline", inventory: "t-inv", scope: "t-scope" };
+const BTN_OF = { labels: "t-labels", orbits: "t-orbits", links: "t-links", paused: "t-pause", agg: "t-agg", vendor: "t-vendor", nebula: "t-nebula", groups: "t-groups", crt: "t-crt", deviceLinks: "t-devices", essMerge: "t-merge", affinity: "t-probes", observations: "t-obs", baselineDiff: "t-baseline", inventory: "t-inv", scope: "t-scope" };
 function syncPressed(id, on) { const b = el(id); if (b) { b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", String(!!on)); } }
 function syncButton(key, on) { syncPressed(BTN_OF[key], on); }
 function dropToggle(key) { if (S.ui[key]) { S.ui[key] = false; syncButton(key, false); } }   // flag and button only
@@ -58,20 +64,21 @@ function setToggles(o) {
     if (key === "panels") { setPanels(!!o.panels); continue; }
     if (key === "random") { setRandomMode(o.random); continue; }
     if (key === "autoLod") { S.ui.autoLod = !!o.autoLod; S.dirty = true; continue; }
+    if (key === "spin") { setSpin(o.spin); continue; }
     if (key in S.ui && typeof S.ui[key] === "boolean") setToggle(key, !!o[key]);   // switches only
   }
   return getToggles();
 }
 function getToggles() {   // the BTN_OF keys (in their order), then the rest
   const o = {}; for (const key of Object.keys(BTN_OF)) o[key] = S.ui[key];
-  return Object.assign(o, { autoLod: S.ui.autoLod, help: S.ui.help, panels: S.ui.panels, random: S.ui.random, theme: S.ui.theme, view: S.ui.view, bands: { "2.4": S.ui.filters["2.4"], "5": S.ui.filters["5"], "6": S.ui.filters["6"], bt: S.ui.filters.bt } });
+  return Object.assign(o, { autoLod: S.ui.autoLod, help: S.ui.help, panels: S.ui.panels, random: S.ui.random, spin: S.ui.spin, theme: S.ui.theme, view: S.ui.view, bands: { "2.4": S.ui.filters["2.4"], "5": S.ui.filters["5"], "6": S.ui.filters["6"], bt: S.ui.filters.bt } });
 }
 function updateControlsLook() {
   const tt = el("t-theme"); if (tt) { const lb = THEMES[nextTheme(S.ui.theme)].meta.label; tt.textContent = lb.charAt(0) + lb.slice(1).toLowerCase(); }
   const tv = el("t-view"); if (tv) tv.textContent = S.ui.view === "3d" ? "2D" : "3D";
   const flat = S.ui.view !== "3d"; el("cam").classList.toggle("flat", flat);
   for (const k of ["left", "right", "up", "down"]) { const b = el("cam-" + k); if (b) b.hidden = flat; }   // 2D: only +, − and reset
-  el("t-rotate").hidden = flat;   // the auto-rotation is 3D only
+  el("t-spin").textContent = SPIN_LOOK[(S.ui.spin + 1) % 3]; document.documentElement.dataset.spin = S.ui.spin;
   const crtBtn = el("t-crt"); if (crtBtn) crtBtn.hidden = !THEME.crt.userToggle;
   syncRandomButton();
   for (const key of Object.keys(BTN_OF)) syncButton(key, S.ui[key]);
@@ -1139,6 +1146,7 @@ function chanAtPointer(clientX) {   // map a pointer x on #chan back to {band, c
 }
 el("detail-close").addEventListener("click", () => deselect());
 el("t-theme").addEventListener("click", () => toggleTheme());
+el("t-spin").addEventListener("click", cycleSpin);
 el("t-view").addEventListener("click", () => { setView(S.ui.view === "3d" ? "2d" : "3d"); renderCaption(); });
 for (const key of Object.keys(BTN_OF)) { const b = el(BTN_OF[key]); if (b) b.addEventListener("click", () => setToggle(key, !S.ui[key])); }
 el("baseline-set").addEventListener("click", () => { baselineSet(); if (!S.ui.baselineDiff) setToggle("baselineDiff", true); else { obsCompute(); renderObs(); updateStats(); } });
@@ -1175,7 +1183,7 @@ const wire = (id, fn) => { const b = el(id); if (b) b.addEventListener("click", 
 for (const k of Object.keys(CAM_STEP)) wire("cam-" + k, () => {
   if (tS < 0.5 && (k === "in" || k === "out")) setZoom2d(S.cam.zoom2d * (k === "in" ? CFG3D.btnZoom : 1 / CFG3D.btnZoom));   // 2D: zoom about the device
   else { CAM_STEP[k](S.cam); S.cam.tween = null; }
-  interacted(); S.dirty = true;
+  S.dirty = true;
 });
 wire("cam-reset", () => resetCamera());
 // §8.2 channel-bar hover/click (redraw only on hover change; click pins that channel's APs for 6 s)

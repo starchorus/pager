@@ -160,10 +160,10 @@ function startTween(to) {
     to: { az: to.az ?? c.az, el: to.el ?? c.el, dist: to.dist ?? c.dist, target: (to.target || c.target).slice() } };
   S.dirty = true;
 }
-function stepCamera(dt) {
+function stepCamera(dt) {   // turns only on input (§5.3)
   const c = S.cam, v = S.view;
   if (v.blend !== v.blendT) return;          // transition drives the camera (stepBlend)
-  if (v.blend < 0.5) { c.ramp = 0; return; } // 2D steady: projection unused
+  if (v.blend < 0.5) return;                 // 2D steady: projection unused
   if (c.tween) {
     const tw = c.tween, u = tw.fn(clamp((tw.e += dt * 1e3) / tw.ms, 0, 1));
     c.az = c.azT = tw.from.az + wrapPi(tw.to.az - tw.from.az) * u;
@@ -173,11 +173,6 @@ function stepCamera(dt) {
     if (u >= 1) c.tween = null;
     c.az3D = c.az; S.dirty = true; return;
   }
-  if (!reduceMotion && S.ui.rotate && !S.ui.paused) {
-    const idleOk = c.idleAt === 0 || (S.clock - c.idleAt) >= CFG3D.idleResumeMs / 1000;
-    if (idleOk) c.ramp = ease(c.ramp, 1, CFG3D.autoRamp, dt);
-    if (c.ramp > 0) { c.az += S.anim.autoRotateRadPerS * c.ramp * dt; c.azT = c.az; S.dirty = true; }
-  } else c.ramp = 0;
   const kA = reduceMotion ? CFG3D.kReduced : CFG3D.kAz, kE = reduceMotion ? CFG3D.kReduced : CFG3D.kEl, kD = reduceMotion ? CFG3D.kReduced : CFG3D.kDist, kT = reduceMotion ? CFG3D.kReduced : CFG3D.kTarget;
   const az0 = c.az, el0 = c.el, d0 = c.dist;
   c.az = easeAngle(c.az, c.azT, kA, dt);
@@ -209,7 +204,7 @@ function snapCamera(mode) {
   c.el = c.elT = pre.el; c.dist = c.distT = pre.dist; c.F = pre.F;
   c.az = c.azT = c.az3D = mode === "3d" ? CFG3D.azStart : 0;
   c.target[0] = c.target[1] = c.target[2] = 0; c.targetT[0] = c.targetT[1] = c.targetT[2] = 0;
-  c.tween = null; c.ramp = 0; c.idleAt = 0;
+  c.tween = null;
 }
 function flyTo(node) {   // never re-target — turn the node to the front of the device and dolly in only as far as keeps it on screen
   if (!node || !node.p) return;
@@ -221,7 +216,7 @@ function flyTo(node) {   // never re-target — turn the node to the front of th
 function applyOrbit(dx, dy) {
   const c = S.cam; c.az -= dx * CFG3D.dragRadPerPx; c.azT = c.az;
   c.el = clamp(c.el + dy * CFG3D.dragRadPerPx, CFG3D.elMin, CFG3D.elMax); c.elT = c.el;
-  c.az3D = c.az; c.tween = null; c.ramp = 0; c.idleAt = S.clock; S.dirty = true;
+  c.az3D = c.az; c.tween = null; S.dirty = true;
 }
 function setZoom2d(z) { S.cam.zoom2d = clamp(z, CFG3D.zoom2dMin, CFG3D.zoom2dMax); S.dirty = true; }   // always about the device (no pan)
 function resetCamera() {

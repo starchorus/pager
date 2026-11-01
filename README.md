@@ -105,10 +105,11 @@ Starchorus 0.2.6.2. The main parts carry the same number:
 
 ## What the page shows
 
-- **The turning sky.** The whole sky turns slowly about the device, one revolution in five minutes
-  (key `S`, on by default). The rotation is rigid: every distance from the centre (= signal strength)
-  and every distance between two nodes stays exact. Pause and Reduced Motion hold the sky still;
-  `?spin=0` switches the rotation off.
+- **The turning sky.** The whole sky turns about the device: slowly by default, one revolution in five
+  minutes, or fast, one a minute. 'Spin' (key `S`) cycles off, slow and fast, and like the theme button
+  it names the next step. The rotation is rigid: every distance from the centre (= signal strength) and
+  every distance between two nodes stays exact. The camera never turns on its own. Pause and Reduced
+  Motion hold the sky still; `?spin=0` switches the rotation off, `?spin=2` starts it fast.
 - **Rings at −40/−60/−80 dBm** mark the received signal level, not distance. Direction is not
   measured.
 - **Freshness.** Star, ring and station dot dim with age (`generated − last_seen`): under 1 min,
@@ -526,7 +527,7 @@ friend, neutral or suspect. The page itself never classifies anything.
 |---|---|---|---|
 | `T` | Theme | `Space` | Pause / resume |
 | `V` | 2D / 3D | `1` `2` `3` | Band filter 2.4 / 5 / 6 GHz |
-| `S` | Sky rotation | `+` `−` `0` | Zoom, reset |
+| `S` | Sky rotation: off, slow, fast | `+` `−` `0` | Zoom, reset |
 | `L` | Labels | `[` `]` | Step through pinned nodes |
 | `D` `M` `P` | Device links, Merge SSID, probe orbits | `Esc` | Close dialogue or detail |
 | `W` `B` `I` | Observations, baseline, inventory | `?` | All keys |

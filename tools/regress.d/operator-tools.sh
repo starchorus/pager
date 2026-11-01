@@ -353,11 +353,13 @@ OPS_CN1=$(evalv "out/$P-ops-csv-n1.json" 1); OPS_CN2=$(evalv "out/$P-ops-csv-n2.
 rowif "export CSV: the controls bite: without the cell fix the formula names, the alias and the probe read raw [$OPS_CN1], without the focus call the focus stays outside the dialogue [$OPS_CN2]" [ "$OPS_CN1/$OPS_CN2" = "0000111100110|1/1111111111111|0" ]
 
 # ---- 0.2.5, 26 October 2026: five small defects of the controls (the audit of every control, 26 October). One run reads B1 (the library's Import says what it
-# did: #lib-msg is the node that is in the document after the click, and its text is the message), B3 (#t-rotate is hidden in 2D and shown in 3D, and back),
+# did: #lib-msg is the node that is in the document after the click, and its text is the message), B3 (since 31 October 2026, when #t-rotate went with the camera's
+# auto-rotation: the one #t-spin is shown in 2D, in 3D and back, and three clicks cycle it off → slow → fast → off, its text naming the next state as #t-theme's does),
 # B4 (Clear local data switches the baseline toggle and its button off, and leaves no starchorus.* key behind) and B5 (the help lists Enter and =); B2 (the
-# help's Close button inside the viewport) is read at two sizes. Each has a sensor: a copy of the page with the old code reads the figure the defect gave.
-OPS_EVU='(async()=>{const o={},E=(i)=>document.getElementById(i),shown=(e)=>!e.hidden&&getComputedStyle(e).display!=="none",R=E("t-rotate");
-o.b3=[shown(R)];STARCHORUS.setView("3d");await STARCHORUS.wait(400);o.b3.push(shown(R));STARCHORUS.setView("2d");await STARCHORUS.wait(400);o.b3.push(shown(R));o.b3=o.b3.join();
+# help's Close button inside the viewport) is read at two sizes. Each has a sensor: a copy of the page with the old code reads the figure the defect gave (for B3 a
+# copy that hides Spin in 2D, as Rotate was hidden).
+OPS_EVU='(async()=>{const o={},E=(i)=>document.getElementById(i),shown=(e)=>!e.hidden&&getComputedStyle(e).display!=="none",P=E("t-spin"),sp=()=>P.textContent+"/"+document.documentElement.dataset.spin+"/"+STARCHORUS.getToggles().spin;
+o.b3=[E("t-rotate")===null,shown(P),sp()];for(let i=0;i<3;i++){P.click();o.b3.push(sp());}STARCHORUS.setView("3d");await STARCHORUS.wait(400);o.b3.push(shown(P));STARCHORUS.setView("2d");await STARCHORUS.wait(400);o.b3.push(shown(P));o.b3=o.b3.join();
 const id=STARCHORUS.nodes("ap")[0].id;STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(200);
 E("lib-ta").value=id+" friend\nde:ad:be:ef:00:99 neutral";E("lib-import").click();const m=E("lib-msg");o.b1=[document.contains(m),m.textContent].join("|");STARCHORUS.setToggles({inventory:false});
 const dts=Array.from(document.querySelectorAll("#help-list dt")).map(d=>d.textContent);o.b5=[dts.indexOf("Enter")>=0,dts.indexOf("=")>=0,dts.indexOf("+ / −")<dts.indexOf("="),dts.indexOf("Enter")<dts.indexOf("Esc")].join();
@@ -378,7 +380,7 @@ python3 - "$H" "out/$P-ops-ctl-old.html" <<'PY'
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
 back = [('el("lib-msg").textContent = r.added', 'msg.textContent = r.added'),
-  ('  el("t-rotate").hidden = flat;   // the auto-rotation is 3D only\n', ''),
+  ('  el("t-spin").textContent = ', '  el("t-spin").hidden = flat; el("t-spin").textContent = '),
   ('  setToggle("baselineDiff", false);   // first: it saves the ui key, which the loop then removes\n', ''),
   ('  { key: "=", desc: "Zoom in, like +" },\n', ''),
   ('  { key: "Enter", desc: "Show a selected random cloud\'s addresses" },\n', ''),
@@ -397,10 +399,10 @@ H=$OPS_HK
 OPS_U=$(evalv "out/$P-ops-ctl.json" 1 | ops_nj); OPS_UO=$(evalv "out/$P-ops-ctl-o1.json" 1 | ops_nj)
 OPS_HD=$(evalv "out/$P-ops-help-d.json" 1); OPS_HM=$(evalv "out/$P-ops-help-m.json" 1); OPS_HO=$(evalv "out/$P-ops-help-o.json" 1); OPS_UM=$(evalv "out/$P-ops-help-m.json" 2 | ops_nj)
 OPS_UOS=$(printf '%s' "$OPS_UO" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["b1"].split("|",1)[1].startswith("1 set"),d["b3"],d["b4"],d["b5"])' 2>/dev/null)
-OPS_UW='{"b1":"true|1 set, 0 rule(s) · 1 rejected: not observed","b3":"false,true,false","b4":"true,true|false|false|false|0","b5":"true,true,true,true","errors":0}'
+OPS_UW='{"b1":"true|1 set, 0 rule(s) · 1 rejected: not observed","b3":"true,true,Slow spin/0/0,Fast spin/1/1,No spin/2/2,Slow spin/0/0,true,true","b4":"true,true|false|false|false|0","b5":"true,true,true,true","errors":0}'
 OPS_UWN=$(printf '%s' "$OPS_UW" | ops_nj)
-rowif "controls (26 October 2026): after a DOM-driven Import #lib-msg is in the document and says '1 set, 0 rule(s) · 1 rejected: not observed'; #t-rotate is hidden in 2D, shown in 3D and hidden again in 2D; Clear local data turns baselineDiff and the button off and leaves no starchorus.* key; the help lists = after + / − and Enter before Esc [$OPS_U]" [ "$OPS_U" = "$OPS_UWN" ]
-rowif "controls: the same on a phone (390 x 844, touch): Import, Rotate in the sheet's controls, Clear local data and the help list [$OPS_UM]" [ "$OPS_UM" = "$OPS_UWN" ]
-rowif "controls: the sensor bites: a copy of the page with the old code (the message written to the rebuilt panel's old node, no hiding of Rotate, no reset of the baseline toggle, no Enter and = in the help) reads Import-message-fixed/Rotate/baseline/help = [$OPS_UOS]" [ "$OPS_UOS" = "False true,true,true true,true|true|true|true|0 false,false,false,true" ]
+rowif "controls (26 October 2026): after a DOM-driven Import #lib-msg is in the document and says '1 set, 0 rule(s) · 1 rejected: not observed'; #t-rotate is gone, #t-spin is shown in 2D, in 3D and in 2D again, and three clicks read Slow spin/0/0 → Fast spin/1/1 → No spin/2/2 → Slow spin/0/0 (text, data-spin, getToggles().spin; ?spin=0); Clear local data turns baselineDiff and the button off and leaves no starchorus.* key; the help lists = after + / − and Enter before Esc [$OPS_U]" [ "$OPS_U" = "$OPS_UWN" ]
+rowif "controls: the same on a phone (390 x 844, touch): Import, Spin in the sheet's controls, Clear local data and the help list [$OPS_UM]" [ "$OPS_UM" = "$OPS_UWN" ]
+rowif "controls: the sensor bites: a copy of the page with the old code (the message written to the rebuilt panel's old node, Spin hidden in 2D as Rotate was, no reset of the baseline toggle, no Enter and = in the help) reads Import-message-fixed/Spin/baseline/help = [$OPS_UOS]" [ "$OPS_UOS" = "False true,false,Slow spin/0/0,Fast spin/1/1,No spin/2/2,Slow spin/0/0,true,false true,true|true|true|true|0 false,false,false,true" ]
 rowif "help (26 October 2026): #help-close is inside the viewport at 1440 x 900 in all three themes, and on a phone at 390 x 844 (where the sheet's own close stands in for it), and the whole list can be scrolled to, first entry to last [desktop $OPS_HD; phone $OPS_HM]" [ "$OPS_HD/$OPS_HM" = "foundation:true:true,wargames:true:true,whitehall:true:true/foundation:true:true,wargames:true:true,whitehall:true:true" ]
 rowif "help: the sensor bites: a copy with the old style (the whole panel scrolls, the button below the list) has #help-close outside the viewport at 1440 x 900 [$OPS_HO]" [ "$OPS_HO" = "foundation:true:true,wargames:false:true,whitehall:false:true" ]

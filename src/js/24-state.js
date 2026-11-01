@@ -5,15 +5,15 @@ const S = {
   identity: new Map(), clouds: new Map(), cloudOrder: [],   // §8.8a
   bt: new Map(), btOrder: [], btLvl: new Map(), btDoc: null, act: new Map(), actN: 0,
   ui: { theme: "foundation", view: "2d", labels: true, orbits: true, links: true, paused: false,
-        agg: true, vendor: false, nebula: true, groups: true, rotate: true, spin: true, crt: true, autoLod: true, help: false,
+        agg: true, vendor: false, nebula: true, groups: true, spin: 1, crt: true, autoLod: true, help: false,
         deviceLinks: false, essMerge: false, affinity: true, observations: false, baselineDiff: false, inventory: false,
         random: "cloud", panels: true, scope: false, sheet: "peek", legendCard: false,   // §9.8: panels, scope (saved); the sheet and its legend card (not)
         filters: { "2.4": true, "5": true, "6": true, bt: true } },
   queryLocked: new Set(),
   view: { blend: 0, blendT: 0 },
-  cam: { az: 0, el: CFG3D.el, dist: 3, target: [0, 0, 0], azT: 0, elT: CFG3D.el, distT: 3, targetT: [0, 0, 0], tween: null, ramp: 0, idleAt: 0, zoom2d: 1 },
+  cam: { az: 0, el: CFG3D.el, dist: 3, target: [0, 0, 0], azT: 0, elT: CFG3D.el, distT: 3, targetT: [0, 0, 0], tween: null, zoom2d: 1 },
   anim: { fadeInK: 5.1, fadeOutK: 3.3, breathePeriodS: 6, breatheAmp: 0.06, blendK: 5.1,
-          autoRotateRadPerS: 0.05, cameraEaseMs: 1200, cameraEasing: null,
+          cameraEaseMs: 1200, cameraEasing: null,
           edgeTravelDotSpeed: 0, flareMax: 2, flareEnabled: true, flareLenFactor: 6 },
   apOrder: [], clientOrder: [],
   mode: "demo", source: "", note: "", generated: null, centerLabel: "YOU ARE HERE", maxAgeS: null, pollIntervalS: null,
@@ -52,7 +52,7 @@ function updateReduceMotion() {
 function setReducedMotion(on) { rmApi = on == null ? null : !!on; updateReduceMotion(); S.dirty = true; return reduceMotion; }
 if (mqReduce.addEventListener) mqReduce.addEventListener("change", () => { updateReduceMotion(); S.dirty = true; });
 updateReduceMotion();
-const PERSIST_KEYS = ["theme", "view", "random", "labels", "orbits", "links", "agg", "vendor", "nebula", "groups", "rotate", "spin", "crt", "deviceLinks", "essMerge", "affinity", "observations", "baselineDiff", "inventory", "panels", "scope"];
+const PERSIST_KEYS = ["theme", "view", "random", "spin", "labels", "orbits", "links", "agg", "vendor", "nebula", "groups", "crt", "deviceLinks", "essMerge", "affinity", "observations", "baselineDiff", "inventory", "panels", "scope"];
 function readStored() {
   const raw = safeStorage.get(STORAGE_KEY); if (!raw) return null;
   try { const o = JSON.parse(raw); return isObj(o) ? o : null; } catch (e) { return null; }
@@ -62,7 +62,8 @@ function loadUi() {
   if (o.theme && THEMES[o.theme]) S.ui.theme = o.theme;
   if (o.view === "2d" || o.view === "3d") S.ui.view = o.view;
   if (RANDOM_MODES.indexOf(o.random) >= 0) S.ui.random = o.random;
-  for (const k of PERSIST_KEYS.slice(3)) if (typeof o[k] === "boolean") S.ui[k] = o[k];
+  if (+o.spin in LAYOUT.skySpinRadPerS) S.ui.spin = +o.spin;   // an old boolean: true 1, false 0
+  for (const k of PERSIST_KEYS.slice(4)) if (typeof o[k] === "boolean") S.ui[k] = o[k];
 }
 let saveTimer = 0;
 function saveUi() {

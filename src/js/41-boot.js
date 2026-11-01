@@ -7,8 +7,9 @@ S.labelsList = [];
   if (query.theme && THEMES[query.theme]) { S.ui.theme = query.theme; S.queryLocked.add("theme"); }
   if (query.view === "2d" || query.view === "3d") { S.ui.view = query.view; S.queryLocked.add("view"); }
   if (RANDOM_MODES.indexOf(query.random) >= 0) { S.ui.random = query.random; S.queryLocked.add("random"); }
+  if (/^[012]$/.test(query.spin)) { S.ui.spin = +query.spin; S.queryLocked.add("spin"); }
   for (const [v, key] of [[query.agg, "agg"], [query.crt, "crt"], [query.autolod, "autoLod"], [query.deviceLinks, "deviceLinks"], [query.essMerge, "essMerge"],
-    [query.affinity, "affinity"], [query.spin, "spin"], [query.baseline, "baselineDiff"], [query.obs, "observations"], [query.inv, "inventory"], [query.panels, "panels"], [query.scope, "scope"]]) {
+    [query.affinity, "affinity"], [query.baseline, "baselineDiff"], [query.obs, "observations"], [query.inv, "inventory"], [query.panels, "panels"], [query.scope, "scope"]]) {
     if (v === "0" || v === "1") { S.ui[key] = v === "1"; S.queryLocked.add(key); }
   }
   validateThemes();   // symmetric, once, all themes, before the first applyTheme

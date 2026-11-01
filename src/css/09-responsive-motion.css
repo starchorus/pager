@@ -85,6 +85,6 @@
 :root[data-rm="1"] :is(.cursor, .dot, #panels-pill .dot) { animation: none; }   /* :is() lends the pill dot its id rank */
 :root[data-rm="1"] #crt, :root[data-rm="1"] #intro { display: none !important; }
 :root:not([data-scope=on]) :is(#scope-strip,#scope-foot,#scope-lamps){display:none}
-:root[data-scope=on] :is(#bar-counts>*,#bar .ver,#caption,#grp-layers,#cam,#t-view,#t-rotate,#t-spin){display:none!important}
+:root[data-scope=on] :is(#bar-counts>*,#bar .ver,#caption,#grp-layers,#cam,#t-view,#t-spin){display:none!important}
 #t-scope{display:inline-flex;align-items:center;gap:6px}
 #sheet-row #t-scope{padding:0;width:44px;justify-content:center}#sheet-row .lbl{display:none}

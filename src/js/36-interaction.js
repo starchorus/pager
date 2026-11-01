@@ -57,7 +57,6 @@ function clickPin(id, t) {   // §5.6/§9.2, MUSS BLEIBEN 10: a click on a star 
   return S.pinned.has(id);
 }
 let drag = null; const pointers = new Map(); let pinchBase = 0, pinchZoom0 = 1, pinchDist0 = 1;
-function interacted() { S.cam.ramp = 0; S.cam.idleAt = S.clock; }
 canvasHud.addEventListener("pointerdown", (e) => {
   try { canvasHud.setPointerCapture(e.pointerId); } catch (_) { }
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -67,7 +66,6 @@ canvasHud.addEventListener("pointerdown", (e) => {
   } else {
     drag = { id: e.pointerId, downX: e.clientX, downY: e.clientY, lastX: e.clientX, lastY: e.clientY, moved: false, is3d: tS >= 0.5, touch: e.pointerType === "touch" };
   }
-  interacted();
 });
 canvasHud.addEventListener("pointermove", (e) => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -76,14 +74,14 @@ canvasHud.addEventListener("pointermove", (e) => {
     const p = Array.from(pointers.values()); const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1; const ratio = d / pinchBase;
     if (tS >= 0.5) { S.cam.distT = clamp(pinchDist0 / ratio, CFG3D.distMin, CFG3D.distMax); S.cam.tween = null; }
     else setZoom2d(pinchZoom0 * ratio);
-    interacted(); S.dirty = true; return;
+    S.dirty = true; return;
   }
   if (drag && drag.id === e.pointerId) {
     const thr = drag.touch ? CFG3D.touchThresholdPx : CFG3D.dragThresholdPx;
     if (!drag.moved) { if (Math.hypot(e.clientX - drag.downX, e.clientY - drag.downY) < thr) return; drag.moved = true; drag.lastX = drag.downX; drag.lastY = drag.downY; }
     const dx = e.clientX - drag.lastX, dy = e.clientY - drag.lastY; drag.lastX = e.clientX; drag.lastY = e.clientY;
     if (drag.is3d) applyOrbit(dx, dy);   // 2D drag has no effect: the device is the fixed anchor (no pan)
-    interacted(); return;
+    return;
   }
   const id = nodeAt(e.clientX, e.clientY, e.pointerType === "touch");
   setHover(id);
@@ -105,7 +103,6 @@ canvasHud.addEventListener("wheel", (e) => {
   e.preventDefault();
   if (scopeOn) return;
   const norm = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY;
-  interacted();
   if (tS >= 0.5) { S.cam.distT = clamp(S.cam.distT * Math.exp(norm * CFG3D.wheelK), CFG3D.distMin, CFG3D.distMax); S.cam.tween = null; }
   else setZoom2d(S.cam.zoom2d * Math.exp(-norm * CFG3D.wheelK));   // about the device, not the cursor
   S.dirty = true;
@@ -123,7 +120,7 @@ const CAM_STEP = {
   out: (c) => { c.distT = clamp(c.distT * CFG3D.btnZoom, CFG3D.distMin, CFG3D.distMax); },
 };
 const CAM_KEY = { arrowleft: "left", arrowright: "right", arrowup: "up", arrowdown: "down", "+": "in", "=": "in", "-": "out" };
-const KEY_ACT = { t: () => toggleTheme(), v: () => { setView(S.ui.view === "3d" ? "2d" : "3d"); renderCaption(); }, r: () => setToggle("rotate", !S.ui.rotate), s: () => setToggle("spin", !S.ui.spin),
+const KEY_ACT = { t: () => toggleTheme(), v: () => { setView(S.ui.view === "3d" ? "2d" : "3d"); renderCaption(); }, s: cycleSpin,
   c: () => toggleCrt(), " ": () => setToggle("paused", !S.ui.paused),
   l: () => setToggle("labels", !S.ui.labels), o: () => setToggle("orbits", !S.ui.orbits), k: () => setToggle("links", !S.ui.links),
   a: () => setToggle("agg", !S.ui.agg), e: () => setToggle("vendor", !S.ui.vendor), n: () => setToggle("nebula", !S.ui.nebula),
@@ -162,7 +159,7 @@ window.addEventListener("keydown", (e) => {
     else if (k === "-") setZoom2d(S.cam.zoom2d / CFG3D.btnZoom);
     else camHandled = false;
   }
-  if (camHandled) { interacted(); S.dirty = true; e.preventDefault(); return; }
+  if (camHandled) { S.dirty = true; e.preventDefault(); return; }
   if (KEY_ACT[k]) { KEY_ACT[k](); e.preventDefault(); }
 });
 

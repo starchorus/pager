@@ -125,12 +125,13 @@ const idN="02:00:00:00:14:03",idO="02:00:00:00:14:01";
 o.newPlot=[ringN(idN)>0,ringN(idO)===0,STARCHORUS.node(idN).isNew===true||STARCHORUS.stats().events.newAps===1].join();
 STARCHORUS.setFixedTime(null);for(let i=0;i<3;i++){STARCHORUS.load(mk(210+5*i,3),"np");await STARCHORUS.wait(300);}await STARCHORUS.wait(600);STARCHORUS.setFixedTime(9950000);await STARCHORUS.wait(120);STARCHORUS.frame();
 o.newGone=ringN(idN)===0;
-// U1 = no: the sky still turns in Whitehall (spin on by default)
-o.spin=[STARCHORUS.getToggles().spin,STARCHORUS._internals.THEMES.whitehall.motion.autoRotateRadPerS>0].join();
+// U1 = no: the sky still turns in Whitehall (slow by default), and no theme carries a turn of its own (the auto-rotation of the camera went, 31 October 2026)
+STARCHORUS.setFixedTime(null);const sk0=STARCHORUS.camera().sky;await STARCHORUS.wait(600);
+o.spin=[STARCHORUS.getToggles().spin,STARCHORUS.camera().sky!==sk0,"autoRotateRadPerS" in STARCHORUS._internals.THEMES.whitehall.motion].join();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 runq demo "?poll=0&debug=1&intro=0&theme=whitehall" "out/$P-twh-clock" --width 1440 --height 900 --wait 1 --ready --fps 0 --eval-timeout 120 --eval "$TWH_EVC" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 TWH_C=$(evalv "out/$P-twh-clock.json" 1 | twh_nj); TWH_CE=$(evalv "out/$P-twh-clock.json" 2)
-TWH_CWB='{"clock":"","errors":0,"fd":true,"hand":"rotate(280deg)|sector clock, period 10 of 12","newGone":true,"newPlot":"true,true,true","spin":"true,true","tok":"#8a4a44,#a08a4a,#4a6a8f","undated":",none","vars":"#8a4a44,#a08a4a,#4a6a8f","wg":true,"wgRing":"true","whOwn":"true,true,true"}'
+TWH_CWB='{"clock":"","errors":0,"fd":true,"hand":"rotate(280deg)|sector clock, period 10 of 12","newGone":true,"newPlot":"true,true,true","spin":"1,true,false","tok":"#8a4a44,#a08a4a,#4a6a8f","undated":",none","vars":"#8a4a44,#a08a4a,#4a6a8f","wg":true,"wgRing":"true","whOwn":"true,true,true"}'
 TWH_CW=$(printf '%s' "$TWH_CWB" | TWH_PYC="$TWH_PYC" python3 -c 'import json,os,sys;w=json.load(sys.stdin);w["clock"]=json.dumps(json.loads(os.environ["TWH_PYC"]),separators=(",",":"));print(json.dumps(w,sort_keys=True,separators=(",",":"),ensure_ascii=False))')
 if [ "$TWH_C" = "$TWH_CW" ] && [ "$TWH_CE" = 0 ]; then
   row "Whitehall: sector clock: hand and period from generated (Python recount, undated = no hand, aria-label), token colours in the CSS, hidden in the other themes; ownship symbol unframed (WarGames keeps its ring); a new plot's own dashed mark for 3 captures; U1 = no (the sky still turns)" PASS

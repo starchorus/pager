@@ -52,7 +52,7 @@ no closures in loops.
 | Appearance | **Condense**: particles contract in 900 ms, the core brightens out of the cloud (easeOutCubic position, easeInQuad alpha) | **Snap**: 250 ms, the wireframe draws itself as a line (stroke alpha 0→1), bloom briefly ×1.5 |
 | Disappearance | **Dissolve**: 1400 ms, particles drift outwards (easeInCubic), the core alpha falls last | 400 ms, the wireframe alpha falls, persistence carries the afterglow |
 | Rest | Breathing: glow ×(1 ± 0.06), period 6 s, phase per node from the hash | Cursor blinks 530 ms, flicker ±1.5 % ≤ 2 Hz, otherwise still |
-| Motion | Auto-orbit 0.05 rad/s (126 s per revolution) | 0.12 rad/s (52 s), travelling dots 0.35 edges/s |
+| Motion | The sky spin alone (theme-free, §4.2a: one revolution in 5 min, or in 1 min); the camera never turns on its own | The same sky spin; travelling dots 0.35 edges/s |
 | Attention | Gold only for the alarm; selection in the brightest neutral (pearl), the shape distinguishes | Red only for the alarm; selection in the brightest neutral |
 | Depth | Bokeh (soft sprites distant/faint), lens flare on 1–2 stars | Alpha/size only, the wireframe stays sharp |
 | Reduced motion | No rotation, no breathing, no particle drift; position, camera and blend easings snap, opacity fades stay | No rotation, no flicker/blinking, no travelling dots, no logon |
@@ -121,7 +121,7 @@ fragment. The hook checks; it never rebuilds. A merge conflict in `starchorus.ht
 | `<!-- ==== 11 MASTHEAD & STATS ==== -->` | **`#masthead`** (`#mast-badge`, `#lamps`, `#plotclock` – visible depending on theme; `#mast-brand.brand .dot` 'STARCHORUS' `.ver` (the version, small and dim, filled at boot from `STARCHORUS.version`) `.cursor`; `.tag`; `.motto`; on a phone the label 'About' and `#t-help`), **`#stats`** (on a phone the label 'Sky') with **`#n-ap`** ('Stars'), **`#n-cl`** ('Satellites', `title="n free · m associated"`), **`#n-24`, `#n-5`, `#n-6`**, `#n-fresh`, `#n-record`, `#n-alarm` (only > 0), `#n-groups`, `#n-crowd`; every counter carries the unfiltered number in its `title`. |
 | `<!-- ==== 12 SOURCE ==== -->` | **`#source`**, **`#mode-chip`** (`role="status"`, so that a change of state is announced), **`#source-desc`**, **`#btn-load`** ('Load…'), `#src-center` (`center.label`). |
 | `<!-- ==== 13 LEGEND ==== -->` | **`#legend`** > **`#legend-body`** (built by `buildLegend()`, §9.4) and the drawers `#obs-body`, `#inv-body`, `#home-body`, `#air-body`, `#time-body`, `#rec-body`, which share the one legend box (D15). |
-| `<!-- ==== 14 CONTROLS ==== -->` | the phone sheet `#sheet.ph-only` (`#sheet-head` > `#sheet-grab`, `#sheet-row` > `#sheet-lead`, `#sheet-prev`, `h2#sheet-title`, `#sheet-next`, `#t-legend`, `#sheet-close`, `#sheet-toggle`; `#sheet-body`), then **`#controls`**, groups 'Bands' `#grp-bands` (**`button.btn[data-band="2.4"|"5"|"6"]`**), 'View' `#grp-view` (**`#t-labels`, `#t-orbits`, `#t-links`, `#t-pause`**, `#t-random`: the Random switch, three states in `data-state`, §8.8a), 'Watch' `#grp-watch` (`#t-obs`, `#t-baseline`, `#baseline-set`, `#baseline-clear`, `#t-inv`, `#btn-export`), 'Analyse' `#grp-analyse` (`#t-air`, `#t-time`, `#t-rec`, on a phone `#t-home`), 'Look' `#grp-look` (`#t-theme`, `#t-view`, `#t-rotate`, `#t-spin`, `#t-crt` only with `crt.userToggle`, `#t-panels`), 'Layers' `#grp-layers` (`#t-agg`, `#t-vendor`, `#t-nebula`, `#t-groups`, `#t-devices`, `#t-merge`, `#t-probes`), 'Camera' `#cam` (3D only; on a phone zoom and reset in 2D too): `#cam-left/-right/-up/-down/-in/-out/-reset`. Toggles carry `aria-pressed` and their shortcut in the `title`. |
+| `<!-- ==== 14 CONTROLS ==== -->` | the phone sheet `#sheet.ph-only` (`#sheet-head` > `#sheet-grab`, `#sheet-row` > `#sheet-lead`, `#sheet-prev`, `h2#sheet-title`, `#sheet-next`, `#t-legend`, `#sheet-close`, `#sheet-toggle`; `#sheet-body`), then **`#controls`**, groups 'Bands' `#grp-bands` (**`button.btn[data-band="2.4"|"5"|"6"]`**), 'View' `#grp-view` (**`#t-labels`, `#t-orbits`, `#t-links`, `#t-pause`**, `#t-random`: the Random switch, three states in `data-state`, §8.8a), 'Watch' `#grp-watch` (`#t-obs`, `#t-baseline`, `#baseline-set`, `#baseline-clear`, `#t-inv`, `#btn-export`), 'Analyse' `#grp-analyse` (`#t-air`, `#t-time`, `#t-rec`, on a phone `#t-home`), 'Look' `#grp-look` (`#t-theme`, `#t-view`, `#t-spin`: the sky spin, three states, its text the next one as `#t-theme`'s, §4.2a, `#t-crt` only with `crt.userToggle`, `#t-panels`), 'Layers' `#grp-layers` (`#t-agg`, `#t-vendor`, `#t-nebula`, `#t-groups`, `#t-devices`, `#t-merge`, `#t-probes`), 'Camera' `#cam` (3D only; on a phone zoom and reset in 2D too): `#cam-left/-right/-up/-down/-in/-out/-reset`. Toggles carry `aria-pressed` and their shortcut in the `title`. |
 | `<!-- ==== 15 CHANNEL BAR ==== -->` | `#chanbar` > (on a phone the label 'Channels') `canvas#chan`, `#t-chan`, `#chan-tip`. |
 | `<!-- ==== 16 TOOLTIP & DETAIL ==== -->` | **`#tip`** (`role="tooltip"`); `#detail` (`aria-live="polite"`: `h3#detail-title`, `#detail-close`, `#detail-body`, `canvas#detail-spark`). |
 | `<!-- ==== 17 PASTE DIALOG ==== -->` | **`#paste-wrap` > `#paste-box`** (`h3` 'Load a starchorus.json capture', explanatory text **verbatim** with 'Everything runs in your browser — nothing is uploaded.'), **`#paste-ta`**, **`#paste-err`**, **`#paste-cancel`**, **`#paste-ok`** ('Render'). |
@@ -267,7 +267,8 @@ CloudNode = { id: "rc:xxxxxxxx", kind: "cloud", mac: id /* hash key of the relax
 ```js
 S.ui = { theme: "foundation"|"wargames"|"whitehall", view: "2d"|"3d",
          labels: true, orbits: true, links: true, paused: false,
-         agg: true, vendor: false, nebula: true, groups: true, rotate: true, spin: true, crt: true, autoLod: true,
+         agg: true, vendor: false, nebula: true, groups: true, crt: true, autoLod: true,
+         spin: 1,                                                            // the sky spin (§4.2a): 0 off · 1 slow · 2 fast (persisted)
          help: false,                                                        // shortcut overlay (not persisted)
          random: "cloud"|"show"|"hide",                                      // the Random switch (§8.8a, persisted)
          panels: true, sheet: "peek"|"half"|"full", legendCard: false,       // Hide panels (persisted); the phone sheet and its legend card (not, §9.8)
@@ -276,12 +277,12 @@ S.ui = { theme: "foundation"|"wargames"|"whitehall", view: "2d"|"3d",
          filters: { "2.4": true, "5": true, "6": true } };
 S.queryLocked = Set<key>;           // UI keys from query parameters (§2.7): saveUi() omits them until they are changed via UI/API
 S.view = { blend: 0, blendT: 0 };   // 0 = 2D … 1 = 3D; stepBlend snaps to exactly 0/1 (§5.7)
-S.cam  = { az, el, dist, target: [0,0,0], azT, elT, distT, targetT, tween, ramp, idleAt, zoom2d: 1 };   // 2D zoom around the observer, no pan
+S.cam  = { az, el, dist, target: [0,0,0], azT, elT, distT, targetT, tween, zoom2d: 1 };   // 2D zoom around the observer, no pan
 S.anim = {                          // theme-free injection, filled by fillAnim() in applyTheme(); the sole theme source for 22–30 and 36
   fadeInK, fadeOutK,                         // K = 4.6·1000/ms of motion.fadeInMs / fadeOutMs (the alpha easing reaches 99 % after ms)
   breathePeriodS, breatheAmp,                // 0 = no breathing
   blendK,                                    // bubble blend, K from motion.fadeInMs
-  autoRotateRadPerS, cameraEaseMs, cameraEasing, edgeTravelDotSpeed, flare* };
+  cameraEaseMs, cameraEasing, edgeTravelDotSpeed, flare* };
 S.apOrder, S.clientOrder;         // persistent sort lists, rebuilt on every ingest (§4.0, §5.5)
 S.mode = "demo"|"live";             // "demo" only for the built-in demo
 S.sourceKind = "demo"|"live"|"recorded"|"active"|"none";   // D4 source truth (section 38), basis of copyFor()
@@ -295,11 +296,13 @@ S.themeErrors;                       // findings from validateThemes()/validateT
 S.errors;                            // window.onerror + unhandledrejection + API errors (strings, max 50)
 ```
 Persistence (`localStorage[STORAGE_KEY]`, JSON, debounced 250 ms, all accesses in `try/catch`):
-`{v: 2, theme, view, random, labels, orbits, links, agg, vendor, nebula, groups, rotate, spin, crt, deviceLinks, essMerge, affinity,
-observations, baselineDiff, inventory, panels, scope}` (`PERSIST_KEYS`; names at index 0–2, booleans from index 3 onwards). **Not** persisted: `paused`,
+`{v: 2, theme, view, random, spin, labels, orbits, links, agg, vendor, nebula, groups, crt, deviceLinks, essMerge, affinity,
+observations, baselineDiff, inventory, panels, scope}` (`PERSIST_KEYS`; names at index 0–2, the spin's number 0|1|2 at index 3, booleans from
+index 4 onwards; a stored boolean `spin` of the old switch reads `true` → 1, `false` → 0, and a stored `rotate` is ignored and dropped at the next
+save). **Not** persisted: `paused`,
 `filters`, `help`, camera, pins, `autoLod` and everything concerning the analysis drawers (§2.6a). Invalid values →
 defaults. `saveUi()` does not write keys in `S.queryLocked` (the stored value remains) until the key is changed via the UI
-or `STARCHORUS.set*`; `setToggle` and `setRandomMode` always, and `applyTheme`/`setView` with `persist: true` (the default), remove it
+or `STARCHORUS.set*`; `setToggle`, `setRandomMode` and `setSpin` always, and `applyTheme`/`setView` with `persist: true` (the default), remove it
 from `queryLocked`; the boot (41) calls `applyTheme`/`setView` with `persist: false`.
 
 ### 2.6a Analysis state (memory; persistent only where stated)
@@ -336,7 +339,8 @@ All models belong to **one source** (D2): a change of source resets them. Time c
 | `?storage=fail` | `safeStorage` throws internally on every access (error-path test) – the page must boot |
 | `?fixed=<ms>` | `setFixedTime(ms)` at boot (deterministic screenshots) |
 | `?agg=0|1`, `?autolod=0|1`, `?crt=0|1` | Toggle start values |
-| `?spin=0|1`, `?deviceLinks=0|1`, `?essMerge=0|1`, `?affinity=0|1` | Toggle start values (sky rotation, device links, ESS merge, probe orbits) |
+| `?spin=0|1|2` | Start value of the sky spin (§4.2a): 0 off, 1 slow, 2 fast; anything else is ignored |
+| `?deviceLinks=0|1`, `?essMerge=0|1`, `?affinity=0|1` | Toggle start values (device links, ESS merge, probe orbits) |
 | `?obs=0|1`, `?baseline=0|1`, `?inv=0|1` | Start values for observations, baseline diff and inventory |
 | `?pollto=<ms>` | Tests only: shorten the 4 s deadline of a poll (100–60000) |
 | `?poll=0` | Tests only: the first `tryPoll()` runs, the cadence is not armed (no race between the poll and `STARCHORUS.load()` evals; without the parameter §9.9 item 1 applies unchanged) |
@@ -594,7 +598,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "font": {"ui": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Helvetica Neue\", \"Inter\", \"Segoe UI\", system-ui, sans-serif", "mono": "ui-monospace, \"SF Mono\", Menlo, \"JetBrains Mono\", Consolas, monospace", "transform": "none", "letterSpacing": "0.04em", "headingVariant": "small-caps", "sizesPx": {"label": 11, "hud": 11, "tip": 12, "title": 13, "hero": 22}, "weight": {"label": 400, "title": 600, "hero": 600}, "numeric": {"hero": "proportional", "axis": "tabular"}},
   "crt": {"scanlineOpacity": 0, "scanlinePeriodPx": 0, "scanlineWidthPx": 0, "vignetteAlpha": 0, "vignetteInner": 1, "persistenceAlpha": 0, "flickerAmp": 0, "userToggle": false},
   "particles": {"perNode": [6, 24], "spreadFactor": 1.8, "sigmaFactor": 0.6, "lifeMs": [2400, 4200], "sizePx": [0.6, 1.4], "alpha": [0.25, 0.6], "driftPxPerS": 4, "gatherMs": 900, "dissolveMs": 1400, "maxTotal": 2400, "color": "rgba(255,214,150,1)", "cohesion": {"scale": [1, 1.3, 1.7, 2.3], "alpha": [1, 0.85, 0.65, 0.45]}, "spiral": {"dawnRad": 1.4, "duskRad": 0.9}, "lit": true, "shade": "rgba(176,122,60,1)"},
-  "motion": {"autoRotateRadPerS": 0.05, "breathePeriodMs": 6000, "breatheAmp": 0.06, "fadeInMs": 900, "fadeOutMs": 1400, "cameraEaseMs": 1200, "cameraEasing": "easeInOutCubic", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "coalesce", "logonCharMs": [28, 58]},
+  "motion": {"breathePeriodMs": 6000, "breatheAmp": 0.06, "fadeInMs": 900, "fadeOutMs": 1400, "cameraEaseMs": 1200, "cameraEasing": "easeInOutCubic", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "coalesce", "logonCharMs": [28, 58]},
   "depth": {"bokeh": {"enabled": true, "farSoftness": 2.4, "nearSoftness": 1}, "lensFlare": {"enabled": true, "maxStars": 2, "lengthFactor": 6, "alpha": 0.18}},
   "chart": {"lineWidthPx": 2, "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "barMaxPx": 24, "barRadiusPx": 4, "barGapPx": 2},
   "render": {"clientCore": "#dfe7fb", "clientRing": "band", "clientShape": "disc", "bubbleFill": "rgba(210,214,224,0.10)", "bubbleStroke": "rgba(210,214,224,0.75)", "nebula": "rgba(210,214,224,1)", "starfield": {"density": 5200, "color": "#aebbe0", "alpha": [0.12, 0.62], "twinkleFrac": 0.15}, "grid": {"spokes": 0, "dotStepPx": 0}, "shadow": "rgba(0,0,0,0.12)", "composite": "source-over", "shapeFill": true, "probeArc": false, "deviceTie": "bezier", "changeCue": "glowPulse", "clientRandomizedMark": "hollow", "bubbleTicks": false, "btMark": "#d77fa8", "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "sun", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": true, "hz": 0.8, "amp": 0.07}},
@@ -619,7 +623,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "font": {"ui": "ui-monospace, \"SF Mono\", Menlo, \"IBM Plex Mono\", \"Courier New\", monospace", "mono": "ui-monospace, \"SF Mono\", Menlo, \"IBM Plex Mono\", \"Courier New\", monospace", "transform": "uppercase", "letterSpacing": "0.12em", "headingVariant": "normal", "sizesPx": {"label": 11, "hud": 11, "tip": 12, "title": 13, "hero": 22}, "weight": {"label": 400, "title": 600, "hero": 600}, "numeric": {"hero": "proportional", "axis": "tabular"}},
   "crt": {"scanlineOpacity": 0.1, "scanlinePeriodPx": 3, "scanlineWidthPx": 1, "vignetteAlpha": 0.45, "vignetteInner": 0.6, "persistenceAlpha": 0.25, "flickerAmp": 0.015, "userToggle": true},
   "particles": {"perNode": [0, 0], "spreadFactor": 0, "sigmaFactor": 0, "lifeMs": [0, 0], "sizePx": [0, 0], "alpha": [0, 0], "driftPxPerS": 0, "gatherMs": 0, "dissolveMs": 0, "maxTotal": 0, "color": null, "cohesion": {"scale": [1, 1, 1, 1], "alpha": [1, 1, 1, 1]}, "spiral": {"dawnRad": 0, "duskRad": 0}, "lit": false, "shade": null},
-  "motion": {"autoRotateRadPerS": 0.12, "breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 250, "fadeOutMs": 400, "cameraEaseMs": 600, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0.35, "edgeTravelDotPx": 1.5, "cursorBlinkMs": 530, "introStyle": "typed", "logonCharMs": [28, 58]},
+  "motion": {"breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 250, "fadeOutMs": 400, "cameraEaseMs": 600, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0.35, "edgeTravelDotPx": 1.5, "cursorBlinkMs": 530, "introStyle": "typed", "logonCharMs": [28, 58]},
   "depth": {"bokeh": {"enabled": false, "farSoftness": 1, "nearSoftness": 1}, "lensFlare": {"enabled": false, "maxStars": 0, "lengthFactor": 0, "alpha": 0}},
   "chart": {"lineWidthPx": 2, "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "barMaxPx": 24, "barRadiusPx": 4, "barGapPx": 2},
   "render": {"clientCore": "#e6e6dc", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(0,0,0,0.60)", "bubbleStroke": "#a7a7a7", "nebula": "rgba(154,154,144,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 8, "dotStepPx": 48}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": true, "deviceTie": "bracket", "changeCue": "bloomPulse", "clientRandomizedMark": "crossX", "bubbleTicks": true, "btMark": "#e87ac8", "phosphor": {"enabled": true, "alpha": [0.55, 0.34, 0.16, 0], "radiusFactor": 2.4}, "recvRing": {"enabled": true, "fromPx": 18.5, "toPx": 10.5, "ms": 300}, "arrivalArcs": true, "coreMark": "reticle", "newPlotMark": {"enabled": false, "dash": [3, 3], "offsetPx": 6}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
@@ -644,7 +648,7 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
   "font": {"ui": "\"Starchorus Sans\", \"Frutiger\", \"Segoe UI\", system-ui, \"Helvetica Neue\", Arial, sans-serif", "mono": "ui-monospace, \"SF Mono\", Menlo, \"Consolas\", \"DejaVu Sans Mono\", monospace", "transform": "uppercase", "letterSpacing": "0.04em", "headingVariant": "normal", "sizesPx": {"label": 11, "hud": 11, "tip": 12, "title": 13, "hero": 22}, "weight": {"label": 500, "title": 600, "hero": 600}, "numeric": {"hero": "tabular", "axis": "tabular"}},
   "crt": {"scanlineOpacity": 0, "scanlinePeriodPx": 0, "scanlineWidthPx": 0, "vignetteAlpha": 0, "vignetteInner": 1, "persistenceAlpha": 0, "flickerAmp": 0, "userToggle": false},
   "particles": {"perNode": [0, 0], "spreadFactor": 0, "sigmaFactor": 0, "lifeMs": [0, 0], "sizePx": [0, 0], "alpha": [0, 0], "driftPxPerS": 0, "gatherMs": 0, "dissolveMs": 0, "maxTotal": 0, "color": null, "cohesion": {"scale": [1, 1, 1, 1], "alpha": [1, 1, 1, 1]}, "spiral": {"dawnRad": 0, "duskRad": 0}, "lit": false, "shade": null},
-  "motion": {"autoRotateRadPerS": 0.06, "breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 300, "fadeOutMs": 500, "cameraEaseMs": 800, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "typed", "logonCharMs": [37.5, 37.5]},
+  "motion": {"breathePeriodMs": 0, "breatheAmp": 0, "fadeInMs": 300, "fadeOutMs": 500, "cameraEaseMs": 800, "cameraEasing": "easeOutQuad", "edgeTravelDotSpeed": 0, "edgeTravelDotPx": 0, "cursorBlinkMs": 0, "introStyle": "typed", "logonCharMs": [37.5, 37.5]},
   "depth": {"bokeh": {"enabled": false, "farSoftness": 1, "nearSoftness": 1}, "lensFlare": {"enabled": false, "maxStars": 0, "lengthFactor": 0, "alpha": 0}},
   "chart": {"lineWidthPx": 2, "markerRadiusPx": 4, "markerRingPx": 2, "areaAlpha": 0.1, "barMaxPx": 24, "barRadiusPx": 0, "barGapPx": 2},
   "render": {"clientCore": "#d7dad1", "clientRing": "band", "clientShape": "cross", "bubbleFill": "rgba(10,15,11,0.60)", "bubbleStroke": "#7d8674", "nebula": "rgba(150,160,143,1)", "starfield": {"density": 0, "color": "#000000", "alpha": [0, 0], "twinkleFrac": 0}, "grid": {"spokes": 12, "dotStepPx": 40}, "shadow": "rgba(0,0,0,0)", "composite": "source-over", "shapeFill": false, "probeArc": false, "deviceTie": "bracket", "changeCue": "tick", "clientRandomizedMark": "crossX", "bubbleTicks": false, "btMark": "#a8509a", "phosphor": {"enabled": false, "alpha": [0, 0, 0, 0], "radiusFactor": 0}, "recvRing": {"enabled": false, "fromPx": 0, "toPx": 0, "ms": 0}, "arrivalArcs": false, "coreMark": "ownship", "newPlotMark": {"enabled": true, "dash": [3, 3], "offsetPx": 9}, "coreBeat": {"enabled": false, "hz": 0, "amp": 0}},
@@ -680,7 +684,7 @@ LAYOUT = {
   settleEpsPx: 0.2, settleSyncIter: 32, settlePerFrame: 2, settleMaxIter: 600,
   orbitMinPx: 32, orbitSpreadPx: 18, orbitRankPx: 3, orbitLanes: 6, orbitMaxPx: 65, hexAbove: 8, hexBPx: 16,
   orbitSpeedBase: 0.45, orbitSpeedRefPx: 32, orbitSpeedExp: 1.5, hexSpinRadPerS: 0.08,
-  skySpinRadPerS: 2 * Math.PI / 300,   // sky rotation (§4.2a): one revolution in 5 min
+  skySpinRadPerS: [0, 2 * Math.PI / 300, 2 * Math.PI / 60],   // sky rotation (§4.2a) by S.ui.spin: off · one revolution in 5 min · in 1 min
   forceAggAbove: 600, forceAggDensity: 0.20
 };
 ```
@@ -814,9 +818,10 @@ orbit distances –, so all metrics from §4.7 stay exact, the spread state stay
 event-driven (bubbles travel along, no rebuild, no flicker).
 
 ```
-S.skyA += LAYOUT.skySpinRadPerS · liveDt          // one revolution in 5 min, theme-independent (section 30, stepSky)
-          only when S.ui.spin && !reduceMotion && liveDt > 0      // pause, reduced motion: the sky stands still (no jump)
-S.fixedTime ≠ null: S.skyA = (spin ? skySpinRadPerS · clock : 0) mod 2π   // pure function of the frozen clock
+w = LAYOUT.skySpinRadPerS[S.ui.spin]              // 0 off: 0 · 1 slow: 2π/300, one revolution in 5 min · 2 fast: 2π/60, in 1 min; theme-independent
+S.skyA += w · liveDt                               // section 30, stepSky; only when w > 0 && !reduceMotion && liveDt > 0
+                                                   //   (pause, reduced motion: the sky stands still, no jump)
+S.fixedTime ≠ null: S.skyA = (w · clock) mod 2π    // pure function of the frozen clock and the state
 Display (section 28 only): (x, z) → (x·cos θ − z·sin θ, x·sin θ + z·cos θ), θ = S.skyA
   2D: sx = CX + (wx·cos θ − wz·sin θ)·zoom2d·maxRadius, sy = CY + (wx·sin θ + wz·cos θ)·zoom2d·maxRadius   (bubbles: cx/cz)
   3D: the target pT (§5.1) is rotated before p eases towards it
@@ -827,8 +832,11 @@ Display (section 28 only): (x, z) → (x·cos θ − z·sin θ, x·sin θ + z·c
 - The grid (rings, spokes, dot lattice, ring labels) stands still: it is the observer's frame of reference;
   core and centre label stay fixed at `CX, CY`. No sweep beam, no guide line – the whole sky turns as in
   a planetarium; nothing 'scans' (R39).
-- Toggle `spin` (key `S`, button 'Spin', **default on**), query `?spin=0|1`, in `PERSIST_KEYS`. In 3D the
-  rotation adds to the camera auto-rotation (§5.3).
+- State `spin` (key `S`, button `#t-spin`), three values that a press cycles like the theme: 0 off → 1 slow (**the default**) →
+  2 fast → 0; query `?spin=0|1|2`, in `PERSIST_KEYS` (a stored boolean of the old switch reads `true` → 1, `false` → 0). The
+  button's text names the next state ('Slow spin', 'Fast spin', 'No spin'), as `#t-theme` names the next theme; it carries no
+  `aria-pressed`, and the root carries the state in `data-spin`. A change of speed keeps the angle reached (no jump); under
+  `?fixed=` the angle is `w · clock` of the new state. The same in 2D and 3D: the camera never turns on its own (§5.3).
 - Position comparisons over time or between separate runs use `?spin=0` or `?fixed=`; the
   `layoutInfo()` metrics are rotation-invariant.
 - Cost: while rotating, `S.moving = true` (every frame renders); an empty sky stays idle (§6.8).
@@ -960,7 +968,7 @@ CFG3D = { el: 0.42, azStart: 0, fovDeg: 50, distFactor: 0.8, distMin: 1.1, distM
           yBand: { "2.4": -0.10, "5": 0, "6": 0.10, unknown: 0 }, yJitter: 0.04, freeYSpread: 0.36, freeZJitter: 0.03,
           fibonacciAbove: 60, hexY: 0.02,
           dragRadPerPx: 0.0055, wheelK: 0.0012, btnAz: 0.35, btnEl: 0.2, btnZoom: 1.25, dragThresholdPx: 4, touchThresholdPx: 10,
-          kAz: 7, kEl: 7, kDist: 5, kTarget: 4, kNode: 3, kBlend: 3.5, kReduced: 40, autoRamp: 1.2, idleResumeMs: 6000,
+          kAz: 7, kEl: 7, kDist: 5, kTarget: 4, kNode: 3, kBlend: 3.5, kReduced: 40,
           nearHard: 0.10, nearSoft: 0.45, farStart: 0.35, farEnd: 1.8, centerZoom: 0.55,
           fogNearAlpha: 1, fogFarAlpha: 0.33, sizeFarFactor: 0.58,   // theme-independent: drive px/alphaDraw → label eligibility and hits
           minPxClient: 3.5, minPxAp: 5, maxPxClient: 9, maxPxAp: 44, minPxBubble: 9, bubbleFogFloor: 0.5,
@@ -1019,12 +1027,11 @@ Preset 2D:     el π/2 − 0.001, dist 20, F = 20·maxRadius (quasi-orthographic
   are set; drag/wheel/keyboard abort the tween.
 - Limits: `dist ∈ [distMin, distMax]`, `el ∈ [elMin, elMax]`, `az` free.
 
-### 5.3 Auto-rotation
+### 5.3 No auto-rotation
 
-`az += autoRate·ramp·dt; azT = az` only when `tS > 0.5 && S.ui.rotate && !paused && !reduceMotion && tween === null` (the
-rotation shifts target **and** actual, otherwise the easing would pull `az` back); `autoRate = S.anim.autoRotateRadPerS`.
-`ramp = ease(ramp, 1, autoRamp, dt)`; `pointerdown`/wheel/keyboard camera → `ramp = 0`, `idleAt = clock`; after
-`idleResumeMs` it starts again. `#t-rotate` off = permanently off. The camera target is **always** the observer
+The camera turns only on input (drag, arrow keys, `#cam-*`, the focus and reset tweens), never on its own. The per-theme
+auto-rotation (`motion.autoRotateRadPerS`, key `R`, `#t-rotate`) is gone: the one motion of the whole sky is the sky spin
+(§4.2a), the same in 2D and 3D, and `R` has no use. The camera target is **always** the observer
 (`target = [0,0,0]`) – even with a locked node the scene turns about the core.
 
 ### 5.4 Depth fog, size, bokeh, bubble floors
@@ -1072,16 +1079,16 @@ detail. In both modes the observer always lies exactly at `CX, CY`.
 S.view.blendT = v === "3d" ? 1 : 0; blend = ease(blend, blendT, kBlend, dt); if (|blend − blendT| < 1e-3) blend = blendT   // snap → tS exactly 0/1
 tS = smoothstep(0, 1, blend)   // reduced motion: k = kReduced (≈ 150 ms)
 Camera:  el = lerp(π/2 − 0.001, el3D, tS); ln dist = lerp(ln 20, ln dist3D, tS); ln F = lerp(ln(20·maxRadius), ln F3D, tS)  // dolly zoom without a jump
-         az = az3D·tS (back in 2D the ring labels are at the top; on leaving 3D `az3D = wrapPi(az)`, so that the turns of auto-rotation are not replayed)
+         az = az3D·tS (back in 2D the ring labels are at the top; on leaving 3D `az3D = wrapPi(az)`, so that the turns of a drag are not replayed)
 Nodes:   pT = lerp(p2, p3, tS); fog/size weighted by tS (§5.4); sky rotation identical in both paths
 Rings:   tS = 0 → static from #bg; tS > 0 → projected polylines on #sky (layer 2), #bg rings with alpha 1 − tS
-While 0.02 < blend < 0.98: no auto-rotation, no spread step, aggregation frozen, labels only hover/pinned/locked
+While 0.02 < blend < 0.98: no spread step, aggregation frozen, labels only hover/pinned/locked
 setView(v, {persist = true, snap = false}): snap → blend = blendT immediately (boot with ?view=)
 ```
 
 ### 5.8 Reduced motion (3D)
 
-No auto-rotation, no idle resume; all camera easings with `k = kReduced`; tweens 150 ms linear; mode blend
+The sky spin stands still (§4.2a); all camera easings with `k = kReduced`; tweens 150 ms linear; mode blend
 ≈ 150 ms; drag/wheel/buttons fully functional; drawing only when `dirty`. Source: `reduceMotion` (section 24).
 
 ### 5.9 LOD rules in 3D (supplementing §6.4)
@@ -1127,7 +1134,7 @@ tick(t):
   stepSky(liveDt)
   projectAll()                                                           // 28 (2D path at tS = 0)
   stepParticles(liveDt)                                                  // 32, after the projection: the dust follows its stars in the same frame
-  animating = auto-rotation, easing, settle, blend, bubble blend, twinkle, breathing (without reduced motion), tween, sky rotation, particles (without reduced motion),
+  animating = easing, settle, blend, bubble blend, twinkle, breathing (without reduced motion), tween, sky rotation, particles (without reduced motion),
               travelling dots, persistence decay, flicker, cursor blink
   if (S.fixedTime != null) animating = false                              // frozen: only dirty renders
   if (dirty || animating) { render(); dirty = false }
@@ -1385,7 +1392,6 @@ checked as in §3.8 (`tools/spec-sync.py --check`); what is deliberately left ou
 | Fade-in/fade-out (30 via `S.anim`) | `motion.fadeInMs/fadeOutMs` | 900 / 1400 ms | 250 / 400 ms | 300 / 500 ms |
 | Breathing/twinkle (30 via `S.anim`) | `motion.breathePeriodMs > 0`, `rssi.bloomPx` | glow ×(1 ± 0.06) | no breathing; twinkle = bloom pulse | no breathing |
 | Camera tween (28 via `S.anim`) | `motion.cameraEaseMs/cameraEasing` | 1200 ms easeInOutCubic | 600 ms easeOutQuad | 800 ms easeOutQuad |
-| Auto-rotation (28 via `S.anim`) | `motion.autoRotateRadPerS` | 0.05 | 0.12 | 0.06 |
 | Bokeh (34 via `TD.bokehSoft`) | `depth.bokeh.enabled` | soft | sharp | sharp |
 | Travelling dots (30 via `S.anim`), cursor (`TD.cursorBlink`) | `motion.edgeTravelDotSpeed/cursorBlinkMs` | 0 / 0 | 0.35 / 530 | 0 / 0 |
 | CSS chrome (02–09) | `chrome.*`, `crt.userToggle`, variables | glass panels, blur | black panels, corner brackets, `#crt` | flat panels, banner |
@@ -1855,9 +1861,8 @@ playback is a view: no model advances, polls are recorded and shown after 'Back 
 | Watch | `#t-obs`, `#t-baseline` (+ `#baseline-set`, `#baseline-clear`), `#t-inv`, `#btn-export` | `W`, `B`, `I` | Observations, baseline diff, inventory (drawers, §8.11/§8.12), export dialogue | yes (toggles) |
 | Analyse | `#t-air`, `#t-time`, `#t-rec` | `Q`, `J`, `H` | Air quality, signal over time, recording/playback (§8.13) | no |
 | Look | `#t-theme` | `T` | cycles through the three themes; text = name of the next theme; `applyTheme()` | yes |
-| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides the four orbit arrows of `#cam` and `#t-rotate` | yes |
-| Look | `#t-rotate` | `R` | Auto-rotation (3D only: the button is hidden in 2D, like the orbit arrows) | yes |
-| Look | `#t-spin` | `S` | Sky rotation about the observer (§4.2a), 2D and 3D, default on | yes |
+| Look | `#t-view` | `V` | '3D'/'2D'; `setView()`; shows/hides the four orbit arrows of `#cam` | yes |
+| Look | `#t-spin` | `S` | Sky spin about the observer (§4.2a), 2D and 3D: cycles off → slow (the default) → fast like `#t-theme`; text = the next state ('Slow spin' / 'Fast spin' / 'No spin'), no `aria-pressed`, the state in `data-spin` on the root; `setSpin()` | yes |
 | Look | `#t-crt` | `C` | Scanlines + vignette + persistence; visible only with `crt.userToggle` | yes |
 | Look | `#t-panels` ('Hide panels'), `#panels-pill` | `U` | Hide panels (§9.8): the sky alone; the pill (dot + chip) brings them back | yes |
 | Look (phone) | `#t-scope` ('Scope', 44 px, in the sheet's row) | `Z` | The Scope (§9.8b): phone layout only; no button on the desktop | yes |
@@ -2016,14 +2021,14 @@ on 'Live', and while it stays silent the chip turns 'Offline'. The only network 
 
 ### 9.6 Keyboard
 
-`T` theme · `V` 2D/3D · `R` rotation · `S` sky rotation · `C` CRT · `Space` pause · `L` labels · `O` orbits · `K` links ·
+`T` theme · `V` 2D/3D · `S` sky spin (off → slow → fast) · `C` CRT · `Space` pause · `L` labels · `O` orbits · `K` links ·
 `A` aggregation · `E` vendor · `N` nebula · `G` groups · `D` device links · `M` ESS merge · `P` probe orbits ·
 `W` Observations · `I` inventory · `B` baseline diff · `F` homing meter · `Q` air quality · `J` signal over time ·
 `H` recording/playback · `Y` channel view (Bars → Spectrum → Waterfall) · `1/2/3` band filter · arrows/`+` (or `=`)/`−`/`0` camera
 or 2D zoom · `[`/`]` step through pinned nodes (opens the detail) · `Esc` (§9.1) · `?` shortcut overlay · `Tab` through all
 buttons, `Enter`/`Space` on a focused button (native activation only) · `←/→/Home/End` on the focused
 `canvas#detail-spark` (§8.1) · `U` hide or show the panels (§9.8) · `X` Random: one node per cloud → one by one → hidden (§8.8a) ·
-`Z` the Scope (phone layout only, §9.8b) · `Enter` with a random cloud selected shows its addresses again. Every letter has a use now. The drawers (Observations, Inventory, Homing, Air, Time, Record)
+`Z` the Scope (phone layout only, §9.8b) · `Enter` with a random cloud selected shows its addresses again. Every letter but `R` has a use (`R` is free since the camera's auto-rotation went). The drawers (Observations, Inventory, Homing, Air, Time, Record)
 share the **one** legend box (D15); only one is ever open. The table `KEYS` (section 20) is the only
 source for `title` attributes and `#help-list`. In tests cdp switches the theme with `--key t` (with `?intro=0`; otherwise the
 logon appears in the screenshot).
@@ -2149,7 +2154,7 @@ frames clear the canvas, so a stale feed costs 2 frames a second there too.
 reduced motion) over the fan, the rim dashed, and the chip's own word appended to `#sc-rx` ('RX only · nothing is transmitted ·
 Stale'; in WarGames 'Link down' for offline, in Whitehall 'No link'). Never the alarm colour: a stale feed is not an alarm.
 
-**Chrome.** In the Scope the bar shows the brand, the lamps (WarGames: eight IMSAI lamps, `#scope-lamps`) and the chip; the sky's counts, the version, the caption line, the layer group, the camera and the 3D, rotate and spin buttons are hidden (they have no meaning on the fan; their state is kept). An ingest that changes the strip's form (class `t` or `n`) runs `resize()`, as a change of the feed's liveness does, so that the fan's top (`SC.g.top`, measured from the strip's height) follows the strip. The number
+**Chrome.** In the Scope the bar shows the brand, the lamps (WarGames: eight IMSAI lamps, `#scope-lamps`) and the chip; the sky's counts, the version, the caption line, the layer group, the camera and the 3D and spin buttons are hidden (they have no meaning on the fan; their state is kept). An ingest that changes the strip's form (class `t` or `n`) runs `resize()`, as a change of the feed's liveness does, so that the fan's top (`SC.g.top`, measured from the strip's height) follows the strip. The number
 strip `#scope-strip` (five fields: networks, stations, clouds, strongest signal, new networks) is read from the same model as the stats;
 its words are `copy.scope.strip[5]` in each theme (Foundation 'Stars / Satellites / Clouds / Brightest / New'; WarGames 'NETS /
 STATIONS / CLOUDS / PEAK / NEW'; Whitehall 'NETWORKS / STATIONS / CLOUDS / STRONGEST / NEW PLOTS'). The foot `#scope-foot` carries the
@@ -2264,14 +2269,15 @@ window.STARCHORUS = Object.freeze({
               randomised, randomisedFree, clouds, inClouds, visibleClouds, randomMode, randomHidden },   // §8.8a: free/assoc/clients/visibleClients are
                                          //   visible counts (Random hidden takes the hidden addresses out); events also carry newInClouds
   layoutInfo() → §4.7 object,
-  camera() → { az, el, dist, target: [x,y,z], locked, autoRot, ramp, blend, zoom2d, sky, spin, tween: bool },   // sky = S.skyA (rad)
+  camera() → { az, el, dist, target: [x,y,z], locked, blend, zoom2d, sky, spin, tween: bool },   // sky = S.skyA (rad), spin = 0|1|2
   setCamera({az?, el?, dist?, target?}, snap = true) → camera(),   // target and (with snap) actual; aborts a tween
   resetCamera() → camera(),
   setZoom2d(z) → camera(),               // always about the observer
-  setToggles({labels, orbits, links, paused, agg, vendor, nebula, groups, rotate, spin, crt, autoLod, help, deviceLinks, essMerge, affinity,
-              observations, baselineDiff, inventory, panels, random, bands: {"2.4": bool, …}}) → getToggles(),   // switches, and random ("cloud"|"show"|"hide";
-                                         //   an unknown value is ignored); any other key whose S.ui value is no boolean is ignored
-  getToggles() → {…},                    // with panels and random
+  setToggles({labels, orbits, links, paused, agg, vendor, nebula, groups, spin, crt, autoLod, help, deviceLinks, essMerge, affinity,
+              observations, baselineDiff, inventory, panels, random, bands: {"2.4": bool, …}}) → getToggles(),   // switches, random ("cloud"|"show"|"hide")
+                                         //   and spin (0|1|2, or true → 1, false → 0 as the old switch); an unknown value is ignored;
+                                         //   any other key whose S.ui value is no boolean is ignored (rotate is gone)
+  getToggles() → {…},                    // with panels, random and spin (0|1|2)
   select(id | null) → string | null,     // like a click, but **without** the pin toggle (lock in 3D, detail panel); returns the detail title
   deselect() → null,
   hover(x, y) → id | null,               // simulates pointermove at CSS pixels (tooltip appears)
@@ -2473,7 +2479,7 @@ Documentation binding: STARCHORUS.version = spec §10 · spec §14 complete (D1�
 | R26 | Theme switch with old sprites/particles/trails | remnants of the old theme | `applyTheme` empties the sprite cache, pool, measure cache and `#sky`; the sprite key contains the theme ID (§3.3, §6.3) |
 | R27 | Label flood | stars covered, most expensive HUD item | top N + grid + alternative positions, hard budget `RENDER.maxText`, baked counters/glyphs, hidden without label (§6.3, §6.6) |
 | R28 | Particle pool grows with many APs | too many rects, neon | global cap proportional, clients without particles, small grains with low alpha (§7.2) |
-| R29 | Camera tween vs. drag vs. auto-rotation | judder | drag aborts the tween and sets `ramp 0`; the tween writes target and actual; rotation only when `tween === null` (§5.2, §5.3) |
+| R29 | Camera tween vs. drag | judder | drag aborts the tween; the tween writes target and actual; the camera never turns on its own (§5.2, §5.3) |
 | R30 | 2D hit test/layout drifts through the projection path | pins/tooltips off target | no projection at `tS = 0`; bit-identical after the return (§5.2) |
 | R31 | 2D pan / 3D re-targeting loses the ring reference | observer no longer in the middle | no 2D pan, zoom only about the observer, rings scale with `zoom2d`; 3D target stays `[0,0,0]` (§5.3, §5.6) |
 | R32 | 2D↔3D blend during spreading/aggregation | jumping positions | spreading and rebuild pause during the blend; dolly zoom via `ln F` (§5.7) |
@@ -2520,7 +2526,7 @@ In a normal Chrome window (local `http.server`), viewport 1440×900 and 800×480
 - [ ] Theme switch (`T`) without reload: no remnants of the old theme, the stars stay put.
 - [ ] `?` lists all keys from §9.6; `Tab` + `Space` toggles only the focused button; the sparkline is focusable via `Tab`.
 - [ ] Free clients individually recognisable, none in the glow; associated ones with band ring and 60° arc; bubbles with readable counter, expandable.
-- [ ] 3D: recognisable depth (elliptical rings, plumb lines, ground shadows), calm auto-rotation that stops on drag; 2D↔3D without a jump.
+- [ ] 3D: recognisable depth (elliptical rings, plumb lines, ground shadows), a camera that stands still until dragged, the sky spin as in 2D; 2D↔3D without a jump.
 - [ ] WarGames: logon once per session, skippable; scanlines/vignette can be switched off with `C`; alarms strictly red with gap ring and '!'.
 - [ ] Reduced motion (`?rm=1`): no rotation, no breathing, no drift, no flicker/blinking, no logon; controls fully functional.
 - [ ] Scope (phone width, `?scope=1`): the fan stands on the Pager; the three captions are whole; one arc contracts per capture and new points appear as it passes; stale shows snow and the chip's word (§9.8b).
@@ -2900,9 +2906,11 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
 | Hide panels (§9.8) | `panels` | on | U | `t-panels` (+ `panels-pill`) | `?panels=0/1` | yes | `starchorus.ui.v1` |
 | Random clouds (§8.8a) | `random` (`cloud`\|`show`\|`hide`) | cloud | X | `t-random` (group 'View') | `?random=cloud/show/hide` | yes | `starchorus.ui.v1` |
 | Scope (§9.8b; phone layout only) | `scope` | off | Z | `t-scope` (sheet row) | `?scope=1/0` | yes | `starchorus.ui.v1` |
+| Sky spin (§4.2a) | `spin` (0\|1\|2) | slow | S | `t-spin` (group 'Look') | `?spin=0/1/2` | yes | `starchorus.ui.v1` |
 
-`PERSIST_KEYS` holds names at index 0–2 (`theme`, `view`, `random`) and only booleans from index 3 onwards; a new toggle must also
-update `getToggles`, `BTN_OF` (booleans only), §2.6/§2.7/§9.6 and `KEYS`. No letter is free now (Z is the Scope).
+`PERSIST_KEYS` holds names at index 0–2 (`theme`, `view`, `random`), the spin's number at 3 (`spin`) and only booleans from index 4
+onwards; a new toggle must also update `getToggles`, `BTN_OF` (booleans only), §2.6/§2.7/§9.6 and `KEYS`. One letter is free: `R`, since
+the camera's auto-rotation went (Z is the Scope).
 
 ### 14.9 Design questions U1–U4
 
