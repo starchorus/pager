@@ -428,7 +428,7 @@ l = re.findall(r'id="leg-alert"[^\n]*?<span>([^<]*)</span>', s)
 if len(m) != 1 or len(l) != 1 or not sys.argv[2] or not sys.argv[3]:
     print("BROKEN"); sys.exit(0)
 txt = re.findall(r'[a-z_]+: "([^"]*)"', m[0]) + l
-bad = [t for t in txt if re.search(sys.argv[2], t, re.I) or re.search(sys.argv[3], t) or re.search(r"(?i)\b(track|pilot|locat|scanner)", t)]
+bad = [t for t in txt if re.search(sys.argv[2], t, re.I) or re.search(sys.argv[3], t) or re.search(r"(?i)\b(track|pilot|locat|scanner|away|near)", t)]
 print("%d/%d" % (len(txt), len(bad)))
 PY
 al_words() { python3 -B "$AL_T/words.py" "$1" "$AL_P10" "$AL_DR" 2>&1 | head -n 1; }   # al_words PAGE -> texts read/texts with a forbidden word
@@ -455,7 +455,8 @@ const notes=()=>STARCHORUS.observations().filter(x=>x.group==="Alerts").map(x=>x
 const row=()=>STARCHORUS.legendRows().find(r=>r.kind==="alert");
 const px=id=>{const n=STARCHORUS.nodeScreen(id);return n?STARCHORUS.pixel("sky",Math.floor(n.sx+n.px+11.5),Math.round(n.sy)).a:-999;};
 const sm=ids=>{for(let k=0;k<4;k++)STARCHORUS.frame();return ids.map(px);};
-const rings=async ids=>{STARCHORUS.setFixedTime(1000);await sleep(120);const k0=S.alerts,out=[];for(const id of ids){S.alerts=k0;const w=sm([id])[0];S.alerts=k0.filter(a=>a.ap!==id.replace(/^bt:/,""));const z=sm([id])[0];out.push(w-z>=60?1:Math.abs(w-z)<=2?0:"?");}S.alerts=k0;return out.join("");};   // each point against the same sky without the entries of its own address, so that the ring of a neighbour is in both
+const nmOf=x=>{const p=fx.aps.find(q=>q.bssid===x);return p?p.ssid:null;};
+const rings=async ids=>{STARCHORUS.setFixedTime(1000);await sleep(120);const k0=S.alerts,out=[];for(const id of ids){const rid=id.replace(/^bt:/,"");S.alerts=k0;const w=sm([id])[0];S.alerts=k0.some(a=>a.ap===rid)?k0.filter(a=>a.ap!==rid):k0.filter(a=>nmOf(a.ap)!==nmOf(rid));const z=sm([id])[0];out.push(w-z>=60?1:Math.abs(w-z)<=2?0:"?");}S.alerts=k0;return out.join("");};   // a point with an entry against the same sky without the entries of its own address (the ring of a neighbour is in both frames); a point without one against the sky without the entries of every access point of its name, so a ring drawn on a same-name sibling would show (a copy of the sky would read the same twice)
 const bt=t=>d=>{d.bluetooth=[{addr:BA,addr_type:t,rssi:-45,reports:5,last_seen:d.generated-20}];d.center.bt_window=6;d.center.bt_hold=120;};
 STARCHORUS.setToggles({crt:false});
 await ld(null,"wd-warm");

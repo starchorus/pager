@@ -128,24 +128,26 @@ const P=plain(F),harv=async(d)=>{const seen=new Set(),add=(s)=>{for(const l of S
  for(const f of ["json","csv","sitrep"])add(STARCHORUS.exportText(f));return seen;};
 const on=await harv(F),off=await harv(P);return [...on].filter(l=>!off.has(l)).join("\n");})()'
 runq "$WM_FX" "$WM_Q" "out/$P-wm-harv" --fps 0 --wait 3 --ready "$WM_RDY" --eval-timeout 150 --eval "$WM_EV_HARV" >/dev/null 2>&1
-evalv "out/$P-wm-harv.json" 1 > "out/$P-wm-harv.txt"; printf 'track the target north of the pager\n' > "out/$P-wm-harv-dummy.txt"
+evalv "out/$P-wm-harv.json" 1 > "out/$P-wm-harv.txt"; printf 'track the target north of the pager and away\n' > "out/$P-wm-harv-dummy.txt"
 wm_judge() {   # wm_judge FILE -> "ok" or the hits (P10, direction and distance, track/pilot/locate/scanner)
   python3 - "$1" <<'PY'
 import re, sys
 t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
 P10 = r"(?a)\b(evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood)\b"
 DIR = r"\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther|(?:near|close to|next to) (?:the )?pager|(?:nearest|closest) (?:ring|arc))\b|°"
-EXTRA = r"\b(track\w*|pilot\w*|locat\w*|scanner\w*)\b"
+EXTRA = r"\b(track\w*|pilot\w*|locat\w*|scanner\w*|away|near\w*)\b"
 need = ["pinned, or in watch.list", "in watch.list on the device; edit that file to take the mark off", "Watched: 2 (in watch.list on the device)", "· in watch.list"]
 hits = [m.group(0) for rx in (P10, DIR, EXTRA) for m in re.finditer(rx, t, re.I)]
 miss = [n for n in need if n not in t]
 print("ok" if not hits and not miss else "hits=%s missing=%s" % (hits[:6], miss))
 PY
 }
+WM_JP=$(grep -cF 'evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood' tools/regress.d/neutral-language.sh)   # the P10 words of wm_judge are the one definition's, byte for byte (a copy that drifts is red)
+WM_JR=$(grep -cF 'direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther' tools/regress.d/scope.sh)   # and the direction words the Scope judge's
 WM_JH=$(wm_judge "out/$P-wm-harv.txt"); WM_JD=$(wm_judge "out/$P-wm-harv-dummy.txt")
 WM_JL=$(sh tools/denylist-check.sh "$R/out/$P-wm-harv.txt" >/dev/null 2>&1; echo $?); WM_JN=$(grep -c . "out/$P-wm-harv.txt")
-WM_JOK=0; [ "$WM_JH" = ok ] && [ "$WM_JL" = 0 ] && [ "${WM_JD#hits=}" != "$WM_JD" ] && [ "$WM_JN" -ge 5 ] && WM_JOK=1
-rowif "watch marks: the judges hold over the $WM_JN lines the marks add (P10, legal denylist $WM_JL, direction and distance, track/pilot/locate/scanner) [$WM_JH]; a dummy is flagged [$(printf '%s' "$WM_JD" | cut -c1-60)]" [ "$WM_JOK" = 1 ]
+WM_JOK=0; [ "$WM_JH" = ok ] && [ "$WM_JL" = 0 ] && [ "${WM_JD#hits=}" != "$WM_JD" ] && [ "$WM_JN" -ge 5 ] && [ "$WM_JP/$WM_JR" = 1/1 ] && WM_JOK=1
+rowif "watch marks: the judges hold over the $WM_JN lines the marks add (P10, legal denylist $WM_JL, direction and distance, track/pilot/locate/scanner/away/near; the word lists are neutral-language.sh's and scope.sh's: $WM_JP/$WM_JR) [$WM_JH]; a dummy is flagged [$(printf '%s' "$WM_JD" | cut -c1-60)]" [ "$WM_JOK" = 1 ]
 
 # ---- a watched station stays out of a bubble (field-probes.json) and is shown on its own while it stays a member of its cloud (clouds.json); both back unmarked
 WM_EV_BUB="(async()=>{$WM_JS"'
@@ -164,7 +166,7 @@ wm_run cld "$WM_EV_CLD" "$F/clouds.json"
 WM_V="[$WM_B1,$WM_V]"
 wm_row "watch marks: a watched free station leaves its bubble and is drawn (back in it unmarked); a watched randomised address is shown on its own and stays in its cloud" '[{"bubble":"true/true/true/true/true","errors":0},{"cloud":"true/true/true/true","errors":0}]'
 
-# ---- [ and ] step through the watched nodes when nothing is pinned (and do nothing unmarked); on a phone the sheet's step arrows show for two watched nodes, not for one
+# ---- [ and ] step through the pinned and the watched access points and stations (and do nothing unmarked); on a phone the sheet's step arrows show for two watched nodes, not for one
 WM_EV_KEY="(async()=>{$WM_JS"'
 const key=(k)=>window.dispatchEvent(new KeyboardEvent("keydown",{key:k})),seq=[];STARCHORUS.load(F,"wm-key");await sleep(900);
 for(const k of ["]","]","]","["]){key(k);await sleep(100);seq.push(STARCHORUS.camera().locked);}o.seq=seq.join(" ");STARCHORUS.deselect();

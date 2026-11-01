@@ -226,15 +226,15 @@ for SRV_X in $SRV_SHELLS; do
   srv_404 "$SRV_X" "$SRV_N-absent" 'GET /starchorus.json HTTP/1.1' "$SRV_T/404.exp"
   mv "$SRV_D/starchorus.gone" "$SRV_D/starchorus.json"
 done
-rowif "page server: GET/HEAD/404/POST/absent file answered, Content-Length = body, cache headers ($SRV_NANS answers, $SRV_SHN shells; bad:${SRV_BADS:- none})" \
-  [ -z "$SRV_BADS" ] && [ "$SRV_NANS" -ge 9 ]
+SRV_RW1=0; { [ -z "$SRV_BADS" ] && [ "$SRV_NANS" -ge 9 ]; } && SRV_RW1=1
+rowif "page server: GET/HEAD/404/POST/absent file answered, Content-Length = body, cache headers ($SRV_NANS answers, $SRV_SHN shells; bad:${SRV_BADS:- none})"   [ "$SRV_RW1" = 1 ]
 # negative control: the handler with that header added is seen by the same count
 # shellcheck disable=SC2016   # sed script, not shell
 "$SRV_SED" 's/"Cache-Control: \$cc"/"Cache-Control: $cc" "Access-Control-Allow-Origin: *"/' "$SRV_H" > "$SRV_T/cors.h"
 srv_ask "${SRV_RT:-sh}" "$SRV_T/cors.h" cors 'GET /starchorus.json HTTP/1.1'
 SRV_CORSMUT=$(printf '%s' "$SRV_HEAD" | grep -ci '^access-control-')
-rowif "page server: no Access-Control header in $SRV_NANS answers ($SRV_CORS found); a handler that sends one is seen ($SRV_CORSMUT)" \
-  [ "$SRV_CORS" = 0 ] && [ "$SRV_CORSMUT" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/cors.h"
+SRV_RW2=0; { [ "$SRV_CORS" = 0 ] && [ "$SRV_CORSMUT" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/cors.h"; } && SRV_RW2=1
+rowif "page server: no Access-Control header in $SRV_NANS answers ($SRV_CORS found); a handler that sends one is seen ($SRV_CORSMUT)"   [ "$SRV_RW2" = 1 ]
 
 # ---- P6 neighbours refused: what lies beside the page and the capture in the served directory is not reachable. The route-A servers
 # serve a directory and so need one of their own (payload-ui, section 28); this server names its two files, and the rows say that nothing
@@ -255,16 +255,16 @@ srv_neigh() {   # srv_neigh SHELL HANDLER TAG -> every neighbour, GET and HEAD, 
 }
 SRV_BADS=""; SRV_N6=0
 for SRV_X in $SRV_SHELLS; do srv_neigh "$SRV_X" "$SRV_H" "$(basename "$SRV_X")-nb"; done
-rowif "page server: neighbours refused: settings.conf, a pid file, cap/recon_copy.db, alerts.log (also /./x, //x, /index.html/../x, %2E) get the exact 404 for GET and HEAD ($SRV_N6 answers, $SRV_SHN shells; bad:${SRV_BADS:- none})" \
-  [ -z "$SRV_BADS" ] && [ "$SRV_N6" -ge 32 ]
+SRV_RW3=0; { [ -z "$SRV_BADS" ] && [ "$SRV_N6" -ge 32 ]; } && SRV_RW3=1
+rowif "page server: neighbours refused: settings.conf, a pid file, cap/recon_copy.db, alerts.log (also /./x, //x, /index.html/../x, %2E) get the exact 404 for GET and HEAD ($SRV_N6 answers, $SRV_SHN shells; bad:${SRV_BADS:- none})"   [ "$SRV_RW3" = 1 ]
 # negative control: the same handler with its case widened by one arm that serves settings.conf is seen by the same count, and its bytes are the canary's
 awk '/^[ \t]*\*\)[ \t]+f="" ;;/ { print "    /settings.conf) f=$DIR/settings.conf; ct=\"text/plain\"; cc=\"no-store\" ;;" } { print }' "$SRV_H" > "$SRV_T/wide.h"
 SRV_BADS=""; SRV_N6=0
 srv_neigh "${SRV_RT:-sh}" "$SRV_T/wide.h" wide
 SRV_WIDE=$SRV_BADS
 srv_ask "${SRV_RT:-sh}" "$SRV_T/wide.h" widecan 'GET /settings.conf HTTP/1.1'
-rowif "page server: a handler whose case is widened to serve settings.conf is caught ($SRV_WIDE; its answer carries the canary: $(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body"))" \
-  [ "$SRV_WIDE" = " [wide GET /settings.conf] [wide HEAD /settings.conf]" ] && [ "$(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body")" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/wide.h"
+SRV_RW4=0; { [ "$SRV_WIDE" = " [wide GET /settings.conf] [wide HEAD /settings.conf]" ] && [ "$(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body")" = 1 ] && ! cmp -s "$SRV_H" "$SRV_T/wide.h"; } && SRV_RW4=1
+rowif "page server: a handler whose case is widened to serve settings.conf is caught ($SRV_WIDE; its answer carries the canary: $(grep -c "^$SRV_CAN\$" "$SRV_T/widecan.out.body"))"   [ "$SRV_RW4" = 1 ]
 rm -rf "$SRV_D/settings.conf" "$SRV_D/starchorus-loop.pid" "$SRV_D/cap" "$SRV_D/alerts.log"
 SRV_BADS=""
 
@@ -283,7 +283,8 @@ SRV_P3=0
 rowif "page server: starchorus.json replaced in mid-answer: Content-Length $SRV_CL = body $SRV_BL, one file; copy mode ${SRV_MODE:-none}, left in /tmp: $SRV_LEFT" [ "$SRV_P3" = 1 ]
 srv_swap link "$SRV_T/binl"
 SRV_CL=$(srv_hdr Content-Length); SRV_BL=$(srv_size "$SRV_T/link.out.body")
-rowif "page server: a copy that only links to the live file is caught (Content-Length $SRV_CL, body $SRV_BL)" [ "$SRV_SWAPPED" = 1 ] && [ "$SRV_CL" != "$SRV_BL" ]
+SRV_RW5=0; { [ "$SRV_SWAPPED" = 1 ] && [ "$SRV_CL" != "$SRV_BL" ]; } && SRV_RW5=1
+rowif "page server: a copy that only links to the live file is caught (Content-Length $SRV_CL, body $SRV_BL)"  [ "$SRV_RW5" = 1 ]
 rm -f "$SRV_TMP"/starchorus-http-*
 # no copy possible: nowhere to put it, and a cp that fails -> 503 with its own length, no body of the file, nothing left behind
 SRV_BADS=""
@@ -379,8 +380,8 @@ if [ -n "$SRV_RT" ]; then
   { srv_quick nrt-quiet && [ "$(srv_res nrt-quiet nc)" = no ]; } || srv_bad "no read -t quiet"
   { [ "$(srv_res nrt-quietL waiting)" = yes ] && [ "$(srv_res nrt-quietL nc)" = yes ]; } || srv_bad "no read -t quiet control"
 fi
-rowif "page server: a client that sends nothing is given up after IDLE and its nc stopped, in every shell, with read -t or without; a long IDLE still waits ($SRV_NSH shells:$SRV_SHELLS; bad:${SRV_BADS:- none})" \
-  [ -z "$SRV_BADS" ] && [ "$SRV_NSH" -ge 1 ]
+SRV_RW6=0; { [ -z "$SRV_BADS" ] && [ "$SRV_NSH" -ge 1 ]; } && SRV_RW6=1
+rowif "page server: a client that sends nothing is given up after IDLE and its nc stopped, in every shell, with read -t or without; a long IDLE still waits ($SRV_NSH shells:$SRV_SHELLS; bad:${SRV_BADS:- none})"   [ "$SRV_RW6" = 1 ]
 SRV_BADS=""
 for SRV_X in $SRV_RTS; do
   SRV_N=$(basename "$SRV_X")
@@ -393,8 +394,8 @@ for SRV_Y in $SRV_NRTT; do
   { srv_quick "$SRV_Y" && [ "$(srv_res "$SRV_Y" nc)" = no ]; } || srv_bad "$SRV_Y"
   { [ "$(srv_res "${SRV_Y}L" waiting)" = yes ] && [ "$(srv_res "${SRV_Y}L" nc)" = yes ]; } || srv_bad "${SRV_Y}L control"
 done
-rowif "page server: without read -t a client that stops in the headers is ended after LIFE and its nc stopped; a long LIFE still waits (cases:${SRV_NRTT:- none}; bad:${SRV_BADS:- none})" \
-  [ -z "$SRV_BADS" ] && [ -n "$SRV_NRTT" ]
+SRV_RW7=0; { [ -z "$SRV_BADS" ] && [ -n "$SRV_NRTT" ]; } && SRV_RW7=1
+rowif "page server: without read -t a client that stops in the headers is ended after LIFE and its nc stopped; a long LIFE still waits (cases:${SRV_NRTT:- none}; bad:${SRV_BADS:- none})"   [ "$SRV_RW7" = 1 ]
 SRV_BADS=""
 for SRV_X in $SRV_SHELLS; do
   SRV_N=$(basename "$SRV_X")
@@ -416,8 +417,8 @@ for SRV_X in $SRV_RT $SRV_DASH; do
   { [ "$(srv_res "$SRV_N-procdecoy" nc)" = yes ] && [ "$(srv_res "$SRV_N-procdecoy" decoy)" = yes ] && [ "$(srv_res "$SRV_N-procdecoy" ps)" = 0 ]; } || srv_bad "$SRV_N /proc decoy"
   { srv_quick "$SRV_N-noproc" && [ "$(srv_res "$SRV_N-noproc" nc)" = no ] && [ "$(srv_res "$SRV_N-noproc" ps)" != 0 ]; } || srv_bad "$SRV_N ps control"
 done
-rowif "page server: an idle nc is stopped from its /proc entry, without a list of the processes; the same handler without /proc does list them; a pid there that is no nc of ours is left alone ($SRV_NPR shells; bad:${SRV_BADS:- none})" \
-  [ -z "$SRV_BADS" ] && [ "$SRV_NPR" -ge 1 ]
+SRV_RW8=0; { [ -z "$SRV_BADS" ] && [ "$SRV_NPR" -ge 1 ]; } && SRV_RW8=1
+rowif "page server: an idle nc is stopped from its /proc entry, without a list of the processes; the same handler without /proc does list them; a pid there that is no nc of ours is left alone ($SRV_NPR shells; bad:${SRV_BADS:- none})"   [ "$SRV_RW8" = 1 ]
 
 # ---- P5 the server itself: script, handler, FIFO and a stand-in nc that plays the clients queued in $SRV_Q. The stand-in looks at the
 # queue once, when it starts, so a client reaches the handler a few milliseconds into its round, never at the edge of IDLE.

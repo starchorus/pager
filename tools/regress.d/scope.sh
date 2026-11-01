@@ -67,7 +67,8 @@ SCP_H=$(grep -cE "$SCP_BAD" "$SCP_CODE")
 # the judge can say no: a dummy with each of three offences must be flagged by the same pattern
 printf '%s\n' 'x = Math.random();' 'fetch("/x", { method: "POST" });' 'navigator.vibrate(5);' > "$SCP_T/dummy.txt"
 SCP_HD=$(grep -cE "$SCP_BAD" "$SCP_T/dummy.txt")
-rowif "scope: the Scope's code ($SCP_CN lines) has no request, clock, random number, sound, vibration or storage of its own ($SCP_H hits); the pattern flags a dummy ($SCP_HD/3)" [ "$SCP_CN" -ge 100 ] 2>/dev/null && [ "$SCP_H/$SCP_HD" = 0/3 ]
+SCP_RW1=0; { [ "$SCP_CN" -ge 100 ] 2>/dev/null && [ "$SCP_H/$SCP_HD" = 0/3 ]; } && SCP_RW1=1
+rowif "scope: the Scope's code ($SCP_CN lines) has no request, clock, random number, sound, vibration or storage of its own ($SCP_H hits); the pattern flags a dummy ($SCP_HD/3)"  [ "$SCP_RW1" = 1 ]
 [ "$SCP_H" = 0 ] || grep -nE "$SCP_BAD" "$SCP_CODE" | cut -c1-160 | sed 's/^/    /'
 SCP_SZ=$(wc -c < "$H" | tr -d ' ')
 SCP_CEIL=$((MAX_SCOPE_BYTES + MAX_ALERTS_BYTES + MAX_SCOPE_BT_BYTES))   # the alerts' ring and the Scope's fifth lane (the pair's: radio-pair spec 3.6, counted in its 14,000) are the other two shares on this page after 8e75fe4

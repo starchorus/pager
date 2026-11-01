@@ -256,8 +256,8 @@ STP_NSS=$(grep -c '^[[:space:]]*set -- -l -n -s "\$ADDR" -p "\$PORT" -c$' starch
 STP_NALL=$(grep -A2 '^if \[ "\$ADDR" = 0\.0\.0\.0 \]; then$' starchorus-serve.sh | grep -c '^[[:space:]]*set -- -l -p "\$PORT" -c$')
 # shellcheck disable=SC2086
 set -- $STP_SN
-rowif "stop scope: bind static: ${1:-0} server start lines (${2:-0} python), none on every interface by default; nc set -- $STP_NS (-s $STP_NSS, all-only $STP_NALL) (bad ${3:-?})" \
-  [ "${3:-1}" = 0 ] && ge "${1:-0}" 6 && [ "${2:-0}" = 2 ] && [ "$STP_NS/$STP_NSS/$STP_NALL" = 2/1/1 ]
+STP_RW1=0; { [ "${3:-1}" = 0 ] && ge "${1:-0}" 6 && [ "${2:-0}" = 2 ] && [ "$STP_NS/$STP_NSS/$STP_NALL" = 2/1/1 ]; } && STP_RW1=1
+rowif "stop scope: bind static: ${1:-0} server start lines (${2:-0} python), none on every interface by default; nc set -- $STP_NS (-s $STP_NSS, all-only $STP_NALL) (bad ${3:-?})"   [ "$STP_RW1" = 1 ]
 [ "${3:-1}" = 0 ] || printf '%s\n' "$STP_ST" | grep '^bad' | sed 's/^/    /' | head -n 6
 
 # whatever a FAILED stop left behind (every stand-in and handler runs from $STP_T), so a red run leaves no process either

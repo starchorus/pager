@@ -71,11 +71,12 @@ def page_fields(page):
         text = open(page, encoding="utf-8").read()
     except OSError as e:
         sys.exit("fuzz-doc: cannot read the page, so the fields the viewer reads cannot be derived: %s" % e)
-    nd, nc, nb = fn_body(text, "normalizeDoc"), fn_body(text, "normClient"), fn_body(text, "normBt") + fn_body(text, "btOpt")   # btOpt (0.2.7): the keys a record has only when set
-    for name, body in (("normalizeDoc", nd), ("normClient", nc), ("normBt", nb)):
+    nd, nc, nb0, nbo = fn_body(text, "normalizeDoc"), fn_body(text, "normClient"), fn_body(text, "normBt"), fn_body(text, "btOpt")   # btOpt (0.2.7): the keys a record has only when set
+    for name, body in (("normalizeDoc", nd), ("normClient", nc), ("normBt", nb0), ("btOpt", nbo)):
         if not body.strip():
             sys.exit("fuzz-doc: function %s() not found in %s, so the fields the viewer reads cannot be derived" % (name, page))
 
+    nb = nb0 + nbo   # normBt's keys and btOpt's, each checked above
     def scan(body, var):
         out = {}
         for f in sorted(set(re.findall(r"\b%s\.([A-Za-z_]\w*)" % var, body))):
