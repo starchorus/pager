@@ -378,9 +378,10 @@ does not depend on: it finds the head wherever it stands.
 where the window source had btmon's decoded name. The collector names the identifier from the firmware's own list
 `/lib/hak5/bt_companies.txt` (`STARCHORUS_BT_COMPANIES_FILE`, `auto` | path), one `XXXX<TAB>Name` line per
 identifier, the id four upper-case hex digits (measured 30 October 2026: 104,985 bytes, 4,041 lines; `004C` is
-`Apple, Inc.`), read in every cycle that has Bluetooth records, one pass over the whole list per cycle (measured 1 November 2026: about
-100 ticks of a 520-tick cycle on the device, the one Bluetooth cost worth a cache across cycles; see the cycle measurements of 1 November 2026
-in section 6a); a name is cut to 48 characters. Without a usable list the identifier stands alone, `company id N` on the page and the Overview.
+`Apple, Inc.`), read only for an identifier no earlier cycle of this collector process looked up: the identifiers already looked up, the
+unknown ones too, stay in `BTCO_MEMO` (at most 512) until the hourly re-check empties it. Until 1 November 2026 the whole list was read in
+every cycle that had Bluetooth records, measured that day at about 100 ticks of a 520-tick cycle on the device (section 6a); a name is cut
+to 48 characters. Without a usable list the identifier stands alone, `company id N` on the page and the Overview.
 
 **The document.** The `bluetooth` array is as in §2b; `center` carries `bt_hold` and `bt_source` = `blue5`
 and **no** `bt_window` (there is no window of ours this cycle; page and Overview read a missing `bt_window` as
@@ -1058,6 +1059,15 @@ full cycle at or under 200 ticks, Bluetooth at or under 150) the Bluetooth path 
 cache across cycles, and the Wi-Fi base alone is 356 (the 0.2.6 figures above, 200 to 270, were taken in a smaller neighbourhood). The same
 collector's self-test passed in full on the device as of 1 November 2026 (560 checks in about eight minutes; 572 on the development machine
 as of the same day, the difference being cases that need tools the Pager lacks).
+
+Those single cycles are cold starts: each `--once` process copies the databases, loads the caches and parses the layer programs afresh. The
+loop that the payload runs carries all of that from cycle to cycle, so the same day the collector was also run as a loop in a RAM lab
+directory (interval 30, the payload's environment, WIDS off; 28 access points, 15 Bluetooth addresses, 8 of them with a company name; the
+cost of a cycle = the growth of the loop's `cutime` + `cstime` between two documents). The collector before the company-list memo: 251 to
+255 ticks per steady cycle; with the memo (the list read once per process and at the hourly re-check, then only for a new identifier): 152
+to 167. The first cycle of either costs 1,234 to 1,342, with the OUI index built once and the list read once. In the loop, then, a steady
+cycle with Bluetooth from `blue5.db` sits under the 0.2.7 plan's 200-tick target, and the memo took the one avoidable Bluetooth cost out of
+it; the `--once` figures above are what a cold start costs, not what the running payload costs.
 
 ## 7. No web server, and how the display works
 
