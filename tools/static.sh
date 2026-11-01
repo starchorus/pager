@@ -168,7 +168,7 @@ MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four fram
 MIN_FIXTURES=16           # ls tests/fixtures/*.json | wc -l   (measured: 16, wids.json of 0.2.7 included; 15 before)
 MIN_QUICK_DROPINS=7       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server device-probe mutation-probe)
 MIN_QUICK_ROWS=90         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 121, 22 October 2026, with the device probe's seven rows and its 'ran' row; quick.sh's own rows are also asked for by name)
-MIN_DATA_ORACLE_CASES=122 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 140)
+MIN_DATA_ORACLE_CASES=122 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 146, 1 November 2026: the probe judge's two cases for the ripple in wids.json; 140 before)
 MIN_PYFILES=5             # ls tools/*.py | wc -l                                               (cdp.py, gen-testdata.py, fuzz-doc.py, data-oracle.py, doc-truth.py)
 # section slices: about 80 % of the measured size; measure: . tools/harness.sh; sec_slice 22 31 | wc -l
 MIN_SLICE_UTIL_SPRITES=1200   # §22..§31, measured 1532

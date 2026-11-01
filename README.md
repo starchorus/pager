@@ -139,7 +139,8 @@ Starchorus 0.2.6.2. The main parts carry the same number:
   data, not necessarily the maker), shown by its name where the scan or the firmware's company list reports one. Key `4` and the 'BT' button hide the layer; the
   counter 'BT addresses' (it keeps its count while the marks are hidden, and reads a dash when a scan failed and nothing is held) and
   the legend say which window the figure covers. Without a valid scan this cycle the marks are kept for two minutes and dim by age. A
-  mark has a tooltip, no detail sheet in this release. From the firmware's own database the tooltip also says what the addresses
+  mark has a tooltip; a mark whose address broadcasts Remote ID also has a detail sheet (no input, identity or pin) and shows what the
+  broadcast says, as text and 'as broadcast, not checked', in its tooltip rows, that sheet, ten CSV columns and a SITREP block. From the firmware's own database the tooltip also says what the addresses
   advertise as, in one of fourteen fixed words such as 'finder frame', 'beacon' or 'phone', each with its count in a folded mark
   ('advertising as beacon ×1, finder frame ×2'): a claim the advertisement makes, never an identification of a device.
 - **Channel activity and traffic** (opt-in, Settings > Traffic, or `STARCHORUS_TRAFFIC=1`): the AP service's frame count per frequency
@@ -573,9 +574,11 @@ The collector produces exactly the format the page reads:
   `center.bt_hold`; `activity[]` (`freq`, `share`: the share of the frames heard on that frequency among all frequencies from 2400 MHz up,
   never a count) and the absolute `packets` counter on stations. `channels[]` is unchanged, so the baseline and the Watchlist never read
   activity as 'visited'.
-- Alerts: `alerts[]` (`type`, always `deauth`; `t`; `ap`; `n`) has one entry per access point address with reports in the last `STARCHORUS_ALERT_WINDOW`
-  seconds, `n` being how many reports and `t` the newest, at most 20, newest first. It is written only while `alerts.log` holds such lines; otherwise the key is
-  absent. It means that many deauth/disassoc frames were heard for that access point, as the firmware reported it: no channel, no signal strength, no count of frames.
+- Alerts: `alerts[]` (`type`: `deauth`, or with `STARCHORUS_WIDS=1` one of `own_name`, `sec_profiles`, `sec_weaker`, `chan_changed`, `bt_fixed_new`; `t`; `ap`, the
+  address the entry is about, for `bt_fixed_new` a Bluetooth address; `n`) has one entry per address: for `deauth` the access points with reports in the last
+  `STARCHORUS_ALERT_WINDOW` seconds, `n` being how many reports and `t` the newest, at most 20, newest first, and up to eight entries of the other kinds, which never
+  displace a `deauth` entry. The key is absent while nothing is reported. A `deauth` entry means that many deauth/disassoc frames were heard for that access point, as
+  the firmware reported it: no channel, no signal strength, no count of frames; the other kinds are the rules of `STARCHORUS_WIDS`, described with that switch.
 
 The header of `starchorus-collect.sh` describes the fields. The page's data model is in the
 specification.
