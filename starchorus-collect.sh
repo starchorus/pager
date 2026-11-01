@@ -6097,6 +6097,10 @@ BTWIN
     # live window (rc 5, no call, no file of its own left: two starts at one moment cannot both run), and once that collector is gone the file is no window and the sweep removes it
     bts_reap; printf 'silent\n' > "$BTS/cfg/M.mode"; printf 'parent\n' > "$BTS/cfg/T.mode"
     if bts_child 15 '^P [0-9]'; then
+        # the stand-in collector writes its marker line and then starts its monitor, whose stand-in logs its argv as it starts: on the Pager that start trails the
+        # marker by a tenth of a second (1 November 2026: the first run of 0.2.7 on the device read 0 calls before and 1 after, a line the child wrote, not bt_begin).
+        # The baseline is taken once the child's own call is on record, so that the count below measures bt_begin alone; the window stays live for BT_T_READY.
+        bts_x=0; while [ "$bts_x" -lt 20 ] && [ ! -s "$BTS/log/argv.M" ]; do sleep 0.1 2>/dev/null || sleep 1; bts_x=$((bts_x + 1)); done
         bts_mk=$(cat "$BTS_CF" 2>/dev/null); bts_c0=$(cat "$BTS/log/argv.M" "$BTS/log/argv.S" 2>/dev/null | wc -l | tr -d ' ')
         bt_busy; bts_b1=$?
         bt_begin 2>/dev/null; bts_rc=$?
