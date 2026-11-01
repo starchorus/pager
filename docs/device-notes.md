@@ -378,8 +378,9 @@ does not depend on: it finds the head wherever it stands.
 where the window source had btmon's decoded name. The collector names the identifier from the firmware's own list
 `/lib/hak5/bt_companies.txt` (`STARCHORUS_BT_COMPANIES_FILE`, `auto` | path), one `XXXX<TAB>Name` line per
 identifier, the id four upper-case hex digits (measured 30 October 2026: 104,985 bytes, 4,041 lines; `004C` is
-`Apple, Inc.`), read once at start and again with the hourly vendor re-check, like the OUI file; a name is cut to
-48 characters. Without a usable list the identifier stands alone, `company id N` on the page and the Overview.
+`Apple, Inc.`), read in every cycle that has Bluetooth records, one pass over the whole list per cycle (measured 1 November 2026: about
+100 ticks of a 520-tick cycle on the device, the one Bluetooth cost worth a cache across cycles; see the cycle measurements of 1 November 2026
+in section 6a); a name is cut to 48 characters. Without a usable list the identifier stands alone, `company id N` on the page and the Overview.
 
 **The document.** The `bluetooth` array is as in §2b; `center` carries `bt_hold` and `bt_source` = `blue5`
 and **no** `bt_window` (there is no window of ours this cycle; page and Overview read a missing `bt_window` as
@@ -1044,6 +1045,19 @@ of the cycle before, which makes the 48 ticks per call about 24 per cycle on ave
 | V-3 extension | `RECON CHANNELS` called by the collector every cycle for 10 min; the transmit counters of `wlan0mgmt`, `wlan0cli`, `wlan0mon` and `wlan1mon` before and after; and two calls one second apart (A5) | the counters unchanged; the second call not far lower than the first |
 
 ---
+
+**Cycle cost of the 0.2.7 collector on the device: measured on 1 November 2026.** Single `--once` cycles of the installed collector (the first
+0.2.7 development install, branch feat-0.27) with the payload's environment (alerts on, `STARCHORUS_MAX_AGE=3600`, interval 30, Web Page off),
+three per variant into a RAM lab directory that was removed afterwards, in a neighbourhood of 28 access points, 70 stations and 26 Bluetooth
+addresses read from `blue5.db` (16 of them with a class, none with Remote ID); the ticks (10 ms) are the CPU time of the collector and its
+children (`cutime` and `cstime` of a wrapper shell). Wi-Fi alone 355 to 357 ticks; Bluetooth on without the company list 421 to 424 (the
+Bluetooth path itself: 66); Bluetooth on with the list 511 to 523 (the per-cycle read of the company list in `btco_fill`: 100); WIDS on 567 to
+572 (the five rules: 50; one real alert fired). The first cycle in a fresh output directory costs 1,385 because the OUI index is built once
+(9 s). Wall time 6 to 7 s per cycle at interval 30, so the loop idles for about three quarters of the time. Against the 0.2.7 plan's targets (a
+full cycle at or under 200 ticks, Bluetooth at or under 150) the Bluetooth path is 166, of which the 100 of the list read are avoidable with a
+cache across cycles, and the Wi-Fi base alone is 356 (the 0.2.6 figures above, 200 to 270, were taken in a smaller neighbourhood). The same
+collector's self-test passed in full on the device as of 1 November 2026 (560 checks in about eight minutes; 572 on the development machine
+as of the same day, the difference being cases that need tools the Pager lacks).
 
 ## 7. No web server, and how the display works
 
