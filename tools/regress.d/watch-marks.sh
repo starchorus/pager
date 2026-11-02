@@ -8,10 +8,11 @@
 #
 # GUARDS AGAINST: a mark that needs a click; a click that takes the mark away (it toggles the operator's pin alone); an arc on a station or a
 #   Bluetooth mark for a pin; a mark on a hotspot or an own transmitter; a listed rotating address folded into its company's mark or ranked past the
-#   48 that are drawn; a listed station inside a bubble or hidden in its cloud; forced labels that break the text budget; a word the judges refuse;
-#   any of it on a document without the key.
+#   48 that are drawn; a listed station inside a bubble or hidden in its cloud, or one that stays in its bubble after it joins the list because the
+#   layout did not run for the change; forced labels that break the text budget; a word the judges refuse; any of it on a document without the key.
 # NEGATIVE PROBE: one-line copies of the page (served to headless Chrome on 127.0.0.1 only) -- no station arc, no P3 test, the address folded, the
-#   old order of the marks, a bubble that takes a watched station, an export without the key: each turns exactly its own keys red.
+#   old order of the marks, a bubble that takes a watched station, a list change that leaves the layout alone, an export without the key: each turns
+#   exactly its own keys red.
 # NOT PROVEN: that the collector writes the marks (its self-test, 'watch list: ...'); the arc in 3D and in the Scope (2D pixels only); a finger on a
 #   phone (the click is a synthetic pointer event).
 #
@@ -166,6 +167,18 @@ wm_run cld "$WM_EV_CLD" "$F/clouds.json"
 WM_V="[$WM_B1,$WM_V]"
 wm_row "watch marks: a watched free station leaves its bubble and is drawn (back in it unmarked); a watched randomised address is shown on its own and stays in its cloud" '[{"bubble":"true/true/true/true/true","errors":0},{"cloud":"true/true/true/true","errors":0}]'
 
+# ---- the layout follows the list by itself: a station that joins the list in a LATER capture leaves its bubble in that capture and is back in it once
+# unmarked, with no settle forced (the row above calls STARCHORUS.settle(); here the page's own relayout must run for the changed list, as it does for a
+# changed signal: the list is compared capture to capture in ingest). idle() waits for the page's own settle, and returns at once where no layout ran.
+WM_EV_FLIP="(async()=>{$WM_JS"'
+const nd=(id)=>STARCHORUS.node(id),idle=async()=>{for(let i=0;i<40&&!STARCHORUS.layoutInfo().settled;i++)await sleep(100);await sleep(400);};await sleep(2200);await idle();
+const b=STARCHORUS.bubbles().find(x=>x.members.length>=3),M=b.members[0],b0=nd(M).bubble;
+const W=JSON.parse(JSON.stringify(F));W.generated+=30;W.unassociated.find(u=>u.mac===M).watched=true;STARCHORUS.load(W,"wm-flip");await idle();const n1=nd(M);
+const B=JSON.parse(JSON.stringify(F));B.generated+=60;STARCHORUS.load(B,"wm-flip");await idle();o.flip=[b0!==null,n1.bubble===null,n1.watched,nd(M).bubble!==null].join("/");
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+wm_run flip "$WM_EV_FLIP" "$F/field-probes.json"
+wm_row "watch marks: the layout follows the list by itself: a station that joins watch.list in a later capture leaves its bubble in that capture and is back in it once unmarked, with no settle forced" '{"errors":0,"flip":"true/true/true/true"}'
+
 # ---- [ and ] step through the pinned and the watched access points and stations (and do nothing unmarked); on a phone the sheet's step arrows show for two watched nodes, not for one
 WM_EV_KEY="(async()=>{$WM_JS"'
 const key=(k)=>window.dispatchEvent(new KeyboardEvent("keydown",{key:k})),seq=[];STARCHORUS.load(F,"wm-key");await sleep(900);
@@ -244,7 +257,8 @@ wm_probe p3 "$WM_EV_ARC" "$WM_WANT_ARC" "foundation,p3,wargames,whitehall,wl" '!
 wm_probe folded "$WM_EV_BT" "$WM_WANT_BT" "members,order,tips" 'rot && !b.watched' 'rot'
 wm_probe order "$WM_EV_BT" "$WM_WANT_BT" "rank" '.sort(btCmp)' '.sort((a, b) => b.rssi - a.rssi || cmpStr(a.id, b.id))'
 wm_probe bubble "$WM_EV_BUB" '{"bubble":"true/true/true/true/true","errors":0}' "bubble" '&& !c.randOut && !S.wl.has(c.id))' '&& !c.randOut)' "$F/field-probes.json"
+wm_probe flip "$WM_EV_FLIP" '{"errors":0,"flip":"true/true/true/true"}' "flip" '[...S.wl].some(id => !wl0.has(id))) changed = true;' '[...S.wl].some(id => !wl0.has(id))) ;' "$F/field-probes.json"
 wm_probe export "$WM_EV_TXT" "$WM_WANT_TXT" "json,sitrep" 'if (S.wl.has(id)) o.watched = true; ' ''
 WM_PN=$(echo "$WM_PROBES" | wc -w | tr -d ' ')
-WM_POK=0; [ "$WM_PN" = 6 ] && [ -z "$WM_PBAD" ] && WM_POK=1
-rowif "watch marks: the probes bite ($WM_PN of 6: no station arc, no P3 test, the address folded, the old order, a bubble that takes the station, an export without the key), each turns exactly its keys red${WM_PBAD}" [ "$WM_POK" = 1 ]
+WM_POK=0; [ "$WM_PN" = 7 ] && [ -z "$WM_PBAD" ] && WM_POK=1
+rowif "watch marks: the probes bite ($WM_PN of 7: no station arc, no P3 test, the address folded, the old order, a bubble that takes the station, a list change that leaves the layout alone, an export without the key), each turns exactly its keys red${WM_PBAD}" [ "$WM_POK" = 1 ]

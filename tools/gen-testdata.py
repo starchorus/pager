@@ -886,7 +886,8 @@ def validate_alerts(al):
 
 def validate_remote_id(w, r):
     """bluetooth[].remote_id (0.2.7): an object with at least one key, the keys from RID_KEYS in that order, the words from the fixed lists, ids of
-    1-20 characters [A-Za-z0-9._-], lat/lon numbers inside their ranges (both or neither, the operator's likewise), alt_m a number."""
+    1-20 characters [A-Za-z0-9._-], lat/lon numbers inside their ranges (both or neither, the operator's likewise) and not 0/0 at the seven places
+    the page prints, alt_m a number above -1000 and at most 31767.5: what the page's normRid keeps, so a document that validates shows whole."""
     if not isinstance(r, dict) or not r:
         return [w + ": remote_id must be an object with at least one key"]
     p = []
@@ -901,11 +902,16 @@ def validate_remote_id(w, r):
     for a, b in (("lat", "lon"), ("operator_lat", "operator_lon")):
         if (a in r) != (b in r):
             p.append("%s: remote_id.%s and %s go together" % (w, a, b))
+        ok = []
         for k, m in ((a, 90), (b, 180)):
             if k in r and not (isinstance(r[k], (int, float)) and not isinstance(r[k], bool) and -m <= r[k] <= m):
                 p.append("%s: remote_id.%s must be a number within +-%d" % (w, k, m))
-    if "alt_m" in r and not (isinstance(r["alt_m"], (int, float)) and not isinstance(r["alt_m"], bool)):
-        p.append(w + ": remote_id.alt_m must be a number")
+            elif k in r:
+                ok.append(k)
+        if len(ok) == 2 and max(abs(r[a]), abs(r[b])) <= 5e-8:   # the page's edge (normRid): both would print as 0.0000000 at the seven places of the sheet; the double 5e-8 lies just below 0.00000005 and prints as 0.0000000 too, every larger double as 0.0000001
+            p.append("%s: remote_id.%s and %s must not be 0/0, nor print as it at seven places (the standard's unknown position)" % (w, a, b))
+    if "alt_m" in r and not (isinstance(r["alt_m"], (int, float)) and not isinstance(r["alt_m"], bool) and -1000 < r["alt_m"] <= 31767.5):
+        p.append(w + ": remote_id.alt_m must be a number above -1000 and at most 31767.5")
     return p
 
 
@@ -1112,9 +1118,14 @@ def validate(doc, legacy=False):
 
 
 # --------------------------------------------------------------------------- cli
+def no_constant(name):
+    raise ValueError("%s is not JSON (the page's JSON.parse refuses it too)" % name)
+
+
 def read_json(path):
+    """The document as the page reads it: NaN, Infinity and -Infinity are refused (json.load would take them, JSON.parse never does)."""
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f, parse_constant=no_constant)
 
 
 def write_text(path, text):
@@ -1173,7 +1184,10 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     if args.stamp:
-        doc = read_json(args.stamp)
+        try:
+            doc = read_json(args.stamp)
+        except ValueError as e:   # not JSON to a strict reader (a NaN or Infinity literal among the causes): the file is left as it is
+            return internal(["%s: %s" % (args.stamp, e)])
         n = stamp_doc(doc, args.stamp_mean)
         probs = validate(doc)
         if probs:
@@ -1186,7 +1200,12 @@ def main(argv=None):
         return 0
 
     if args.validate:
-        doc = read_json(args.validate)
+        try:
+            doc = read_json(args.validate)
+        except ValueError as e:   # not JSON to a strict reader: a NaN or Infinity literal or a syntax error, which the page refuses too; a BOM or bytes that are not UTF-8, which the page would read
+            print("PROBLEM:", e)
+            print("%s: FAILED" % args.validate)
+            return 1
         probs = validate(doc, legacy=args.legacy)
         for x in probs:
             print("PROBLEM:", x)

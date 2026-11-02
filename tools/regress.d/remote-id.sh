@@ -5,12 +5,12 @@
 # as text: the aircraft type, the status, the id, the position and the operator position as numbers with seven decimals, the altitude in m, 'as broadcast,
 # not checked'. The CSV gains ten columns on the right and the SITREP a block only while a record has Remote ID; the JSON carries remote_id as it stands.
 # The document is generated (gen-testdata.py --remote-id, into out/ only): no stored fixture carries Remote ID, so no row that reads them moves.
-#   R1 the generator, the documented document, and the validator (twenty broken remote_id) · R2 the page keeps of each broken remote_id exactly the keys
+#   R1 the generator, the documented document, and the validator (twenty-six broken remote_id, one at the kept edge; R1b a NaN literal is not JSON to it) · R2 the page keeps of each broken remote_id exactly the keys
 #   the validator does not refuse · R3 the marks · R4 the tooltips, word for word · R5 the sheets (a real click too; a mark without Remote ID selects
 #   nothing; no input, identity or pin; no storage key) · R6 the selection ring in three themes · R7 the exports, word for word · R8 without Remote ID the
 #   exports and marks are those of a page copy with the feature planted out · R9 hostile text · R10 a position is never carried into a later capture ·
 #   R11 the words · R12 the page's word lists are the validator's · R13 the size of the new functions · R14 GET only · R15 planted copies
-# GUARDS AGAINST: a record with Remote ID folded into the mark of its company and ring, or two addresses joined by the id they broadcast; a word, an id or a
+# GUARDS AGAINST: a validator that takes a document the browser cannot parse (a NaN or Infinity literal) or a position that prints as 0/0; a record with Remote ID folded into the mark of its company and ring, or two addresses joined by the id they broadcast; a word, an id or a
 #                 number that is not on the contract's lists or in its range shown as if broadcast; text from the air that becomes markup; a position from
 #                 an earlier capture shown with a later one; a sheet for a mark without Remote ID, or one with an input, an identity or a pin; a selected
 #                 mark without its ring; an export that changes for a capture without Remote ID; a word of P10, of direction or distance, or track, pilot,
@@ -80,26 +80,39 @@ cases = [
   ("operator_id blank", up(operator_id="OP TEST")), ("lat 91", up(lat=91)), ("lon -181", up(lon=-181)),
   ("lat alone", lambda b: b["remote_id"].pop("lon")), ("operator_lat alone", lambda b: b["remote_id"].pop("operator_lon")),
   ("lat text", up(lat="0.5")), ("lat true", up(lat=True)), ("alt_m text", up(alt_m="120.5")),
+  ("alt_m 40000", up(alt_m=40000)), ("alt_m -1000", up(alt_m=-1000)), ("lat NaN", up(lat=float("nan"))), ("0/0", up(lat=0, lon=0)), ("rounds to 0/0", up(lat=1e-9, lon=0)),
+  ("prints as 0/0 at the edge", up(lat=5e-8, lon=0)),   # the double 5e-8 lies just below 0.00000005 and prints as 0.0000000
 ]
 bad = [n for n, f in cases if not any("remote_id" in p for p in g.validate(mut(f)))]
-print("%d/%d %s%s" % (len(cases) - len(bad), len(cases), "clean" if not g.validate(doc) else "fixture refused", "" if not bad else " not refused: " + ", ".join(bad)))
+kept = [p for p in g.validate(mut(up(lat=5.0000000000000004e-8, lon=0, alt_m=31767.5))) if "remote_id" in p]   # the next double above 5e-8 prints as 0.0000001: kept, with the altitude at its top
+print("%d/%d %s%s%s" % (len(cases) - len(bad), len(cases), "clean" if not g.validate(doc) else "fixture refused", "" if not bad else " not refused: " + ", ".join(bad), " kept edge ok" if not kept else " kept edge refused: " + "; ".join(kept)))
 PY
 )
-rowif "remote id: the validator refuses twenty broken remote_id (not an object, empty, a list, another key order, an unknown key, a word of no list for each of the three lists, an id with a quote, of 21 characters, empty or a number, an operator id with a blank, lat 91, lon -181, lat without lon twice, lat as text or true, alt_m as text) and passes the document [$RI_VB]" [ "$RI_VB" = "20/20 clean" ]
+rowif "remote id: the validator refuses twenty-six broken remote_id (not an object, empty, a list, another key order, an unknown key, a word of no list for each of the three lists, an id with a quote, of 21 characters, empty or a number, an operator id with a blank, lat 91, lon -181, lat without lon twice, lat as text or true, alt_m as text, 40000 or -1000, lat NaN, a position of 0/0, one that rounds to it at seven places and one at the edge, lat 5e-8, which prints as 0.0000000) and passes the document and one at the kept edge (the next double above 5e-8, altitude 31767.5) [$RI_VB]" [ "$RI_VB" = "26/26 clean kept edge ok" ]
 
-# ---- R2 the page drops what the validator refuses, key by key, and keeps the rest in the contract's order (the same twenty mutations of 02:00:00:00:0d:01)
+# ---- R1b a document with a NaN literal is not JSON to the validator, as it is not to the browser: json.load would take NaN, Infinity and -Infinity, JSON.parse never does,
+# so a document that validated could have shown nothing; now one PROBLEM line, FAILED and exit 1, no traceback
+sed 's/120\.5/NaN/' "$RI_FX" > "$RI_T/nan.json"
+python3 tools/gen-testdata.py --validate "$RI_T/nan.json" > "$RI_T/nan.txt" 2>&1; RI_VNR=$?
+RI_VN=$(tr '\n' ' ' < "$RI_T/nan.txt")
+RI_VNOK=0; case $RI_VN in "PROBLEM: NaN is not JSON"*"nan.json: FAILED ") [ "$RI_VNR" = 1 ] && [ "$(grep -c . "$RI_T/nan.txt")" = 2 ] && RI_VNOK=1 ;; esac
+rowif "remote id: a document with a NaN literal is not JSON to the validator, as to the browser: one PROBLEM line naming it, FAILED, exit $RI_VNR, no traceback [$RI_VN]" [ "$RI_VNOK" = 1 ]
+
+# ---- R2 the page drops what the validator refuses, key by key, and keeps the rest in the contract's order (the same twenty-six mutations of 02:00:00:00:0d:01, and one at the kept edge)
 RI_EV_PAR="(async()=>{$RI_JS"'
 const V={notobj:r=>{r.remote_id="x";},empty:r=>{r.remote_id={};},list:r=>{r.remote_id=[r.remote_id];},order:r=>{r.remote_id=Object.fromEntries(Object.entries(r.remote_id).reverse());},unknown:r=>{r.remote_id.speed=3;},
  ua:r=>{r.remote_id.ua_type="drone";},status:r=>{r.remote_id.status="flying";},idt:r=>{r.remote_id.id_type="ssn";},quote:r=>{r.remote_id.uas_id="TE\"ST";},long:r=>{r.remote_id.uas_id="T".repeat(21);},
  idempty:r=>{r.remote_id.uas_id="";},idnum:r=>{r.remote_id.uas_id=12345;},opblank:r=>{r.remote_id.operator_id="OP TEST";},lat91:r=>{r.remote_id.lat=91;},lon181:r=>{r.remote_id.lon=-181;},
- latalone:r=>{delete r.remote_id.lon;},opalone:r=>{delete r.remote_id.operator_lon;},lattext:r=>{r.remote_id.lat="0.5";},lattrue:r=>{r.remote_id.lat=true;},alttext:r=>{r.remote_id.alt_m="120.5";}};
+ latalone:r=>{delete r.remote_id.lon;},opalone:r=>{delete r.remote_id.operator_lon;},lattext:r=>{r.remote_id.lat="0.5";},lattrue:r=>{r.remote_id.lat=true;},alttext:r=>{r.remote_id.alt_m="120.5";},
+ alt40k:r=>{r.remote_id.alt_m=40000;},altlow:r=>{r.remote_id.alt_m=-1000;},latnan:r=>{r.remote_id.lat=NaN;},zero:r=>{r.remote_id.lat=0;r.remote_id.lon=0;},round0:r=>{r.remote_id.lat=1e-9;r.remote_id.lon=0;},edge:r=>{r.remote_id.lat=5e-8;r.remote_id.lon=0;},
+ kept:r=>{r.remote_id.lat=5.0000000000000004e-8;r.remote_id.lon=0;r.remote_id.alt_m=31767.5;}};
 const K=["ua_type","id_type","uas_id","status","lat","lon","alt_m","operator_lat","operator_lon","operator_id"],out=[];let g=G;
 for(const [n,f] of Object.entries(V)){ld(d=>f(d.bluetooth.find(b=>b.addr===A(1))),g+=30,"ri-par");await sleep(20);const r=JSON.parse(STARCHORUS.exportText("json")).bluetooth.find(x=>x.addr===A(1)).remote_id;
  out.push(n+":"+(r?K.filter(k=>!(k in r)).join("+")+(Object.keys(r).join()===K.filter(k=>k in r).join()?"":"!order"):"none"));}
 o.parity=out.join(" ");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-RI_W_PAR='{"errors":0,"parity":"notobj:none empty:none list:none order: unknown: ua:ua_type status:status idt:id_type quote:uas_id long:uas_id idempty:uas_id idnum:uas_id opblank:operator_id lat91:lat+lon lon181:lat+lon latalone:lat+lon opalone:operator_lat+operator_lon lattext:lat+lon lattrue:lat+lon alttext:alt_m"}'
+RI_W_PAR='{"errors":0,"parity":"notobj:none empty:none list:none order: unknown: ua:ua_type status:status idt:id_type quote:uas_id long:uas_id idempty:uas_id idnum:uas_id opblank:operator_id lat91:lat+lon lon181:lat+lon latalone:lat+lon opalone:operator_lat+operator_lon lattext:lat+lon lattrue:lat+lon alttext:alt_m alt40k:alt_m altlow:alt_m latnan:lat+lon zero:lat+lon round0:lat+lon edge:lat+lon kept:"}'
 ri_run par "$RI_EV_PAR"
-ri_row "remote id: of each of the twenty broken remote_id the page keeps exactly the keys the validator does not refuse, in the contract's order (nothing of a non-object, an empty object or a list; a key order put right; an unknown key, a word of no list, a bad id, a lone or out-of-range or non-numeric position and a text altitude dropped)" "$RI_W_PAR"
+ri_row "remote id: of each of the twenty-six broken remote_id the page keeps exactly the keys the validator does not refuse, in the contract's order (nothing of a non-object, an empty object or a list; a key order put right; an unknown key, a word of no list, a bad id, a lone, out-of-range, NaN or non-numeric position, a position of 0/0 exact, at seven places or at the edge 5e-8, and a text or out-of-range altitude dropped); one at the kept edge (the next double above 5e-8, altitude 31767.5) keeps every key" "$RI_W_PAR"
 
 # ---- R3 the marks: seven addresses in six marks; the four with Remote ID are marks of their own (0d:01 and 0d:04 broadcast one id and stay two marks); the two
 # rotating addresses of Maker A in ring 1 without it fold as before

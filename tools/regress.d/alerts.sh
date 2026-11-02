@@ -14,7 +14,8 @@
 #   Since 0.2.7 the five kinds of STARCHORUS_WIDS=1 (tests/fixtures/wids.json, the ground truth in the header of build_wids_doc): R1b the fixture and three more
 #   refusals of the validator · R13 the page knows the validator's six kinds · R14 the words of the six notes and the legend row (P10, direction, distance; three
 #   planted words) · R15 the kinds on the page (notes, legend, rings in three themes, friend, own, band filter, the Bluetooth note, inherited type names, exports)
-#   · R16 four planted copies for the keys of R15
+#   · R16 four planted copies for the keys of R15 · R17 the dwell key names the kind: a second kind at an alerted address waits its own two captures, a kind that
+#   replaces another in one capture waits too, and a planted copy with the old key (by address alone) shows both at once
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
 #                 shows without a ring or hides with one (or with its band filtered off); a flicker that freezes when the sky does not spin (the frame loop is not asked for
@@ -23,7 +24,8 @@
 #                 phosphor fade again (WarGames, persistence on: 22 frames for each step); a Scope whose alerted blip never blinks, or that renders sixty frames a second for it; a ring that moves so
 #                 that the band stated in section 14.6 is no longer true. Since 0.2.7: a kind the page does not know, or a type name an object inherits taken for
 #                 one; a derived kind's ring or note at a friend, or a deauth one taken from it; a ring for bt_fixed_new; a Bluetooth note without a live fixed
-#                 mark of its address; a word in a note that P10, direction or distance forbid.
+#                 mark of its address; a word in a note that P10, direction or distance forbid; a dwell keyed by the address alone, so that a second kind at an
+#                 alerted address, or a kind that replaces another, shows without its two captures.
 # NEGATIVE PROBE: R9 runs the same evals on planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
 #                 the flicker factor replaced by 1, the reduced-motion test removed, no frame request, a frame request every frame, and a legend row that ignores the band
 #                 filter; a step that arms the phosphor fade again (R5), in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), and a ring thinned to
@@ -31,7 +33,7 @@
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
 #                 R14's three planted words and R16's four copies (a friend kept, bt_fixed_new as a Wi-Fi kind, the kinds looked up with `in`, the note without the live
-#                 test) are more.
+#                 test) and R17's copy with the dwell keyed by the address alone are more.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
 #                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (STARCHORUS_WIDS stays 0 until
 #                 it is measured on the device); where the nine stars of wids.json land on a phone.
@@ -515,3 +517,40 @@ al_copy "$AL_T/p-wlive.html" '(S.bt.get("bt:" + a.ap) || {}).target === 1' 'S.bt
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wlive.html" "$AL_T/wids-live"; AL_V=$(al_wkey btGone errors)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "6,0" ] && AL_OK=1
 rowif "alerts: the live key bites: a Bluetooth note that only asks whether the mark exists outlives the capture its address left [copy differs in $AL_C1 line, btGone/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+
+# ---- R17 the dwell key names the kind (1 November 2026): at an alerted access point a second kind waits its own two captures, and a kind that replaces another in
+# the same capture waits too (keyed by the address alone, the first kind's clock served the next); the kinds that vanished go at once. Orchard (02:00:00:00:07:06)
+# of wids.json carries sec_weaker: chan_changed is added (two entries for one address: a document the collector never writes and the validator refuses, so this
+# step tests the page's own guard), then both are replaced by own_name (the case the collector can produce: a kind taking over an address). One label throughout:
+# a new label is a new source, which starts the dwell afresh (the first load from the served fixture is one).
+AL_EVD='(async()=>{const sleep=STARCHORUS.wait,o={},P="02:00:00:00:07:";await sleep(1500);
+const fx=await (await fetch("starchorus.json")).json();
+let cnt=0;const ld1=async(mut)=>{const d=JSON.parse(JSON.stringify(fx));d.generated+=5*(++cnt);if(mut)mut(d);STARCHORUS.load(d,"dw");await sleep(300);};
+const orch=()=>STARCHORUS.observations().filter(x=>x.group==="Alerts"&&x.text.includes(": Orchard (")).map(x=>x.text);
+const addc=d=>{d.alerts.push({type:"chan_changed",t:d.generated-100,ap:P+"06",n:3});};
+const swap=d=>{d.alerts=d.alerts.filter(a=>a.ap!==P+"06").concat([{type:"own_name",t:d.generated-50,ap:P+"06",n:2}]);};
+STARCHORUS.setToggles({crt:false});
+await ld1(null);await ld1(null);o.warm=orch().join("|");
+await ld1(addc);o.add1=orch().length+"/"+orch().some(t=>t.startsWith("channel changed"));
+await ld1(addc);o.add2=orch().length+"/"+orch().some(t=>t.startsWith("channel changed"));
+await ld1(swap);o.swap1=orch().length;
+await ld1(swap);o.swap2=orch().join("|");
+o.total=STARCHORUS.observations().filter(x=>x.group==="Alerts").length;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+# al_dwell PAGE PREFIX: the dwell eval on PAGE (the page, or a planted copy); the value in AL_D, its keys sorted in AL_DN
+al_dwell() {
+  AL_HK=$H; H=$1
+  runq "$AL_WX" "$AL_Q" "$2" --fps 0 --wait 3 --ready "$AL_RDY" --eval-timeout 120 --eval "$AL_EVD" >/dev/null 2>&1
+  H=$AL_HK
+  AL_D=$(evalv "$2.json" 1)
+  AL_DN=$(printf '%s' "$AL_D" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin),separators=(",",":"),sort_keys=True))' 2>/dev/null)
+}
+al_dkey() { printf '%s' "$AL_D" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
+al_dwell "$H" "$AL_T/dwell"
+AL_DWANT='{"add1":"1/false","add2":"2/true","errors":0,"swap1":0,"swap2":"own name also sent by another transmitter: Orchard (2)","total":5,"warm":"security weaker than when first heard: Orchard (1)"}'
+rowif "alerts: the dwell is per kind and address: at Orchard (sec_weaker shown) a chan_changed entry waits a second capture (1/false, then 2/true), and own_name replacing both waits too (0, then the one note); five notes in all [${AL_DN:-no-value}]" [ "$AL_DN" = "$AL_DWANT" ]
+[ "$AL_DN" = "$AL_DWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_D:-no-value}" | cut -c1-600)"
+# the old key, by the address alone: the second kind and the replacement show at once
+al_copy "$AL_T/p-wdwell.html" 'add("alert:" + a.type + ":" + a.ap, "Alerts"' 'add("alert:" + a.ap, "Alerts"'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_dwell "$AL_T/p-wdwell.html" "$AL_T/dwell-old"; AL_V=$(al_dkey add1 swap1 errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "2/true,1,0" ] && AL_OK=1
+rowif "alerts: the dwell key bites: a page that keys the dwell by the address alone shows a second kind and a replacement at once [copy differs in $AL_C1 line, add1/swap1/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]

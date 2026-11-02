@@ -203,7 +203,8 @@ function ingest(doc, opts = {}) {
   rebuildGroups();
   rebuildDevices();
   S.aps.forEach(n => { n.mobile = isMobileLikely(n); });
-  S.wl.clear(); for (const x of doc.aps.flatMap(a => [a, ...a.clients]).concat(doc.unassociated)) { const id = x.bssid || x.mac; if (x.watched && !eventSkip(nodeById(id))) S.wl.add(id); }   // watch.list, P3 aside
+  const wl0 = S.wl; S.wl = new Set(); for (const x of doc.aps.flatMap(a => [a, ...a.clients]).concat(doc.unassociated)) { const id = x.bssid || x.mac; if (x.watched && !eventSkip(nodeById(id))) S.wl.add(id); }   // watch.list, P3 aside
+  if (S.wl.size !== wl0.size || [...S.wl].some(id => !wl0.has(id))) changed = true;   // a changed list changes the bubbles (§4.6)
   if (cap) {
     eventsSettle(pend, gen, seq, seenAp, seenCl);
     // something new was heard → the receive ring contracts once (not a live cloud's new burst, §8.8a)

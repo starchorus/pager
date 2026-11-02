@@ -270,7 +270,7 @@ function obsCompute() {
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
-  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only
+  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only; dwell per kind
   if (S.cloudOrder.length) {   // §8.8a
     const k = S.cloudOrder.length, a = S.cloudOrder.reduce((x, c) => x + c.n, 0), one = k === 1 && !cloudMixed(S.cloudOrder[0]);
     add("s-clouds", "Stations", a + " randomised addresses in " + k + (k === 1 ? " cloud" : " clouds") + (one ? ": probably one nearby device changing its address" : ": possibly one or more nearby devices changing their address"));

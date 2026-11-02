@@ -82,7 +82,7 @@ function normRid(x) {   // → { remote_id } for btOpt's spread, or null
   if (!isObj(x)) return null;
   const o = {};
   for (const k of RID_KEYS) { const v = x[k], w = RID_W[k]; if (w ? w.split(" ").includes(v) : /id$/.test(k) ? typeof v == "string" && /^[\w.-]{1,20}$/.test(v) : typeof v == "number" && (k === "alt_m" ? v > -1000 && v <= 31767.5 : Math.abs(v) <= (/lat/.test(k) ? 90 : 180))) o[k] = v; }
-  for (const p of ["", "operator_"]) if (!(o[p + "lat"] ** 2 + o[p + "lon"] ** 2 > 0)) { delete o[p + "lat"]; delete o[p + "lon"]; }   // lat with lon, never 0/0
+  for (const p of ["", "operator_"]) if (!(Math.max(Math.abs(o[p + "lat"]), Math.abs(o[p + "lon"])) > 5e-8)) { delete o[p + "lat"]; delete o[p + "lon"]; }   // lat with lon, never 0/0
   return Object.keys(o).length ? { remote_id: o } : null;
 }
 const normAct = (r) => Array.isArray(r) ? r.slice(0, 69).flatMap(x => { const f = isObj(x) ? numOrNull(x.freq) : null, s = isObj(x) ? numOrNull(x.share) : null; return f > 0 && s > 0 && s <= 1 ? [{ freq: f, share: s }] : []; }) : null;   // §3.1 activity[]

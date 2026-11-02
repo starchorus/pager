@@ -1459,7 +1459,7 @@ function normRid(x) {   // → { remote_id } for btOpt's spread, or null
   if (!isObj(x)) return null;
   const o = {};
   for (const k of RID_KEYS) { const v = x[k], w = RID_W[k]; if (w ? w.split(" ").includes(v) : /id$/.test(k) ? typeof v == "string" && /^[\w.-]{1,20}$/.test(v) : typeof v == "number" && (k === "alt_m" ? v > -1000 && v <= 31767.5 : Math.abs(v) <= (/lat/.test(k) ? 90 : 180))) o[k] = v; }
-  for (const p of ["", "operator_"]) if (!(o[p + "lat"] ** 2 + o[p + "lon"] ** 2 > 0)) { delete o[p + "lat"]; delete o[p + "lon"]; }   // lat with lon, never 0/0
+  for (const p of ["", "operator_"]) if (!(Math.max(Math.abs(o[p + "lat"]), Math.abs(o[p + "lon"])) > 5e-8)) { delete o[p + "lat"]; delete o[p + "lon"]; }   // lat with lon, never 0/0
   return Object.keys(o).length ? { remote_id: o } : null;
 }
 const normAct = (r) => Array.isArray(r) ? r.slice(0, 69).flatMap(x => { const f = isObj(x) ? numOrNull(x.freq) : null, s = isObj(x) ? numOrNull(x.share) : null; return f > 0 && s > 0 && s <= 1 ? [{ freq: f, share: s }] : []; }) : null;   // §3.1 activity[]
@@ -1882,7 +1882,8 @@ function ingest(doc, opts = {}) {
   rebuildGroups();
   rebuildDevices();
   S.aps.forEach(n => { n.mobile = isMobileLikely(n); });
-  S.wl.clear(); for (const x of doc.aps.flatMap(a => [a, ...a.clients]).concat(doc.unassociated)) { const id = x.bssid || x.mac; if (x.watched && !eventSkip(nodeById(id))) S.wl.add(id); }   // watch.list, P3 aside
+  const wl0 = S.wl; S.wl = new Set(); for (const x of doc.aps.flatMap(a => [a, ...a.clients]).concat(doc.unassociated)) { const id = x.bssid || x.mac; if (x.watched && !eventSkip(nodeById(id))) S.wl.add(id); }   // watch.list, P3 aside
+  if (S.wl.size !== wl0.size || [...S.wl].some(id => !wl0.has(id))) changed = true;   // a changed list changes the bubbles (§4.6)
   if (cap) {
     eventsSettle(pend, gen, seq, seenAp, seenCl);
     // something new was heard → the receive ring contracts once (not a live cloud's new burst, §8.8a)
@@ -3132,7 +3133,7 @@ function obsCompute() {
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
-  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only
+  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: local-live only; dwell per kind
   if (S.cloudOrder.length) {   // §8.8a
     const k = S.cloudOrder.length, a = S.cloudOrder.reduce((x, c) => x + c.n, 0), one = k === 1 && !cloudMixed(S.cloudOrder[0]);
     add("s-clouds", "Stations", a + " randomised addresses in " + k + (k === 1 ? " cloud" : " clouds") + (one ? ": probably one nearby device changing its address" : ": possibly one or more nearby devices changing their address"));
