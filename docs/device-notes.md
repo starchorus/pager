@@ -1300,8 +1300,9 @@ waits (up to 3 s) until the port is free again, so that a restart on the same po
 taken: the server runs at nice 19 on the single core and may handle its signal late.
 
 Each script carries a `# Version:` and a `# Contract:` header. The contract number is the interface
-the payload shares with the collector (`--status`, `--stop`, the pidfiles) and the Overview (its
-environment); it changes with that interface, so a payload updated on its own is caught at the same
+the payload shares with the collector (the environment it hands it, one `STARCHORUS_*` variable per
+key the collector reads: window, interval, vendor, survey, traffic, bluetooth, wids; `--status`, `--stop`, the pidfiles), the Overview (its
+environment) and the companion alert (the line format of `alerts.log`, which the collector parses); it changes with that interface, so a payload updated on its own is caught at the same
 version too (an installed script with a version but no contract line counts as contract 1). The installed netcat server (`# Version:`) and
 page (the `version:` line of `index.html`) have no contract line and are compared by version alone (0.2.5). A
 difference is reported once at launch. The remedy is `tools/install.sh`; in the self-contained

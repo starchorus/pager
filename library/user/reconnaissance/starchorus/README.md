@@ -24,7 +24,8 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
   Two settings, both off by default, add to what it reads: 'Traffic' (channel activity from the AP
   service and the frame counts of stations) and 'Bluetooth' (a scan of 5 s per refresh). Bluetooth:
   passive LE scan only: by the Bluetooth specification a passive scan sends no scan request, it listens for advertisements that devices
-  broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)).
+  broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)). A further setting, 'Alert Rules' (off by
+  default), adds five more kinds of alert, which the collector derives from what it already holds, never from the air.
 - Page (`starchorus.html`, `index.html` on the device): a single, self-contained HTML file on port
   8199; it fetches only `starchorus.json` and sends nothing.
 - Overview (`starchorus-display.sh`): eight screens on the device's display (summary, strongest
@@ -89,7 +90,9 @@ Stop Starchorus, then replace all seven files, by the same route: `sh tools/inst
 commands above, or, with the self-contained directory below, the new directory plus deleting
 `/root/loot/starchorus/starchorus-collect.sh`. The payload compares the installed collector and
 Overview with itself when it opens, by version and by `# Contract:` number, and says so when they
-differ (see Operation), so a payload replaced on its own does not go unnoticed. The settings in
+differ (see Operation), so a payload replaced on its own does not go unnoticed. While Alerts is ON, the
+companion alert in the firmware's alert tree is compared as well: switch Alerts off and on again after
+the upgrade, which renews it (the dialogue says 'Switch Alerts off, then on.' until you do). The settings in
 `settings.conf` are kept. The first start after an upgrade takes a little longer: the collector splits
 the vendor (OUI) list into an index once.
 
@@ -177,9 +180,9 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
 - **Stop** asks nothing. It stops the collector and the page server and waits until the collector
   has really ended.
 - **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Traffic',
-  'Bluetooth', 'Alerts', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default; switching one
-  on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
-  scan, 5 s per refresh.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
+  'Bluetooth', 'Alerts', 'Alert Rules', 'Port' and 'Reset to Defaults'. 'Traffic', 'Bluetooth' and 'Alert Rules' are OFF by default;
+  switching one on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
+  scan, 5 s per refresh.', 'Alert rules: five more kinds, on the web page.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
   short list ('Show Last' also offers 'All (may be slow)'), 'Port' a number entry. Every change is
   saved at once. While Starchorus runs, 'Web Page' takes effect at once, and the other changes are
   applied when you leave Settings, without a question. Only 'Reset to Defaults' and 'Alerts' ask first
@@ -192,11 +195,13 @@ running, and the log says so ('Still running.', and the page's address). B never
 
 The payload checks each pid it reads from a pidfile against the process it names: a pidfile on the
 device's flash outlives a reboot, and its pid may by then belong to another program. Such a pidfile
-is deleted, and nothing is signalled. If the installed collector or Overview differs from the payload
+is deleted, and nothing is signalled. If the installed collector or Overview, or, while Alerts is ON, the
+companion alert in the firmware's alert tree, differs from the payload
 in version, or in the interface number of its `# Contract:` header, a dialogue says so once when the
 payload opens ('Installed …, payload …' for another version, 'Installed files differ from the
 payload.' for another contract); run `tools/install.sh` again (with the self-contained layout the
-dialogue names the file to delete instead). Files without a `# Contract:` line, those of the first
+dialogue names the file to delete instead; for the companion alert it says 'Switch Alerts off, then
+on.', which renews that copy). Files without a `# Contract:` line, those of the first
 release, count as contract 1.
 
 Command line (without any on-device menu, on the device as well):
@@ -258,8 +263,9 @@ touch the file.
 | `page` | `on` | `on`, `off` | payload only (`STARCHORUS_PAGE`): serve the page ('Web Page') |
 | `bluetooth` | `off` | `on`, `off` | `STARCHORUS_BLUETOOTH` (`1`/`0`): the passive Bluetooth LE scan, 5 s per refresh ('Bluetooth') |
 | `traffic` | `off` | `on`, `off` | `STARCHORUS_TRAFFIC` (`1`/`0`): channel activity from the AP service and the frame counts of stations ('Traffic') |
+| `wids` | `off` | `on`, `off` | `STARCHORUS_WIDS` (`1`/`0`): five more kinds of alert, derived from what the collector already holds; shown on the page, not in the Overview ('Alert Rules') |
 
-'Refresh' in the menu is `interval`, 'Show Last' is `window`, 'Traffic' is `traffic` and 'Bluetooth' is `bluetooth`.
+'Refresh' in the menu is `interval`, 'Show Last' is `window`, 'Traffic' is `traffic`, 'Bluetooth' is `bluetooth` and 'Alert Rules' is `wids`.
 The collector options only read.
 `own`, `collector` and `dashboard` are no longer keys: a line for them in an older settings file is
 skipped, and the environment variables above take their place. No key, no menu item and no command-line command reaches the

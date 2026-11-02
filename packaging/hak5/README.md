@@ -39,7 +39,7 @@ frames, associate with any network or scan actively. It reads the recon database
 copy (`sqlite3 -readonly`), or receives in monitor mode. Two settings, both off by default, add to what
 it reads: 'Traffic' (channel activity from the AP service and the frame counts of stations) and
 'Bluetooth' (a scan of 5 s per refresh). Bluetooth: passive LE scan only; by the Bluetooth specification a
-passive scan sends no scan request, it listens for advertisements that devices broadcast anyway; on firmware 2.0 the Pager's own scanner holds the radio, and the layer reads the firmware's Bluetooth database instead, read-only from a copy, with the scanner left as the Pager set it. It does not change the LED. An active scan exists in the collector only as
+passive scan sends no scan request, it listens for advertisements that devices broadcast anyway; on firmware 2.0 the Pager's own scanner holds the radio, and the layer reads the firmware's Bluetooth database instead, read-only from a copy, with the scanner left as the Pager set it. Starchorus does not change the LED. The setting 'Alert Rules' (off by default) adds five more kinds of alert, which the collector derives from what it already holds, never from the air. An active scan exists in the collector only as
 a last resort behind the environment variable
 `STARCHORUS_ALLOW_ACTIVE=1`; it is off by default, and no menu item or setting reaches it. The optional companion alert `alert-deauth.sh` only
 writes the times and addresses of the firmware's own deauth/disassoc alert to a file, when the firmware raises it; it listens to nothing and sends nothing.
@@ -79,7 +79,9 @@ your settings are kept. When the payload opens
 it compares the installed collector, Overview, netcat server and page with itself, by version and, for the scripts, by their `# Contract:`
 number (the interface they share). If you replace the payload directory but not the installed
 files, a dialogue ('Installed …, payload …' or 'Installed files differ from the payload.') says so
-and names the file to delete.
+and names the file to delete. While Alerts is ON, the companion alert in the firmware's alert tree
+is compared as well: after an upgrade, switch Alerts off and on again, which renews it; until then
+the dialogue names that remedy ('Switch Alerts off, then on.') at every launch.
 
 ## Requirements
 
@@ -138,9 +140,10 @@ environment variable of the same meaning takes precedence over the file.
 | `page` | `on` | `on`, `off` | 'Start' starts the page server |
 | `bluetooth` | `off` | `on`, `off` | the Bluetooth layer: a passive LE scan of 5 s per refresh, or on firmware 2.0 the firmware's own database |
 | `traffic` | `off` | `on`, `off` | channel activity from the AP service and the frame counts of stations |
+| `wids` | `off` | `on`, `off` | five more kinds of alert, derived from what the collector already holds, never from the air; shown on the page, not in the Overview |
 
 In the menu's Settings, `interval` is 'Refresh', `window` is 'Show Last', `vendor` is 'Vendor
-Names', `survey` is 'Channel Load', `traffic` is 'Traffic', `bluetooth` is 'Bluetooth' and `page` is
+Names', `survey` is 'Channel Load', `traffic` is 'Traffic', `bluetooth` is 'Bluetooth', `wids` is 'Alert Rules' and `page` is
 'Web Page'. A change made there while Starchorus runs is applied when you leave Settings, except
 'Web Page', which takes effect at once. A window of one hour keeps each pass small enough for the
 Pager's CPU; 'Show Last' also offers 'All (may be slow)'. Marking the Pager's own radios

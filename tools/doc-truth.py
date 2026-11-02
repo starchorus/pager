@@ -25,7 +25,7 @@ CHECKS
             both payload.sh, and the companion alert alert-deauth.sh) is the page version (`version: "x.y.z"` or `"x.y.z.w"` in starchorus.html): one project, one version number.
   contract  [--want N]   the "# Contract:" header of the four scripts that carry one (collector, display script and its library copy,
             the library payload.sh) and of the companion alert (alert-deauth.sh: it fixes the alerts.log line format the collector parses)
-            is one number, and N where --want is given (the radio pair's interface number is 3).
+            is one number, and N where --want is given (4 since the `wids` settings key of 0.2.7; the radio pair's number was 3).
   figures   the figures that the documents state about the passivity probe (its mutations and controls, its alternatives, the blinded parts of the checker
             that --meta plants, and the rows of the checker) are the ones counted from the table of tools/passivity-mutate.sh READ AS TEXT, nothing run:
             mut and mutr1 entries with and without an expectation (their sixth argument), alt samples, metaprobe calls, the names in ROWS. README.md has

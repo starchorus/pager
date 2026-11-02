@@ -128,8 +128,8 @@ rowif "collector fields: Bluetooth and Traffic off by default, the scan window 5
 CFL_SWB=$(printf '%s\n%s\n' 'BLUETOOTH=${STARCHORUS_BLUETOOTH:-1}' 'TRAFFIC=${STARCHORUS_TRAFFIC:-0}' | grep -cE '^(BLUETOOTH|TRAFFIC)=\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}$')
 rowif "collector fields: the default row bites (a Bluetooth default of 1 is not counted: $CFL_SWB of 2)" [ "$CFL_SWB" = 1 ]
 # The payload exports 0 for both, like its SURVEY line (the payload's own track writes the lines; the check follows the Contract number, which
-# integration raises to 3 once for the new settings keys): while the header says 2 the payload only may not default either switch to 1, from 3 on it
-# must export both with 0.
+# integration raises to 3 once for the new settings keys, and to 4 for the wids key below): while the header says 2 the payload only may not
+# default either switch to 1, from 3 on it must export both with 0.
 CFL_PLB=library/user/reconnaissance/starchorus/payload.sh
 CFL_CN=$(sed -n 's/^# Contract:  *\([0-9][0-9]*\)$/\1/p' starchorus-collect.sh | head -n 1)
 CFL_PX=$(grep -cE '^export STARCHORUS_(BLUETOOTH|TRAFFIC)="\$\{STARCHORUS_(BLUETOOTH|TRAFFIC):-0\}"' "$CFL_PLB")
@@ -139,6 +139,21 @@ if [ "${CFL_CN:-0}" -ge 3 ] 2>/dev/null; then
 else
   rowif "collector fields: the payload defaults neither Bluetooth nor Traffic to 1 (Contract $CFL_CN: the exports with 0 are required from Contract 3; $CFL_PX/2 there, $CFL_P1 defaults of 1)" [ "$CFL_P1" = 0 ]
 fi
+# From Contract 4 the wids key (0.2.7) reaches the collector the same way: the payload exports STARCHORUS_WIDS with 0, exactly once, and
+# defaults it to 1 nowhere
+CFL_PW=$(grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-0\}"' "$CFL_PLB")
+CFL_PW1=$(grep -cE 'STARCHORUS_WIDS:-1' "$CFL_PLB")
+if [ "${CFL_CN:-0}" -ge 4 ] 2>/dev/null; then
+  rowif "collector fields: the payload exports 0 for the wids key (Contract $CFL_CN: $CFL_PW/1 export line, $CFL_PW1 defaults of 1)" [ "$CFL_PW/$CFL_PW1" = 1/0 ]
+else
+  rowif "collector fields: the payload defaults the wids key nowhere to 1 (Contract $CFL_CN: the export with 0 is required from Contract 4; $CFL_PW/1 there, $CFL_PW1 defaults of 1)" [ "$CFL_PW1" = 0 ]
+fi
+# the wids row bites both ways: an export with a default of 1 is not counted as an export with 0, and is counted as a default of 1
+# shellcheck disable=SC2016  # the text is the thing searched
+CFL_PWB=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-1}"' | grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-0\}"')
+# shellcheck disable=SC2016
+CFL_PWB1=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-1}"' | grep -cE 'STARCHORUS_WIDS:-1')
+rowif "collector fields: the wids export row bites (a default of 1 is seen as one, and is not an export with 0: $CFL_PWB1/$CFL_PWB)" [ "$CFL_PWB1/$CFL_PWB" = 1/0 ]
 # the payload rows bite: a payload line that exports a Bluetooth default of 1 is counted as a default of 1 and not as an export with 0
 # shellcheck disable=SC2016  # the text is the thing searched
 CFL_PB=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE 'STARCHORUS_(BLUETOOTH|TRAFFIC):-1')

@@ -48,7 +48,7 @@ dtr_row "tools/README.md fixture table" fixtures
 dtr_row "prose" prose
 dtr_row "spec §11.0 run list = regress.sh loop" runlist
 dtr_row "script headers = page version" headers
-dtr_row "Contract 3 in the four script headers" contract --want 3
+dtr_row "Contract 4 in the four script headers" contract --want 4
 dtr_row "passivity probe figures" figures
 
 # ---- the probes: the same checks on a COPY of the tree (no .git, no out/) with exactly one broken input each. Nothing in the copy runs.
@@ -115,7 +115,7 @@ DTR_cbad=""
 }
 dtr_run "$DTR_w" census --no-fixture "$DTR_NOFIX" --no-fixture "$DTR_NOFIX2"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad census"
 for DTR_c in sources fixtures prose runlist headers figures; do dtr_run "$DTR_w" "$DTR_c"; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad $DTR_c"; done
-dtr_run "$DTR_w" contract --want 3; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad contract"
+dtr_run "$DTR_w" contract --want 4; [ "$DTR_rc" = 0 ] || DTR_cbad="$DTR_cbad contract"
 [ -z "$DTR_cbad" ] || echo "    the unbroken copy is not green for:$DTR_cbad"
 grep -v 'starchorus-serve.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noserve.txt"
 grep -v 'tools/device-probe.sh' "out/$P-dtr-pcfiles.txt" > "$DTR_w/l-noprobe.txt"
@@ -194,18 +194,18 @@ checks.' ''
   dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh: header 0.2.0-dev.3, but the page version is 0.2.6.2' headers library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Version: 0.2.6.2' '# Version: 0.2.0-dev.3'
   dtr_probe 1 'but the page version is 0.2.0-dev.3' headers starchorus.html replace '  version: "0.2.6.2",' '  version: "0.2.0-dev.3",'
   # contract: one header left at the old number (collector, display script and its copy, payload), one bumped alone, one gone
-  dtr_probe 1 'starchorus-collect.sh: header says 2, want 3' contract starchorus-collect.sh replace '# Contract:     3' '# Contract:     2' --want 3
-  dtr_probe 1 'starchorus-display.sh: header says 2, want 3' contract starchorus-display.sh replace '# Contract:     3' '# Contract:     2' --want 3
-  dtr_probe 1 'library/user/reconnaissance/starchorus/starchorus-display.sh: header says 2, want 3' contract library/user/reconnaissance/starchorus/starchorus-display.sh replace '# Contract:     3' '# Contract:     2' --want 3
-  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header says 4, want 3' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4' --want 3
-  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 3' '# Contract: 4'
-  dtr_probe 1 'starchorus-collect.sh has no `# Contract:` header' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3
+  dtr_probe 1 'starchorus-collect.sh: header says 3, want 4' contract starchorus-collect.sh replace '# Contract:     4' '# Contract:     3' --want 4
+  dtr_probe 1 'starchorus-display.sh: header says 3, want 4' contract starchorus-display.sh replace '# Contract:     4' '# Contract:     3' --want 4
+  dtr_probe 1 'library/user/reconnaissance/starchorus/starchorus-display.sh: header says 3, want 4' contract library/user/reconnaissance/starchorus/starchorus-display.sh replace '# Contract:     4' '# Contract:     3' --want 4
+  dtr_probe 1 'library/user/reconnaissance/starchorus/payload.sh: header says 5, want 4' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 4' '# Contract: 5' --want 4
+  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/payload.sh replace '# Contract: 4' '# Contract: 5'
+  dtr_probe 1 'starchorus-collect.sh has no `# Contract:` header' contract starchorus-collect.sh delline '# Contract:     4' '' --want 4
   # the companion alert (it fixes the alerts.log line format the collector parses): left at the old number, bumped alone, its header gone
-  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh: header says 2, want 3' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 3' '# Contract: 2' --want 3
-  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 3' '# Contract: 4'
-  dtr_probe 1 'Contract 3 in 3 of 4 script headers and in the companion alert' contract starchorus-collect.sh delline '# Contract:     3' '' --want 3   # the label counts the scripts that have a header: three of four
-  dtr_probe 1 'Contract 3 in 4 of 4 script headers and NOT in the companion alert' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
-  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh has no `# Contract:` header' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 3' '' --want 3
+  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh: header says 3, want 4' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 4' '# Contract: 3' --want 4
+  dtr_probe 1 'the headers do not agree' contract library/user/reconnaissance/starchorus/alert-deauth.sh replace '# Contract: 4' '# Contract: 5'
+  dtr_probe 1 'Contract 4 in 3 of 4 script headers and in the companion alert' contract starchorus-collect.sh delline '# Contract:     4' '' --want 4   # the label counts the scripts that have a header: three of four
+  dtr_probe 1 'Contract 4 in 4 of 4 script headers and NOT in the companion alert' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 4' '' --want 4
+  dtr_probe 1 'library/user/reconnaissance/starchorus/alert-deauth.sh has no `# Contract:` header' contract library/user/reconnaissance/starchorus/alert-deauth.sh delline '# Contract: 4' '' --want 4
   # figures: the passivity probe's numbers in the documents against the table of tools/passivity-mutate.sh, read as text. Each of the five figures one too high in the README (the
   # statement +1), and the table one entry short for each (a mutation, a control, an alternative sample, a metaprobe call, a row); a statement gone from the README; a figure one too
   # high in each other document (the package README; tools/README.md two too low, as it stood with its 347 alternatives; the newest section of the CHANGELOG); the older sections of

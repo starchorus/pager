@@ -10,7 +10,7 @@
 #               no association. It starts and stops nothing.
 # Author:       Starchorus
 # Version:      0.2.6.2
-# Contract:     3
+# Contract:     4
 # Category:     reconnaissance
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
