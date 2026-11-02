@@ -86,6 +86,59 @@ else
   echo "    got:  $(printf '%s' "$OBV_O" | cut -c1-560)"; echo "    want: $OBV_OW"
 fi
 
+# ---- probes for a confirmed SSID (P4): the number of stations as counted, shown from the first capture that holds one (after the dwell
+# every note has), carried in the SITREP (and so in its print) and not in JSON or CSV, nothing without a confirmed set, no band word; then the same eval on a page
+# copy that bands the number again ('<5' / '5 or more', the text of 0.2.6), which must turn exactly the count keys red (the copy differs
+# from the page in that one line: a negative control); and the page without the band text, the ten-minute gate and the new-station band.
+# NEGATIVE PROBES (by hand, one-line copies of the page, 2 November 2026): the k > 0 guard dropped -> the dwell row above reads n 10 with a
+# Probes group, the count row reads '0 station(s) probed for a confirmed SSID' for zero, and the band copy's key diff gains zero;
+# eventSkip(c) dropped from the count -> the count row reads 7 for six and in the SITREP line (the own transmitter counted).
+OBV_EVP='(async()=>{
+const ap=(n,ssid)=>({bssid:"aa:bb:cc:00:07:"+String(n).padStart(2,"0"),ssid,band:"2.4",channel:6,freq:2437,rssi:-50-n,security:"WPA2",last_seen:1789300000});
+const st=(n,probes)=>({mac:"02:00:00:00:07:"+String(n).padStart(2,"0"),rssi:-60-n,probes});
+const mk=(g,un)=>({source:"recon-db",generated:g,aps:[ap(1,"HomeNet"),ap(2,"cafe")],unassociated:un,center:{label:"x",own_bssids:["02:00:00:00:07:10"]}}),o={};
+const P=()=>STARCHORUS.observations().filter(x=>x.group==="Probes").map(x=>x.text).join("|"),T=()=>STARCHORUS.observations().map(x=>x.text).join(" ");
+const un3=[st(1,["HomeNet"]),st(2,["HomeNet","cafe"]),st(3,["HomeNet"]),st(4,["cafe"]),st(5,[])];
+STARCHORUS.load(mk(100,un3),"prb");STARCHORUS.setIdentity("aa:bb:cc:00:07:01","friend");   // observed first (P2), then confirmed
+STARCHORUS.load(mk(105,un3),"prb");o.first=P();   // the first capture with a confirmed set: the dwell holds the note back
+STARCHORUS.load(mk(110,un3),"prb");o.three=P();
+const un6=un3.concat([st(6,["HomeNet"]),st(7,["homenet"]),st(8,["HomeNet"]),st(9,["HomeNet"]),st(10,["HomeNet"])]);   // 7 differs in case: no hit; 10 is an own transmitter: not counted
+STARCHORUS.load(mk(115,un6),"prb");o.six=P();
+o.sitrep=STARCHORUS.exportText("sitrep").split("\n").filter(l=>/probed for a confirmed SSID/.test(l)).join("|");
+o.noJsonCsv=!/probed for/.test(STARCHORUS.exportText("json")+STARCHORUS.exportText("csv"));
+o.band=/<5|5 or more/.test(T());o.p10=/\b(evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood)\b/i.test(T());
+STARCHORUS.load(mk(120,[st(4,["cafe"]),st(5,[])]),"prb");o.zero=P();   // nobody probes for the confirmed name any more: no note, not a 0
+STARCHORUS.setIdentity("aa:bb:cc:00:07:01","unknown");STARCHORUS.load(mk(125,un6),"prb");STARCHORUS.load(mk(130,un6),"prb");o.noFriend=P();
+STARCHORUS.clearLocalData();o.errors=STARCHORUS.errors().length;
+return JSON.stringify(o);})()'
+obv_probes() {   # obv_probes NAME: the eval on the page $H serves; OBV_P = the answer, OBV_PE = the error count
+  runq demo "$OBV_Q" "out/$P-obv-$1" --wait 2 --fps 0 --ready --eval-timeout 90 --eval "$OBV_EVP" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  OBV_P=$(evalv "out/$P-obv-$1.json" 1 | obv_nj); OBV_PE=$(evalv "out/$P-obv-$1.json" 2)
+}
+obv_probes probes
+OBV_PW=$(printf '%s' '{"first":"","three":"3 station(s) probed for a confirmed SSID","six":"6 station(s) probed for a confirmed SSID","sitrep":"  6 station(s) probed for a confirmed SSID","noJsonCsv":true,"band":false,"p10":false,"zero":"","noFriend":"","errors":0}' | obv_nj)
+if [ "$OBV_P" = "$OBV_PW" ] && [ "$OBV_PE" = 0 ]; then
+  row "observations: stations that probed for a confirmed SSID are counted as they are (3, then 6; a name that differs in case is no hit, an own transmitter is not counted), from the first capture that holds one after the dwell, in the SITREP (and so in its print), not in JSON or CSV, no note for none and none without a confirmed set, no band word, neutral wording" PASS
+else
+  row "observations: stations that probed for a confirmed SSID, counted (err ${OBV_PE:-?})" FAIL
+  echo "    got:  $(printf '%s' "$OBV_P" | cut -c1-560)"; echo "    want: $OBV_PW"
+fi
+OBV_PO='add("probes", "Probes", k + " station(s) probed for a confirmed SSID");'
+OBV_PN='add("probes", "Probes", "stations probed for a confirmed SSID: " + (k < 5 ? "<5" : "5 or more"));'
+if python3 -B - "$H" "out/$P-obv-band.html" "$OBV_PO" "$OBV_PN" <<'PY'
+import sys
+t = open(sys.argv[1], encoding="utf-8").read()
+if t.count(sys.argv[3]) != 1: sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(t.replace(sys.argv[3], sys.argv[4]))
+PY
+then
+  OBV_HK=$H; H="out/$P-obv-band.html"; obv_probes band; H=$OBV_HK
+  OBV_PD=$(python3 -c 'import json,sys; g,w=json.loads(sys.argv[1] or "{}"),json.loads(sys.argv[2]); print(",".join(sorted(k for k in set(g)|set(w) if g.get(k)!=w.get(k))))' "$OBV_P" "$OBV_PW" 2>/dev/null)
+else OBV_PD=anchor; fi
+rowif "observations: a page copy that bands the count again ('<5' / '5 or more') turns exactly the count keys red [$OBV_PD]" [ "$OBV_PD" = "band,sitrep,six,three" ]
+OBV_BT=$(grep -c '"<5" : "5 or more"' starchorus.html); OBV_GT=$(grep -c 'OBS_PROBE_S\|obsProbe\|newStationsText' starchorus.html)
+rowif "observations: the page holds no band text of the probes note ($OBV_BT), no ten-minute gate and no new-station band ($OBV_GT; the sky statistics' own cell rule, D11, is not this)" [ "$OBV_BT/$OBV_GT" = 0/0 ]
+
 # ---- keys W/B, query overrides, persisted booleans
 OBV_EVK='(async()=>{
 const key=(k)=>window.dispatchEvent(new KeyboardEvent("keydown",{key:k})),o={};

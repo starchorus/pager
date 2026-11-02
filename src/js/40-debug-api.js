@@ -15,10 +15,10 @@ function pubNode(n) {
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: n.bubble, bubbleBlend: r3(n.bubbleBlend), pinned: S.pinned.has(n.id), watched: S.wl.has(n.id), cloud: n.cloud || null, randOut: !!n.randOut };
 }
 function nodeVisible(n) { return n.target === 1 && n.alphaDraw > 0.05 && (n.kind !== "ap" || (S.ui.filters[n.band] !== false && !isEssFolded(n.id))); }
-function eventsObj() {   // D2: counters of the LAST capture of this source (per station: STARCHORUS.node(mac).isNew); "<5" is a display rule
+function eventsObj() {   // D2: counters of the LAST capture of this source (per station: STARCHORUS.node(mac).isNew)
   let nw = 0, chg = 0, cue = 0; S.aps.forEach(n => { if (n.target !== 1 || eventSkip(n)) return; if (isNewAp(n)) nw++; if (n.changedSeq === S.captureSeq && S.captureSeq > 0) chg++; if (n.cueSeq === S.captureSeq && S.captureSeq > 0) cue++; });
   const e = S.ev;
-  return { captureSeq: S.captureSeq, arrived: e.arrived, departed: e.departed, changed: chg, cues: cue, newAps: nw, newStations: e.newStations, newInClouds: e.newInClouds || 0, departedStations: e.departedStations, newStationsText: e.newStations === 0 ? "0" : e.newStations < 5 ? "<5" : String(e.newStations) };
+  return { captureSeq: S.captureSeq, arrived: e.arrived, departed: e.departed, changed: chg, cues: cue, newAps: nw, newStations: e.newStations, newInClouds: e.newInClouds || 0, departedStations: e.departedStations };
 }
 function statsObj() {
   const st = S._stats || { apsTotal: 0, aps: 0, free: 0, assoc: 0, clients: 0, bands: { "2.4": 0, "5": 0, "6": 0 }, bandsT: { "2.4": 0, "5": 0, "6": 0 }, alarms: 0, groups: 0 };

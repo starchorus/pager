@@ -67,7 +67,7 @@ function eventsReset() {
   S.clouds.clear(); S.cloudOrder = []; S.bt.clear(); S.btOrder = []; S.btLvl.clear();   // §8.8a, §3.1
   S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;
   S.chg = new Map();
-  S.obsFirst = new Map(); S.obsProbe = { firstGen: null }; S.obsWatchSeen = new Set();
+  S.obsFirst = new Map(); S.obsWatchSeen = new Set();
   S.sky = { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] };
   S.aps.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.changedSeq = -1; n.cueSeq = -1; });
   S.clients.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.pk = null; });

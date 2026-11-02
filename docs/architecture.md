@@ -1830,7 +1830,7 @@ classes in the 'Operator' block. API §10: `setIdentity(key, id)`, `identity(key
 Change log per AP (DS channel, security class, SSID, band; ≤ `CHG_MAX` entries, ≤ `CHG_BSSIDS` BSSIDs; never `freq`);
 baseline (≤ 500 APs, ≤ 2000 stations with RSSI only, never an association) with diff and ghosts (D19: without `channels[]` never
 'gone'); Observations (neutral, derived hints; only after two held captures; look-alike only against the
-confirmed set; toggle `W`); watchlist (`aps[].ssid` only). Phone hotspots (P3) and the operator's own transmitters produce nothing.
+confirmed set; the number of stations that probed for one of its names, as counted; toggle `W`); watchlist (`aps[].ssid` only). Phone hotspots (P3) and the operator's own transmitters produce nothing.
 
 ### 8.12 Tools (display only)
 
@@ -2262,7 +2262,7 @@ window.STARCHORUS = Object.freeze({
   // State
   stats() → { aps, apsTotal, clients, clientsTotal, free, assoc, groups, bubbles, visibleClients, visibleAps, alarms, hidden, revealed,
               bands, bandsTotal, security, fresh: {t0,t1,t2,t3,undated}, freshClients: {…}, events: {captureSeq, arrived, departed, changed,
-              cues, newAps, newStations, departedStations, newStationsText}, crowding, deviations, baseline, observations, changeEntries, watch,
+              cues, newAps, newStations, newInClouds, departedStations}, crowding, deviations, baseline, observations, changeEntries, watch,
               hop, own (counts only), theme, view, mode, source, generated, centerLabel, sourceKind, sourceLabel, liveFeed, stalePolls,
               captureStale, captureOffline, fps, frameMs, lod, dpr, dprStep, autoLod, nodes, sprites, spriteBytes, particles, flares, travelDots, probeArcs,
               labels, twinkles, interferencePairs, blend, settling, forcedAgg, themeErrors, storageFailed, introShown, paused, devices,
@@ -2569,7 +2569,7 @@ departs from them, this chapter prevails. The regression checks that the chapter
 | # | Topic | Decision (core) |
 |---|---|---|
 | D1 | Freshness | `FRESH.tiersS = [60, 300, 900]`: T0 < 1 min · T1 < 5 min · T2 < 15 min · T3 on record · undated; for APs and stations, each from its **own** `last_seen` (`stats().fresh` counts APs, `stats().freshClients` stations); age = `generated − last_seen`; `last_seen ≤ 0` → undated, up to +300 s in the future → T0, beyond that undated, without `generated` everything is undated; undated looks like T0 but is counted and named; tiers that the collection window (`center.max_age`) makes unreachable are hidden; words and limits are provisional until the recon database's update cycle has been checked on the device |
-| D2 | Events | state belongs to a source (`sourceKind` + label), a change of source resets it, the first capture of a source produces no arrivals/departures; one counter `S.captureSeq`; arrival/departure only from the set comparison of consecutive captures (never from `target`/`born`); `changedSeq` on DS channel, security class, SSID, band; RSSI jump ≥ 3 dB = change cue; 'New' lasts 3 captures; stations: arrival `node.isNew`, departure in `events.departedStations`, no station 'change'; the arrival arcs carry no identifiers (≤ 12), small numbers are shown in bands ('<5') |
+| D2 | Events | state belongs to a source (`sourceKind` + label), a change of source resets it, the first capture of a source produces no arrivals/departures; one counter `S.captureSeq`; arrival/departure only from the set comparison of consecutive captures (never from `target`/`born`); `changedSeq` on DS channel, security class, SSID, band; RSSI jump ≥ 3 dB = change cue; 'New' lasts 3 captures; stations: arrival `node.isNew`, departure in `events.departedStations`, no station 'change'; the arrival arcs carry no identifiers (≤ 12) |
 | D3 | Liveness indicator | for poll-fed sources the poll time without a new `generated` (`S.staleMs`: the cadence's waits, one `POLL_MS` tick per poll by hand or live API load; a failed poll adds only its time); reset on a new `generated` or a change of source; stale from max(30 s, 2 × `center.interval` + 15 s), without an interval from 6 × 5 s as before; chip, masthead dot, badge, lamps and pill flip together; a server that has not answered the last three polls (`S.lostPolls`: network error, deadline, any status but 200; any 200 resets it) reads 'Offline' (WarGames 'Link down', Whitehall 'No link') in the same widgets and the stale styling from the stale threshold on (a 'Stale' of one or two polls first only when the outage began just before it), 'Stale' staying for a server that answers with an old capture, and the first answer ends it ('Live' on a new `generated`, otherwise 'Stale'); demo/recorded/none never stale; hooks `STARCHORUS.pollNow()` and `load(doc, label, {mode:'live'})`; masthead dot in all themes (steady = live, dimmed = stale); poll timeout 4 s; the poll cadence follows the observed capture spacing (§9.5) |
 | D4 | Source | `sourceKind`: none · active (`/ACTIVE/i` in `doc.source`, takes precedence) · demo · live · recorded (paste/drop/API; the API may pass `{mode:'live'}`); all passivity claims via one copy-token group with the same keys in all themes; for `active` instead 'ACTIVE SCAN · the collector sent probe requests' |
 | D5 | Selection/pin | selection = brightest neutral per theme; pin ≠ lock: notched arc in `ink.secondary` |
@@ -2621,18 +2621,21 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
 ### 14.5 Privacy P1–P10 (binding)
 
 - **P1** Stations are observed objects like APs: freshness, history, arrival/departure, baseline and ghosts apply to them too;
-  export, report and recording include them, limited by P6 and the caps in P8. Small numbers of new stations are
-  shown in bands ('<5').
+  export, report and recording include them, limited by P6 and the caps in P8. Their counts are shown as counted;
+  `stats().events.newStations` reports the new stations among them, as counted.
 - **P2** Identity, notes and homing accept only **observed** identifiers – AP or station, present or in the baseline
   (`observed()`; rejection 'not observed'). The watchlist matches only SSID text, never an identifier.
 - **P3** A probable phone hotspot (`n.mobile`: locally administered BSSID outside every G1 cluster,
   hotspot-typical SSID per `MOBILE_SSID_RE`, or IBSS) produces no event, no baseline, no watchlist hit, no
   observation; it appears only as the count 'mobile hotspots: n'.
-- **P4** Protected SSIDs = SSIDs of APs the operator has marked as friend (not freely enterable); watchlist SSIDs match only
-  `aps[].ssid`; the count of probes for a protected SSID is banded only (0 / <5 / ≥5), only after 10 minutes of
-  capture time, without timestamps and without identifiers, and is not exported.
-- **P5** Association counts from the AP service are neither read nor shown; should such a field be added, the rule is: display
-  banded (0 / '<5' / value from 5), never in history, log, baseline, events, recording or export.
+- **P4** Confirmed SSIDs = SSIDs of APs the operator has marked as friend (not freely enterable); watchlist SSIDs match only
+  `aps[].ssid`; the number of stations that probed for a confirmed SSID is an Observations note like the others: as
+  counted (addresses, so a device that changes its address counts once per address), from the first capture that holds
+  one (after the dwell every note has), naming no station (each station's probed names stand in its tooltip, its sheet
+  and its export row), and it goes with the other notes into the report.
+- **P5** Association counts from the AP service are not read today (the collector takes the station → AP link from the capture;
+  the page shows it, counts it in `station_counts` and exports it as `association`); should such a field be read, it is
+  shown and exported as counted, like the station counts.
 - **P6** Exports, reports and PNG contain only values from frames addressed to all (beacons, probe requests/
   responses) and the received station → AP association; values from directed frames (such as clusters in `alerts[]`) stay
   local and live (DE TDDDG §5, UK WTA 2006 s48, US 18 USC 2511; `SECURITY.md` lists this as legally sensitive).

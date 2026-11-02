@@ -30,7 +30,7 @@ const S = {
   twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
   security: Object.fromEntries(Object.keys(ENCODING.security).map(k => [k, 0])),
   chg: new Map(), baseline: null, base: { set: false, size: 0, new: 0, gone: 0, changed: 0, ghosts: 0, sizeCl: 0, newCl: 0, goneCl: 0, ghostsCl: 0 }, ghosts: new Map(),
-  watch: [], obs: [], obsFirst: new Map(), alerts: [], obsProbe: { firstGen: null },
+  watch: [], obs: [], obsFirst: new Map(), alerts: [],
   rules: [], notes: new Map(), inv: { sort: "rssi", dir: -1, filter: {} }, homing: null, homeOpen: false, homePeak: { bssid: null, dbm: null, gen: null, polls: 0 },
   recvT0: null, dx: null, chanMode: "bars", timeScale: "10m", wfBand: "2.4", threshold: null, long: new Map(), chanPeak: new Map(), rec: null, replay: null,   // analysis drawers (air|time|rec), channel-bar mode, operator threshold, long RSSI history, peak hold, recorder/replay (memory only)
   hop: null, own: { bssids: new Set(), ssids: new Set() },   // channels[] of the last document (null = none: absence is never "gone"); own transmitters, in memory only

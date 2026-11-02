@@ -317,9 +317,10 @@ shows it only in a mark's tooltip line (which the sheet of a mark with Remote ID
 
 The observations are derived notes in neutral language, without judgement. A note appears only once
 it has held for two captures in a row, and never for the device's own transmitters or for phone
-hotspots. The number of stations that have searched for a confirmed SSID is shown only in bands
-('<5' or '5 or more') and only after ten minutes of capture time, without timestamps and without
-identifiers.
+hotspots. The number of stations that have searched for a confirmed SSID is a note like the others:
+as counted (addresses, so a device that changes its address counts once per address), from the first
+capture that holds one, after the dwell every note has; the note names no station, while each
+station's probed names stand in its tooltip, its sheet and its export row, as before.
 
 Of stations, the page stores only MAC and RSSI in the baseline: no link to an AP, no probe list, no
 RSSI history, no `last_seen`.

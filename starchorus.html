@@ -882,7 +882,7 @@ const CHG_MAX = 12, CHG_BSSIDS = 500, BASELINE_KEY = "starchorus.baseline.v1", B
 // Station registers are capped apart from the APs' so that rotating randomised MACs can never crowd out an access point:
 // station RSSI series in S.hist, stations in the baseline, station ghosts.
 const HIST_CL_MAX = 2400, BASELINE_CL_MAX = 2000, GHOST_CL_MAX = 40;
-const WATCH_KEY = "starchorus.watch.v1", WATCH_MAX = 20, OBS_MAX = 12, OBS_DWELL = 2, OBS_PROBE_S = 600;
+const WATCH_KEY = "starchorus.watch.v1", WATCH_MAX = 20, OBS_MAX = 12, OBS_DWELL = 2;
 const AL_TXT = { deauth: "many deauth/disassoc frames heard for this AP", own_name: "own name also sent by another transmitter", sec_weaker: "security weaker than when first heard", chan_changed: "channel changed since first heard", sec_profiles: "one name, several security profiles", bt_fixed_new: "new fixed Bluetooth address, strong signal" };   // the note of each kind of alerts[]
 // library rules (persisted), alias/notes/tags per observed key (AP or station, <= 200), inventory, export, homing.
 const LIB_KEY = "starchorus.library.v1", NOTES_KEY = "starchorus.notes.v1", NOTES_MAX = 200, RULES_MAX = 20, INV_ROWS = 300;
@@ -1628,7 +1628,7 @@ const S = {
   twinkles: 0, revealed: 0, labelsDrawn: 0, labelCollisions: 0, labelsOutside: 0, nodeCount: 0, nFreeTotal: 0,
   security: Object.fromEntries(Object.keys(ENCODING.security).map(k => [k, 0])),
   chg: new Map(), baseline: null, base: { set: false, size: 0, new: 0, gone: 0, changed: 0, ghosts: 0, sizeCl: 0, newCl: 0, goneCl: 0, ghostsCl: 0 }, ghosts: new Map(),
-  watch: [], obs: [], obsFirst: new Map(), alerts: [], obsProbe: { firstGen: null },
+  watch: [], obs: [], obsFirst: new Map(), alerts: [],
   rules: [], notes: new Map(), inv: { sort: "rssi", dir: -1, filter: {} }, homing: null, homeOpen: false, homePeak: { bssid: null, dbm: null, gen: null, polls: 0 },
   recvT0: null, dx: null, chanMode: "bars", timeScale: "10m", wfBand: "2.4", threshold: null, long: new Map(), chanPeak: new Map(), rec: null, replay: null,   // analysis drawers (air|time|rec), channel-bar mode, operator threshold, long RSSI history, peak hold, recorder/replay (memory only)
   hop: null, own: { bssids: new Set(), ssids: new Set() },   // channels[] of the last document (null = none: absence is never "gone"); own transmitters, in memory only
@@ -1746,7 +1746,7 @@ function eventsReset() {
   S.clouds.clear(); S.cloudOrder = []; S.bt.clear(); S.btOrder = []; S.btLvl.clear();   // §8.8a, §3.1
   S.long = new Map(); S.chanPeak = new Map(); S.recvT0 = null;
   S.chg = new Map();
-  S.obsFirst = new Map(); S.obsProbe = { firstGen: null }; S.obsWatchSeen = new Set();
+  S.obsFirst = new Map(); S.obsWatchSeen = new Set();
   S.sky = { seq: 0, ref: new Map(), t0: null, resets: 0, dev: [] };
   S.aps.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.changedSeq = -1; n.cueSeq = -1; });
   S.clients.forEach(n => { n.capSeq = -1; n.newSeq = -1; n.pk = null; });
@@ -3121,12 +3121,9 @@ function obsCompute() {
   }
   const multi = aps.filter(n => n.respondedSsids >= 2);   // Multi-SSID responders
   if (multi.length) add("multi", "Responders", multi.length + " BSSID(s) answered probes for several SSIDs (up to " + Math.max(...multi.map(n => n.respondedSsids)) + ")");
-  if (fs.size && S.generated != null) {   // Probes for a confirmed SSID (P4): tiered 0 / <5 / >=5, only after 10 minutes of capture time, no times, no identities
-    if (S.obsProbe.firstGen == null) S.obsProbe.firstGen = S.generated;
-    if (S.generated - S.obsProbe.firstGen >= OBS_PROBE_S) {
-      let k = 0; for (const c of S.clientOrder) if (!eventSkip(c) && c.probes && c.probes.some(p => fs.has(p))) k++;
-      if (k > 0) add("probes", "Probes", "stations probed for a confirmed SSID: " + (k < 5 ? "<5" : "5 or more"));
-    }
+  if (fs.size) {   // Probes for a confirmed SSID (P4): the number of stations as counted, from the first capture that holds one; the note names no station
+    let k = 0; for (const c of S.clientOrder) if (!eventSkip(c) && c.probes && c.probes.some(p => fs.has(p))) k++;
+    if (k > 0) add("probes", "Probes", k + " station(s) probed for a confirmed SSID");
   }
   for (const w of S.watch) {   // Watchlist (SSIDs of access points only); "lost" needs hop data, as for the baseline
     const hit = aps.some(n => n.groupKey === w);
@@ -7314,10 +7311,10 @@ function pubNode(n) {
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: n.bubble, bubbleBlend: r3(n.bubbleBlend), pinned: S.pinned.has(n.id), watched: S.wl.has(n.id), cloud: n.cloud || null, randOut: !!n.randOut };
 }
 function nodeVisible(n) { return n.target === 1 && n.alphaDraw > 0.05 && (n.kind !== "ap" || (S.ui.filters[n.band] !== false && !isEssFolded(n.id))); }
-function eventsObj() {   // D2: counters of the LAST capture of this source (per station: STARCHORUS.node(mac).isNew); "<5" is a display rule
+function eventsObj() {   // D2: counters of the LAST capture of this source (per station: STARCHORUS.node(mac).isNew)
   let nw = 0, chg = 0, cue = 0; S.aps.forEach(n => { if (n.target !== 1 || eventSkip(n)) return; if (isNewAp(n)) nw++; if (n.changedSeq === S.captureSeq && S.captureSeq > 0) chg++; if (n.cueSeq === S.captureSeq && S.captureSeq > 0) cue++; });
   const e = S.ev;
-  return { captureSeq: S.captureSeq, arrived: e.arrived, departed: e.departed, changed: chg, cues: cue, newAps: nw, newStations: e.newStations, newInClouds: e.newInClouds || 0, departedStations: e.departedStations, newStationsText: e.newStations === 0 ? "0" : e.newStations < 5 ? "<5" : String(e.newStations) };
+  return { captureSeq: S.captureSeq, arrived: e.arrived, departed: e.departed, changed: chg, cues: cue, newAps: nw, newStations: e.newStations, newInClouds: e.newInClouds || 0, departedStations: e.departedStations };
 }
 function statsObj() {
   const st = S._stats || { apsTotal: 0, aps: 0, free: 0, assoc: 0, clients: 0, bands: { "2.4": 0, "5": 0, "6": 0 }, bandsT: { "2.4": 0, "5": 0, "6": 0 }, alarms: 0, groups: 0 };

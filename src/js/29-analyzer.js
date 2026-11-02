@@ -258,12 +258,9 @@ function obsCompute() {
   }
   const multi = aps.filter(n => n.respondedSsids >= 2);   // Multi-SSID responders
   if (multi.length) add("multi", "Responders", multi.length + " BSSID(s) answered probes for several SSIDs (up to " + Math.max(...multi.map(n => n.respondedSsids)) + ")");
-  if (fs.size && S.generated != null) {   // Probes for a confirmed SSID (P4): tiered 0 / <5 / >=5, only after 10 minutes of capture time, no times, no identities
-    if (S.obsProbe.firstGen == null) S.obsProbe.firstGen = S.generated;
-    if (S.generated - S.obsProbe.firstGen >= OBS_PROBE_S) {
-      let k = 0; for (const c of S.clientOrder) if (!eventSkip(c) && c.probes && c.probes.some(p => fs.has(p))) k++;
-      if (k > 0) add("probes", "Probes", "stations probed for a confirmed SSID: " + (k < 5 ? "<5" : "5 or more"));
-    }
+  if (fs.size) {   // Probes for a confirmed SSID (P4): the number of stations as counted, from the first capture that holds one; the note names no station
+    let k = 0; for (const c of S.clientOrder) if (!eventSkip(c) && c.probes && c.probes.some(p => fs.has(p))) k++;
+    if (k > 0) add("probes", "Probes", k + " station(s) probed for a confirmed SSID");
   }
   for (const w of S.watch) {   // Watchlist (SSIDs of access points only); "lost" needs hop data, as for the baseline
     const hit = aps.some(n => n.groupKey === w);
