@@ -273,9 +273,9 @@ panel, or `STARCHORUS.clearLocalData()`, deletes them all in one call. There are
 | `starchorus.ui.v1` | view switches (theme, 2D/3D, the Random switch, the sky spin, layers, Hide panels, the Scope, Observations and baseline on or off): booleans, names and the spin's 0, 1 or 2 only | a few bytes |
 | `starchorus.identity.v1` | the **manual** classification Friend/Neutral/Suspect per **observed key** (AP or station; MAC → class) | **≤ 5000 entries** (`IDENT_MAX`); when the list is full, a new key is refused, and an existing classification is never silently displaced |
 | `starchorus.baseline.v1` | the baseline: per AP `[SSID, channel, band, security class, RSSI]` under its BSSID, per station only `[RSSI]` under its MAC (field `st`, **no link** to an AP), plus the capture's timestamp | **≤ 500 APs, ≤ 2000 stations** (strongest first); never the device's own transmitters, never probable phone hotspots |
-| `starchorus.watch.v1` | the watchlist: SSID texts only (≤ 32 characters) | **≤ 20 entries**; it matches only `aps[].ssid`, never probes |
-| `starchorus.library.v1` | the library **rules**: OUI patterns with `?` and `*` (`aa:bb:cc:??:??:??`) and their class `friend`/`neutral`/`suspect` | **≤ 20 rules**; vendor prefixes only |
-| `starchorus.notes.v1` | alias (≤ 24 characters), note (≤ 120), up to 4 tags (≤ 12) per **observed key** (AP or station) | **≤ 200 entries**; control characters are removed (see the note below) |
+| `starchorus.watch.v1` | the watchlist: SSID texts only (≤ 32 characters) | **≤ 200 entries**; it matches only `aps[].ssid`, never probes |
+| `starchorus.library.v1` | the library **rules**: OUI patterns with `?` and `*` (`aa:bb:cc:??:??:??`) and their class `friend`/`neutral`/`suspect` | **≤ 200 rules**; vendor prefixes only |
+| `starchorus.notes.v1` | alias (≤ 24 characters), note (≤ 120), up to 4 tags (≤ 12) per **observed key** (AP or station) | **≤ 2000 entries**; control characters are removed (see the note below) |
 
 Text that comes from the air or from a file (SSIDs, security texts, source and centre labels, aliases, notes, tags) goes through one function of the page before it is shown or stored. It removes the control
 characters below U+0020 and U+007F, the C1 controls (U+0080 to U+009F), the zero-width characters and direction marks (U+200B to U+200F), the embeddings and overrides (U+202A to U+202E:

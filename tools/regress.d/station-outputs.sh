@@ -19,20 +19,19 @@ sou_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sor
 
 # ---- static: the station-export mechanisms.
 # Red if: exportModel stops building the station array, the association guard is removed, the csv kind-column head
-# changes, or the SITREP cap constant is dropped.
+# changes.
 sou_n() { grep -cF "$1" "$H"; }
 SOU_ANCHORS="
 1|const stations = S.clientOrder.filter(n => n.target === 1 && !eventSkip(n))
 1|const par = (!n.free && !n.affinity && n.parent && !eventSkip(S.aps.get(n.parent))) ? n.parent : null;
 1|const head = \"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud\";
-1|const STA_SITREP_MAX = 20;
 "
 SOU_BAD=$(printf '%s\n' "$SOU_ANCHORS" | while IFS='|' read -r _want _pat; do
   [ -n "$_pat" ] || continue
   _got=$(sou_n "$_pat"); [ "$_got" = "$_want" ] || printf '%s (want %s, got %s)\n' "$_pat" "$_want" "$_got"
 done)
 SOU_CNT=$(printf '%s\n' "$SOU_ANCHORS" | grep -c '|')
-if [ -z "$SOU_BAD" ] && [ "$SOU_CNT" = 4 ]; then
+if [ -z "$SOU_BAD" ] && [ "$SOU_CNT" = 3 ]; then
   row "station-export mechanisms in the source: 4 anchors at their exact counts" PASS
 else
   row "station-export mechanisms (anchors $SOU_CNT/4)" FAIL; [ -z "$SOU_BAD" ] || printf '    %s\n' "$SOU_BAD"

@@ -176,15 +176,10 @@ MIN_SLICE_INTERACTION=100     # §36..§37, measured 144
 MIN_SLICE_SPRITES_INT=800     # §31..§36, measured 1045
 MIN_SLICE_INTRO=25            # §39..§40, measured 39
 # MIN_FNSCOPE (functions the §14.6 scope check recognises) lives in tools/passivity-check.sh next to the awk it guards.
-# The radio pair's own share of the page: the page it started from (0.1.1 and the small items) was 595,327 bytes, and the design (spec §3.11) gives the pair 14,000 bytes over that.
-# PHN_MAXB (tools/regress.d/phone.sh) is the cap of the release as a whole; these ceilings hold each feature to its own share, so that room under the cap that other work leaves is
-# not used up by it unseen. Raise or drop a share with the change that moves it; the shares must sum to no more than the cap.
-BASE_PAGE_BYTES=610075    # wc -c starchorus.html before the radio pair (feat-0.2 at 690de58, after the large-text fix: 597,362), lowered by 617 on 24 October 2026 by the owner, on purpose: the 14 chart tokens that no code read left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), so the pooled room goes from 18 to 62 bytes (445 under MAX_PAGE_BYTES, where it was 401) instead of the Scope growing into the bytes saved elsewhere; those 62 bytes are held for two later items (a longer stripCtl, about 60, and a stepped pulse, about 30), which together need about 90: they do not fit as planned; raised by 401 on 26 October 2026 for the mark on names that lost invisible characters (the owner's feature, measured); raised by 1070 on 26 October 2026 for the vendor line under access point labels and five small repairs of the controls (the owner's decision, measured); raised by 255 on 27 October 2026 for the hold-back of the browser's own pinch-zoom (architecture.md section 9.7, the owner's decision, measured); raised by 689 on 28 October 2026 for the corrections of 0.2.6.1 (the owner's decision, measured on the combined build: six corrected fragments, the sprite scale and the fourth version number); raised by 389 on 31 October 2026 for the Bluetooth layer of the built-in sample sky (architecture.md section 2.9, the owner's decision, measured); raised by 641 on 31 October 2026 for the five kinds of alert of 0.2.7 on the page (architecture.md section 14.6, the owner's decision, measured: the page grew by 629, of which 641 lie outside the alerts' marked lines and -12 inside them, which MAX_ALERTS_BYTES gives back); raised by 496 on 31 October 2026 for the class at the end of a Bluetooth mark's tooltip and the sample sky's classes (architecture.md sections 2.8 and 2.9, the owner's decision, measured); raised by 1510 on 31 October 2026 for the watch.list marks on the page (the pin mark on watched access points, stations and Bluetooth addresses, its words, the JSON annotation and the SITREP line; the owner's decision, measured); raised by 3237 on 31 October 2026 for Remote ID on the page (bluetooth[].remote_id: its own mark, tooltip, sheet, selection ring, CSV columns and SITREP block; architecture.md section 2.8, the owner's decision, measured); raised by 3703 on 2 November 2026 for the built-in sample sky that carries every kind of thing the page can show (architecture.md section 2.9, the owner's decision, measured); raised by 939 on 2 November 2026 for the Remote ID row 'Operator–aircraft', the horizontal distance between the two broadcast positions (architecture.md section 2.8, the owner's decision, measured)
-MAX_PAIR_BYTES=14000      # what the pair may add to it
-MAX_SCOPE_BYTES=12000     # what the Scope (the phone-mode fan) may add
-MAX_ALERTS_BYTES=1188     # what the alerts' ring and legend may add (1200 until 31 October 2026: the five kinds of 0.2.7 made their marked lines 12 bytes shorter; scope.sh measures 1,256)
-MAX_SCOPE_BT_BYTES=200    # the Scope's fifth lane (Bluetooth marks, radio-pair spec 3.6): counted inside the pair's 14,000, not the Scope's 12,000; scope.sh admits it in its own size row and the total below is unchanged
-MAX_PAGE_BYTES=$((BASE_PAGE_BYTES + MAX_PAIR_BYTES + MAX_SCOPE_BYTES + MAX_ALERTS_BYTES))   # 637263 (636324 until 2 November 2026, 632621 until 2 November 2026, 629384 until 31 October 2026, 627874 until 31 October 2026, 627378 until 31 October 2026, 626749 until 31 October 2026, 626360 until 31 October 2026, 625671 until 28 October 2026, 625416 until 27 October 2026, 624346 until 26 October 2026, 624562 until 24 October 2026), under the release cap of 650000 (625000 until 26 October 2026)
+# The page's size: one sanity ceiling against a runaway build (a fragment twice in PAGE.list, a file pasted into one), not a budget. The byte ledger of 0.2 to
+# 0.2.6 (a base plus a share per feature, raised by the measured growth with every change) went on 2 November 2026 on the owner's word: function and stability
+# are the measure of a change, not its bytes. One place: phone.sh and radio-pair.sh no longer carry a copy.
+MAX_PAGE_BYTES=1000000
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.
@@ -219,7 +214,7 @@ c2=$(sec_grepc 36 37 "$MIN_SLICE_INTERACTION" 'THEME\.\|TK\[\|TD\.') || c2=NOSLI
 c3=$(sec_grepc 31 36 "$MIN_SLICE_SPRITES_INT" '#[0-9a-fA-F]\{6\}') || c3=NOSLICE; rowif "hex literals in 31–35 = $c3" [ "$c3" = 0 ]
 rowif "no Google Fonts" [ "$(g 'fonts.googleapis')" = 0 ]
 rowif "upload notice present" [ "$(g 'Everything runs in your browser — nothing is uploaded.')" = 1 ]
-# the page ceiling (the base plus every share), and the judge of it on dummies (the exact ceiling passes, one byte more fails, a size that is no number fails; as with le/ge above, "fails" is any status but 0,
+# the page ceiling and the judge of it on dummies (the exact ceiling passes, one byte more fails, a size that is no number fails; as with le/ge above, "fails" is any status but 0,
 # since a test of a text that is no number ends with 2)
 page_bytes_ok() { [ "$1" -le "$MAX_PAGE_BYTES" ] 2>/dev/null; }
 pbn=0; pbbad=0
@@ -229,13 +224,11 @@ pb() {   # pb pass|fail SIZE
 }
 pb pass "$MAX_PAGE_BYTES"
 pb fail "$((MAX_PAGE_BYTES + 1))"
-pb pass "$BASE_PAGE_BYTES"
-pb pass "$((BASE_PAGE_BYTES + MAX_PAIR_BYTES))"   # the pair's old ceiling, now inside the new one
 pb fail ""
 pb fail "x"
 rowif "page ceiling judge on dummies ($((pbn - pbbad))/$pbn as expected)" [ "$pbbad" = 0 ]
 PG_SZ=$(wc -c < "$H" | tr -d ' ')
-rowif "page size $PG_SZ bytes ≤ $MAX_PAGE_BYTES (the base of $BASE_PAGE_BYTES plus the shares: pair $MAX_PAIR_BYTES, Scope $MAX_SCOPE_BYTES, alerts $MAX_ALERTS_BYTES; $((PG_SZ - BASE_PAGE_BYTES)) over the base)" page_bytes_ok "$PG_SZ"
+rowif "page size $PG_SZ bytes ≤ $MAX_PAGE_BYTES (a sanity ceiling, not a budget)" page_bytes_ok "$PG_SZ"
 # §11.0 global criterion (MUSS BLEIBEN 12). The first row is anchored on the fallback STATEMENT in
 # normalizeDoc, not on the bare string: "YOU ARE HERE" also occurs in demoData and in the S.centerLabel
 # default, so a whole-file count of the string survives the deletion of the fallback itself.

@@ -309,7 +309,7 @@ from `queryLocked`; the boot (41) calls `applyTheme`/`setView` with `persist: fa
 
 The page writes **six** `localStorage` keys and no others (`SECURITY.md` §4 names each with its upper limit):
 `starchorus.ui.v1`, `starchorus.identity.v1`, `starchorus.baseline.v1` (≤ 500 APs, ≤ 2000 stations with RSSI only),
-`starchorus.watch.v1` (≤ 20 SSIDs), `starchorus.library.v1` (≤ 20 OUI rules), `starchorus.notes.v1` (≤ 200 entries).
+`starchorus.watch.v1` (≤ 200 SSIDs), `starchorus.library.v1` (≤ 200 OUI rules), `starchorus.notes.v1` (≤ 2000 entries).
 In addition there is the `sessionStorage` key `starchorus.introShown.<theme>` (§7.3). Everything else lives **in memory only**:
 
 | State | Content |
@@ -1851,7 +1851,7 @@ confirmed set; the number of stations that probed for one of its names, as count
 
 ### 8.12 Tools (display only)
 
-Library (text import/export, OUI rules friend/neutral only, P7), alias/notes/tags (≤ 200 observed identifiers), export
+Library (text import/export, OUI rules friend/neutral only, P7), alias/notes/tags (≤ 2000 observed identifiers), export
 (JSON/CSV/SITREP, PNG snapshot, print; APs and their stations, only values from frames addressed to all
 (P6), `EXPORT_FOOTER` in every output; excluding own transmitters and phone hotspots; the CSV has a trailing `cloud` column, the id of the
 random cloud a station belongs to, §8.8a; a CSV text cell that starts with `=`, `+`, `-`, `@`, TAB or CR is written with a leading apostrophe, so that a spreadsheet does not read a network name or a probed name as a formula, while a cell that is a number stays one, and a CR is quoted like a line feed), inventory (count chips, with the hidden randomised addresses still counted in the stations chip, value filter, sortable
@@ -2196,8 +2196,8 @@ stale and ×0.4 when offline (the snow and the dashed rim say it); the sample sk
 Scope and on each capture); a 3 px dot for each station above 150 (stations stay sprites at any count; the 300-blip bench is the proof);
 the ticks at 9 px (they are 13 px). The placement and the wave also differ from the design (scanner-spec 2.2 to 2.4) in these ways, none of which is built: **no placement hysteresis** (the previous angle is not tried first; every placement starts from the ideal place, which is a pure function of the capture), a nudge of four steps either side and not six, and **no ideal-angle fallback** (when no place is free the last one tried stands, where the design returns to the ideal place); **no jitter** on the angle; **a known blip jumps at once** to its new place, where the design holds it until the front passes `max(old r, new r)` and then pings it, and **a blip that has gone leaves at once**, where the design keeps it until the front has passed; **no draw order by signal** (the design sorts the access points by signal, weakest first, so that strong blips lie on top; the page draws them in `S.apOrder`, strongest first, so a weaker blip can lie over a stronger one); the trail arcs lie 7 and 16 px behind the front, not 6 and 14, and are drawn in every theme, where the design draws the front alone in WarGames and lets the phosphor make the trail; the wave takes at least 1.2 s (the design: 0.7 s in WarGames and Whitehall); and the ring of an alerted blip is the sky's (`status.alert`, at `px + 11.5`, in the theme's flicker idiom), where the design had the alarm colour at `px + 8` switching every half second. The cheapest of these, the draw order by signal (about 35 bytes) and the badge's cell that the label layout still keeps free in the Scope though no badge is drawn there (about 12), would together take about 47 bytes against the 44 left under the pooled share row, so they stay out, and the margin with them.
 
-**Cost.** At most 12,000 bytes of the page (`MAX_SCOPE_BYTES`, one share of the page cap, `tools/static.sh`); the fifth lane's code is counted in the
-radio pair's share, not in this one (`MAX_SCOPE_BT_BYTES`, an allowance inside the pair's 14,000); `tools/regress.d/scope.sh` also pins the Scope's own growth (the page's growth since the base of the Scope less the bytes of the alerts' ring and legend, found by their markers, at most the Scope's share and the fifth lane's allowance; the row prints the number) and
+**Cost.** No share of the page's bytes any more (since 0.2.7, the owner's decision of 2 November 2026: the page carries no byte budget, only the sanity ceiling of
+`tools/static.sh` against a runaway build); `tools/regress.d/scope.sh`
 reads the geometry, the lanes, the wave, the idle, the strip against a recount of the fixture, the captions, the storage key and the
 absence of any send path. **A check on a real iPhone** (not proven by the harness): 1 Turn it on in the sheet's row: the fan
 stands on the Pager, the strip above it, the foot below. 2 Read it as signal only: a strong signal sits on the inner arcs, by the Pager's mark,
@@ -2856,7 +2856,7 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
   (an SSID that names a phone, or an ad-hoc network, `MOBILE_SSID_RE`); the jq program reads no names for this count, so the Overview can count one access point that the page does not draw, and a numeric string as a count (`"9"`) is a number on the page and is skipped here, as for the other counts. The line is at most 40 columns, ASCII and neutral (the P10 words stay
   out), it is the only red line besides the open/WEP, jq-incomplete and no-new-scan lines (`tools/regress.d/display-parity.sh` pins its text, once, inside `alert_line`, with controls), no other screen marks an alerted access point, and it is drawn
   with the summary and never by itself. The report times, the counts per access point and the addresses are not shown there.
-  **Presentation, the page.** An alerted access point gets a second ring in `drawStars` (section 34: budgeted at 1,188 bytes of page, measured at 1,256 by the markers in `tools/regress.d/scope.sh`; the pooled row lets the Scope lend the difference): the alert colour of the theme (the token `THEME.status.alert`, red in all three: `#e5484d` in Foundation and Whitehall, `#ff3b3b` in WarGames; the alarm colour of Foundation is amber, which is also the open/WEP ring, so the alert
+  **Presentation, the page.** An alerted access point gets a second ring in `drawStars` (section 34): the alert colour of the theme (the token `THEME.status.alert`, red in all three: `#e5484d` in Foundation and Whitehall, `#ff3b3b` in WarGames; the alarm colour of Foundation is amber, which is also the open/WEP ring, so the alert
   has a token of its own, `--status-alert` in the CSS mirror, with a contrast pair in §7.0a and a colour role in §14.4), one and a half pixels wide, at `px + hidden.offsetPx + 1.5` (11.5, so from 10.75 to 12.25 beyond the star's edge), through the ring batch like the others. That is a band of its own: the radii already taken are the security ring at 4 (the outer circle of a double ring, WPA2 and WPA3 transition, at 7), the identity frame at 6, the new-plot mark at 9 (Whitehall), the hidden-SSID ring at 10, the selection ring at 13 (the pin mark at 13, or 18 when locked, the merged-ESS ring at 16), and the alert ring sits between the hidden-SSID ring and the selection ring, clear of the security rings and the identity frame, so that a WPA2 access point under alert still reads as a double ring plus one more. It does not sit clear of those two: the hidden-SSID ring ends at 10.5 (0.25 px inside the alert ring) and the selection ring begins at 12.25 (13 less half of 1.5), so the alert ring touches the selection ring of a locked access point and lies 0.25 px outside the dashed ring of a hidden one. The free band is 1.75 px wide; a ring that kept 0.5 px from both would be 0.75 px wide, too thin for the canvas rows to read at the flicker's low levels, so the contact is stated and not engineered away. `tools/regress.d/alerts.sh` (R12) computes the gaps from the page and is red for a ring that moves, until this sentence is read again. Which access points: those that `alerts[]` names and the page holds and notes
   (`alertNode`: `alertAp` takes the entry, which it does for every kind but `bt_fixed_new` and for the four derived Wi-Fi kinds only away from a friend, `S.aps` has the address, it is no mobile hotspot and no own transmitter, the rule of the Observations note, and its band is not filtered off), at once, without the note's dwell of two captures; the ring is drawn only while the star is (`alphaDraw` above 0.02). The ring flickers in the theme's own idiom, taken from its
   cue token `render.changeCue` so that the flicker adds no cue table to the themes: `glowPulse` (Foundation) a slow smooth pulse of its alpha between 0.4 and 1 (about 0.5 Hz), `bloomPulse` (WarGames) a phosphor flicker, a seeded alpha in 0.3 to 1 that changes twice a second
@@ -2917,13 +2917,13 @@ text in the screen corners below the computed token ratio (measured `#leg-rx` 3.
 
 | Function | `S.ui` | Default | Key | Button | Query | Persisted | Storage |
 |---|---|---|---|---|---|---|---|
-| Observations | `observations` | off | W | `t-obs` | `?obs=0/1` | yes | `starchorus.watch.v1` (watchlist, ≤ 20) |
+| Observations | `observations` | off | W | `t-obs` | `?obs=0/1` | yes | `starchorus.watch.v1` (watchlist, ≤ 200) |
 | Inventory table | `inventory` | off | I | `t-inv` | `?inv=0/1` | yes | — |
 | Baseline diff | `baselineDiff` | off | B | `t-baseline` (+ Set/Clear) | `?baseline=0/1` | yes | `starchorus.baseline.v1` (≤ 500 APs, ≤ 2000 stations) |
 | Homing display | — (action, `S.homeOpen`) | — | F | — | — | no | memory only; sound off |
 | Air quality · signal over time · recording/playback | `S.dx` (`air`\|`time`\|`rec`) | — | Q · J · H | `t-air` · `t-time` · `t-rec` (group 'Analyse') | — | no | memory only (recording ≤ 120 / 8 MB, long-term history ≤ 720, threshold) |
 | Channel mode (Bars · Spectrum · Waterfall) | `S.chanMode` | bars | Y | `t-chan` in the channel bar | — | no | memory only |
-| Library, notes, export | — | — | — | inventory, detail, 'Export' | — | — | `starchorus.library.v1` (≤ 20 rules), `starchorus.notes.v1` (≤ 200) |
+| Library, notes, export | — | — | — | inventory, detail, 'Export' | — | — | `starchorus.library.v1` (≤ 200 rules), `starchorus.notes.v1` (≤ 2000) |
 | Hide panels (§9.8) | `panels` | on | U | `t-panels` (+ `panels-pill`) | `?panels=0/1` | yes | `starchorus.ui.v1` |
 | Random clouds (§8.8a) | `random` (`cloud`\|`show`\|`hide`) | cloud | X | `t-random` (group 'View') | `?random=cloud/show/hide` | yes | `starchorus.ui.v1` |
 | Scope (§9.8b; phone layout only) | `scope` | off | Z | `t-scope` (sheet row) | `?scope=1/0` | yes | `starchorus.ui.v1` |
@@ -2958,8 +2958,8 @@ characters, measured on 21 October 2026 (`docs/device-notes.md`, M6: a 50-digit 
 fallback for a shorter line (the figure leaves the summary, the hub row reads 'Bluetooth (23)') is therefore not needed and not built. M6 has passed; whether the Bluetooth setting goes
 on by default is a question of the load it adds (`docs/device-notes.md` section 6a) and the owner's choice, and the release pass does not switch it on by itself.
 
-**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 may grow to 625,000 bytes, 650,000 since 0.2.5,
-and the pair was held to the share of that which the rest of the release left it). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
+**Not in 0.2.0.** The radio pair was specified wider than the page's size ceiling allowed, and the integration cut it to fit (0.2 might grow to 625,000 bytes, 650,000 from 0.2.5,
+and the pair was held to the share of that which the rest of the release left it; since 0.2.7, the owner's decision of 2 November 2026, the page has no byte budget). What is in the code is what the README, SECURITY.md and CHANGELOG describe; these are specified and not
 there, and no row proves them:
 
 - a detail sheet for a Bluetooth mark (the member list, the 'addresses, not devices' note): a mark has a tooltip, a click selects nothing (since 0.2.7 a mark with Remote ID has a sheet of its own, without a member list, §2.8);

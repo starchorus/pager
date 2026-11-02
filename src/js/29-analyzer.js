@@ -286,7 +286,7 @@ function obsCompute() {
   S.obsFirst.forEach((_, k) => { if (!keys.has(k)) S.obsFirst.delete(k); });
   const out = [];
   for (const r of raw) { if (!S.obsFirst.has(r.key)) S.obsFirst.set(r.key, tick); if (tick - S.obsFirst.get(r.key) >= OBS_DWELL - 1) out.push(r); }
-  S.obs = out.slice(0, OBS_MAX);
+  S.obs = out;
 }
 // ---- Homing (browser side): one reading per poll ("coarse"), peak hold that decays after 12 polls without a new maximum. The target (an AP or a
 // station) is chosen on the device or with STARCHORUS_HOMING_BSSID; the page never sends anything. A reading for a key not heard this capture, or one of our own transmitters, is refused.

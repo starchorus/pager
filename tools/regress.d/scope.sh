@@ -13,26 +13,23 @@
 #                 desktop, on by default, or lost on a reload; a 44 px button that is not there; chrome that overlaps, runs off the screen or sets text
 #                 under 13 px; the sky's controls that lose a state; a Scope that transmits, reads a clock, or draws from a random number; a folded ESS member
 #                 that a tap cannot pick, or a count badge drawn for a set the Scope draws apart; a strip that changes its form and leaves the fan's top where it
-#                 was; a Scope that grows past its own share while the alerts' share is under its own (the pooled row would not see it); a document or a word of
+#                 was; a document or a word of
 #                 the page that says how near a network is (near the Pager, the nearest ring).
 # NEGATIVE PROBE: one-line copies of the page (served to headless Chrome on 127.0.0.1 only): an outward wave, a frame every tick, a nudged radius, the
 #                 bands ignored, no Z, no snow, a direction caption, a POST, the lamps loop over every .lamps, no word fitting, the 3D ring labels, the
 #                 phosphor trail on idle frames, a note that never shows, a Bluetooth lane that overflows the fan, ticks that touch, a nudge that turns over
 #                 in a narrow lane, a legend row of the wrong kind or one that never shows, a tap that skips a folded ESS member, the count badge drawn in the
 #                 Scope, a strip whose change of form leaves the fan where it was: each turns exactly its row red (the unmutated page is the control: the rows
-#                 themselves). The static judges have dummies that must be flagged (a forbidden pattern, a size one byte over, a marker that is gone, words of direction
+#                 themselves). The static judges have dummies that must be flagged (a forbidden pattern, words of direction
 #                 and of distance).
 # NOT PROVEN:     iOS WebKit, a real finger, the battery (the numbers are headless software raster: the frame cost row is a ceiling, not a phone's time);
 #                 that a newcomer does not read the fan as a field of view (docs/architecture.md §9.8b, the check on the phone); how the Scope looks at
 #                 a width the rows do not name; how the trail of the wave looks in WarGames, where the phosphor persistence is on while the arc runs (the Scope draws
-#                 the front and two trail strokes in every theme); the Scope's own growth is a measure by markers, not a diff against the old page (a marker that
-#                 moves is a red row, a new Scope line that matches no marker is counted as Scope, and a line trimmed since 8e75fe4 outside the Scope counts in its
-#                 favour: the series trimmed 104 bytes of the alerts[] ingest note and 34 of the lamps note, so the figure reads about 138 bytes lower than a strict diff would).
+#                 the front and two trail strokes in every theme).
 # Runs at 390x844 with --mobile unless a row says otherwise. Rows that need the sky settled use ?fixed (the wave is then done: phase 1); the
 # wave, the idle and the reduced-motion rows run on the live clock.
 
 SCP_T="out/$P-scp"; mkdir -p "$SCP_T"
-SCP_BASE=623492   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4: 610,779), lowered by 617 on 24 October 2026 by the owner, on purpose, with BASE_PAGE_BYTES in tools/static.sh: the 14 unread chart tokens left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), and the pooled ceiling (this base + 13,400 = 623,562) leaves 62 bytes where it left 18 (445 under MAX_PAGE_BYTES in tools/static.sh); they are held for two later items, a longer stripCtl (about 60) and a stepped pulse (about 30), which together need about 90 and do not fit as planned; raised by 401 on 26 October 2026 with BASE_PAGE_BYTES for the invisible-characters mark; raised by 1070 on 26 October 2026 with BASE_PAGE_BYTES for the vendor line and the five small repairs of the controls (the owner's decision, measured); raised by 255 on 27 October 2026 with BASE_PAGE_BYTES for the hold-back of the browser's own pinch-zoom (architecture.md section 9.7, the owner's decision, measured); raised by 689 on 28 October 2026 for the corrections of 0.2.6.1 (the owner's decision, measured on the combined build: six corrected fragments, the sprite scale and the fourth version number); raised by 389 on 31 October 2026 with BASE_PAGE_BYTES for the Bluetooth layer of the built-in sample sky (architecture.md section 2.9, the owner's decision, measured); raised by 641 on 31 October 2026 with BASE_PAGE_BYTES for the five kinds of alert of 0.2.7 on the page (the owner's decision, measured: the 641 bytes outside the alerts' marked lines; MAX_ALERTS_BYTES gives back the 12 by which those lines got shorter); raised by 496 on 31 October 2026 with BASE_PAGE_BYTES for the class at the end of a Bluetooth mark's tooltip and the sample sky's classes (architecture.md sections 2.8 and 2.9, the owner's decision, measured); raised by 1510 on 31 October 2026 with BASE_PAGE_BYTES for the watch.list marks on the page (the owner's decision, measured); raised by 3237 on 31 October 2026 with BASE_PAGE_BYTES for Remote ID on the page (architecture.md section 2.8, the owner's decision, measured); raised by 3703 on 2 November 2026 with BASE_PAGE_BYTES for the built-in sample sky that carries every kind of thing the page can show (architecture.md section 2.9, the owner's decision, measured); raised by 939 on 2 November 2026 with BASE_PAGE_BYTES for the Remote ID row 'Operator–aircraft' (architecture.md section 2.8, the owner's decision, measured)
 SCP_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED&debug=1&scope=1"
 SCP_LQ="?poll=0&spin=0&intro=0&debug=1&scope=1"   # the live clock
 # --ready: the fonts are loaded, the capture is in and a frame has been painted after both (the layout rows read font metrics and the loaded stations; the --wait of each run stays the ceiling).
@@ -41,11 +38,7 @@ SCP_LQ="?poll=0&spin=0&intro=0&debug=1&scope=1"   # the live clock
 SCP_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.stats().sourceKind !== "demo"))))'
 SCP_FNS="scopeGeom scopePlace scopeStep scopeWantsFrame drawScopeBg scopeWave drawScope applyScope renderScope"
 
-# ---- static: anchors, no token read in the theme-free code, no transmit, clock or random in the Scope's code, the page's size share
-# the shares are static.sh's (one source); a drop-in run by hand without it reads them from there
-[ -n "${MAX_SCOPE_BYTES:-}" ] || MAX_SCOPE_BYTES=$(sed -n 's/^MAX_SCOPE_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
-[ -n "${MAX_ALERTS_BYTES:-}" ] || MAX_ALERTS_BYTES=$(sed -n 's/^MAX_ALERTS_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
-[ -n "${MAX_SCOPE_BT_BYTES:-}" ] || MAX_SCOPE_BT_BYTES=$(sed -n 's/^MAX_SCOPE_BT_BYTES=\([0-9][0-9]*\).*/\1/p' tools/static.sh)
+# ---- static: anchors, no token read in the theme-free code, no transmit, clock or random in the Scope's code
 scp_n() { sec_grepc "$1" "$2" "$3" "$4" || echo NOSLICE; }
 SCP_A="$(scp_n 20 21 90 '^const SCOPE = ')/$(scp_n 20 21 90 'key: "Z",.*btn: "t-scope"')/$(scp_n 21 22 300 'scope: { strip: \[')/$(scp_n 21 22 300 'k = scopeOn ? 13 : 0')"
 SCP_A="$SCP_A/$(scp_n 24 25 50 '^const SC = ')/$(scp_n 26 27 400 '^function scopeGeom(')/$(scp_n 26 27 400 '^function scopePlace(')/$(scp_n 30 31 200 '^function scopeStep(')"
@@ -70,52 +63,6 @@ SCP_HD=$(grep -cE "$SCP_BAD" "$SCP_T/dummy.txt")
 SCP_RW1=0; { [ "$SCP_CN" -ge 100 ] 2>/dev/null && [ "$SCP_H/$SCP_HD" = 0/3 ]; } && SCP_RW1=1
 rowif "scope: the Scope's code ($SCP_CN lines) has no request, clock, random number, sound, vibration or storage of its own ($SCP_H hits); the pattern flags a dummy ($SCP_HD/3)"  [ "$SCP_RW1" = 1 ]
 [ "$SCP_H" = 0 ] || grep -nE "$SCP_BAD" "$SCP_CODE" | cut -c1-160 | sed 's/^/    /'
-SCP_SZ=$(wc -c < "$H" | tr -d ' ')
-SCP_CEIL=$((MAX_SCOPE_BYTES + MAX_ALERTS_BYTES + MAX_SCOPE_BT_BYTES))   # the alerts' ring and the Scope's fifth lane (the pair's: radio-pair spec 3.6, counted in its 14,000) are the other two shares on this page after 8e75fe4
-scp_share_ok() { [ "$1" -le $((SCP_BASE + SCP_CEIL)) ] 2>/dev/null; }
-SCP_JB=0; scp_share_ok $((SCP_BASE + SCP_CEIL)) || SCP_JB=1; scp_share_ok $((SCP_BASE + SCP_CEIL + 1)) && SCP_JB=1; scp_share_ok x && SCP_JB=1
-rowif "scope: the page grew by $((SCP_SZ - SCP_BASE)) bytes since 8e75fe4 (the Scope's share $MAX_SCOPE_BYTES, with the alerts' ring $MAX_ALERTS_BYTES and the fifth lane $MAX_SCOPE_BT_BYTES: $SCP_CEIL); the judge refuses one byte more or a size that is no number (bad: $SCP_JB)" [ "$SCP_JB" = 0 ] 2>/dev/null
-scp_share_ok "$SCP_SZ" || { row "scope: the page is over the Scope's, the alerts' and the fifth lane's shares together ($SCP_SZ bytes)" FAIL; }
-
-# the Scope's own growth. The pooled row above lets the three shares borrow from one another (the alerts could shrink and the Scope take the room); this one pins the Scope with its
-# fifth lane to its own 12,000 + 200 by subtracting what the alerts' ring and legend measure, found by their markers in the page: the eleven segments below, each of which must be in
-# the page exactly as often as listed (a marker that moved or went is "BROKEN", not a smaller number). The measure reproduces the alerts' share as it was at the commit that
-# put the ring in (1,184 bytes with the frame step it then had in wargamesAnimating, 76 bytes) and as it is now (1,268 with the step in the tick, 1,256 since the five kinds of 0.2.7 shortened the node and legend lines).
-cat > "$SCP_T/alm.py" <<'PY'
-import re, sys
-s = open(sys.argv[1], encoding="utf-8").read()
-SEGS = [
-    ("tokens", r'alert: "#[0-9a-f]{6}", ', 3),
-    ("css", r'\["--status-alert", "status\.alert", ""\], ', 1),
-    ("contrast", r'  \["status\.alert", "surface\.base", 3, "canvas: alert ring"\],\n', 1),
-    ("node", r'const alertNode = .*\n', 1),
-    ("var", r'let alAt = Infinity;\n', 1),
-    ("reset", r'  alAt = Infinity;\n', 1),
-    ("cue", r'  const cm = THEME\.render\.changeCue, e2 = S\.clock \* 2 \| 0;\n', 1),
-    ("ring", r'  for \(const a of S\.alerts\) \{ const n = alertNode\(a\);.*\n', 1),
-    ("legend", r"  rows\.push\('<div class=\"legrow note\" id=\"leg-alert\".*\n", 1),
-    ("vis", r'vis\("leg-alert", S\.alerts\.some\(alertNode\)\); ', 1),
-    ("step", r'  \} else if \(S\.fixedTime == null && !S\.ui\.paused && S\.clock >= alAt\) \{.*\n', 1),
-]
-tot = 0
-for name, rx, want in SEGS:
-    m = [len(x.group(0).encode("utf-8")) for x in re.finditer(rx, s)]
-    if len(m) != want:
-        print("BROKEN:" + name); sys.exit(0)
-    tot += sum(m)
-print(tot)
-PY
-scp_alm() { python3 -B "$SCP_T/alm.py" "$1" 2>&1 | head -n 1; }   # scp_alm PAGE -> the bytes of the alerts' segments, or BROKEN:name
-scp_own_ok() { [ "$1" -le $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) ] 2>/dev/null; }   # the Scope's own ceiling: its share and the fifth lane's allowance
-SCP_AL=$(scp_alm "$H")
-case $SCP_AL in ''|*[!0-9]*) SCP_OWN=$SCP_AL ;; *) SCP_OWN=$((SCP_SZ - SCP_BASE - SCP_AL)) ;; esac
-# the judge can say no: the ceiling itself passes, one byte more and a text do not; a page without one marker is BROKEN (a dummy: the legend row deleted)
-SCP_OJ=0; scp_own_ok $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) || SCP_OJ=1; scp_own_ok $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES + 1)) && SCP_OJ=1; scp_own_ok BROKEN:ring && SCP_OJ=1
-grep -v 'id="leg-alert"' "$H" > "$SCP_T/alm-dummy.html"
-SCP_OD=$(scp_alm "$SCP_T/alm-dummy.html")
-SCP_OK=0; [ "$SCP_OJ" = 0 ] && [ "$SCP_OD" = BROKEN:legend ] && scp_own_ok "$SCP_OWN" && SCP_OK=1
-rowif "scope: the Scope's own growth is $SCP_OWN bytes (the page's $((SCP_SZ - SCP_BASE)) since 8e75fe4 less $SCP_AL for the alerts' ring and legend by their markers), at most $((MAX_SCOPE_BYTES + MAX_SCOPE_BT_BYTES)) (the Scope's $MAX_SCOPE_BYTES and the fifth lane's $MAX_SCOPE_BT_BYTES); the judge refuses one byte more (bad: $SCP_OJ) and a page without a marker is $SCP_OD" [ "$SCP_OK" = 1 ]
-
 # the film names of the spec's rule 8 stay on the word denylist (the list is only ever added to; denylist-check --selftest pins its older entries)
 SCP_DW=$(grep -c -x -e nostromo -e weyland -e m314 tools/denylist-words.txt)
 rowif "scope: tools/denylist-words.txt carries nostromo, weyland and m314 ($SCP_DW of 3)" [ "$SCP_DW" = 3 ]

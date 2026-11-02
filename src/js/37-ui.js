@@ -191,13 +191,13 @@ function exportText(fmt) {
     const by = (fn) => { const c = {}; for (const a of m.aps) c[fn(a)] = (c[fn(a)] || 0) + 1; return Object.keys(c).sort().map(k => k + " " + c[k]).join(" · "); };
     const top = m.aps.slice().sort((a, b) => rssiOf(b) - rssiOf(a)).slice(0, 5).map(a => "  " + (a.alias || a.ssid || "(hidden)") + " · " + a.bssid + " · " + fmtBand(a.band) + (a.channel != null ? " ch " + a.channel : "") + " · " + a.rssi + " dBm");
     const cl = m.clouds || null, outside = cl ? m.stations.filter(x => x.cloud == null) : m.stations;
-    const staTop = outside.slice().sort((a, b) => rssiOf(b) - rssiOf(a) || (a.mac < b.mac ? -1 : 1)).slice(0, STA_SITREP_MAX)
+    const staTop = outside.slice().sort((a, b) => rssiOf(b) - rssiOf(a) || (a.mac < b.mac ? -1 : 1))
       .map(x => "  " + (x.alias || x.mac) + " · " + fmtBand(x.band) + (x.rssi != null ? " · " + x.rssi + " dBm" : "") + " · " + (x.association ? "assoc " + x.association : x.probes.length ? "named probes " + x.probes.length : "free"));
     const cap = m.generated != null ? new Date(m.generated * 1000).toISOString().slice(0, 19) + "Z" : "undated", nw = m.aps.concat(m.stations).filter(x => x.watched).length;
     return ["SITREP · Starchorus", EXPORT_FOOTER, "", "Capture: " + cap + " · source: " + m.source,
       "Access points: " + m.aps.length + " · stations: " + m.stations.length + " (" + m.station_counts.free + " free, " + m.station_counts.associated + " associated) · mobile hotspots: " + m.mobile_hotspots]
       .concat(nw ? ["Watched: " + nw + " (in watch.list on the device)"] : [], cl ? ["Randomised: " + m.station_counts.randomised + " · " + m.station_counts.in_clouds + " of them in " + cl.length + (cl.length === 1 ? " cloud" : " clouds") + " (an estimate, not a device count)"] : [],
-      ["Bands: " + by(a => a.band), "Security: " + by(a => a.class), "Crowding: " + m.crowding + " of 5", "", "Strongest:"], top, ["", "Stations (strongest " + Math.min(outside.length, STA_SITREP_MAX) + " of " + outside.length + (cl ? " outside clouds" : "") + "):"], staTop,
+      ["Bands: " + by(a => a.band), "Security: " + by(a => a.class), "Crowding: " + m.crowding + " of 5", "", "Strongest:"], top, ["", "Stations (" + outside.length + (cl ? " outside clouds" : "") + ", strongest first):"], staTop,
       cl ? ["", "Clouds of randomised addresses (an estimate):"].concat(cl.map(c => "  " + c.id + " · " + c.addresses + " addresses · " + c.rssi + " dBm (" + c.rssi_min + " to " + c.rssi_max + ")" + (c.cadence_s != null ? " · " + cadText(c.cadence_s) : "") + " · named probes " + c.probes.length)) : [],
       R.length ? ["", RID_NOTE + ":"].concat(R.flatMap(b => ["  " + b.addr + " · " + b.rssi + " dBm · " + b.heard].concat(ridRows(b.remote_id).map(([k, v]) => "    " + k + ": " + v)))) : [],
       ["", "Observations:"], S.obs.length ? S.obs.map(o => "  " + o.text) : ["  none"], ["", EXPORT_FOOTER]).join("\n") + "\n";

@@ -73,10 +73,10 @@ const bf=[...document.querySelectorAll("#inv-body .chip[data-f=band]")].find(c=>
 const shown=STARCHORUS.inventory({band:"5"});document.getElementById("inv-friend").click();o.bulkShown=shown.length;o.bulkFriend=Object.values(STARCHORUS.identities()).filter(v=>v==="friend").length;o.bulkOther=STARCHORUS.identity(STARCHORUS.inventory({band:"2.4"})[0]);
 STARCHORUS.inventory({});
 STARCHORUS.setToggles({inventory:false});o.drawerOff=document.documentElement.dataset.drawer;
-// 600 APs: the table keeps 300 rows (P8 budget), the note says so
-const many=[];for(let i=0;i<600;i++)many.push({bssid:"02:00:0b:"+(i>>8).toString(16).padStart(2,"0")+":"+(i&255).toString(16).padStart(2,"0")+":01",ssid:"m"+i,band:"5",channel:36,rssi:-40-(i%50),security:"WPA2"});
-STARCHORUS.load({source:"recon-db",generated:500,aps:many,unassociated:[]},"many");STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(300);
-o.cap=document.querySelectorAll("#inv-body tbody tr").length;o.capNote=/first 300 rows shown/.test(document.getElementById("inv-body").innerText);
+// 2,100 APs: the table keeps 2,000 rows, the note says so
+const many=[];for(let i=0;i<2100;i++)many.push({bssid:"02:00:0b:"+(i>>8).toString(16).padStart(2,"0")+":"+(i&255).toString(16).padStart(2,"0")+":01",ssid:"m"+i,band:"5",channel:36,rssi:-40-(i%50),security:"WPA2"});
+STARCHORUS.load({source:"recon-db",generated:500,aps:many,unassociated:[]},"many");STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(600);
+o.cap=document.querySelectorAll("#inv-body tbody tr").length;o.capNote=/first 2000 rows shown/.test(document.getElementById("inv-body").innerText);
 STARCHORUS.setToggles({inventory:false});
 // a poll re-renders the drawer and the detail sheet: text being typed must survive (library box, alias field)
 STARCHORUS.setToggles({inventory:true});await STARCHORUS.wait(200);const lt=document.getElementById("lib-ta");lt.value="02:00:00:00:00:00 friend";lt.focus();
@@ -88,7 +88,7 @@ o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
 runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-inv" --wait 3 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval-timeout 90 --eval "$OPS_EVI" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_I=$(evalv "out/$P-ops-inv.json" 1 | ops_nj); OPS_IE=$(evalv "out/$P-ops-inv.json" 2)
-OPS_IW=$(printf '%s' '{"all":25,"apiBand5":12,"aps":25,"band5":12,"bulkFriend":12,"bulkOther":"unknown","bulkShown":12,"cap":300,"capNote":true,"chips":"14 SSIDs|25 APs|216 stations (count only)|75 randomised|17 channels|25 of 25 shown","drawer":"inv","drawerOff":"legend","errors":0,"keepLib":"02:00:00:00:00:00 friend,true","keepNote":"typing,true","legendHidden":"none","noStationMac":true,"rowSelect":true,"rows":25,"sortFlip":true}' | ops_nj)
+OPS_IW=$(printf '%s' '{"all":25,"apiBand5":12,"aps":25,"band5":12,"bulkFriend":12,"bulkOther":"unknown","bulkShown":12,"cap":2000,"capNote":true,"chips":"14 SSIDs|25 APs|216 stations (count only)|75 randomised|17 channels|25 of 25 shown","drawer":"inv","drawerOff":"legend","errors":0,"keepLib":"02:00:00:00:00:00 friend,true","keepNote":"typing,true","legendHidden":"none","noStationMac":true,"rowSelect":true,"rows":25,"sortFlip":true}' | ops_nj)
 if [ "$OPS_I" = "$OPS_IW" ] && [ "$OPS_IE" = 0 ]; then
   row "inventory: typed text survives a poll re-render, count chips, bulk friend on the shown rows only, table = the APs on screen (25), no station MAC, sort flips, band chip = API filter (12), a row selects, drawer shares the legend, 600 APs -> 300 rows + note" PASS
 else

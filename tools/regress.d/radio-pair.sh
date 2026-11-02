@@ -102,24 +102,6 @@ PY
 )
 rowif "radio: the fuzz key list derives bluetooth[] (twelve keys with watched, which the page reads on access points, stations and Bluetooth records, and remote_id since 0.2.7; text and number hints read from normBt and btOpt), activity and station packets, and no key for a name on record; mutants exist for each [$RP_FZ]" [ "$RP_FZ" = ok ]
 
-# ---- size: each new function inside its limit (the specification's, three of them measured: rebuildBt, btTip, pkRate), the page inside the cap
-RP_FNB=$(python3 - "$H" <<'PY'
-import re, sys
-t = open(sys.argv[1], encoding="utf-8").read()
-LIM = {"normBt": 900, "btOpt": 250, "rebuildBt": 1800, "drawBt": 700, "btTip": 500, "btTail": 400, "pkRate": 680, "drawActivity": 600}
-bad = []
-for n, lim in LIM.items():
-    m = re.search(r"^function %s\(.*?^\}" % n, t, re.S | re.M)
-    b = len(m.group(0).encode()) if m else -1
-    if not 0 < b <= lim: bad.append("%s %d/%d" % (n, b, lim))
-m = re.search(r'    case "traffic": \{.*?\n    \}\n', t, re.S)
-b = len(m.group(0).encode()) if m else -1
-if not 0 < b <= 600: bad.append("traffic bake %d/600" % b)
-print("ok:%d" % len(t.encode()) if not bad and len(t.encode()) <= 650000 else "bad: %s page %d" % (",".join(bad), len(t.encode())))
-PY
-)
-rowif "radio: page size: normBt 900, btOpt 250, rebuildBt 1800, drawBt 700, btTip 500, btTail 400, pkRate 680, drawActivity 600, the traffic bake 600 bytes, the page <= 650000 [$RP_FNB]" [ "${RP_FNB%%:*}" = ok ]
-
 # ---- Bluetooth: ingest. Nine addresses fold into six marks (three rotating Maker A addresses in ring 1 are ONE mark, two without a company
 # in ring 2 are ONE, the public and the static address are marks of their own), every mark sits at the radius of its signal on the shared
 # rings (2D and 3D, the same in all themes), a fixed address is filled, a rotating one hollow, a folded one has a dot.

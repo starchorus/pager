@@ -9,7 +9,7 @@
 #   the validator does not refuse · R3 the marks · R4 the tooltips, word for word · R5 the sheets (a real click too; a mark without Remote ID selects
 #   nothing; no input, identity or pin; no storage key) · R6 the selection ring in three themes · R7 the exports, word for word · R8 without Remote ID the
 #   exports and marks are those of a page copy with the feature planted out · R9 hostile text · R10 a position is never carried into a later capture ·
-#   R11 the words · R12 the page's word lists are the validator's · R13 the size of the new functions · R14 GET only · R15 planted copies ·
+#   R11 the words · R12 the page's word lists are the validator's · R14 GET only · R15 planted copies ·
 #   R16 operator to aircraft, the one figure the page works out from a broadcast, in ten scenes · R16b its three probes
 # GUARDS AGAINST: a validator that takes a document the browser cannot parse (a NaN or Infinity literal) or a position that prints as 0/0; a record with Remote ID folded into the mark of its company and ring, or two addresses joined by the id they broadcast; a word, an id or a
 #                 number that is not on the contract's lists or in its range shown as if broadcast; text from the air that becomes markup; a position from
@@ -21,7 +21,7 @@
 #                 mark, Remote ID folded again, the position carried over from the capture before, no ring in drawBt, and a word outside its list kept;
 #                 each turns exactly its own keys red; R16b's three copies (the cosine term swapped, a flat earth, a figure from one pair) turn
 #                 exactly their scenes red (the one-pair copy in the SITREP as well, which lists every record). R8's copy (normRid, the group key and the export rows planted out) must differ from the page in
-#                 the capture with Remote ID only. The word judges flag a dummy, the list judge a changed word, the size judge one byte less.
+#                 the capture with Remote ID only. The word judges flag a dummy, the list judge a changed word.
 # NOT PROVEN:     a broadcast heard by a Pager (the decoder is checked against the standard and synthetic packs in the collector's self-test, not in
 #                 the field); the sheet on a phone, in the Scope's fan and in 3D after the camera's flight (the same openDetail, not run here); how a
 #                 newcomer reads 'as broadcast, not checked'; the figure on a real broadcast, whose operator position may be a take-off point or held from
@@ -311,22 +311,6 @@ RI_LS=$(python3 -B "$RI_T/lists.py" "$H")
 sed 's/ multirotor gyroplane / quadcopter gyroplane /' "$H" > "$RI_T/lists-dummy.html"
 RI_LD=$(python3 -B "$RI_T/lists.py" "$RI_T/lists-dummy.html")
 rowif "remote id: the page's RID_KEYS and the three word lists of RID_W are gen-testdata.py's RID_KEYS, RID_UA, RID_IDT and RID_STATUS ($RI_LS); a page with one word changed is seen ($RI_LD)" [ "$RI_LS/$RI_LD" = "same/differ: ua" ]
-
-# ---- R13 the new functions inside their limits (the H3 rule of the plan: no limit of the radio pair is raised, the new code has its own); one byte less is red
-RI_FNB=$(python3 - "$H" <<'PY'
-import re, sys
-t = open(sys.argv[1], encoding="utf-8").read()
-LIM = {"normRid": 660, "ridRows": 520, "ridSheet": 380, "ridGeo": 600, "ridGap": 190}
-def size(n):
-    m = re.search(r"^function %s\(.*?^\}" % n, t, re.S | re.M)
-    return len(m.group(0).encode()) if m else -1
-got = {n: size(n) for n in LIM}
-judge = lambda lim: [n for n in lim if not 0 < got[n] <= lim[n]]
-bad, bite = judge(LIM), judge({n: got[n] - 1 for n in LIM}) == list(LIM)   # the same judge with each limit one byte under its size refuses all three
-print(("ok " if not bad and bite else "bad ") + " ".join("%s %d/%d" % (n, got[n], LIM[n]) for n in LIM))
-PY
-)
-rowif "remote id: size: normRid 660, ridRows 520, ridSheet 380, ridGeo 600, ridGap 190 bytes, and the judge refuses one byte less [$RI_FNB]" [ "${RI_FNB%% *}" = ok ]
 
 # ---- R14 the page with Remote ID shown (the sheets, a click, the exports) asks for nothing but GET of its own origin
 RI_NV=$(net_verdict "$RI_T/sheet.json" - 0); RI_NC=$?
