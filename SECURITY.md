@@ -257,7 +257,8 @@ range. Handle this data with care:
 - **No profiling of people.** The tool visualises the radio environment; it is not meant for
   tracking individuals. Remote ID broadcasts (drones, 0.2.7) are passed on as the text they carry, the
   aircraft's and the operator's position among them, because the sender broadcasts them in the open for
-  anyone to read; Starchorus draws no map, no path and no direction from them and keeps them like every
+  anyone to read; the page works out one figure from them, the horizontal distance between the two positions
+  ('Operator–aircraft'); Starchorus draws no map, no path and no direction from them and keeps them like every
   other Bluetooth record: in the document of the cycle, which lives where `STARCHORUS_OUTDIR` says (see
   above) and is rewritten every cycle, and nowhere else.
 
@@ -339,7 +340,9 @@ data.
 - With a Bluetooth capture the JSON export holds the `bluetooth` addresses (an array, with `bluetooth_counts`), each with its signal, company,
   advertised name, `remote_id` where an address broadcasts one, and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column,
   except that while an address broadcasts Remote ID it gains ten `remote_id` columns on the right and a row for each such address; the SITREP then has a
-  block for them. Both say 'as broadcast, not checked', and a position stands as numbers, never as a direction or a distance.
+  block for them. Both say 'as broadcast, not checked'; a position stands as numbers, never as a direction, and the one figure the page works out from them, the
+  row 'Operator–aircraft', is the horizontal distance between the aircraft's and the operator's broadcast positions, in the tooltip, the sheet and
+  the SITREP but not in the JSON or CSV, and never a distance from the Pager, whose position Starchorus does not read.
 - It contains none of the device's own transmitters, no probable phone hotspots (not even as a
   station's link; only their number) and no note texts.
 - The report format lists the page's Observations, the alert notes among them; the note of the fifth kind of alert names the newly heard fixed address.

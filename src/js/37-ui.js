@@ -681,7 +681,18 @@ function btTail(k) {   // 0.2.7: the classes of its addresses, counted, and the 
 const RID_NOTE = "Remote ID · as broadcast, not checked", ridV = (r, k) => r[k] == null ? "" : typeof r[k] == "number" ? r[k].toFixed(k === "alt_m" ? 1 : 7) : r[k];
 function ridRows(r) {   // 0.2.7 Remote ID as [label, text] rows: tooltip, sheet, SITREP
   const v = (k) => ridV(r, k), j = (a, b) => [v(a), v(b)].filter(Boolean).join(" · "), p = (o) => v(o + "lat") && "lat " + v(o + "lat") + ", lon " + v(o + "lon");
-  return [["Aircraft", j("ua_type", "status")], ["ID", j("uas_id", "id_type")], ["Position", p("")], ["Altitude", v("alt_m") && v("alt_m") + " m"], ["Operator position", p("operator_")], ["Operator ID", v("operator_id")]].filter(x => x[1]);
+  return [["Aircraft", j("ua_type", "status")], ["ID", j("uas_id", "id_type")], ["Position", p("")], ["Altitude", v("alt_m") && v("alt_m") + " m"], ["Operator position", p("operator_")], ["Operator ID", v("operator_id")], ridGap(r)].filter(x => x[1]);
+}
+function ridGeo(r) {   // operator to aircraft from the two positions of one broadcast (haversine, mean earth radius), never from the Pager; e and n in m for a plan
+  if (r.lat == null || r.operator_lat == null) return null;
+  const k = Math.PI / 180, R = 6371008.8, p = r.operator_lat * k, q = r.lat * k, l = ((r.lon - r.operator_lon + 540) % 360 - 180) * k,
+    a = Math.sin((q - p) / 2), b = Math.sin(l / 2), h = a * a + Math.cos(p) * Math.cos(q) * b * b;
+  return { d: 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), e: R * l * Math.cos((p + q) / 2), n: R * (q - p) };
+}
+const ridM = (d) => String(d < 1e3 ? Math.round(d) : +d.toPrecision(3)).replace(/\B(?=(\d{3})+$)/g, ",") + " m";   // whole metres, three figures from 1,000 m, grouped by commas
+function ridGap(r) {   // the derived row: none without both positions
+  const g = ridGeo(r);
+  return g ? ["Operator–aircraft", ridM(g.d) + " (derived, horizontal)"] : [];
 }
 function ridSheet(k, r) {   // no input, identity, pin or member list
   let h = '<div class="obsnote">' + esc(btTip(k)) + "</div><table>";

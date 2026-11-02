@@ -9,19 +9,23 @@
 #   the validator does not refuse · R3 the marks · R4 the tooltips, word for word · R5 the sheets (a real click too; a mark without Remote ID selects
 #   nothing; no input, identity or pin; no storage key) · R6 the selection ring in three themes · R7 the exports, word for word · R8 without Remote ID the
 #   exports and marks are those of a page copy with the feature planted out · R9 hostile text · R10 a position is never carried into a later capture ·
-#   R11 the words · R12 the page's word lists are the validator's · R13 the size of the new functions · R14 GET only · R15 planted copies
+#   R11 the words · R12 the page's word lists are the validator's · R13 the size of the new functions · R14 GET only · R15 planted copies ·
+#   R16 operator to aircraft, the one figure the page works out from a broadcast, in ten scenes · R16b its three probes
 # GUARDS AGAINST: a validator that takes a document the browser cannot parse (a NaN or Infinity literal) or a position that prints as 0/0; a record with Remote ID folded into the mark of its company and ring, or two addresses joined by the id they broadcast; a word, an id or a
 #                 number that is not on the contract's lists or in its range shown as if broadcast; text from the air that becomes markup; a position from
 #                 an earlier capture shown with a later one; a sheet for a mark without Remote ID, or one with an input, an identity or a pin; a selected
 #                 mark without its ring; an export that changes for a capture without Remote ID; a word of P10, of direction or distance, or track, pilot,
-#                 locate, scanner, away, near in anything the feature prints; the page's word lists drifting from the validator's.
+#                 locate, scanner, away, near in anything the feature prints; the page's word lists drifting from the validator's; a figure worked out from one
+#                 pair, with lat and lon swapped, on a flat earth or the long way across the seam; the figure in the JSON or the CSV.
 # NEGATIVE PROBE: R15 runs the evals on planted copies of the page, each differing from it in the lines named: the sheet's esc removed, a sheet for every
 #                 mark, Remote ID folded again, the position carried over from the capture before, no ring in drawBt, and a word outside its list kept;
-#                 each turns exactly its own keys red. R8's copy (normRid, the group key and the export rows planted out) must differ from the page in
+#                 each turns exactly its own keys red; R16b's three copies (the cosine term swapped, a flat earth, a figure from one pair) turn
+#                 exactly their scenes red (the one-pair copy in the SITREP as well, which lists every record). R8's copy (normRid, the group key and the export rows planted out) must differ from the page in
 #                 the capture with Remote ID only. The word judges flag a dummy, the list judge a changed word, the size judge one byte less.
 # NOT PROVEN:     a broadcast heard by a Pager (the decoder is checked against the standard and synthetic packs in the collector's self-test, not in
 #                 the field); the sheet on a phone, in the Scope's fan and in 3D after the camera's flight (the same openDetail, not run here); how a
-#                 newcomer reads 'as broadcast, not checked'.
+#                 newcomer reads 'as broadcast, not checked'; the figure on a real broadcast, whose operator position may be a take-off point or held from
+#                 an earlier capture without an age.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only RI_* globals and ri_* functions (with their _ri_* locals) are set.
 
 RI_T="out/$P-ri"; mkdir -p "$RI_T"
@@ -45,7 +49,7 @@ ri_row() {   # ri_row LABEL WANT_JSON: RI_V against WANT_JSON (normalised) and R
 RI_JS='const I=STARCHORUS._internals,S=I.S,sleep=STARCHORUS.wait,o={};await sleep(900);const fx=await (await fetch("starchorus.json")).json(),G=fx.generated;
 const ld=(mut,gen,label)=>{const d=JSON.parse(JSON.stringify(fx));if(gen!=null)d.generated=gen;if(mut)mut(d);return STARCHORUS.load(d,label||"ri");};
 const A=(n)=>"02:00:00:00:0d:0"+n,M=(n)=>"bt:"+A(n),E=(i)=>document.getElementById(i),live=()=>[...S.bt.values()].filter(k=>k.target===1).map(k=>k.id).sort();'
-RI_RID='["Aircraft=multirotor · airborne","ID=TEST-ID.0001 · serial","Position=lat 0.5000000, lon -30.2500000","Altitude=120.5 m","Operator position=lat 0.7500000, lon -30.5000000","Operator ID=OP-TEST_01"]'
+RI_RID='["Aircraft=multirotor · airborne","ID=TEST-ID.0001 · serial","Position=lat 0.5000000, lon -30.2500000","Altitude=120.5 m","Operator position=lat 0.7500000, lon -30.5000000","Operator ID=OP-TEST_01","Operator–aircraft=39,300 m (derived, horizontal)"]'
 RI_NOTE='Remote ID · as broadcast, not checked'
 
 # ---- R1 the document and the validator
@@ -139,7 +143,7 @@ RI_W_TIP='{"bt:02:00:00:00:0d:01":{"rows":'"$RI_RID"',"ssid":"Bluetooth LE · Ma
 "bt:02:00:00:00:0d:07":{"rows":[],"ssid":"Bluetooth LE · company not advertised · -70 dBm · public address · last heard in a window 30 s ago","sub":null},
 "bt:65535:1":{"rows":[],"ssid":"Bluetooth LE · Maker A · 2 rotating addresses · -51 dBm strongest · not a device count","sub":null},"errors":0}'
 ri_run tip "$RI_EV_TIP"
-ri_row "remote id: tooltips word for word: the Bluetooth line as before, '$RI_NOTE', and Aircraft, ID, Position (lat, lon to seven decimals), Altitude (m), Operator position and Operator ID, each only when broadcast; a mark without Remote ID keeps its one line" "$RI_W_TIP"
+ri_row "remote id: tooltips word for word: the Bluetooth line as before, '$RI_NOTE', and Aircraft, ID, Position (lat, lon to seven decimals), Altitude (m), Operator position and Operator ID, each only when broadcast, and Operator–aircraft (the horizontal distance the page works out when both positions are broadcast); a mark without Remote ID keeps its one line" "$RI_W_TIP"
 
 # ---- R5 the sheets: a mark with Remote ID opens one in the aggregate branch (no input, no identity buttons, no pin, no member list), a mark without selects
 # nothing; a real click through the canvas handlers does the same; nothing reaches the browser's storage
@@ -152,14 +156,14 @@ const n1=STARCHORUS.nodeScreen(M(1));click(n1.sx,n1.sy);await sleep(200);o.click
 STARCHORUS.deselect();const n7=STARCHORUS.nodeScreen(M(7));click(n7.sx,n7.sy);await sleep(200);o.click7=[STARCHORUS.camera().locked,E("detail").hidden].join("|");
 o.storage=JSON.stringify(STARCHORUS.storageDump()||{}).search(/0d:0|remote|TEST-ID|OP-TEST/i);
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-RI_W_SHEET='{"bt:02:00:00:00:0d:01":{"hidden":false,"inputs":0,"locked":"bt:02:00:00:00:0d:01","notes":["Bluetooth LE · Maker A · 1 rotating address · -50 dBm · not a device count","'"$RI_NOTE"'"],"rows":["Address=02:00:00:00:0d:01","Freshness=heard < 1 min","Aircraft=multirotor · airborne","ID=TEST-ID.0001 · serial","Position=lat 0.5000000, lon -30.2500000","Altitude=120.5 m","Operator position=lat 0.7500000, lon -30.5000000","Operator ID=OP-TEST_01"],"title":"Remote ID"},
+RI_W_SHEET='{"bt:02:00:00:00:0d:01":{"hidden":false,"inputs":0,"locked":"bt:02:00:00:00:0d:01","notes":["Bluetooth LE · Maker A · 1 rotating address · -50 dBm · not a device count","'"$RI_NOTE"'"],"rows":["Address=02:00:00:00:0d:01","Freshness=heard < 1 min","Aircraft=multirotor · airborne","ID=TEST-ID.0001 · serial","Position=lat 0.5000000, lon -30.2500000","Altitude=120.5 m","Operator position=lat 0.7500000, lon -30.5000000","Operator ID=OP-TEST_01","Operator–aircraft=39,300 m (derived, horizontal)"],"title":"Remote ID"},
 "bt:02:00:00:00:0d:02":{"hidden":false,"inputs":0,"locked":"bt:02:00:00:00:0d:02","notes":["Bluetooth LE · company not advertised · 1 rotating address · -58 dBm · not a device count","'"$RI_NOTE"'"],"rows":["Address=02:00:00:00:0d:02","Freshness=heard < 1 min","Aircraft=gyroplane","ID=utm"],"title":"Remote ID"},
 "bt:02:00:00:00:0d:03":{"hidden":false,"inputs":0,"locked":"bt:02:00:00:00:0d:03","notes":["Bluetooth LE · company not advertised · -66 dBm · public address · last heard in a window 12 s ago","'"$RI_NOTE"'"],"rows":["Address=02:00:00:00:0d:03","Name=Meadow-1","Freshness=heard < 1 min","Aircraft=ground","Position=lat -0.2500000, lon -29.7500000","Altitude=15.0 m"],"title":"Remote ID"},
 "bt:02:00:00:00:0d:04":{"hidden":false,"inputs":0,"locked":"bt:02:00:00:00:0d:04","notes":["Bluetooth LE · Maker A · 1 rotating address · -52 dBm · not a device count","'"$RI_NOTE"'"],"rows":["Address=02:00:00:00:0d:04","Freshness=heard < 1 min","Aircraft=multirotor","ID=TEST-ID.0001 · serial"],"title":"Remote ID"},
 "bt:02:00:00:00:0d:07":{"hidden":true,"locked":null,"title":null},"bt:65535:1":{"hidden":true,"locked":null,"title":null},
 "click":"bt:02:00:00:00:0d:01|false|Remote ID|0","click7":"|true","errors":0,"storage":-1}'
 ri_run sheet "$RI_EV_SHEET"
-ri_row "remote id: sheets: a mark with Remote ID opens 'Remote ID' (its Bluetooth line, Address, Name when advertised, Freshness, the broadcast's rows, '$RI_NOTE'; no input, identity button, member row or pin), a click on the canvas does the same; a mark without Remote ID selects nothing; no storage key holds any of it" "$RI_W_SHEET"
+ri_row "remote id: sheets: a mark with Remote ID opens 'Remote ID' (its Bluetooth line, Address, Name when advertised, Freshness, the broadcast's rows and the derived row Operator–aircraft, '$RI_NOTE'; no input, identity button, member row or pin), a click on the canvas does the same; a mark without Remote ID selects nothing; no storage key holds any of it" "$RI_W_SHEET"
 
 # ---- R6 the selection ring of a selected mark, read from #sky at four points of its radius (px + 13) in each theme: present in the selection token while
 # selected, gone when let go; a mark without Remote ID cannot be selected, so it has none
@@ -192,9 +196,9 @@ RI_W_EXP='{"csv":["remote_id,02:00:00:00:0d:01,,,,,-50,heard < 1 min,,,,,,,multi
 "errors":0,"head":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud,ua_type,id_type,uas_id,status,lat,lon,alt_m,operator_lat,operator_lon,operator_id","keys":"addr,addr_type,rssi,reports,company,company_name,name,connectable,remote_id,heard,mark",
 "rid":{"01":{"alt_m":120.5,"id_type":"serial","lat":0.5,"lon":-30.25,"operator_id":"OP-TEST_01","operator_lat":0.75,"operator_lon":-30.5,"status":"airborne","ua_type":"multirotor","uas_id":"TEST-ID.0001"},"02":{"id_type":"utm","ua_type":"gyroplane"},"03":{"alt_m":15,"lat":-0.25,"lon":-29.75,"status":"ground"},"04":{"id_type":"serial","ua_type":"multirotor","uas_id":"TEST-ID.0001"},"05":null,"06":null,"07":null},
 "ridKeys":["01:ua_type,id_type,uas_id,status,lat,lon,alt_m,operator_lat,operator_lon,operator_id","04:ua_type,id_type,uas_id","02:ua_type,id_type","03:status,lat,lon,alt_m"],
-"sitrep":["","'"$RI_NOTE"':","  02:00:00:00:0d:01 · -50 dBm · heard < 1 min","    Aircraft: multirotor · airborne","    ID: TEST-ID.0001 · serial","    Position: lat 0.5000000, lon -30.2500000","    Altitude: 120.5 m","    Operator position: lat 0.7500000, lon -30.5000000","    Operator ID: OP-TEST_01","  02:00:00:00:0d:04 · -52 dBm · heard < 1 min","    Aircraft: multirotor","    ID: TEST-ID.0001 · serial","  02:00:00:00:0d:02 · -58 dBm · heard < 1 min","    Aircraft: gyroplane","    ID: utm","  02:00:00:00:0d:03 · -66 dBm · heard < 1 min","    Aircraft: ground","    Position: lat -0.2500000, lon -29.7500000","    Altitude: 15.0 m"],"widths":"24"}'
+"sitrep":["","'"$RI_NOTE"':","  02:00:00:00:0d:01 · -50 dBm · heard < 1 min","    Aircraft: multirotor · airborne","    ID: TEST-ID.0001 · serial","    Position: lat 0.5000000, lon -30.2500000","    Altitude: 120.5 m","    Operator position: lat 0.7500000, lon -30.5000000","    Operator ID: OP-TEST_01","    Operator–aircraft: 39,300 m (derived, horizontal)","  02:00:00:00:0d:04 · -52 dBm · heard < 1 min","    Aircraft: multirotor","    ID: TEST-ID.0001 · serial","  02:00:00:00:0d:02 · -58 dBm · heard < 1 min","    Aircraft: gyroplane","    ID: utm","  02:00:00:00:0d:03 · -66 dBm · heard < 1 min","    Aircraft: ground","    Position: lat -0.2500000, lon -29.7500000","    Altitude: 15.0 m"],"widths":"24"}'
 ri_run exp "$RI_EV_EXP"
-ri_row "remote id: exports word for word: JSON remote_id in the contract's order after connectable, the CSV 24 columns on every row with a remote_id row per address and the note, the SITREP block '$RI_NOTE:' before the observations" "$RI_W_EXP"
+ri_row "remote id: exports word for word: JSON remote_id in the contract's order after connectable, the CSV 24 columns on every row with a remote_id row per address and the note, the SITREP block '$RI_NOTE:' before the observations, with the derived row Operator–aircraft after Operator ID; the JSON and CSV carry no derived figure" "$RI_W_EXP"
 
 # ---- R8 without Remote ID nothing changes: the same capture with remote_id taken off every record gives the same JSON, CSV, SITREP and marks as a copy of
 # the page with the feature planted out (normRid's spread, the group key, the export rows), and the CSV is the 14-column table; with Remote ID the two differ
@@ -272,7 +276,7 @@ RI_P10=$(sed -n "s/^NTL_P10_RE='\(.*\)'\$/\1/p" tools/regress.d/neutral-language
 RI_DIRW='direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther'
 RI_DIRN=$(grep -cF "$RI_DIRW" tools/regress.d/scope.sh)   # the Scope's word judge holds the same words (a copy that drifts is red)
 printf '%s\n' 'the pilot is north of the Pager, 30° and 2 km away: track the target' > "$RI_T/words-bad.txt"
-printf '%s\n' 'Remote ID · as broadcast, not checked' 'Operator position: lat 0.7500000, lon -30.5000000' 'Altitude: 120.5 m' > "$RI_T/words-ok.txt"
+printf '%s\n' 'Remote ID · as broadcast, not checked' 'Operator position: lat 0.7500000, lon -30.5000000' 'Altitude: 120.5 m' 'Operator–aircraft: 39,300 m (derived, horizontal)' > "$RI_T/words-ok.txt"
 cat > "$RI_T/words.py" <<'PY'
 import re, sys
 p10, dirw = sys.argv[2], sys.argv[3]
@@ -285,10 +289,11 @@ RI_WH=$(python3 "$RI_T/words.py" "$RI_T/words.txt" "$RI_P10" "$RI_DIRW")
 RI_WB=$(python3 "$RI_T/words.py" "$RI_T/words-bad.txt" "$RI_P10" "$RI_DIRW")
 RI_WC=$(python3 "$RI_T/words.py" "$RI_T/words-ok.txt" "$RI_P10" "$RI_DIRW")
 RI_WN=$(grep -c -e 'Operator position' -e 'as broadcast, not checked' -e 'Altitude' "$RI_T/words.txt")
+RI_WG=$(grep -c -F '(derived, horizontal)' "$RI_T/words.txt")   # the derived row is in what the judges read (tooltip, sheet, SITREP)
 RI_WD=$(sh tools/denylist-check.sh "$R/$RI_T/words.txt" 2>&1); RI_WDR=$?
 RI_OK=0
-case "$RI_WH|$RI_WB|$RI_WC" in "p10:0 dir:0 more:0 "*"|p10:1 dir:3 more:3 "*"|p10:0 dir:0 more:0 "*) [ -n "$RI_P10" ] && [ "$RI_DIRN" = 1 ] && [ "$RI_WN" -ge 3 ] && [ "$RI_WDR" = 0 ] && RI_OK=1 ;; esac
-rowif "remote id: words: the tooltips, sheets and exports ($RI_WH characters) hold no P10 word, no word of direction or distance and none of track, pilot, locate, scanner, away, near; the legal denylist holds; a dummy is flagged ($RI_WB) and the feature's own wording passes ($RI_WC); the direction words are the Scope judge's ($RI_DIRN)" [ "$RI_OK" = 1 ]
+case "$RI_WH|$RI_WB|$RI_WC" in "p10:0 dir:0 more:0 "*"|p10:1 dir:3 more:3 "*"|p10:0 dir:0 more:0 "*) [ -n "$RI_P10" ] && [ "$RI_DIRN" = 1 ] && [ "$RI_WN" -ge 3 ] && [ "$RI_WG" -ge 3 ] && [ "$RI_WDR" = 0 ] && RI_OK=1 ;; esac
+rowif "remote id: words: the tooltips, sheets and exports ($RI_WH characters) hold no P10 word, no word of direction or distance and none of track, pilot, locate, scanner, away, near; the legal denylist holds; a dummy is flagged ($RI_WB) and the feature's own wording passes ($RI_WC), the derived row among what they read ($RI_WG lines); the direction words are the Scope judge's ($RI_DIRN)" [ "$RI_OK" = 1 ]
 [ "$RI_WDR" = 0 ] || printf '%s\n' "$RI_WD" | cut -c1-170 | sed 's/^/    /'
 
 # ---- R12 the page's word lists and key order are the validator's (and through collector-fields.sh the decoder's), word for word; a changed word is seen
@@ -311,7 +316,7 @@ rowif "remote id: the page's RID_KEYS and the three word lists of RID_W are gen-
 RI_FNB=$(python3 - "$H" <<'PY'
 import re, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-LIM = {"normRid": 660, "ridRows": 520, "ridSheet": 380}
+LIM = {"normRid": 660, "ridRows": 520, "ridSheet": 380, "ridGeo": 600, "ridGap": 190}
 def size(n):
     m = re.search(r"^function %s\(.*?^\}" % n, t, re.S | re.M)
     return len(m.group(0).encode()) if m else -1
@@ -321,7 +326,7 @@ bad, bite = judge(LIM), judge({n: got[n] - 1 for n in LIM}) == list(LIM)   # the
 print(("ok " if not bad and bite else "bad ") + " ".join("%s %d/%d" % (n, got[n], LIM[n]) for n in LIM))
 PY
 )
-rowif "remote id: size: normRid 660, ridRows 520, ridSheet 380 bytes, and the judge refuses one byte less [$RI_FNB]" [ "${RI_FNB%% *}" = ok ]
+rowif "remote id: size: normRid 660, ridRows 520, ridSheet 380, ridGeo 600, ridGap 190 bytes, and the judge refuses one byte less [$RI_FNB]" [ "${RI_FNB%% *}" = ok ]
 
 # ---- R14 the page with Remote ID shown (the sheets, a click, the exports) asks for nothing but GET of its own origin
 RI_NV=$(net_verdict "$RI_T/sheet.json" - 0); RI_NC=$?
@@ -366,3 +371,29 @@ ri_probe words "$RI_EV_PAR" "$RI_W_PAR" parity 1 'if (w ? w.split(" ").includes(
 RI_PN=$(echo "$RI_PROBES" | wc -w | tr -d ' ')
 RI_PK=0; [ "$RI_PN" = 6 ] && [ -z "$RI_PBAD" ] && RI_PK=1
 rowif "remote id: the probes bite ($RI_PN of 6: the sheet's esc removed, a sheet for every mark, Remote ID folded again, a position carried over, no ring in drawBt, a word outside its list kept), each turns exactly its keys red${RI_PBAD}" [ "$RI_PK" = 1 ]
+
+# ---- R16 operator to aircraft: the one figure the page works out from a broadcast, the horizontal distance between the aircraft's position and the
+# operator's (haversine on the mean earth radius, whole metres under 1,000 m and three figures above, grouped by commas), as the last row of the
+# tooltip, the sheet and the SITREP block, never in the JSON or the CSV, and never from the Pager; ten scenes of 0d:01: the generated pair, 300 m
+# north and east, the same point, across the seam and over the pole (the short way), the antipode, the kept 5e-8 edge, and one pair alone (no row).
+# The seam, pole and antipode scenes are synthetic open-sea positions outside the Atlantic box of the generated document (the owner's word of
+# 2 November 2026); the ids stay TEST- and OP-TEST.
+RI_EV_GAP="(async()=>{$RI_JS"'
+const row=()=>{STARCHORUS.select(M(1));const r=[...E("detail-body").querySelectorAll("tr")].map(x=>x.cells[0].textContent+"="+x.cells[1].textContent).filter(x=>x.startsWith("Operator–aircraft="));STARCHORUS.deselect();return r.length?r[0]:"none";};
+const sc={full:{},near:{operator_lat:0.4973,operator_lon:-30.25},across:{operator_lat:0.5,operator_lon:-30.2527},same:{operator_lat:0.5,operator_lon:-30.25},seam:{lat:0.5,lon:179.999,operator_lat:0.5,operator_lon:-179.999},pole:{lat:89.999,lon:-30.25,operator_lat:89.999,operator_lon:149.75},anti:{operator_lat:-0.5,operator_lon:149.75},edge:{lat:5.0000000000000004e-8,lon:0,operator_lat:0.0027,operator_lon:0},loneAc:{operator_lat:null,operator_lon:null},loneOp:{lat:null,lon:null,status:null,alt_m:null}};
+let g=G;ld(d=>{d.aps=[];d.unassociated=[];},g,"ri-gap");await sleep(1600);
+for(const [n,m] of Object.entries(sc)){g+=30;ld(d=>{d.aps=[];d.unassociated=[];const r=d.bluetooth.find(b=>b.addr===A(1)).remote_id;for(const [k,v] of Object.entries(m)){if(v==null)delete r[k];else r[k]=v;}},g,"ri-gap");await sleep(300);o[n]=row();
+ if(n==="near"){const p=STARCHORUS.nodeScreen(M(1));STARCHORUS.hover(p.sx,p.sy);o.tip=[...E("tip-body").querySelectorAll(".grid .k")].map(k=>k.textContent+"="+k.nextElementSibling.textContent).filter(x=>x.startsWith("Operator–aircraft=")).join("|")||"none";STARCHORUS.hover(5,5);
+  o.sitrep=STARCHORUS.exportText("sitrep").split("\n").filter(l=>/Operator–aircraft/.test(l)).join("|")||"none";o.data=/Operator–aircraft|derived, horizontal/.test(STARCHORUS.exportText("json")+STARCHORUS.exportText("csv"));}}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RI_W_GAP='{"across":"Operator–aircraft=300 m (derived, horizontal)","anti":"Operator–aircraft=20,000,000 m (derived, horizontal)","data":false,"edge":"Operator–aircraft=300 m (derived, horizontal)","errors":0,"full":"Operator–aircraft=39,300 m (derived, horizontal)","loneAc":"none","loneOp":"none","near":"Operator–aircraft=300 m (derived, horizontal)","pole":"Operator–aircraft=222 m (derived, horizontal)","same":"Operator–aircraft=0 m (derived, horizontal)","seam":"Operator–aircraft=222 m (derived, horizontal)","sitrep":"    Operator–aircraft: 300 m (derived, horizontal)","tip":"Operator–aircraft=300 m (derived, horizontal)"}'
+ri_run gap "$RI_EV_GAP"
+ri_row "remote id: operator to aircraft: the horizontal distance the page works out from the two broadcast positions, word for word in ten scenes of 0d:01 (39,300 m as generated; 300 m north, east and at the kept edge; 0 m at one point; 222 m the short way across the seam and over the pole; 20,000,000 m at the antipode; no row with one pair alone), the same line in the tooltip and the SITREP, nothing of it in the JSON or CSV" "$RI_W_GAP"
+# ---- R16b the figure's probes: a copy with lat and lon swapped in the cosine term, one with a flat earth and no seam, one that works a figure out of one pair
+RI_PROBES=""; RI_PBAD=""
+ri_probe gswap "$RI_EV_GAP" "$RI_W_GAP" "across,anti,full,pole" 1 'h = a * a + Math.cos(p) * Math.cos(q) * b * b;' 'h = a * a + Math.cos(r.operator_lon * k) * Math.cos(r.lon * k) * b * b;'
+ri_probe gflat "$RI_EV_GAP" "$RI_W_GAP" "pole,seam" 2 'l = ((r.lon - r.operator_lon + 540) % 360 - 180) * k,' 'l = (r.lon - r.operator_lon) * k,' \
+  'return { d: 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), e:' 'return { d: R * Math.hypot(q - p, l * Math.cos((p + q) / 2)), e:'
+ri_probe glone "$RI_EV_GAP" "$RI_W_GAP" "loneAc,loneOp,sitrep" 1 'if (r.lat == null || r.operator_lat == null) return null;' 'if (r.lat == null && r.operator_lat == null) return null;'
+RI_GN=$(echo "$RI_PROBES" | wc -w | tr -d ' ')
+rowif "remote id: the distance probes bite ($RI_GN of 3: lat and lon swapped in the cosine term, a flat earth without the seam, a figure from one pair, which the SITREP shows for every record of the document), each turns exactly its keys red${RI_PBAD}" [ "$RI_GN/${RI_PBAD:-ok}" = "3/ok" ]
