@@ -212,8 +212,11 @@ runq "$F/field-scale.json" "?poll=0&spin=0&intro=0&debug=1&autolod=0" "out/$P-wm
 WM_V=$(evalv "out/$P-wm-bud.json" 1 | wm_nj)
 wm_row "watch marks: the text budget holds with 40 watched access points: counted text inside 30 (2D) and 24 (3D) in all three themes, the watched names first; unmarked inside maxLabels" '{"errors":0,"ok":"111111","order":"111111","plain":"111111","wl":40}'
 
-# ---- absent: on every fixture and the demo no mark, no word, no key: stats().wl 0, the legend 'pinned', no watched in the JSON, no Watched line,
-# no Bluetooth mark of a watched address, node().watched false everywhere (one run over a bundle of the fixtures, as order-invariance.sh builds it)
+# ---- absent: on every fixture no mark, no word, no key: stats().wl 0, the legend 'pinned', no watched in the JSON, no Watched line,
+# no Bluetooth mark of a watched address, node().watched false everywhere (one run over a bundle of the fixtures, as order-invariance.sh builds it);
+# then present in the sample sky (STARCHORUS.loadDemo(), the same run): its watched access point, station and Bluetooth address (0.2.7, the sky
+# that carries every kind): stats().wl 2 (the access point and the station; the Bluetooth address is a mark, not a node), the legend text, three
+# watched keys in the JSON, the SITREP line 'Watched: 2', the watched keyring first among the Bluetooth marks and watched on both nodes
 python3 -B - "$F" "out/$P-wm-absent.json" <<'PYEND'
 import glob, json, os, sys
 o = {os.path.basename(f)[:-5]: json.load(open(f, encoding="utf-8")) for f in sorted(glob.glob(os.path.join(sys.argv[1], "*.json")))}
@@ -222,11 +225,13 @@ PYEND
 WM_EV_ABS='(async()=>{const o={},I=STARCHORUS._internals,bad=[];await STARCHORUS.wait(600);const B=(await (await fetch("starchorus.json")).json()).absent;
 const one=(name)=>{const j=STARCHORUS.exportText("json"),s=STARCHORUS.exportText("sitrep");if(STARCHORUS.stats().wl!==0||document.getElementById("leg-pin").textContent!=="pinned"||j.indexOf("\"watched\"")>=0||/\nWatched: /.test(s)
  ||I.S.btOrder.some(k=>k.m[0].watched)||STARCHORUS.nodes().some(n=>STARCHORUS.node(n.id).watched))bad.push(name);};
-let n=0;for(const [name,doc] of Object.entries(B)){STARCHORUS.load(doc,name);await STARCHORUS.wait(50);one(name);n++;}STARCHORUS.loadDemo();await STARCHORUS.wait(50);one("demo");n++;
+let n=0;for(const [name,doc] of Object.entries(B)){STARCHORUS.load(doc,name);await STARCHORUS.wait(50);one(name);n++;}
+STARCHORUS.loadDemo();await STARCHORUS.wait(50);const j=STARCHORUS.exportText("json"),s=STARCHORUS.exportText("sitrep"),W=STARCHORUS.nodes().filter(x=>STARCHORUS.node(x.id).watched).map(x=>x.kind).sort().join();
+o.demo=[STARCHORUS.stats().wl,document.getElementById("leg-pin").textContent,(j.match(/"watched": true/g)||[]).length,(s.match(/\nWatched: [^\n]*/)||[""])[0].trim(),I.S.btOrder[0].m[0].watched===true,W].join("|");
 o.n=n;o.bad=bad.join(" ");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 wm_run absent "$WM_EV_ABS" "out/$P-wm-absent.json"
-WM_NF=$(($(find "$F" -maxdepth 1 -name '*.json' | wc -l | tr -d ' ') + 1))
-wm_row "watch marks: absent on all $WM_NF documents (the fixtures and the demo): no mark, no word, no key" "{\"bad\":\"\",\"errors\":0,\"n\":$WM_NF}"
+WM_NF=$(find "$F" -maxdepth 1 -name '*.json' | wc -l | tr -d ' ')
+wm_row "watch marks: absent on all $WM_NF fixtures (no mark, no word, no key), and present in the sample sky: its watched access point, station and Bluetooth address (wl 2, the legend text, three JSON keys, the SITREP line, the keyring first among the marks)" "{\"bad\":\"\",\"demo\":\"2|pinned, or in watch.list|3|Watched: 2 (in watch.list on the device)|true|ap,client\",\"errors\":0,\"n\":$WM_NF}"
 
 # ---- the probes bite: one-line copies of the page, each run on the eval its rule keeps right, must differ in exactly the named keys of the answer
 # (the unmutated page is the control: the rows above). Each anchor occurs exactly once in the page.

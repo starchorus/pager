@@ -32,7 +32,7 @@
 # wave, the idle and the reduced-motion rows run on the live clock.
 
 SCP_T="out/$P-scp"; mkdir -p "$SCP_T"
-SCP_BASE=618850   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4: 610,779), lowered by 617 on 24 October 2026 by the owner, on purpose, with BASE_PAGE_BYTES in tools/static.sh: the 14 unread chart tokens left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), and the pooled ceiling (this base + 13,400 = 623,562) leaves 62 bytes where it left 18 (445 under MAX_PAGE_BYTES in tools/static.sh); they are held for two later items, a longer stripCtl (about 60) and a stepped pulse (about 30), which together need about 90 and do not fit as planned; raised by 401 on 26 October 2026 with BASE_PAGE_BYTES for the invisible-characters mark; raised by 1070 on 26 October 2026 with BASE_PAGE_BYTES for the vendor line and the five small repairs of the controls (the owner's decision, measured); raised by 255 on 27 October 2026 with BASE_PAGE_BYTES for the hold-back of the browser's own pinch-zoom (architecture.md section 9.7, the owner's decision, measured); raised by 689 on 28 October 2026 for the corrections of 0.2.6.1 (the owner's decision, measured on the combined build: six corrected fragments, the sprite scale and the fourth version number); raised by 389 on 31 October 2026 with BASE_PAGE_BYTES for the Bluetooth layer of the built-in sample sky (architecture.md section 2.9, the owner's decision, measured); raised by 641 on 31 October 2026 with BASE_PAGE_BYTES for the five kinds of alert of 0.2.7 on the page (the owner's decision, measured: the 641 bytes outside the alerts' marked lines; MAX_ALERTS_BYTES gives back the 12 by which those lines got shorter); raised by 496 on 31 October 2026 with BASE_PAGE_BYTES for the class at the end of a Bluetooth mark's tooltip and the sample sky's classes (architecture.md sections 2.8 and 2.9, the owner's decision, measured); raised by 1510 on 31 October 2026 with BASE_PAGE_BYTES for the watch.list marks on the page (the owner's decision, measured); raised by 3237 on 31 October 2026 with BASE_PAGE_BYTES for Remote ID on the page (architecture.md section 2.8, the owner's decision, measured)
+SCP_BASE=622553   # wc -c starchorus.html before the Scope and the alerts' ring (feat-0.2 at 8e75fe4: 610,779), lowered by 617 on 24 October 2026 by the owner, on purpose, with BASE_PAGE_BYTES in tools/static.sh: the 14 unread chart tokens left the themes (900 bytes) and the fixes of the same commit cost 239 (the page went from 624,161 to 623,500), and the pooled ceiling (this base + 13,400 = 623,562) leaves 62 bytes where it left 18 (445 under MAX_PAGE_BYTES in tools/static.sh); they are held for two later items, a longer stripCtl (about 60) and a stepped pulse (about 30), which together need about 90 and do not fit as planned; raised by 401 on 26 October 2026 with BASE_PAGE_BYTES for the invisible-characters mark; raised by 1070 on 26 October 2026 with BASE_PAGE_BYTES for the vendor line and the five small repairs of the controls (the owner's decision, measured); raised by 255 on 27 October 2026 with BASE_PAGE_BYTES for the hold-back of the browser's own pinch-zoom (architecture.md section 9.7, the owner's decision, measured); raised by 689 on 28 October 2026 for the corrections of 0.2.6.1 (the owner's decision, measured on the combined build: six corrected fragments, the sprite scale and the fourth version number); raised by 389 on 31 October 2026 with BASE_PAGE_BYTES for the Bluetooth layer of the built-in sample sky (architecture.md section 2.9, the owner's decision, measured); raised by 641 on 31 October 2026 with BASE_PAGE_BYTES for the five kinds of alert of 0.2.7 on the page (the owner's decision, measured: the 641 bytes outside the alerts' marked lines; MAX_ALERTS_BYTES gives back the 12 by which those lines got shorter); raised by 496 on 31 October 2026 with BASE_PAGE_BYTES for the class at the end of a Bluetooth mark's tooltip and the sample sky's classes (architecture.md sections 2.8 and 2.9, the owner's decision, measured); raised by 1510 on 31 October 2026 with BASE_PAGE_BYTES for the watch.list marks on the page (the owner's decision, measured); raised by 3237 on 31 October 2026 with BASE_PAGE_BYTES for Remote ID on the page (architecture.md section 2.8, the owner's decision, measured); raised by 3703 on 2 November 2026 with BASE_PAGE_BYTES for the built-in sample sky that carries every kind of thing the page can show (architecture.md section 2.9, the owner's decision, measured)
 SCP_Q="?poll=0&spin=0&intro=0&fixed=$STARCHORUS_FIXED&debug=1&scope=1"
 SCP_LQ="?poll=0&spin=0&intro=0&debug=1&scope=1"   # the live clock
 # --ready: the fonts are loaded, the capture is in and a frame has been painted after both (the layout rows read font metrics and the loaded stations; the --wait of each run stays the ceiling).
@@ -179,7 +179,7 @@ def wave(v):
     return bad
 def idle(v):
     d = json.loads(v); bad = []
-    if d["idle"] != 0 or d["idle2"] != 0: bad.append("frames at rest %s / %s" % (d["idle"], d["idle2"]))
+    if not 3 <= d["idle"] <= 5 or d["idle0"] != 0 or d["idle2"] != 0: bad.append("frames at rest %s (the alert step) / %s (alerts cleared) / %s (after a capture)" % (d["idle"], d["idle0"], d["idle2"]))
     if d["stale"][0] != "stale" or not 3 <= d["stale"][1] <= 6: bad.append("stale frames %s" % d["stale"])
     if d["wave"] is not True: bad.append("no wave")
     if d["errors"] != 0: bad.append("errors")
@@ -370,6 +370,7 @@ SC.ph=0.6;S.dirty=true;STARCHORUS.frame();o.arcGone=!arc(0.3)&&arc(0.6);
 SC.ph=null;o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
 SCP_EVI='(async()=>{const I=STARCHORUS._internals,S=I.S,SC=I.SC,W=STARCHORUS.wait,o={};
 await W(500);o.idle=(await STARCHORUS.measure(2)).renderedFrames;
+S.alerts=[];S.dirty=true;STARCHORUS.frame();await W(600);o.idle0=(await STARCHORUS.measure(2)).renderedFrames;
 const doc={source:"recon-db",generated:1789299990,center:{label:"T",interval:30},aps:[{bssid:"02:00:00:00:00:01",ssid:"Net-A",band:"2.4",channel:6,rssi:-45,security:"WPA2"}],unassociated:[]};
 STARCHORUS.load(doc,"s",{mode:"live"});await W(300);
 S.staleMs=1e9;STARCHORUS.load(doc,"s",{mode:"live"});await W(300);
@@ -578,7 +579,7 @@ SCP_R=$(scp_j wave "$(scp_ev "$SCP_T-wave.json")")
 scp_row "scope wave: a new blip (phase 0.8) is hidden at 0.3 and 0.6 and shown at 0.9, the arc is on its radius at each phase and gone from the old one a phase later (it contracts), the old blip stays" "$SCP_R"
 runq demo "$SCP_LQ" "$SCP_T-idle" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1
 SCP_R=$(scp_j idle "$(scp_ev "$SCP_T-idle.json")")
-scp_row "scope draws only on a wave: 0 frames in 2 s at rest and again 5 s after a capture, 30 or more in the first second of a wave, 2 a second (3 to 6 in 2 s) while the feed is stale" "$SCP_R"
+scp_row "scope draws only on a wave: at rest only the alert step of the sample sky's alerts (two a second: 3 to 5 frames in 2 s), 0 once the alerts are cleared and 0 again 5 s after a capture, 30 or more in the first second of a wave, 2 a second (3 to 6 in 2 s) while the feed is stale" "$SCP_R"
 runq demo "$SCP_LQ&rm=1" "$SCP_T-rm" --width 390 --height 844 --mobile --wait 2 --fps 0 --eval-timeout 60 --eval "$SCP_EVR" >/dev/null 2>&1
 SCP_R=$(scp_j rm "$(scp_ev "$SCP_T-rm.json")")
 scp_row "scope with reduced motion: a new capture shows its blip at once, no arc, and the snow of a stale feed stands still (two frames 700 ms apart equal)" "$SCP_R"
@@ -659,10 +660,11 @@ scp_run ring3d "$SCP_EV3" "$F/devices.json" "$SCP_Q&view=3d" 390 844
 SCP_R=$(scp_j ring3d "$(scp_ev "$SCP_T-ring3d.json")")
 scp_row "scope with a saved 3D view (?view=3d, blend 1): in each theme the label list of a frame holds no ring label ('-40 dBm'), no empty core label and no label on the RX line" "$SCP_R"
 
-# ---- WarGames with the CRT on (the default): the phosphor trail runs only while the arc does; at rest 0 frames and while stale 3 to 6 in 2 s, as in the other themes
+# ---- WarGames with the CRT on (the default): the phosphor trail runs only while the arc does; at rest only the alert step (the sample sky carries alerts since 0.2.7:
+# the step is two a second in the Scope, in every theme, 34-render-layers.js alAt), 0 with the alerts cleared, and while stale 3 to 6 in 2 s, as in the other themes
 runq demo "$SCP_LQ&theme=wargames" "$SCP_T-idlew" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1
 SCP_R=$(scp_j idle "$(scp_ev "$SCP_T-idlew.json")")
-scp_row "scope in WarGames (CRT on, persistence): 0 frames in 2 s at rest and 5 s after a capture, 30 or more in the first second of a wave, 3 to 6 in 2 s while the feed is stale" "$SCP_R"
+scp_row "scope in WarGames (CRT on, persistence): at rest only the alert step (3 to 5 frames in 2 s), 0 with the alerts cleared and 0 again 5 s after a capture, 30 or more in the first second of a wave, 3 to 6 in 2 s while the feed is stale" "$SCP_R"
 
 # ---- no room for the fan (568x320, Whitehall's banners): the foot's note appears, a roomier theme brings the fan back, Whitehall again says so
 scp_run note "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320

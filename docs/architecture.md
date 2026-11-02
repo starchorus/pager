@@ -387,25 +387,42 @@ as an estimate when `rate` is present.
 
 ### 2.9 Demo data (`demoData()`)
 
-Built-in sample capture for starting without `starchorus.json`: 11 APs with unique BSSIDs (real OUI prefixes,
-hash from SSID and band), `vendor` on some of the APs, `width/rate/phy` on a few, one hidden SSID, one 6 GHz AP,
-open and WEP networks; 17 associated clients with unique MACs and 16 free clients (RSSI −58…−88) with real OUIs,
-of which 3 are randomised (2nd hex digit `a`/`e`) without `vendor` and 2 without `rssi` ('n/a' path). SSIDs and `vendor` are
-neutral placeholders (such as 'HomeWiFi', 'Office-5G', 'Vendor A'), not brand or product names. `generated: 1789300000`,
-`center.label: "YOU ARE HERE"`, `source: "demo"`; every AP has a `last_seen` 4…1400 s before `generated`, so that all
-freshness tiers (D1) occur. 'HomeWiFi' on 2.4 and 5 GHz forms a constellation. Counters: `#n-ap` 11,
-`#n-cl` 33.
+Built-in sample capture for starting without `starchorus.json`. It carries every kind of thing the page can show, as a capture
+of the collector does (since 0.2.7, the owner's decision of 2 November 2026): the sample is a pure invention with placeholder names
+('HomeWiFi', 'Office-5G', 'Vendor A', 'Maker B'), never a brand, a product or a real environment, and it is ingested at boot
+without `normalizeDoc`, so every record is written in normalised shape (`src/js/41-boot.js`; `STARCHORUS.loadDemo()` sends the
+same object through `normalizeDoc`).
 
-The sample sky also carries the Bluetooth layer: `bluetooth[]` with eight addresses, `02:00:00:00:04:10` … `:17`, and
-`center.bt_window: 6`, `bt_hold: 120`, as a capture of the collector's own window carries them. The first three are
-random-resolvable addresses of one placeholder company ('Maker A', identifier 65531) at −49, −53 and −57 dBm and fold into
-one hollow mark in the second ring, two of them advertising as 'finder frame' and one as 'beacon' (its tooltip ends 'advertising as
-beacon ×1, finder frame ×2'); the other five are fixed (random-static and public in turn) at −46 to −77 dBm over the
-second and third rings, four of them naming a company ('Maker B', 'Maker C') and one advertising none, the strongest ('Maker B',
-random-static, −46 dBm) advertising as 'keyring'; `last_seen` 0 … 98 s
-before `generated`, so two of the fixed marks stand in the second freshness tier. The BT button, the counter `#n-bt` (8) and
-the legend row therefore show in the demo, and the public demonstration and screenshots taken in demo mode show the layer.
-The Wi-Fi sky of the demo is unchanged by it (`tools/regress.d/radio-pair.sh`, the demo row).
+- **24 access points** with unique BSSIDs (the eleven of 0.1 keep their OUI prefixes and a hash from SSID and band; the
+  additions use `02:00:5e` and two other locally administered prefixes): all ten security classes (open, WEP, legacy WPA,
+  WPA2, WPA3, OWE, enterprise with `akm`/`cipher`/`auth`, WPA3/WPA2 transition, TKIP, and a label the page does not know,
+  'WAPI'), two on 6 GHz, one hidden SSID, one name that carried invisible characters (`hid`), a multi-SSID responder
+  (`responded_ssids: 3`), `width/rate/phy` on a few, a Wi-Fi Direct group ('DIRECT-7a-Printer') and a phone's hotspot
+  ('Travel-Hotspot') as probable hotspots (P3), this device's own transmitter 'Field-Kit' (`center.own_bssids`,
+  `own_ssids`) and the same name from another transmitter, the home name open as well, and one access point in
+  watch.list (`watched: true`). 'HomeWiFi' on 2.4 and 5 GHz forms a constellation. Every AP has a `last_seen` 2…1400 s before
+  `generated`, so that all freshness tiers (D1) occur.
+- **60 stations**: 28 associated with unique MACs; 16 free (RSSI −58…−88, dated, three of them randomised and two without
+  `rssi`, the 'n/a' path), some with named probes (probe orbits), two with frame counts (`packets`), one in watch.list; and
+  16 randomised addresses of one device that changes its address every 40 s, which the page folds into one cloud (§8.8a).
+- **`alerts[]` of all six kinds** (deauth on 'Hub-4432', the own name from another transmitter, two security profiles of
+  'HomeWiFi', security weaker and a channel change on two others, a new fixed Bluetooth address), so the alert ring and its
+  legend row show; the Observations notes never do, since the sample is one capture and a note needs two (OBS_DWELL).
+- **`homing`** on 'Campus' (the Homing drawer), **`activity[]`** on fourteen frequencies of all three bands (the whiskers),
+  `center.bt_window: 6`, `bt_hold: 120`; no `interval`, since the sample never polls (with one, the Scope would read the
+  fixed `generated` as a stale feed and draw its snow at rest).
+- **19 Bluetooth addresses** `02:00:00:00:04:10` … `:22`: the first three random-resolvable of one placeholder company
+  ('Maker A', identifier 65531), folded into one hollow mark (two 'finder frame', one 'beacon'); one random-nonresolvable
+  address of its own; the rest fixed (random-static and public in turn) at −42 to −77 dBm, eleven of the fourteen class
+  words among them, an advertised `name` on two, `connectable` on one, the strongest fixed keyring in watch.list, the new
+  strongest fixed address of the `bt_fixed_new` alert, and two Remote ID aircraft with their operators (`remote_id` with
+  all ten keys: a multirotor airborne at 62.5 m and an aeroplane on the ground, both over open water at 0.5° N 30.25° W
+  with the ids 'SAMPLE-UA-0001/0002' and 'OP-SAMPLE-01/02', as broadcast, not checked); `last_seen` 0 … 126 s before
+  `generated`.
+
+`generated: 1789300000`, `center.label: "YOU ARE HERE"`, `source: "demo"`. Counters: `#n-ap` 24, `#n-cl` 60, `#n-bt` 19;
+`tools/regress.d/radio-pair.sh` pins the demo's counts, layers, marks, tiers and classes in its demo row and the kinds it
+carries in the row after it.
 
 ---
 
@@ -2108,7 +2125,7 @@ and Whitehall (both banners whole with 'NOT A GOVERNMENT SYSTEM', the clock unde
 close it, the pill brings the panels back; hide, reload (still hidden), bring them back; pinch on the bar and on the pill does
 not zoom the page. 9 Source → Load…: the dialogue at the top, typing does not zoom, the keyboard does not cover Render; in the
 detail's Alias field the keyboard leaves the field visible. 10 Reduce Motion: the sheet snaps, the dots stand still. 11 Both
-Safari tab layouts (Compact and Bottom) against the sheet; VoiceOver reads 'STARCHORUS, 11 stars, 33 satellites, Sample' and
+Safari tab layouts (Compact and Bottom) against the sheet; VoiceOver reads 'STARCHORUS, 24 stars, 60 satellites, Sample' and
 'Expand the sheet, button, collapsed'. 12 First paint from the Pager's address typed into Safari: no desktop chrome before the sheet appears.
 
 ### 9.8b The Scope (D22, phone layout only)

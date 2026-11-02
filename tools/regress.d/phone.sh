@@ -289,9 +289,11 @@ PHN_MUT2="out/$P-phn-noplace.html"
 sed 's/const placed = place(positions, w + ext, 12);/const placed = positions.find(p => occupy(p[0], p[1], w + ext, 12));/' "$H" > "$PHN_MUT2"
 PHN_MN2=$(grep -c 'const placed = positions.find(p => occupy(p\[0\], p\[1\], w + ext, 12));' "$PHN_MUT2")
 PHN_STP='[["2d",1],["2d",0.5],["3d",1],["3d",1,{"az":2.4,"el":1,"k":0.3}]]'
-# The desktop's last camera stands at el 1.1 (it was 1.0): after the first-time placements of #41 the margin-less copy's stars no longer reached the desktop rim at
-# el 1.0 (no box outside, so the probe could not bite), at el 1.1 they do, in the old layout and the new (30 October 2026). The phone list and the real-page rows are unchanged.
-PHN_STD='[["2d",1],["2d",2.5],["3d",1],["3d",1,{"az":2.4,"el":1.1,"k":0.3}]]'
+# The desktop's last camera stands at el 1.3 (it was 1.0, then 1.1): after the first-time placements of #41 the margin-less copy's stars no longer reached the desktop rim at
+# el 1.0 (no box outside, so the probe could not bite), at el 1.1 they did (30 October 2026); with the sample sky of 24 access points (2 November 2026) they no longer do
+# at el 1.1 (0 boxes outside, 14 drawn), at el 1.3 three boxes leave the sky in the copy and none on the real page (17 drawn, measured at az 2.4, k 0.3 against
+# el 1.0 to 1.4 and az 1.6 to 3.2). The phone list and the real-page rows are unchanged.
+PHN_STD='[["2d",1],["2d",2.5],["3d",1],["3d",1,{"az":2.4,"el":1.3,"k":0.3}]]'
 runq demo "$PHN_DQ" "out/$P-phn-lab" --width 375 --height 812 --mobile --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STP$PHN_LB2" --eval "$PHN_CAMJS" >/dev/null 2>&1
 runq demo "$PHN_DQ" "out/$P-phn-labd" --width 1440 --height 900 --wait 4 --fps 0 --eval-timeout 90 --eval "$PHN_LB1$PHN_STD$PHN_LB2" >/dev/null 2>&1
 PHN_HKEEP=$H; H=$PHN_MUT   # runq serves $H: point it at the copy for these two calls, then put it back

@@ -183,25 +183,28 @@ function demoData() {
     return ap;
   };
   const freeOui = [["3c:22:fb", "Vendor G"], ["8c:f5:a3", "Vendor H"], ["24:6f:28", "Vendor I"], ["dc:a6:32", "Vendor J"]];   // neutral placeholder vendor names
+  const GEN = 1789300000;   // the demo is dated (same reference as the fixtures) and its APs span every freshness tier of D1
   const unassociated = [];
   for (let i = 0; i < 16; i++) {
     const randomized = i === 4 || i === 9 || i === 14;
     const rssi = -58 - Math.round(hash("probe" + i) * 30);
-    const c = { mac: randomized ? macFrom(null, "probe" + i, true) : macFrom(freeOui[i % 4][0], "probe" + i, false) };
+    const c = { mac: randomized ? macFrom(null, "probe" + i, true) : macFrom(freeOui[i % 4][0], "probe" + i, false), last_seen: GEN - 5 - 23 * i };
     if (!(i === 6 || i === 12)) c.rssi = rssi;          // two without rssi (path "n/a")
-    if (!randomized) c.vendor = freeOui[i % 4][1];
+    if (randomized) c.randomized = true; else c.vendor = freeOui[i % 4][1];
     unassociated.push(c);
   }
-  const GEN = 1789300000;   // the demo is dated (same reference as the fixtures) and its APs span every freshness tier of D1
-  const demoAges = [4, 12, 45, 130, 70, 240, 320, 520, 760, 1400, 20];   // seconds before `generated`, per AP in the list below
+  [[1, ["HomeWiFi"]], [5, ["Campus", "Cafe-Free"]], [8, ["Office-5G"]]].forEach(([i, p]) => { unassociated[i].probes = p; });   // named probes: probe orbits
+  unassociated[2].packets = 2048; unassociated[7].packets = 120; unassociated[3].watched = true;   // frame counts; one station in watch.list
+  for (let k = 0; k < 16; k++) unassociated.push({ mac: macFrom(null, "cloud" + k, true), rssi: -64 + (hash("cloud" + k) * 2 | 0), randomized: true, last_seen: GEN - 3 - 40 * k });   // one device changing its address every 40 s: a cloud (§8.8a)
+  const demoAges = [4, 12, 45, 130, 70, 240, 320, 520, 760, 1400, 20, 9, 33, 61, 190, 95, 15, 7, 25, 2, 42, 350, 80, 110];   // seconds before `generated`, per AP in the list below
   const doc = {
     generated: GEN,
-    center: { label: "YOU ARE HERE", bt_window: 6, bt_hold: 120 },
+    center: { label: "YOU ARE HERE", bt_window: 6, bt_hold: 120, own_ssids: ["Field-Kit"] },
     source: "demo",
     aps: [
       mk("HomeWiFi", "2.4", 6, -44, "WPA2", 4, "44:4e:6d", "Vendor A", { width: 40, rate: 300, phy: "n" }),
       mk("HomeWiFi", "5", 44, -47, "WPA2", 3, "44:4e:6d", "Vendor A", { width: 80, rate: 866, phy: "ac" }),
-      mk("Neighbour-A1", "2.4", 11, -63, "WPA2", 2, "7c:03:ab", "Vendor B"),
+      mk("Neighbour-A1", "2.4", 11, -63, "WPA2", 2, "7c:03:ab", "Vendor B", { watched: true }),
       mk("Town-Hotspot", "2.4", 1, -71, "Open", 0, "00:e0:fc", "Vendor C"),
       mk("Hub-4432", "5", 100, -58, "WPA3", 2, "58:97:bd", null, { width: 80, rate: 1201, phy: "ax" }),
       mk("Campus", "5", 36, -66, "WPA2", 1, "24:de:c6", "Vendor D"),
@@ -210,12 +213,35 @@ function demoData() {
       mk("GuestNet", "2.4", 9, -78, "Open", 0, "f0:9f:c2", "Vendor F"),
       mk("Legacy-Net", "2.4", 4, -82, "WEP", 0, "9c:3d:cf", null),
       mk("Office-5G", "5", 149, -52, "WPA3", 3, "50:c7:bf", null),
+      mk("Cafe-Free", "2.4", 6, -60, "OWE", 2, "02:00:5e", null),   // the other security classes: enhanced open ...
+      mk("Corp-Secure", "5", 52, -64, "WPA2-Enterprise", 2, "02:00:5e", "Vendor K", { akm: ["1x"], cipher: { group: "ccmp128", pairwise: ["ccmp128"] }, auth: ["open"], responded_ssids: 3 }),
+      mk("Shop-Guest", "2.4", 1, -67, "WPA3/WPA2", 1, "02:00:5e", null),
+      mk("Old-Printer", "2.4", 11, -69, "WPA2 (TKIP)", 0, "02:00:5e", "Vendor L"),
+      mk("Garage-Cam", "2.4", 9, -65, "WPA", 1, "02:00:5e", null),   // ... and legacy WPA
+      mk("Office-6E", "6", 69, -62, "WPA3", 2, "02:00:5e", null, { width: 160, rate: 2402, phy: "ax" }),
+      mk("DIRECT-7a-Printer", "2.4", 6, -68, "WPA2", 0, "02:1a:7b", null),   // a Wi-Fi Direct group and a phone's hotspot: probable hotspots (P3)
+      mk("Travel-Hotspot", "2.4", 11, -61, "WPA2", 1, "0a:4d:e2", null),
+      mk("Field-Kit", "2.4", 1, -35, "WPA2", 1, "02:00:5e", null),   // this device's own transmitter (center.own_bssids) ...
+      mk("Field-Kit", "2.4", 13, -70, "WPA2", 0, "7c:03:ab", "Vendor B"),   // ... and its name from another transmitter (own_name)
+      mk("HomeWiFi", "2.4", 11, -74, "Open", 0, "9c:3d:cf", null),   // the home name open as well (sec_profiles)
+      mk("Lounge-Net", "5", 40, -63, "WPA2", 1, "02:00:5e", null, { hid: true }),   // a name that carried invisible characters
+      mk("Depot-Net", "2.4", 7, -66, "WAPI", 0, "02:00:5e", null),   // a label the page does not know: the class 'unknown'
     ],
     unassociated,
   };
   doc.aps.forEach((a, i) => { a.last_seen = GEN - demoAges[i]; });
-  doc.activity = [[2412, 0.12], [2422, 0.05], [2427, 0.03], [2437, 0.3], [2452, 0.06], [2462, 0.18], [5180, 0.07], [5220, 0.09], [5500, 0.04], [5745, 0.06]].map(([freq, share]) => ({ freq, share }));
-  doc.bluetooth = [[-49, 1, "finder frame"], [-53, 1, "finder frame"], [-57, 1, "beacon"], [-46, 2, "keyring"], [-64, 3], [-71], [-77, 2], [-58, 3]].map(([rssi, co, cl], i) => Object.assign({ addr: "02:00:00:00:04:1" + i, addr_type: BT_TYPES[i < 3 ? 2 : i & 1], rssi, last_seen: GEN - 2 * i * i }, co && { company: 65530 + co, company_name: "Maker " + "ABC"[co - 1] }, cl && { class: cl }));   // §3.1: 3 rotating of one company, 5 fixed
+  const B = (i) => doc.aps[i].bssid;
+  doc.center.own_bssids = [B(19)];
+  doc.alerts = [["deauth", 4, 14], ["own_name", 20, 6], ["sec_profiles", 21, 2], ["sec_weaker", 13, 1], ["chan_changed", 5, 1]].map(([type, i, n], j) => ({ type, t: GEN - 30 * j, ap: B(i), n }));   // the five Wi-Fi kinds ...
+  doc.alerts.push({ type: "bt_fixed_new", t: GEN - 5, ap: "02:00:00:00:04:20", n: 3 });   // ... and the Bluetooth one, on the strongest new fixed address below
+  doc.homing = { bssid: B(5), dbm: -66, peak: -58, t: GEN };
+  doc.activity = [[2412, 0.12], [2422, 0.05], [2427, 0.03], [2437, 0.22], [2452, 0.06], [2462, 0.13], [5180, 0.07], [5200, 0.03], [5220, 0.09], [5260, 0.05], [5500, 0.04], [5745, 0.06], [6135, 0.02], [6295, 0.03]].map(([freq, share]) => ({ freq, share }));
+  const rid = (uas_id, status, lat, lon, alt_m, operator_lat, operator_lon, operator_id, ua_type, id_type) => ({ ua_type, id_type, uas_id, status, lat, lon, alt_m, operator_lat, operator_lon, operator_id });
+  doc.bluetooth = [[-49, 1, "finder frame"], [-53, 1, "finder frame"], [-57, 1, "beacon"], [-46, 2, "keyring", { watched: true }], [-64, 3], [-71], [-77, 2], [-58, 3],
+    [-55, 2, "pairing frame", { name: "Earbuds-2" }], [-61, 3, "phone"], [-66, 1, "watch"], [-69, 2, "sensor", { name: "Kettle-3" }], [-73, 3, "tag", { addr_type: "random-nonresolvable" }], [-52, 2, "input device", { connectable: true }], [-59, 3, "display"], [-63, 1, "media player"],
+    [-42, 2, "keyring"], [-56, 2, null, { remote_id: rid("SAMPLE-UA-0001", "airborne", 0.5, -30.25, 62.5, 0.4972, -30.251, "OP-SAMPLE-01", "multirotor", "serial") }],
+    [-70, 2, null, { remote_id: rid("SAMPLE-UA-0002", "ground", 0.5004, -30.2493, 2, 0.5004, -30.2493, "OP-SAMPLE-02", "aeroplane", "registration") }]
+  ].map(([rssi, co, cl, x], i) => Object.assign({ addr: "02:00:00:00:04:" + (16 + i).toString(16), addr_type: BT_TYPES[i < 3 ? 2 : i & 1], rssi, last_seen: GEN - 7 * i }, co && { company: 65530 + co, company_name: "Maker " + "ABC"[co - 1] }, cl && { class: cl }, x));   // §3.1: 3 rotating of one company, the rest fixed; two Remote ID aircraft over open water with their operators
   return doc;
 }
 

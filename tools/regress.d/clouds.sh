@@ -31,7 +31,7 @@
 
 CLD_FX="$F/clouds.json"; CLD_T="out/$P-cld"; mkdir -p "$CLD_T"
 CLD_Q="?poll=0&spin=0&intro=0"
-CLD_RDY="window.STARCHORUS && STARCHORUS.stats().randomised > 0"   # a --ready condition: the capture is loaded and its randomised addresses are in
+CLD_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo' && STARCHORUS.stats().randomised > 0"   # a --ready condition: the served capture has replaced the sample sky (which carries randomised addresses of its own since 0.2.7) and its randomised addresses are in
 cld_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(",",":"),ensure_ascii=False))' 2>/dev/null; }
 cld_dsp() { STARCHORUS_DISPLAY_PLAIN=1 sh "$1" --once "$2" "$3" 2>&1; }
 
