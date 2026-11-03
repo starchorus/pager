@@ -141,7 +141,7 @@ body {
 button { font: inherit; letter-spacing: inherit; }
 b { font-weight: 600; }
 
-/* ==== 02 THEME TOKENS (CSS-SPIEGEL) ==== */
+/* ==== 02 THEME TOKENS (CSS MIRROR) ==== */
 :root {
   --surface-base: #05070d;
   --surface-deep: #05070d;
@@ -5560,7 +5560,7 @@ function deselect() {
   return null;
 }
 let lastPinClick = { id: null, t: -Infinity };
-function clickPin(id, t) {   // §5.6/§9.2, MUSS BLEIBEN 10: a click on a star toggles its pin (clients additively); bubbles are aggregates → no pin
+function clickPin(id, t) {   // §5.6/§9.2, MUST STAY 10: a click on a star toggles its pin (clients additively); bubbles are aggregates → no pin
   if (!S.aps.has(id) && !S.clients.has(id)) return false;
   const dbl = id === lastPinClick.id && t - lastPinClick.t < HIT.pinDebounceMs;   // double click: no second toggle (PointerEvent.timeStamp, UI only — not a data/render clock)
   lastPinClick = { id, t };
@@ -7070,7 +7070,7 @@ let pollPromise = null, firstPollDone = false;
 // D3: a poll that never answers ends after POLL_TIMEOUT_MS: the request is aborted and the tick counts like a failed poll,
 // so a hung server or a half-open connection cannot keep the chip on "Live". `?pollto=<ms>` shortens it for tests only.
 const POLL_TIMEOUT_MS = Number.isFinite(+query.pollto) && +query.pollto >= 100 ? Math.min(+query.pollto, 60000) : 4000;
-function tryPoll(tickMs) {   // MUSS BLEIBEN 1: the page's only network call; returns the in-flight promise (no double request). tickMs: the poll time it stands for
+function tryPoll(tickMs) {   // MUST STAY 1: the page's only network call; returns the in-flight promise (no double request). tickMs: the poll time it stands for
   if (query.demo1) return Promise.resolve({ ok: false });   // ?demo=1 (§2.7): nothing is requested
   if (pollPromise) return pollPromise;
   const ac = typeof AbortController === "function" ? new AbortController() : null;

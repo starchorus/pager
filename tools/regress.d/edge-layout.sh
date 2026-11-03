@@ -96,7 +96,7 @@ EDG_V=$(evalv "out/$P-d15-tok.json" 1)
 rowif "chrome tokens: bezel/banner/edge/CRT per theme" [ "$EDG_V" = ok ]
 [ "$EDG_V" = ok ] || echo "    failing themes: ${EDG_V:-no-value}"
 
-# MUSS BLEIBEN 20 (≤ 720 px): since D21 the phone mode of §9.8 replaces the old small mode (which hid #stats, #legend and
+# MUST STAY 20 (≤ 720 px): since D21 the phone mode of §9.8 replaces the old small mode (which hid #stats, #legend and
 # #chanbar), so the row asks for that mode: data-phone on, no sideways scroll, the detail opens in the sheet, no --lay-*
 # variable, and in Whitehall the sheet sits 8 px above the (wrapped) bottom banner. .motto stays hidden below 900 px on the
 # desktop side of the bound (760x600). tools/regress.d/phone.sh holds the phone rows themselves.

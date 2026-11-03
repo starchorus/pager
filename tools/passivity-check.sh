@@ -753,7 +753,7 @@ while IFS= read -r w; do miss="$miss $w(a here-document delimiter that the reade
 fillok=0; [ "$nsh" -ge 4 ] && [ "$nfs" -ge "$MIN_FNSCOPE" ] && [ -z "$miss" ] && fillok=1
 rowif "§14.6 scope fill: $nsh files, $nfn functions (≥ $MIN_FNSCOPE), unseen:${miss:- none}" [ "$fillok" = 1 ]
 
-# 1-4 · browser page: the only network call is fetch("starchorus.json…") (§14.2 Passiv; operator-tools.sh repeats 1+2 for homing)
+# 1-4 · browser page: the only network call is fetch("starchorus.json…") (§14.2 passivity; operator-tools.sh repeats 1+2 for homing)
 n=$(grep -cE "$NETSURF_RE" "$H")
 rowif "HTML network surface = $n (want 0)" [ "$n" = 0 ]
 [ "$n" = 0 ] || grep -nE "$NETSURF_RE" "$H" | show

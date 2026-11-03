@@ -49,7 +49,7 @@ function deselect() {
   return null;
 }
 let lastPinClick = { id: null, t: -Infinity };
-function clickPin(id, t) {   // §5.6/§9.2, MUSS BLEIBEN 10: a click on a star toggles its pin (clients additively); bubbles are aggregates → no pin
+function clickPin(id, t) {   // §5.6/§9.2, MUST STAY 10: a click on a star toggles its pin (clients additively); bubbles are aggregates → no pin
   if (!S.aps.has(id) && !S.clients.has(id)) return false;
   const dbl = id === lastPinClick.id && t - lastPinClick.t < HIT.pinDebounceMs;   // double click: no second toggle (PointerEvent.timeStamp, UI only — not a data/render clock)
   lastPinClick = { id, t };

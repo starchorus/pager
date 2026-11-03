@@ -34,7 +34,7 @@ let pollPromise = null, firstPollDone = false;
 // D3: a poll that never answers ends after POLL_TIMEOUT_MS: the request is aborted and the tick counts like a failed poll,
 // so a hung server or a half-open connection cannot keep the chip on "Live". `?pollto=<ms>` shortens it for tests only.
 const POLL_TIMEOUT_MS = Number.isFinite(+query.pollto) && +query.pollto >= 100 ? Math.min(+query.pollto, 60000) : 4000;
-function tryPoll(tickMs) {   // MUSS BLEIBEN 1: the page's only network call; returns the in-flight promise (no double request). tickMs: the poll time it stands for
+function tryPoll(tickMs) {   // MUST STAY 1: the page's only network call; returns the in-flight promise (no double request). tickMs: the poll time it stands for
   if (query.demo1) return Promise.resolve({ ok: false });   // ?demo=1 (§2.7): nothing is requested
   if (pollPromise) return pollPromise;
   const ac = typeof AbortController === "function" ? new AbortController() : null;

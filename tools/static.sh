@@ -231,7 +231,7 @@ pb fail "x"
 rowif "page ceiling judge on dummies ($((pbn - pbbad))/$pbn as expected)" [ "$pbbad" = 0 ]
 PG_SZ=$(wc -c < "$H" | tr -d ' ')
 rowif "page size $PG_SZ bytes ≤ $MAX_PAGE_BYTES (a sanity ceiling, not a budget)" page_bytes_ok "$PG_SZ"
-# §11.0 global criterion (MUSS BLEIBEN 12). The first row is anchored on the fallback STATEMENT in
+# §11.0 global criterion (MUST STAY 12). The first row is anchored on the fallback STATEMENT in
 # normalizeDoc, not on the bare string: "YOU ARE HERE" also occurs in demoData and in the S.centerLabel
 # default, so a whole-file count of the string survives the deletion of the fallback itself.
 rowif "YOU ARE HERE fallback present" [ "$(g 'doc\.center\.label = "YOU ARE HERE"')" = 1 ]
