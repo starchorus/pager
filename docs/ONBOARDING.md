@@ -3,7 +3,7 @@
 Starchorus is a strictly passive radio monitor for the WiFi Pineapple Pager: it receives, reads and
 counts what the airwaves and the device's own services already hold, and draws it as a quiet page.
 It sends nothing. This note is the short way in for someone new to the code. The reference material
-it points to is the authority; this is only the map.
+it points to is the authority; this note is only a way in.
 
 ## Read in this order
 
@@ -24,14 +24,17 @@ association, no active scan, no Bluetooth inquiry. A change that adds an active 
 even behind a switch. The rule is stated in [SECURITY.md](SECURITY.md) and
 [CONTRIBUTING.md](CONTRIBUTING.md), and it is enforced by a tool, not by trust (see "The gates").
 
-## The map
+## The parts
+
+Where to look inside each part, with the text to find it by and the drop-ins that cover it:
+[docs/MAP.md](MAP.md).
 
 | Path | What it is |
 |---|---|
 | `starchorus-collect.sh` | The collector: a POSIX shell script that reads the recon database (a read-only copy), or listens in monitor mode, or reads the AP service's recon lists, and writes `starchorus.json`. The largest file; it carries its `awk` programs as shell strings. |
 | `starchorus-display.sh` | The Overview: the on-device screen (eight screens), driven by the device's display commands and `jq`. A byte-identical copy lives under `library/.../starchorus/`. |
 | `starchorus-serve.sh` | The page server: a small netcat listener that serves the page and the JSON on the device. |
-| `payload.sh` | The Hak5 payload: starts and stops the collector and the server, and the menu. Its user copy is under `library/.../starchorus/`. |
+| `payload.sh` | A lean launcher to copy by hand: it starts the collector and a static page server. The Hak5 payload itself, with the menu and Settings, is `library/user/reconnaissance/starchorus/payload.sh`. |
 | `starchorus.html` | The page: a single self-contained file, **built** from the fragments under `src/`, never edited by hand. |
 | `src/` | The page's fragments (one per section, named by section number) and the build manifest. `sh tools/build-page.sh` joins them into `starchorus.html`. |
 | `docs/` | The specification (`architecture.md`), the device notes (`device-notes.md`), the ways to reach the page (`display-paths.md`). |
@@ -70,6 +73,9 @@ Give it time, and never pass `--no-verify`.
 - **The page** is built from fragments. Edit the fragment under `src/css`, `src/html` or `src/js`
   (its name carries the section number), run `sh tools/build-page.sh`, and commit `src/` together
   with the rebuilt `starchorus.html`. A hand-edited page is red.
+- **Work in pieces.** [docs/MAP.md](MAP.md) gives each part's text to find it by and the drop-ins that cover it.
+  `sh tools/affected.sh` lists the drop-ins a change reaches, and `--run` runs them alone (one by name:
+  `sh tools/quick.sh only NAME`); the full run, `sh tools/regress.sh`, remains the gate before a push or a release.
 - **The collector and the Overview** run on the device under BusyBox `ash` and a cut-down `awk` and
   `jq`: POSIX only, no bashisms, no GNU-only flags, no `jq` regex builtins. Arithmetic is
   double-precision, so a large integer wants exact (string) handling, not plain `awk` maths.

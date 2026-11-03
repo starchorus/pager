@@ -94,6 +94,9 @@ Beyond the two mandatory checks, everything here is offered to contributors, not
 - `sh tools/quick.sh docs`: the documents mode, about fifteen seconds as of 24 October 2026: the
   documentation rows that bind the text to the code (version, the specification's tables, hand-typed
   lists and numbers). It needs Chrome.
+- `sh tools/affected.sh`: the drop-ins your change reaches, read from the repository map
+  [docs/MAP.md](docs/MAP.md); `--run` runs them alone through `sh tools/quick.sh only`. A help for work in pieces:
+  the full run, `sh tools/regress.sh`, stays the gate before the merge.
 - `sh tools/install-hooks.sh`: once per clone; after that, `quick.sh` runs on the staged state with
   every commit that touches code, tests or tools, and `quick.sh docs` with every commit that stages
   a document (this file, the README, `docs/` and the like), alone, or after `quick.sh` when code is

@@ -6,7 +6,7 @@
 # It defines row/rowif/g/le/ge/secs and the baselines and floors (BASE_*, MIN_*), prints the environment lines, then the
 # rows. `fail` is reset here and read by the caller afterwards (exit $fail).
 #   STATIC_SELFTEST=0   do not run the collector selftest (about 20 s, T2 only); the judge on dummies still runs.
-#   QUICK_DROPINS       the drop-ins tools/quick.sh adds (each must be Chrome-free: a row below counts runq/cdp.py/verify.sh).
+#   QUICK_DROPINS       the drop-ins tools/quick.sh adds (each must be Chrome-free: a row below counts the lines that match QUICK_CHROME_RE).
 # No `git` here: the pre-commit hook runs this on an export of the index, where there is no .git (find and globs only).
 # The numbers embedded in row names are measurements and may differ from run to run.
 # Dev machine only (POSIX sh + python3); nothing here runs on the device or sends anything.
@@ -166,7 +166,7 @@ MIN_SELFTEST=581          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's
 MIN_SECTIONS=42           # grep -c '==== [0-9][0-9] ' starchorus.html                        (measured: 00..41; a bare '==== [0-9]' also counts the 17b marker)
 MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four frame parts and one fragment for each of 00..41; about 80 %)
 MIN_FIXTURES=16           # ls tests/fixtures/*.json | wc -l   (measured: 16, wids.json of 0.2.7 included; 15 before)
-MIN_QUICK_DROPINS=7       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server device-probe mutation-probe)
+MIN_QUICK_DROPINS=8       # set -- $QUICK_DROPINS $QUICK_DROPINS_MUTATE; echo $#                (doc-drift jq-noregex preflight hak5-package page-server device-probe repo-map mutation-probe)
 MIN_QUICK_ROWS=90         # sh tools/quick.sh | grep -c ' PASS$'   (measured: 121, 22 October 2026, with the device probe's seven rows and its 'ran' row; quick.sh's own rows are also asked for by name)
 MIN_DATA_ORACLE_CASES=122 # python3 -B tools/data-oracle.py selftest | sed -n 's/^data-oracle selftest: \([0-9]*\)\/.*/\1/p'   (measured: 146, 1 November 2026: the probe judge's two cases for the ripple in wids.json; 140 before)
 MIN_PYFILES=5             # ls tools/*.py | wc -l                                               (cdp.py, gen-testdata.py, fuzz-doc.py, data-oracle.py, doc-truth.py)
@@ -183,8 +183,10 @@ MAX_PAGE_BYTES=1000000
 ACTIVE_GEN="--source iw-scan-ACTIVE --aps 24 --vendor-frac 0.5 --seed 158"   # tests/fixtures/active.json
 # The drop-ins tools/quick.sh runs besides these rows. Chrome-free by construction (a row below counts it). Not split out of
 # legal/-p10: their Chrome-free parts (denylist selftest/--extended, display LOG) are interleaved with Chrome runs there.
-QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package page-server device-probe"
+QUICK_DROPINS="doc-drift jq-noregex preflight hak5-package page-server device-probe repo-map"
 QUICK_DROPINS_MUTATE="mutation-probe"   # added by quick.sh only when QUICK_MUTATE=1 (the hook sets it when the checker itself is staged)
+# What starts Chrome in a drop-in's text (non-comment lines): the row below keeps the quick drop-ins free of it; repo-map.sh reads it.
+QUICK_CHROME_RE='runq|runseq|cdp\.py|verify\.sh'
 
 # ---- static page rules (token reads "≤ baseline")
 rowif "Math.random = 0" [ "$(g 'Math.random')" = 0 ]
@@ -640,7 +642,7 @@ qdn=0; qdbad=""
 for qd in $QUICK_DROPINS $QUICK_DROPINS_MUTATE; do
   qdn=$((qdn + 1)); qf="tools/regress.d/$qd.sh"
   if [ -f "$qf" ]; then
-    qdc=$(grep -v '^[[:space:]]*#' "$qf" | grep -cE 'runq|runseq|cdp\.py|verify\.sh')
+    qdc=$(grep -v '^[[:space:]]*#' "$qf" | grep -cE "$QUICK_CHROME_RE")
     [ "$qdc" = 0 ] || qdbad="$qdbad $qd(Chrome:$qdc)"
   else qdbad="$qdbad $qd(missing)"; fi
 done
