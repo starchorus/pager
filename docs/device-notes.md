@@ -1069,6 +1069,18 @@ to 167. The first cycle of either costs 1,234 to 1,342, with the OUI index built
 cycle with Bluetooth from `blue5.db` sits under the 0.2.7 plan's 200-tick target, and the memo took the one avoidable Bluetooth cost out of
 it; the `--once` figures above are what a cold start costs, not what the running payload costs.
 
+The loop measured again on 3 November 2026, on the second development install of 0.2.7 (the collector of 1 November with the awk paths
+through the environment and the payload's Alert Rules row, Contract 4), the same way (a RAM lab directory, interval 30, the payload's
+environment, Bluetooth from `blue5.db`, six cycles per variant, the lab removed afterwards), in a larger neighbourhood: 28 access points,
+about 160 to 190 stations and 25 to 28 Bluetooth addresses, 20 to 23 of them with a company name. With the five derived kinds of alert off,
+206 to 214 ticks per steady cycle; with them on, 294 to 333, so the rules cost 80 to 120 ticks at this many stations (the 50 of 1 November
+were single cycles at 70 stations); the first cycle 1,338 to 1,414. A steady cycle without the rules is thus a little over the plan's
+200-tick target here, where the loop of 1 November, at 15 addresses and 70 stations, sat under it: the cost grows with the stations and the
+addresses, not with the build. Two facts for whoever measures next: the collector keeps one loop per device (`replace_loops`), so a lab loop
+started beside the payload's loop replaces that loop, which must then be started again (it was, the same evening); and a lab started
+without `nice` takes the core from a loop at nice 19 for as long as it runs. The collector's self-test passed in full on the device as of
+3 November 2026 (569 checks; 581 on the development machine as of the same day).
+
 ## 7. No web server, and how the display works
 
 ### The page in the browser
