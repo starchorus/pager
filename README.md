@@ -140,7 +140,7 @@ Starchorus 0.2.6.2. The main parts carry the same number:
   counter 'BT addresses' (it keeps its count while the marks are hidden, and reads a dash when a scan failed and nothing is held) and
   the legend say which window the figure covers. Without a valid scan this cycle the marks are kept for two minutes and dim by age. A
   mark has a tooltip; a mark whose address broadcasts Remote ID also has a detail sheet (no input, identity or pin) and shows what the
-  broadcast says, as text and 'as broadcast, not checked', in its tooltip rows, that sheet, ten CSV columns and a SITREP block; when both positions are broadcast, the tooltip, the sheet and the SITREP end with 'Operator–aircraft', the horizontal distance between them that the page works out (whole metres, marked derived), never a distance from the Pager. From the firmware's own database the tooltip also says what the addresses
+  broadcast says, as text and 'as broadcast, not checked', in its tooltip rows, that sheet, ten CSV columns and a SITREP block; when both positions are broadcast, the tooltip, the sheet and the SITREP end with 'Operator–aircraft', the horizontal distance between them that the page works out (whole metres, marked derived), never a distance from the Pager, and the sheet draws the two positions under its rows to scale, north up (the operator a ring, the aircraft a disc, the figure beside the dashed line between them; the Pager is not on it). From the firmware's own database the tooltip also says what the addresses
   advertise as, in one of fourteen fixed words such as 'finder frame', 'beacon' or 'phone', each with its count in a folded mark
   ('advertising as beacon ×1, finder frame ×2'): a claim the advertisement makes, never an identification of a device.
 - **Channel activity and traffic** (opt-in, Settings > Traffic, or `STARCHORUS_TRAFFIC=1`): the AP service's frame count per frequency
@@ -571,8 +571,8 @@ The collector produces exactly the format the page reads:
   at most 256, strongest first; `class` is one of fourteen fixed words for what the advertisement itself claims to be, such as `beacon`,
   `finder frame`, `pairing frame` or `phone`, read from the Pager's own Bluetooth database and never an identification; `remote_id` carries
   what a drone's Remote ID broadcast says, as broadcast and unchecked: the aircraft type, the id type and id, the status, position and
-  altitude it reports, and the operator's position and id, never a direction or a distance of ours; the page's row 'Operator–aircraft' is
-  worked out on the page from the two positions and is not in the document), with
+  altitude it reports, and the operator's position and id, never a direction or a distance of ours; the page's row 'Operator–aircraft' and its plan are
+  worked out on the page from the two positions and are not in the document), with
   `center.bt_window` (the scan's length in seconds, `0` when this cycle had no valid scan) and
   `center.bt_hold`; `activity[]` (`freq`, `share`: the share of the frames heard on that frequency among all frequencies from 2400 MHz up,
   never a count) and the absolute `packets` counter on stations. `channels[]` is unchanged, so the baseline and the Watchlist never read

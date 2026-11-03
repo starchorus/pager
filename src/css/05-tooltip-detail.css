@@ -35,6 +35,12 @@
 #detail td .est { color: var(--ink-secondary); }
 #detail canvas#detail-spark { display: block; width: 240px; height: 64px; margin: 6px 0 2px; }
 canvas#detail-spark:focus-visible { outline: 2px solid var(--accent-focus); }
+/* 0.2.7 the Remote ID plan under the sheet's rows (ridPlan): colours by token; a drawing, so its words and units keep their case where the panel's chrome is in capitals */
+.rp { display: block; width: 100%; margin: 8px 0 2px; border: 1px solid var(--line-hairline); font-size: 9px; text-transform: none; letter-spacing: 0; }
+.rp text { fill: var(--ink-secondary); } .rp .f { fill: var(--ink-primary); font-weight: 600; }
+.rp path { fill: none; stroke: var(--ink-secondary); } .rp .l { stroke-dasharray: 3 3; }
+.rp circle { fill: none; stroke: var(--bt-mark); stroke-width: 1.5; } .rp .a { fill: var(--bt-mark); stroke: none; }
+#detail .legrow.note { margin: 2px 0 8px; }
 
 #help { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: 420px; width: min(420px, 92vw); max-height: calc(100vh - 112px); display: flex; flex-direction: column; z-index: 40; padding: 12px 16px 12px; }
 #help h3 { margin: 0 0 8px; font-size: var(--size-title); font-weight: 600; }

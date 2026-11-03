@@ -265,9 +265,9 @@ negative probes: `tools/README.md` (Drop-ins) and the drop-in's own header.
 | `poll-cadence` | `page` `10-stage` `20-config` `25-ingest` `38-data-source` |
 | `preflight` | `collector` `tools/quick.sh` `tools/regress.sh` `tools/static.sh` |
 | `radio-pair` | `page` `fixtures` `20-config` `23-normalize` `25-ingest` `29-analyzer` `30-step` `34-render-layers` `36-interaction` `37-ui` `tools/denylist-check.sh` `tools/denylist-cs.txt` `tools/denylist-words.txt` `tools/denylist.txt` `tools/fuzz-doc.py` `tools/gen-testdata.py` |
-| `remote-id` | `page` `23-normalize` `29-analyzer` `34-render-layers` `36-interaction` `37-ui` `tools/denylist-check.sh` `tools/denylist-cs.txt` `tools/denylist-words.txt` `tools/denylist.txt` `tools/gen-testdata.py` `tools/regress.d/neutral-language.sh` `tools/regress.d/scope.sh` |
+| `remote-id` | `page` `05-tooltip-detail` `23-normalize` `29-analyzer` `34-render-layers` `36-interaction` `37-ui` `tools/denylist-check.sh` `tools/denylist-cs.txt` `tools/denylist-words.txt` `tools/denylist.txt` `tools/gen-testdata.py` `tools/regress.d/neutral-language.sh` `tools/regress.d/scope.sh` |
 | `repo-map` | `page` `collector` `overview` `payload` `serve` `hooks` `docs` `tools` `src/*/*` |
-| `scope` | `page` `fixtures` `20-config` `21-themes-encoding` `24-state` `26-layout-2d` `30-step` `34-render-layers` `37-ui` `tools/denylist-words.txt` `tools/evals/legend-truth.js` `tools/gen-testdata.py` |
+| `scope` | `page` `fixtures` `20-config` `21-themes-encoding` `24-state` `26-layout-2d` `29-analyzer` `30-step` `34-render-layers` `37-ui` `tools/denylist-words.txt` `tools/evals/legend-truth.js` `tools/gen-testdata.py` |
 | `shell-dialect` | `collector` `overview` `payload` `serve` `tools` |
 | `small-screen` | `page` `fixtures` `tools/regress.d/edge-layout.sh` |
 | `source-truth` | `page` `overview` `fixtures` `head` `11-masthead-stats` `21-themes-encoding` |

@@ -683,21 +683,34 @@ function ridRows(r) {   // 0.2.7 Remote ID as [label, text] rows: tooltip, sheet
   const v = (k) => ridV(r, k), j = (a, b) => [v(a), v(b)].filter(Boolean).join(" · "), p = (o) => v(o + "lat") && "lat " + v(o + "lat") + ", lon " + v(o + "lon");
   return [["Aircraft", j("ua_type", "status")], ["ID", j("uas_id", "id_type")], ["Position", p("")], ["Altitude", v("alt_m") && v("alt_m") + " m"], ["Operator position", p("operator_")], ["Operator ID", v("operator_id")], ridGap(r)].filter(x => x[1]);
 }
-function ridGeo(r) {   // operator to aircraft from the two positions of one broadcast (haversine, mean earth radius), never from the Pager; e and n in m for a plan
+function ridGeo(r) {   // operator to aircraft from the two positions of one broadcast (haversine, mean earth radius), never from the Pager; e and n in m for the plan: the figure laid along the initial bearing at the operator, so the drawn length is the figure
   if (r.lat == null || r.operator_lat == null) return null;
-  const k = Math.PI / 180, R = 6371008.8, p = r.operator_lat * k, q = r.lat * k, l = ((r.lon - r.operator_lon + 540) % 360 - 180) * k,
+  const k = Math.PI / 180, R = 6371008.8, p = r.operator_lat * k, q = r.lat * k, l = (r.lon - r.operator_lon) * k,
     a = Math.sin((q - p) / 2), b = Math.sin(l / 2), h = a * a + Math.cos(p) * Math.cos(q) * b * b;
-  return { d: 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), e: R * l * Math.cos((p + q) / 2), n: R * (q - p) };
+  const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), t = Math.atan2(Math.sin(l) * Math.cos(q), Math.cos(p) * Math.sin(q) - Math.sin(p) * Math.cos(q) * Math.cos(l));
+  return { d, e: d * Math.sin(t), n: d * Math.cos(t) };
 }
 const ridM = (d) => String(d < 1e3 ? Math.round(d) : +d.toPrecision(3)).replace(/\B(?=(\d{3})+$)/g, ",") + " m";   // whole metres, three figures from 1,000 m, grouped by commas
 function ridGap(r) {   // the derived row: none without both positions
   const g = ridGeo(r);
   return g ? ["Operator–aircraft", ridM(g.d) + " (derived, horizontal)"] : [];
 }
+function ridPlan(k, r) {   // the plan under the sheet's rows, to scale and north up: the operator a ring, the aircraft a disc at its mark's freshness, the figure beside the line between them, a scale bar, the north arrow, the broadcast altitude; inline SVG coloured by the theme's tokens, rebuilt with the sheet
+  const g = ridGeo(r); if (!g) return "";
+  const s = Math.min(120 / Math.abs(g.e), 60 / Math.abs(g.n), 6), x = g.e * s / 2, y = -g.n * s / 2, h = Math.hypot(x, y), u = h > 20 ? [x / h, y / h] : [0, y > 0 ? 1 : -1],
+    f = (v) => v.toFixed(1), P = (c, a) => f(120 + c * x) + a + f(50 + c * y), an = (v) => v > 0.4 ? "start" : v < -0.4 ? "end" : "middle",
+    t = (a, b, w, v, c) => '<text x="' + f(a) + '" y="' + f(b + 3) + '" text-anchor="' + w + '"' + (c ? ' class="' + c + '"' : "") + ">" + v + "</text>",
+    T = (c, v) => t(120 + c * (x + 12 * u[0]), 50 + c * (y + 12 * u[1]), an(c * u[0]), v),
+    M = 48 / s, L = Math.pow(10, Math.floor(Math.log10(M))), B = L * (M / L >= 5 ? 5 : M / L >= 2 ? 2 : 1), q = h > 20 ? 9 + (Math.abs(u[1]) <= 0.4 ? 2.6 * ridM(g.d).length * Math.abs(u[1]) : 0) : 12 + Math.abs(x);
+  return '<svg class="rp" viewBox="0 0 240 120" aria-hidden="true"><path class="l" d="M' + P(-1, " ") + "L" + P(1, " ") + '"/><circle cx="' + P(-1, '" cy="') + '" r="5.5"/><circle class="a" cx="' + P(1, '" cy="') + '" r="3.5" fill-opacity="' + k.freshAT + '"/>'
+    + T(1, "aircraft") + T(-1, "operator") + t(120 - q * u[1], 50 + q * u[0], an(-u[1]), ridM(g.d), "f") + '<path d="M22 108v4h' + f(B * s) + 'v-4M8 117v-13m-3 4 3-4 3 4"/>'
+    + t(26 + B * s, 109, "start", ridM(B)) + t(8, 98, "middle", "N") + (r.alt_m != null ? t(232, 109, "end", "altitude " + ridV(r, "alt_m") + " m") : "")
+    + '</svg><div class="legrow note">' + derivedSwatch() + "<span>Drawn to scale, north up, from the two broadcast positions (derived): the operator's position may be from an earlier broadcast, and the Pager is not on it.</span></div>";
+}
 function ridSheet(k, r) {   // no input, identity, pin or member list
   let h = '<div class="obsnote">' + esc(btTip(k)) + "</div><table>";
   for (const [t, v] of [["Address", k.m[0].addr], ["Name", k.m[0].name], ["Freshness", heardWord(k)], ...ridRows(r)]) if (v) h += row(t, esc(v));
-  return h + '</table><div class="obsnote">' + RID_NOTE + "</div>";
+  return h + "</table>" + ridPlan(k, r) + '<div class="obsnote">' + RID_NOTE + "</div>";
 }
 function showTip(n) {
   const kv = (k, v, cls = "v") => '<span class="k">' + k + '</span><span class="' + cls + '">' + v + '</span>';   // one row of the tooltip grid

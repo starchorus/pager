@@ -387,7 +387,7 @@ function drawClients() {
   }
   setAlpha(ctx, 1);
 }
-function drawBt() {   // §3.3 the strongest 48 marks, up to LOD 2
+function drawBt() {   // §3.3 the first 48 marks of the order (watched, then Remote ID, then the strongest), up to LOD 2
   if (!S.bt.size || S.perf.lod > 2) return;
   const ctx = ctxSky;
   for (const k of S.bt.values()) {

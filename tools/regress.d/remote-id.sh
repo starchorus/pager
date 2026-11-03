@@ -9,21 +9,31 @@
 #   the validator does not refuse · R3 the marks · R4 the tooltips, word for word · R5 the sheets (a real click too; a mark without Remote ID selects
 #   nothing; no input, identity or pin; no storage key) · R6 the selection ring in three themes · R7 the exports, word for word · R8 without Remote ID the
 #   exports and marks are those of a page copy with the feature planted out · R9 hostile text · R10 a position is never carried into a later capture ·
-#   R11 the words · R12 the page's word lists are the validator's · R14 GET only · R15 planted copies ·
-#   R16 operator to aircraft, the one figure the page works out from a broadcast, in ten scenes · R16b its three probes
+#   R11 the words (one named phrase let through, with a control and a leak dummy) · R12 the page's word lists are the validator's · R14 GET only ·
+#   R15 planted copies · R16 operator to aircraft, the one figure the page works out from a broadcast, in ten scenes · R16b its three probes · R17 the
+#   plan of the two positions under the sheet's rows, to scale and north up, in thirteen scenes · R18 the plan in three themes · R19 the plan on a phone ·
+#   R20 every aircraft among the drawn marks · R20b the plan's eleven probes
 # GUARDS AGAINST: a validator that takes a document the browser cannot parse (a NaN or Infinity literal) or a position that prints as 0/0; a record with Remote ID folded into the mark of its company and ring, or two addresses joined by the id they broadcast; a word, an id or a
 #                 number that is not on the contract's lists or in its range shown as if broadcast; text from the air that becomes markup; a position from
 #                 an earlier capture shown with a later one; a sheet for a mark without Remote ID, or one with an input, an identity or a pin; a selected
 #                 mark without its ring; an export that changes for a capture without Remote ID; a word of P10, of direction or distance, or track, pilot,
 #                 locate, scanner, away, near in anything the feature prints; the page's word lists drifting from the validator's; a figure worked out from one
-#                 pair, with lat and lon swapped, on a flat earth or the long way across the seam; the figure in the JSON or the CSV.
+#                 pair, with lat and lon swapped, on a flat earth or the long way across the seam; the figure in the JSON or the CSV; a plan with east and
+#                 west or north and south swapped, its ends mislabelled, without the freshness of its mark, with two close points drawn far apart or their labels
+#                 dragged onto the other point, an altitude printed without one, a scale bar whose drawn length is not its label's, a figure under its own
+#                 line, or a colour or style set on the drawing itself; an aircraft
+#                 that is not among the drawn and hit marks while stronger addresses are about; a direction word beyond the one named phrase, or a dead exception.
 # NEGATIVE PROBE: R15 runs the evals on planted copies of the page, each differing from it in the lines named: the sheet's esc removed, a sheet for every
 #                 mark, Remote ID folded again, the position carried over from the capture before, no ring in drawBt, and a word outside its list kept;
 #                 each turns exactly its own keys red; R16b's three copies (the cosine term swapped, a flat earth, a figure from one pair) turn
-#                 exactly their scenes red (the one-pair copy in the SITREP as well, which lists every record). R8's copy (normRid, the group key and the export rows planted out) must differ from the page in
+#                 exactly their scenes red (the one-pair copy in the SITREP as well, which lists every record); R20b's eleven copies (east and west swapped,
+#                 north and south swapped, the close-range cap gone, the ends mislabelled, the freshness dropped, the stacked labels fixed upward, a style on
+#                 the drawing itself, an altitude always printed, the bar drawn at the wrong length, the figure back on its line, the ranking removed) turn
+#                 exactly their scenes red; R11 reads its ok dummy once more without the exception (red on the note's 'north') and a leak dummy must stay flagged.
+#                 R8's copy (normRid, the group key and the export rows planted out) must differ from the page in
 #                 the capture with Remote ID only. The word judges flag a dummy, the list judge a changed word.
 # NOT PROVEN:     a broadcast heard by a Pager (the decoder is checked against the standard and synthetic packs in the collector's self-test, not in
-#                 the field); the sheet on a phone, in the Scope's fan and in 3D after the camera's flight (the same openDetail, not run here); how a
+#                 the field); the sheet in the Scope's fan and in 3D after the camera's flight (the same openDetail as on the desktop and the phone, not run there); how a
 #                 newcomer reads 'as broadcast, not checked'; the figure on a real broadcast, whose operator position may be a take-off point or held from
 #                 an earlier capture without an age.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only RI_* globals and ri_* functions (with their _ri_* locals) are set.
@@ -267,7 +277,7 @@ const seen=new Set(),add=(s)=>{for(const l of String(s==null?"":s).split("\n")){
 ld(d=>{d.aps=[];d.unassociated=[];},G,"ri-words");await sleep(1600);
 for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await sleep(200);
  for(const id of live()){const n=STARCHORUS.nodeScreen(id);STARCHORUS.hover(n.sx,n.sy);add(E("tip-body").innerText);add(E("tip-body").textContent);
-  if(STARCHORUS.select(id)){add(E("detail-title").textContent);add(E("detail-body").innerText);STARCHORUS.deselect();}}}
+  if(STARCHORUS.select(id)){const b=E("detail-body");add(E("detail-title").textContent);add(b.innerText);for(const x of b.querySelectorAll("svg text,svg title,svg desc,.legrow.note,[aria-label],[title],[alt]"))add(x.textContent+" "+(x.getAttribute("aria-label")||"")+" "+(x.getAttribute("title")||"")+" "+(x.getAttribute("alt")||""));STARCHORUS.deselect();}}}
 STARCHORUS.setTheme("foundation");STARCHORUS.hover(5,5);for(const f of ["json","csv","sitrep"])add(STARCHORUS.exportText(f));
 return [...seen].join("\n");})()'
 runq "$RI_FX" "$RI_Q" "$RI_T/words" --fps 0 --wait 3 --ready "$RI_RDY" --eval-timeout 120 --eval "$RI_EV_WORDS" >/dev/null 2>&1
@@ -275,25 +285,33 @@ evalv "$RI_T/words.json" 1 > "$RI_T/words.txt"
 RI_P10=$(sed -n "s/^NTL_P10_RE='\(.*\)'\$/\1/p" tools/regress.d/neutral-language.sh | head -n 1)   # the one definition of the P10 words, read where it lives
 RI_DIRW='direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther'
 RI_DIRN=$(grep -cF "$RI_DIRW" tools/regress.d/scope.sh)   # the Scope's word judge holds the same words (a copy that drifts is red)
+RI_ALLOW='Drawn to scale, north up'   # the one phrase the direction judge lets through (the owner's word of 3 November 2026 for the plan, for its note alone); RI_DIRW stands
 printf '%s\n' 'the pilot is north of the Pager, 30° and 2 km away: track the target' > "$RI_T/words-bad.txt"
-printf '%s\n' 'Remote ID · as broadcast, not checked' 'Operator position: lat 0.7500000, lon -30.5000000' 'Altitude: 120.5 m' 'Operator–aircraft: 39,300 m (derived, horizontal)' > "$RI_T/words-ok.txt"
+printf '%s\n' 'Remote ID · as broadcast, not checked' 'Operator position: lat 0.7500000, lon -30.5000000' 'Altitude: 120.5 m' 'Operator–aircraft: 39,300 m (derived, horizontal)' \
+  "$RI_ALLOW, from the two broadcast positions (derived): the operator's position may be from an earlier broadcast, and the Pager is not on it." 'aircraft' 'operator' 'N' 'altitude 120.5 m' '20,000 m' > "$RI_T/words-ok.txt"
+printf '%s\n' "$RI_ALLOW, 2 km north of the Pager" 'north up' 'Operator–aircraft: 312 metres' 'DRAWN TO SCALE, NORTH UP' > "$RI_T/words-leak.txt"   # lines the exception must leave flagged
 cat > "$RI_T/words.py" <<'PY'
 import re, sys
-p10, dirw = sys.argv[2], sys.argv[3]
+p10, dirw, allow = sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else ""
 J = {"p10": p10, "dir": r"(?i)\b(" + dirw + r"|(?:near|close to|next to) (?:the )?pager|(?:nearest|closest) (?:ring|arc))\b|°",
      "more": r"(?i)\b(track(s|ed|ing)?|pilot(s|ed)?|locat(e|es|ed|ing|ion)|scanner|away|near)\b"}
 t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
-print(" ".join("%s:%d" % (k, len(re.findall(v, t, re.I))) for k, v in J.items()), len(t))
+u = re.sub(re.escape(allow), " ", t, flags=re.I) if allow else t   # the one named phrase (the plan's note) leaves the text the direction count reads, and nothing else
+print(" ".join("%s:%d" % (k, len(re.findall(v, u if k == "dir" else t, re.I))) for k, v in J.items()), len(t))
 PY
-RI_WH=$(python3 "$RI_T/words.py" "$RI_T/words.txt" "$RI_P10" "$RI_DIRW")
-RI_WB=$(python3 "$RI_T/words.py" "$RI_T/words-bad.txt" "$RI_P10" "$RI_DIRW")
-RI_WC=$(python3 "$RI_T/words.py" "$RI_T/words-ok.txt" "$RI_P10" "$RI_DIRW")
+RI_WH=$(python3 "$RI_T/words.py" "$RI_T/words.txt" "$RI_P10" "$RI_DIRW" "$RI_ALLOW")
+RI_WB=$(python3 "$RI_T/words.py" "$RI_T/words-bad.txt" "$RI_P10" "$RI_DIRW" "$RI_ALLOW")
+RI_WC=$(python3 "$RI_T/words.py" "$RI_T/words-ok.txt" "$RI_P10" "$RI_DIRW" "$RI_ALLOW")
+RI_WX=$(python3 "$RI_T/words.py" "$RI_T/words-ok.txt" "$RI_P10" "$RI_DIRW")   # the control: without the exception the note's 'north' is counted
+RI_WL=$(python3 "$RI_T/words.py" "$RI_T/words-leak.txt" "$RI_P10" "$RI_DIRW" "$RI_ALLOW")
+RI_WA=$(grep -c -i -F "$RI_ALLOW" "$RI_T/words.txt")   # the phrase is in what the judges read (the note as written and in capitals): the exception is live
+RI_WP=$(grep -c -x -E 'aircraft|operator|N' "$RI_T/words.txt")   # the plan's own words are read one by one
 RI_WN=$(grep -c -e 'Operator position' -e 'as broadcast, not checked' -e 'Altitude' "$RI_T/words.txt")
 RI_WG=$(grep -c -F '(derived, horizontal)' "$RI_T/words.txt")   # the derived row is in what the judges read (tooltip, sheet, SITREP)
 RI_WD=$(sh tools/denylist-check.sh "$R/$RI_T/words.txt" 2>&1); RI_WDR=$?
 RI_OK=0
-case "$RI_WH|$RI_WB|$RI_WC" in "p10:0 dir:0 more:0 "*"|p10:1 dir:3 more:3 "*"|p10:0 dir:0 more:0 "*) [ -n "$RI_P10" ] && [ "$RI_DIRN" = 1 ] && [ "$RI_WN" -ge 3 ] && [ "$RI_WG" -ge 3 ] && [ "$RI_WDR" = 0 ] && RI_OK=1 ;; esac
-rowif "remote id: words: the tooltips, sheets and exports ($RI_WH characters) hold no P10 word, no word of direction or distance and none of track, pilot, locate, scanner, away, near; the legal denylist holds; a dummy is flagged ($RI_WB) and the feature's own wording passes ($RI_WC), the derived row among what they read ($RI_WG lines); the direction words are the Scope judge's ($RI_DIRN)" [ "$RI_OK" = 1 ]
+case "$RI_WH|$RI_WB|$RI_WC|$RI_WX|$RI_WL" in "p10:0 dir:0 more:0 "*"|p10:1 dir:3 more:3 "*"|p10:0 dir:0 more:0 "*"|p10:0 dir:1 more:0 "*"|p10:0 dir:4 more:0 "*) [ -n "$RI_P10" ] && [ "$RI_DIRN" = 1 ] && [ "$RI_WN" -ge 3 ] && [ "$RI_WG" -ge 3 ] && [ "$RI_WA" -ge 2 ] && [ "$RI_WP" -ge 3 ] && [ "$RI_WDR" = 0 ] && RI_OK=1 ;; esac
+rowif "remote id: words: the tooltips, sheets (the plan's texts one by one) and exports ($RI_WH characters) hold no P10 word, no word of direction or distance beyond the one named phrase '$RI_ALLOW' of the plan's note (the owner's word of 3 November 2026; read $RI_WA times, so the exception is live) and none of track, pilot, locate, scanner, away, near; the legal denylist holds; a dummy is flagged ($RI_WB), the feature's own wording passes ($RI_WC) and fails without the exception ($RI_WX), a leak dummy stays flagged ($RI_WL), the derived row ($RI_WG lines) and the plan's words ($RI_WP) are among what they read; the direction words are the Scope judge's ($RI_DIRN)" [ "$RI_OK" = 1 ]
 [ "$RI_WDR" = 0 ] || printf '%s\n' "$RI_WD" | cut -c1-170 | sed 's/^/    /'
 
 # ---- R12 the page's word lists and key order are the validator's (and through collector-fields.sh the decoder's), word for word; a changed word is seen
@@ -376,8 +394,86 @@ ri_row "remote id: operator to aircraft: the horizontal distance the page works 
 # ---- R16b the figure's probes: a copy with lat and lon swapped in the cosine term, one with a flat earth and no seam, one that works a figure out of one pair
 RI_PROBES=""; RI_PBAD=""
 ri_probe gswap "$RI_EV_GAP" "$RI_W_GAP" "across,anti,full,pole" 1 'h = a * a + Math.cos(p) * Math.cos(q) * b * b;' 'h = a * a + Math.cos(r.operator_lon * k) * Math.cos(r.lon * k) * b * b;'
-ri_probe gflat "$RI_EV_GAP" "$RI_W_GAP" "pole,seam" 2 'l = ((r.lon - r.operator_lon + 540) % 360 - 180) * k,' 'l = (r.lon - r.operator_lon) * k,' \
-  'return { d: 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), e:' 'return { d: R * Math.hypot(q - p, l * Math.cos((p + q) / 2)), e:'
+ri_probe gflat "$RI_EV_GAP" "$RI_W_GAP" "pole,seam" 1 'const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(h))), t =' 'const d = R * Math.hypot(q - p, l * Math.cos((p + q) / 2)), t ='
 ri_probe glone "$RI_EV_GAP" "$RI_W_GAP" "loneAc,loneOp,sitrep" 1 'if (r.lat == null || r.operator_lat == null) return null;' 'if (r.lat == null && r.operator_lat == null) return null;'
 RI_GN=$(echo "$RI_PROBES" | wc -w | tr -d ' ')
 rowif "remote id: the distance probes bite ($RI_GN of 3: lat and lon swapped in the cosine term, a flat earth without the seam, a figure from one pair, which the SITREP shows for every record of the document), each turns exactly its keys red${RI_PBAD}" [ "$RI_GN/${RI_PBAD:-ok}" = "3/ok" ]
+
+# ---- R17 the plan: under the sheet's rows the two positions drawn to scale and north up (ridPlan), the operator a ring and the aircraft a disc at the
+# freshness alpha of its mark, a dashed line between them with the figure, a scale bar of 1, 2 or 5 × 10^n m, the north arrow and the broadcast altitude as
+# text; read as the circles' centres and radii (operator first), the paths (the dashed line, the bar and the arrow), every text with its place and anchor,
+# the disc's opacity, the attributes the drawing and its parts must not have (no xmlns, href, style or colour: the colours are the theme's tokens, by CSS)
+# and the derived note beneath. Thirteen scenes of 0d:01, each heard 4 s before its capture unless said: as generated; 300 m north and east; one point;
+# 3 m east (the close-range cap draws 3 m as 18 units, not across the plan) and 2 m south (the stacked labels go outward, the figure to the left); 1,500 m
+# at a shallow tilt (the figure clear of its line); across the seam and over the pole (the short way, the drawn length the figure's); heard 90 s ago (the
+# disc at 0.85); without an altitude; the aircraft alone and the operator alone (no plan). The seam and pole scenes are synthetic open-sea positions (the
+# owner's word of 2 November 2026).
+RI_EV_PLAN="(async()=>{$RI_JS"'
+const plan=()=>{STARCHORUS.select(M(1));const b=E("detail-body"),v=[...b.querySelectorAll("svg.rp")],r={plans:v.length};if(v.length){const s=v[0],f=(e,a)=>e.getAttribute(a);
+ r.c=[...s.querySelectorAll("circle")].map(e=>f(e,"cx")+","+f(e,"cy")+","+f(e,"r")).join("|");r.a=f(s.querySelector("circle.a"),"fill-opacity");r.p=[...s.querySelectorAll("path")].map(e=>(e.getAttribute("class")||"-")+":"+f(e,"d")).join("|");
+ r.t=[...s.querySelectorAll("text")].map(e=>e.textContent+"@"+f(e,"x")+","+f(e,"y")+","+f(e,"text-anchor")).join(";");
+ r.bad=[s,...s.querySelectorAll("*")].flatMap(e=>[...e.attributes].map(a=>a.name)).filter(n=>/^(xmlns|href|style|fill|stroke|color)$/.test(n)).length+"/"+f(s,"aria-hidden")+"/"+f(s,"viewBox");
+ r.note=s.nextElementSibling.className+"="+s.nextElementSibling.textContent;}
+ STARCHORUS.deselect();return r;};
+const sc={fx:{},north:{operator_lat:0.4973,operator_lon:-30.25},east:{operator_lat:0.5,operator_lon:-30.2527},same:{operator_lat:0.5,operator_lon:-30.25},close:{operator_lat:0.5,operator_lon:-30.250027},south:{operator_lat:0.500018,operator_lon:-30.25},shallow:{operator_lat:0.49651,operator_lon:-30.263033},seam:{lat:0.5,lon:179.999,operator_lat:0.5,operator_lon:-179.999},pole:{lat:89.999,lon:-30.25,operator_lat:89.999,operator_lon:149.75},age:{age:90},noAlt:{alt_m:null},onePair:{operator_lat:null,operator_lon:null},opOnly:{lat:null,lon:null,status:null,alt_m:null}};
+let g=G;ld(d=>{d.aps=[];d.unassociated=[];},g,"ri-plan");await sleep(1600);
+for(const [n,m] of Object.entries(sc)){g+=30;ld(d=>{d.aps=[];d.unassociated=[];const b=d.bluetooth.find(b=>b.addr===A(1)),r=b.remote_id;b.last_seen=d.generated-(m.age||4);for(const [k,v] of Object.entries(m)){if(k==="age")continue;if(v==null)delete r[k];else r[k]=v;}},g,"ri-plan");await sleep(300);o[n]=plan();}
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RI_W_PLAN='{"fx":{"plans":1,"c":"90.0,20.0,5.5|150.0,80.0,3.5","a":"1","p":"l:M90.0 20.0L150.0 80.0|-:M22 108v4h43.2v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@158.5,91.5,start;operator@81.5,14.5,end;39,300 m@113.6,59.4,end;20,000 m@69.2,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"north":{"plans":1,"c":"120.0,80.0,5.5|120.0,20.0,3.5","a":"1","p":"l:M120.0 80.0L120.0 20.0|-:M22 108v4h40.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@120.0,11.0,middle;operator@120.0,95.0,middle;300 m@129.0,53.0,start;200 m@66.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"east":{"plans":1,"c":"60.0,50.0,5.5|180.0,50.0,3.5","a":"1","p":"l:M60.0 50.0L180.0 50.0|-:M22 108v4h40.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@192.0,53.0,start;operator@48.0,53.0,end;300 m@120.0,62.0,middle;100 m@66.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"same":{"plans":1,"c":"120.0,50.0,5.5|120.0,50.0,3.5","a":"1","p":"l:M120.0 50.0L120.0 50.0|-:M22 108v4h30.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@120.0,41.0,middle;operator@120.0,65.0,middle;0 m@132.0,53.0,start;5 m@56.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"close":{"plans":1,"c":"111.0,50.0,5.5|129.0,50.0,3.5","a":"1","p":"l:M111.0 50.0L129.0 50.0|-:M22 108v4h30.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@129.0,41.0,middle;operator@111.0,65.0,middle;3 m@141.0,53.0,start;5 m@56.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"south":{"plans":1,"c":"120.0,44.0,5.5|120.0,56.0,3.5","a":"1","p":"l:M120.0 44.0L120.0 56.0|-:M22 108v4h30.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@120.0,71.0,middle;operator@120.0,35.0,middle;2 m@108.0,53.0,end;5 m@56.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"shallow":{"plans":1,"c":"60.0,66.1,5.5|180.0,33.9,3.5","a":"1","p":"l:M60.0 66.1L180.0 33.9|-:M22 108v4h41.4v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@191.6,33.8,start;operator@48.4,72.2,end;1,500 m@123.5,66.2,middle;500 m@67.4,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"seam":{"plans":1,"c":"180.0,50.0,5.5|60.0,50.0,3.5","a":"1","p":"l:M180.0 50.0L60.0 50.0|-:M22 108v4h27.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@48.0,53.0,end;operator@192.0,53.0,start;222 m@120.0,44.0,middle;50 m@53.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"pole":{"plans":1,"c":"120.0,80.0,5.5|120.0,20.0,3.5","a":"1","p":"l:M120.0 80.0L120.0 20.0|-:M22 108v4h27.0v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@120.0,11.0,middle;operator@120.0,95.0,middle;222 m@129.0,53.0,start;100 m@53.0,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"age":{"plans":1,"c":"90.0,20.0,5.5|150.0,80.0,3.5","a":"0.85","p":"l:M90.0 20.0L150.0 80.0|-:M22 108v4h43.2v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@158.5,91.5,start;operator@81.5,14.5,end;39,300 m@113.6,59.4,end;20,000 m@69.2,112.0,start;N@8.0,101.0,middle;altitude 120.5 m@232.0,112.0,end","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"noAlt":{"plans":1,"c":"90.0,20.0,5.5|150.0,80.0,3.5","a":"1","p":"l:M90.0 20.0L150.0 80.0|-:M22 108v4h43.2v-4M8 117v-13m-3 4 3-4 3 4","t":"aircraft@158.5,91.5,start;operator@81.5,14.5,end;39,300 m@113.6,59.4,end;20,000 m@69.2,112.0,start;N@8.0,101.0,middle","bad":"0/true/0 0 240 120","note":"legrow note=Drawn to scale, north up, from the two broadcast positions (derived): the operator'"'"'s position may be from an earlier broadcast, and the Pager is not on it."},"onePair":{"plans":0},"opOnly":{"plans":0},"errors":0}'
+ri_run plan "$RI_EV_PLAN"
+ri_row "remote id: the plan: under the sheet's rows the two positions to scale and north up, read as circles with their radii, paths, texts and the disc's opacity in thirteen scenes of 0d:01 (as generated; 300 m north and east; one point; 3 m east and 2 m south; 1,500 m at a shallow tilt; the seam and the pole the short way, the drawn length the figure's; heard 90 s ago, the disc at 0.85; without an altitude; no plan with the aircraft alone or the operator alone), with no xmlns, href, style or colour attribute on the drawing or its parts, and the derived note beneath" "$RI_W_PLAN"
+
+# ---- R18 the plan in three themes: the ring's stroke and the disc's fill are the theme's Bluetooth mark token, the texts the secondary ink and the figure
+# the primary ink, every path stroked in the secondary ink without a fill and the line dashed (computed styles against THEMES); the plan's text-transform
+# is none (its words keep their case where the panel's chrome is in capitals); the plan fits the sheet and every text its frame (a clipped label is red).
+# As generated, 300 m east and 300 m north, in Foundation, WarGames and Whitehall.
+RI_EV_THEMES="(async()=>{$RI_JS"'
+const rgb=(h)=>"rgb("+[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(", ")+")",cs=(e)=>getComputedStyle(e),res=[];
+const sc={fx:{},east:{operator_lat:0.5,operator_lon:-30.2527},north:{operator_lat:0.4973,operator_lon:-30.25}};let g=G;ld(d=>{d.aps=[];d.unassociated=[];},g,"ri-themes");await sleep(1600);
+for(const [n,m] of Object.entries(sc)){g+=30;ld(d=>{d.aps=[];d.unassociated=[];const b=d.bluetooth.find(b=>b.addr===A(1));b.last_seen=d.generated-4;for(const [k,v] of Object.entries(m))b.remote_id[k]=v;},g,"ri-themes");await sleep(300);
+ for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await sleep(200);STARCHORUS.select(M(1));const T=I.THEMES[t],b=E("detail-body"),s=b.querySelector("svg.rp"),sb=s.getBoundingClientRect(),bb=b.getBoundingClientRect();
+  const inside=(e)=>{const r=e.getBoundingClientRect();return r.left>=sb.left-0.5&&r.right<=sb.right+0.5&&r.top>=sb.top-0.5&&r.bottom<=sb.bottom+0.5;};
+  res.push(n+"/"+t+":"+[cs(s.querySelector("circle.a")).fill===rgb(T.render.btMark),cs(s.querySelector("circle:not(.a)")).stroke===rgb(T.render.btMark),cs(s.querySelector("text")).fill===rgb(T.ink.secondary),cs(s.querySelector("text.f")).fill===rgb(T.ink.primary),cs(s).textTransform==="none",sb.right<=bb.right+0.5&&sb.width>=200,[...s.querySelectorAll("text")].every(inside),[...s.querySelectorAll("path")].every(p=>cs(p).stroke===rgb(T.ink.secondary)&&cs(p).fill==="none"),/^3(px)?, 3(px)?$/.test(cs(s.querySelector("path.l")).strokeDasharray)].map(Number).join(""));
+  STARCHORUS.deselect();}}
+STARCHORUS.setTheme("foundation");o.themes=res.join(" ");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RI_W_THEMES='{"errors":0,"themes":"fx/foundation:111111111 fx/wargames:111111111 fx/whitehall:111111111 east/foundation:111111111 east/wargames:111111111 east/whitehall:111111111 north/foundation:111111111 north/wargames:111111111 north/whitehall:111111111"}'
+ri_run themes "$RI_EV_THEMES"
+ri_row "remote id: the plan in three themes: the disc's fill and the ring's stroke are the theme's Bluetooth mark token, the texts the secondary ink and the figure the primary ink, the plan's text-transform none, the plan inside the sheet and every text inside the plan, every path stroked in the secondary ink without a fill and the line dashed (as generated, 300 m east and 300 m north, in Foundation, WarGames and Whitehall)" "$RI_W_THEMES"
+
+# ---- R19 the plan on a phone (375 × 812, touch): select opens the detail card with the plan at the card's width inside the viewport, the page does not
+# scroll sideways, and the figure prints at 11 px or more (9 units of 240 at the plan's width)
+RI_EV_PHONE="(async()=>{$RI_JS"'
+ld(d=>{d.aps=[];d.unassociated=[];},G,"ri-phone");await sleep(1600);STARCHORUS.select(M(1));await sleep(300);
+const s=E("detail-body").querySelector("svg.rp"),r=s?s.getBoundingClientRect():{width:0,right:9e9},fs=s?parseFloat(getComputedStyle(s.querySelector("text.f")).fontSize)*r.width/240:0;
+o.phone=[document.documentElement.dataset.phone,document.documentElement.dataset.card,r.width>=280,r.right<=375.5,document.scrollingElement.scrollWidth<=375,fs>=11].join("|");
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+runq "$RI_FX" "$RI_Q" "$RI_T/phone" --width 375 --height 812 --mobile --fps 0 --wait 3 --ready "$RI_RDY" --eval-timeout 120 --eval "$RI_EV_PHONE" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+RI_V=$(evalv "$RI_T/phone.json" 1 | ri_nj); RI_E=$(evalv "$RI_T/phone.json" 2)
+ri_row "remote id: the plan on a phone (375 × 812, touch): select opens the detail card with the plan at least 280 px wide inside the viewport, no sideways scroll, the figure at 11 px or more" '{"errors":0,"phone":"on|detail|true|true|true|true"}'
+
+# ---- R20 every aircraft among the drawn marks: Remote ID ranks right after watched (btCmp, §3.1), so an aircraft at -95 dBm among sixty public addresses
+# at -40 is drawn and hit and opens its sheet with the plan, while an address without Remote ID at -96 ranks beyond the 48 drawn (BT.drawMax)
+RI_EV_REACH="(async()=>{$RI_JS"'
+ld(d=>{d.aps=[];d.unassociated=[];const p=d.bluetooth.find(b=>b.addr===A(7));d.bluetooth.find(b=>b.addr===A(1)).rssi=-95;
+ for(let i=0;i<60;i++)d.bluetooth.push({...p,addr:"02:00:00:00:0e:"+i.toString(16).padStart(2,"0"),rssi:-40});d.bluetooth.push({...p,addr:"02:00:00:00:0e:ff",rssi:-96});},G,"ri-reach");await sleep(1600);STARCHORUS.frame();
+const k=S.bt.get(M(1)),n=STARCHORUS.nodeScreen(M(1));o.rank=k.rank<48;o.order=S.btOrder.slice(0,4).map(x=>x.id.slice(-5)).join();o.hit=STARCHORUS.hitTest(n.sx,n.sy);
+o.sel=STARCHORUS.select(M(1));o.plans=E("detail-body").querySelectorAll("svg.rp").length;STARCHORUS.deselect();o.ctl=S.bt.get("bt:02:00:00:00:0e:ff").rank>=48;o.marks=S.btOrder.length;
+o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+RI_W_REACH='{"ctl":true,"errors":0,"hit":"bt:02:00:00:00:0d:01","marks":67,"order":"0d:04,0d:02,0d:03,0d:01","plans":1,"rank":true,"sel":"Remote ID"}'
+ri_run reach "$RI_EV_REACH"
+ri_row "remote id: every aircraft among the drawn marks: with sixty public addresses at -40 dBm about, the aircraft at -95 ranks among the 48 drawn (the four marks with Remote ID first, by signal), is hit at its screen point and opens its sheet with the plan, while an address without Remote ID at -96 ranks beyond the 48" "$RI_W_REACH"
+# ---- R20b the plan's probes: eleven planted copies, each differing from the page in one line, each turning exactly its scenes red
+RI_PROBES=""; RI_PBAD=""
+ri_probe pwest "$RI_EV_PLAN" "$RI_W_PLAN" "age,close,east,fx,noAlt,seam,shallow" 1 'return { d, e: d * Math.sin(t), n: d * Math.cos(t) };' 'return { d, e: -d * Math.sin(t), n: d * Math.cos(t) };'
+ri_probe psouth "$RI_EV_PLAN" "$RI_W_PLAN" "age,close,fx,noAlt,north,pole,shallow,south" 1 'y = -g.n * s / 2, h = Math.hypot(x, y)' 'y = g.n * s / 2, h = Math.hypot(x, y)'
+ri_probe pcap "$RI_EV_PLAN" "$RI_W_PLAN" "close,same,south" 1 'const s = Math.min(120 / Math.abs(g.e), 60 / Math.abs(g.n), 6),' 'const s = Math.min(120 / Math.abs(g.e), 60 / Math.abs(g.n)),'
+ri_probe pends "$RI_EV_PLAN" "$RI_W_PLAN" "age,close,east,fx,noAlt,north,pole,same,seam,shallow,south" 1 '+ T(1, "aircraft") + T(-1, "operator") +' '+ T(1, "operator") + T(-1, "aircraft") +'
+ri_probe pfresh "$RI_EV_PLAN" "$RI_W_PLAN" "age" 1 '" r="3.5" fill-opacity="'"'"' + k.freshAT + '"'"'"/>' '" r="3.5" fill-opacity="1"/>'
+ri_probe pstack "$RI_EV_PLAN" "$RI_W_PLAN" "south" 1 '[x / h, y / h] : [0, y > 0 ? 1 : -1]' '[x / h, y / h] : [0, -1]'
+ri_probe proot "$RI_EV_PLAN" "$RI_W_PLAN" "age,close,east,fx,noAlt,north,pole,same,seam,shallow,south" 1 '<svg class="rp" viewBox' '<svg class="rp" style="fill:red" viewBox'
+ri_probe palt "$RI_EV_PLAN" "$RI_W_PLAN" "noAlt" 1 '(r.alt_m != null ? t(232, 109, "end", "altitude " + ridV(r, "alt_m") + " m") : "")' 't(232, 109, "end", "altitude " + ridV(r, "alt_m") + " m")'
+ri_probe pbar "$RI_EV_PLAN" "$RI_W_PLAN" "age,close,east,fx,noAlt,north,pole,same,seam,shallow,south" 1 "'<path d=\"M22 108v4h' + f(B * s) + 'v-4M8" "'<path d=\"M22 108v4h' + f(B) + 'v-4M8"
+ri_probe pnear "$RI_EV_PLAN" "$RI_W_PLAN" "shallow" 1 'q = h > 20 ? 9 + (Math.abs(u[1]) <= 0.4 ? 2.6 * ridM(g.d).length * Math.abs(u[1]) : 0) : 12 + Math.abs(x)' 'q = h > 20 ? 9 : 12 + Math.abs(x)'
+ri_probe prank "$RI_EV_REACH" "$RI_W_REACH" "hit,order,rank" 1 ' || !!b.m[0].remote_id - !!a.m[0].remote_id' ''
+RI_GN2=$(echo "$RI_PROBES" | wc -w | tr -d ' ')
+rowif "remote id: the plan's probes bite ($RI_GN2 of 11: east and west swapped, north and south swapped, the close-range cap gone, the ends mislabelled, the freshness dropped, the stacked labels fixed upward, a style on the drawing itself, an altitude always printed, the bar drawn at the wrong length, the figure back on its line, the ranking removed), each turns exactly its keys red${RI_PBAD}" [ "$RI_GN2/${RI_PBAD:-ok}" = "11/ok" ]

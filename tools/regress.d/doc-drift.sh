@@ -164,6 +164,7 @@ Remote ID sheet	(sheet|panel) (of|for) a (Bluetooth )?mark with Remote ID|Remote
 Remote ID SITREP	SITREP[^.]{0,80}Remote ID|Remote ID[^.]{0,80}SITREP	RID_NOTE \+ ":"
 Remote ID CSV	CSV[^.]{0,80}remote[ _]id|remote[ _]id[^.]{0,80}CSV	"# " \+ RID_NOTE
 Remote ID distance	Operator–aircraft	"Operator–aircraft"
+Remote ID plan	to scale, north up	^function ridPlan\(
 DRFCLAIMS
   printf '%s\t%s\n' "$_dc_n" "$_dc_out"
 }
@@ -172,9 +173,9 @@ DRF_CL=$(drf_claims $DRF_DOCS); DRF_CN=${DRF_CL%%"$(printf '\t')"*}; DRF_CM=${DR
 # shellcheck disable=SC2016  # the sentences are text, with backticks of their own
 printf '%s\n' 'the counter BT addresses' "a cell with n · BT" 'a halo, a bloom or ticks' 'a row of kind `bluetooth`' 'the name of a hidden network now fades in' 'the detail sheet of a mark' \
   'a SITREP line for Bluetooth' 'the `bt()` function' 'the name is ssid_recorded' 'the Air drawer has an activity line' 'whisker: share of frames' 'a mark advertising as a beacon' \
-  'the sheet of a mark with Remote ID' 'a SITREP block for Remote ID' 'ten remote_id columns in the CSV' 'the row Operator–aircraft' > "out/$P-drf-claims.txt"
+  'the sheet of a mark with Remote ID' 'a SITREP block for Remote ID' 'ten remote_id columns in the CSV' 'the row Operator–aircraft' 'a plan drawn to scale, north up' > "out/$P-drf-claims.txt"
 : > "out/$P-drf-nopage.html"; DRF_PAGE="out/$P-drf-nopage.html"; DRF_BT=$(drf_claims "out/$P-drf-claims.txt"); DRF_PAGE=starchorus.html; DRF_BM=${DRF_BT#*"$(printf '\t')"}; DRF_BK=$(printf '%s' "$DRF_BM" | grep -o '\[' | wc -l | tr -d ' ')
-DRF_RK=0; [ -z "$DRF_CM" ] && [ "$DRF_BK" = "$DRF_CN" ] && [ "$DRF_CN" -ge 16 ] && DRF_RK=1
+DRF_RK=0; [ -z "$DRF_CM" ] && [ "$DRF_BK" = "$DRF_CN" ] && [ "$DRF_CN" -ge 17 ] && DRF_RK=1
 rowif "doc drift: the $DRF_CN radio-pair claims in README, CHANGELOG, SECURITY, INSTALL and the package READMEs are backed by the page (unbacked:${DRF_CM:- none}); the row bites (a file with every claim, read against an empty page, flags $DRF_BK of $DRF_CN)" [ "$DRF_RK" = 1 ]
 
 # ---- the Scope shows signal and screen places, never distance (D22; the spec's rule 6): no document says that a strong network is near the Pager, or close to it, or names the nearest or closest

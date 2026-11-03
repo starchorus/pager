@@ -877,7 +877,7 @@ function applyRandom() {   // the Random switch: randOut = folded into a shown c
 }
 const btOn = (k) => k.kind === "bt" ? S.ui.filters.bt : S.ui.random === "cloud";   // key 4 for S.bt, X for S.clouds
 const btRot = (t) => t !== "public" && t !== "random-static";
-const btCmp = (a, b) => !!b.m[0].watched - !!a.m[0].watched || b.rssi - a.rssi || cmpStr(a.id, b.id);   // §3.1 watched first
+const btCmp = (a, b) => !!b.m[0].watched - !!a.m[0].watched || !!b.m[0].remote_id - !!a.m[0].remote_id || b.rssi - a.rssi || cmpStr(a.id, b.id);   // §3.1 watched first, then Remote ID (every aircraft among the drawn marks), then signal
 function rebuildBt(doc, gen, rp) {   // §3.1 marks: fixed = one mark, rotating = per company and ring (3 dB hysteresis)
   const L = doc.bluetooth, W = doc.center.bt_window ?? null, hold = doc.center.bt_hold ?? 120, keep = !!L && W === 0 && !L.length, grp = new Map(), lv = new Map(), rg = LAYOUT.rings;
   S.btDoc = L ? { window: W, hold, void: W === 0 } : null;
