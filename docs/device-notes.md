@@ -1079,7 +1079,7 @@ were single cycles at 70 stations); the first cycle 1,338 to 1,414. A steady cyc
 addresses, not with the build. Two facts for whoever measures next: the collector keeps one loop per device (`replace_loops`), so a lab loop
 started beside the payload's loop replaces that loop, which must then be started again (it was, the same evening); and a lab started
 without `nice` takes the core from a loop at nice 19 for as long as it runs. The collector's self-test passed in full on the device as of
-3 November 2026 (569 checks; 581 on the development machine as of the same day).
+3 November 2026 (569 checks; 581 on the development machine as of the same day). With the rules on by default (the build of 4 November 2026), the first cycles on the device raised one derived alert, `bt_fixed_new` with 66 reports for one strong address; no Wi-Fi kind had shown by then, and the self-test passed in full there again (569 checks as of 4 November 2026).
 
 ## 7. No web server, and how the display works
 
