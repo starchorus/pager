@@ -8,7 +8,7 @@
 # SRC-ONLY PROBE: a fragment under src/ staged alone, the page not rebuilt, has to START the hook (the path filter names src/) and turn it red
 #                 on the row "page = build of src/", HEAD kept; the same fragment with the page rebuilt (tools/build-page.sh) is green.
 #                 Negative control: the filter without src/ lets the first commit through (rc 0), and the row is red.
-# DOCUMENTS PROBE: a commit that stages only a document (CONTRIBUTING.md, README.md, docs/) has to START the documents mode (`quick.sh docs`)
+# DOCUMENTS PROBE: a commit that stages only a document (CONTRIBUTING.md, README.md, docs/architecture.md) has to START the documents mode (`quick.sh docs`)
 #                 and not T1: clean => rc 0 and the summary line "quick docs: ..."; a hand-typed check count in README.md (doc-truth) and a
 #                 hotkey of the spec's section 9.6 renamed in docs/architecture.md (doc-binding) => rc 1, the red row named, HEAD kept.
 #                 Negative control: the document filter switched off in a copy of the hook lets the first of them through (rc 0). A
@@ -16,13 +16,18 @@
 #                 tools/README.md alone (its fixture table made untrue; doc-truth binds it) is a document for the hook as well as code: T1 green,
 #                 then the documents mode red => rc 1, HEAD kept (it used to land, and the break showed one commit later).
 #                 a code-only commit prints T1's summary and never the documents mode's. Needs Chrome (doc-binding), like the mode itself.
+# MAP PROBE:      docs/MAP.md staged alone is a document for the hook and code as well (its checker, repo-map, runs in T1): a comment line
+#                 appended => T1 green, then the documents mode green, rc 0 and the commit lands; a line that names a document the tree has
+#                 not got => T1 red on repo-map's row 'every path the map names exists', rc 1, HEAD kept. Negative control: the code filter
+#                 without the map in a copy of the hook lets that commit through (rc 0, on the documents mode alone): it does not run repo-map.
 # NOT PROVEN:     does not prove the index-versus-working-tree contract or the rest of the path filter (for those, the hand probes in the
 #                 commit message), nothing under BusyBox, no git version other than the local one.
-# Sourced by tools/regress.sh with cwd = repo root; eleven hook runs (one of them ends at the preflight; five of them run the documents mode, about 15 s
-# each, which needs Chrome; two of those are T1 and the documents mode in turn). Only HKB_*, HKM_*, HKS_*, HKD_*, HKT_* and HKX_* names are set.
+# Sourced by tools/regress.sh with cwd = repo root; fourteen hook runs (one of them ends at the preflight; seven of them run the documents mode, about 15 s
+# each, which needs Chrome; three of those are T1 and the documents mode in turn). Only HKB_*, HKM_*, HKS_*, HKD_*, HKR_*, HKT_* and HKX_* names are set.
 # The neutral change of the code probes is one comment line appended to tools/install-hooks.sh in the copy (never tools/README.md: the hook counts
 # that as a document); the page gets the appended bait text (never executed: quick.sh only greps it); no collector or display script is touched;
-# the src-only probe takes the empty last line off one fragment and rebuilds the page in the copy, which gets smaller by that one byte.
+# the src-only probe takes the empty last line off one fragment and rebuilds the page in the copy, which gets smaller by that one byte;
+# the map probe appends a comment line, and then a line naming an absent document, to docs/MAP.md in the copy.
 # shellcheck disable=SC2016   # the probe texts are literal Markdown (backticks), not expansions
 HKB_t=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-hookb.XXXXXX") || HKB_t=
 HKB_msg=""; HKB_ok=0; HKB_rc1=-; HKB_rc2=-; HKB_named=0; HKB_kept=0
@@ -31,6 +36,7 @@ HKS_msg=""; HKS_ok=0; HKS_rc1=-; HKS_rc2=-; HKS_named=0; HKS_kept=0   # a src-on
 HKD_ok=0; HKD_clean=-; HKD_t1off=0; HKD_moved=0; HKD_rc1=-; HKD_rc2=-; HKD_n1=0; HKD_n2=0; HKD_k1=0; HKD_k2=0; HKD_ctl=-   # documents only
 HKX_ok=0; HKX_rc=-; HKX_t1=0; HKX_dn=0; HKX_kept=0; HKX_c1only=0                                                           # code plus a document
 HKT_ok=0; HKT_rc=-; HKT_t1=0; HKT_dn=0; HKT_kept=0                                                                         # tools/README.md alone
+HKR_ok=0; HKR_rc1=-; HKR_t1=0; HKR_dn=0; HKR_moved=0; HKR_rc2=-; HKR_named=0; HKR_kept=0; HKR_ctl=-; HKR_cd=0               # docs/MAP.md alone
 HKS_f=src/js/41-boot.js
 HKB_bait='fetch("/x",{method:"POST"});'
 HKB_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$HKB_t/w" -c user.name=probe -c user.email=probe@example.invalid "$@"; }
@@ -151,6 +157,32 @@ else
         [ "$(HKB_git rev-parse HEAD)" = "$HKT_head" ] && HKT_kept=1
         [ "$HKT_rc" = 1 ] && [ "$HKT_t1" = 1 ] && [ "$HKT_dn" = 1 ] && [ "$HKT_kept" = 1 ] && HKT_ok=1
       fi
+      # 11. docs/MAP.md alone (the MAP PROBE of the header): a comment line lands with T1 and the documents mode green; a line naming a document
+      #     the tree has not got is refused on repo-map's row, HEAD kept; the control, the code filter without the map, lets it through.
+      HKB_git reset -q --hard HEAD
+      echo "<!-- hook probe map -->" >> "$HKB_t/w/docs/MAP.md"
+      HKB_git add docs/MAP.md
+      HKR_head=$(HKB_git rev-parse HEAD)
+      HKB_git commit -q -m mapclean > "$HKB_t/c11.txt" 2>&1; HKR_rc1=$?
+      grep -q '^pre-commit: quick: [0-9]* PASS, 0 FAIL' "$HKB_t/c11.txt" && HKR_t1=1
+      grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c11.txt" && HKR_dn=1
+      [ "$(HKB_git rev-parse HEAD)" != "$HKR_head" ] && HKR_moved=1
+      HKR_head=$(HKB_git rev-parse HEAD)
+      printf '%s\n' '`docs/hook-probe-absent.md`' >> "$HKB_t/w/docs/MAP.md"
+      HKB_git add docs/MAP.md
+      HKB_git commit -q -m mapstale > "$HKB_t/c12.txt" 2>&1; HKR_rc2=$?
+      grep -q 'every path the map names exists' "$HKB_t/c12.txt" && grep -q 'hook-probe-absent' "$HKB_t/c12.txt" && HKR_named=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKR_head" ] && HKR_kept=1
+      # control: the code filter without docs/MAP.md in the hook => the same stale map goes through on the documents mode alone
+      sed 's,|docs/MAP\\[.]md),),' "$HKB_t/w/.githooks/pre-commit" > "$HKB_t/hook.nomap"
+      if ! cmp -s "$HKB_t/hook.nomap" "$HKB_t/w/.githooks/pre-commit"; then
+        cp "$HKB_t/hook.nomap" "$HKB_t/w/.githooks/pre-commit"; chmod +x "$HKB_t/w/.githooks/pre-commit"
+        HKB_git commit -q -m mapctl > "$HKB_t/c12c.txt" 2>&1; HKR_ctl=$?
+        grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c12c.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c12c.txt" && HKR_cd=1
+      else HKR_ctl=nochange; fi
+      HKB_git reset -q --hard "$HKR_head"
+      [ "$HKR_rc1" = 0 ] && [ "$HKR_t1" = 1 ] && [ "$HKR_dn" = 1 ] && [ "$HKR_moved" = 1 ] && [ "$HKR_rc2" = 1 ] && [ "$HKR_named" = 1 ] \
+        && [ "$HKR_kept" = 1 ] && [ "$HKR_ctl" = 0 ] && [ "$HKR_cd" = 1 ] && HKR_ok=1
     fi
   fi
 fi
@@ -172,4 +204,8 @@ rowif "pre-commit hook, code and a document staged together: T1 green ($HKX_t1) 
 if [ "$HKX_ok" != 1 ] && [ -n "$HKB_t" ] && [ -f "$HKB_t/c9.txt" ]; then echo "    -- c9:"; tail -n 8 "$HKB_t/c9.txt" | cut -c1-200 | sed 's/^/    /'; fi
 rowif "pre-commit hook, only tools/README.md staged (fixture table made untrue): T1 green ($HKT_t1) then the documents mode red ($HKT_dn), rc $HKT_rc (want 1), HEAD kept $HKT_kept" [ "$HKT_ok" = 1 ]
 if [ "$HKT_ok" != 1 ] && [ -n "$HKB_t" ] && [ -f "$HKB_t/c10.txt" ]; then echo "    -- c10:"; tail -n 8 "$HKB_t/c10.txt" | cut -c1-200 | sed 's/^/    /'; fi
+rowif "pre-commit hook, only docs/MAP.md staged: a comment line rc $HKR_rc1 (want 0), T1 green $HKR_t1, documents mode green $HKR_dn, commit landed $HKR_moved; a line naming a document the tree has not got rc $HKR_rc2 (want 1), repo-map's row named $HKR_named, HEAD kept $HKR_kept; code filter without the map rc $HKR_ctl (want 0), the documents mode alone $HKR_cd" [ "$HKR_ok" = 1 ]
+if [ "$HKR_ok" != 1 ] && [ -n "$HKB_t" ]; then
+  for HKR_x in c11 c12 c12c; do [ -f "$HKB_t/$HKR_x.txt" ] && { echo "    -- $HKR_x:"; tail -n 8 "$HKB_t/$HKR_x.txt" | cut -c1-200 | sed 's/^/    /'; }; done
+fi
 [ -z "$HKB_t" ] || rm -rf "$HKB_t"

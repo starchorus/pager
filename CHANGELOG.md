@@ -24,6 +24,7 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ### Changed
 
+- **The hook checks a commit of the map.** A commit that stages `docs/MAP.md` runs T1 as well as the documents mode: the map's checker, `repo-map.sh`, runs in T1 and not in the documents mode, so a commit of the map alone would have been checked against the tree only at the next commit of code. The map joins `tools/README.md` as a path that is both code and a document for the hook. `tools/regress.d/hook-behavior.sh` has the case: a comment line appended to the map lands with both summaries, a line that names a document the tree has not got is refused on the row "repo map: every path the map names exists", and a copy of the hook without the map in its code filter lets that commit through on the documents mode alone.
 - **No byte budget.** The page's size was held by a ledger: a base plus a share per feature (the radio pair, the Scope, the alerts' ring), raised by the measured growth with
   every change, in `tools/static.sh` and again in `tools/regress.d/scope.sh`, with a copy of the release cap in `tools/regress.d/phone.sh` and `tools/regress.d/radio-pair.sh`
   and a size pin on every function of the radio pair and of Remote ID. All of that is gone (the owner's decision of 2 November 2026: function and stability are the

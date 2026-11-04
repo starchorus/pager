@@ -16,7 +16,7 @@ full run.
 3. **Run what it reaches.** `sh tools/affected.sh` names the drop-ins that the paths changed against `HEAD` reach
    (or name the paths: `sh tools/affected.sh PATH...`); `--run` runs them alone. One drop-in alone:
    `sh tools/quick.sh only NAME`.
-4. **Commit.** The hook runs T1 for code and the documents mode for documents.
+4. **Commit.** The hook runs T1 for code and the documents mode for documents; `tools/README.md`, the READMEs below `library/` and `packaging/hak5/`, and this map count as both.
 5. **The gate.** Before a push or a release the full run, `sh tools/regress.sh PREFIX`, is the gate. The list of
    `tools/affected.sh` only says where to start: a drop-in that runs the whole page sees every fragment, and
    `--wide` adds those.
@@ -246,7 +246,7 @@ negative probes: `tools/README.md` (Drop-ins) and the drop-in's own header.
 | `doc-truth` | `page` `collector` `overview` `payload` `serve` `fixtures` `docs` `tools` `tools/doc-truth.py` `tools/static.sh` |
 | `edge-layout` | `page` `fixtures` `30-step` `37-ui` `38-data-source` `41-boot` |
 | `hak5-package` | `page` `collector` `overview` `payload` `serve` `LICENSE` `README.md` `index.html` `packaging/hak5/README.md` `tools/hak5-package.sh` `tools/release.sh` |
-| `hook-behavior` | `page` `hooks` `41-boot` `CONTRIBUTING.md` `README.md` `docs/architecture.md` `tools/README.md` `tools/quick.sh` |
+| `hook-behavior` | `page` `hooks` `41-boot` `CONTRIBUTING.md` `README.md` `docs/MAP.md` `docs/architecture.md` `tools/README.md` `tools/quick.sh` |
 | `ingest-fuzz` | `page` `overview` `fixtures` `22-util` `23-normalize` `37-ui` `38-data-source` `tools/evals/ingest-fuzz.js` `tools/fuzz-doc.py` `tools/gen-testdata.py` |
 | `installer` | `page` `collector` `overview` `payload` `serve` `INSTALL.md` `index.html` `tools/install.sh` `tools/static.sh` |
 | `jq-noregex` | `overview` `fixtures` |
