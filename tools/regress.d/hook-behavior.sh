@@ -20,14 +20,32 @@
 #                 appended => T1 green, then the documents mode green, rc 0 and the commit lands; a line that names a document the tree has
 #                 not got => T1 red on repo-map's row 'every path the map names exists', rc 1, HEAD kept. Negative control: the code filter
 #                 without the map in a copy of the hook lets that commit through (rc 0, on the documents mode alone): it does not run repo-map.
+# ADDED OR DELETED PROBE: a .md or .sh path added or deleted, alone, has to START T1 (repo-map wants a row in docs/MAP.md for every document
+#                 and script, and every path the map names has to exist): docs/hook-probe-new.md without a row => T1 red on 'every script, tool
+#                 and document has a row', rc 1, HEAD kept (red on 'files a drop-in names are among its subjects' too, since this drop-in names
+#                 the file; the assertions read the first row); the same file with its row in the map, and its name among this drop-in's
+#                 subjects there => T1 green, then the documents mode green, rc 0 and the commit lands; hook-probe.sh in the top directory
+#                 without a row => red on 'every script, tool and document has a row', HEAD kept; DESIGN-DECISIONS.md deleted alone => T1 red
+#                 on 'every path the map names exists' and, as this drop-in's own row names the file, on 'every subject is a group, a fragment
+#                 or a file', HEAD kept; renamed alone => red on those two, on 'every script, tool and document has a row' for the new name
+#                 and on 'files a drop-in names are among its subjects', HEAD kept. Negative controls: the hook without the added-or-deleted
+#                 rule lets the new document through (rc 0, on the documents mode alone); a copy that looks at additions only (--diff-filter=A)
+#                 lets the deletion through, and one without --no-renames lets the rename through (git then reports a rename, neither an
+#                 addition nor a deletion), each on the documents mode alone.
+# WIDER DOCUMENTS PROBE: every .md is a document for the hook (ROADMAP.md matched no filter before): a hand-typed check count in ROADMAP.md
+#                 => the documents mode red (doc-truth), T1 not run, rc 1, HEAD kept; a comment line => rc 0 and the commit lands on the
+#                 documents mode alone. Negative control: the document filter switched off lets the count through (rc 0).
 # NOT PROVEN:     does not prove the index-versus-working-tree contract or the rest of the path filter (for those, the hand probes in the
 #                 commit message), nothing under BusyBox, no git version other than the local one.
-# Sourced by tools/regress.sh with cwd = repo root; fourteen hook runs (one of them ends at the preflight; seven of them run the documents mode, about 15 s
-# each, which needs Chrome; three of those are T1 and the documents mode in turn). Only HKB_*, HKM_*, HKS_*, HKD_*, HKR_*, HKT_* and HKX_* names are set.
+# Sourced by tools/regress.sh with cwd = repo root; twenty-five hook runs (one of them ends at the preflight, two before any mode; thirteen of them
+# run the documents mode, about 15 s each, which needs Chrome; four of those are T1 and the documents mode in turn). Only HKB_*, HKM_*, HKS_*, HKD_*,
+# HKN_*, HKR_*, HKT_*, HKW_* and HKX_* names are set.
 # The neutral change of the code probes is one comment line appended to tools/install-hooks.sh in the copy (never tools/README.md: the hook counts
 # that as a document); the page gets the appended bait text (never executed: quick.sh only greps it); no collector or display script is touched;
 # the src-only probe takes the empty last line off one fragment and rebuilds the page in the copy, which gets smaller by that one byte;
-# the map probe appends a comment line, and then a line naming an absent document, to docs/MAP.md in the copy.
+# the map probe appends a comment line, and then a line naming an absent document, to docs/MAP.md in the copy; the added-or-deleted probe
+# writes docs/hook-probe-new.md, a row and a subject for it in the map, and hook-probe.sh in the copy, and deletes and renames
+# DESIGN-DECISIONS.md there; the wider documents probe appends to ROADMAP.md.
 # shellcheck disable=SC2016   # the probe texts are literal Markdown (backticks), not expansions
 HKB_t=$(mktemp -d "${TMPDIR:-/tmp}/starchorus-hookb.XXXXXX") || HKB_t=
 HKB_msg=""; HKB_ok=0; HKB_rc1=-; HKB_rc2=-; HKB_named=0; HKB_kept=0
@@ -37,6 +55,9 @@ HKD_ok=0; HKD_clean=-; HKD_t1off=0; HKD_moved=0; HKD_rc1=-; HKD_rc2=-; HKD_n1=0;
 HKX_ok=0; HKX_rc=-; HKX_t1=0; HKX_dn=0; HKX_kept=0; HKX_c1only=0                                                           # code plus a document
 HKT_ok=0; HKT_rc=-; HKT_t1=0; HKT_dn=0; HKT_kept=0                                                                         # tools/README.md alone
 HKR_ok=0; HKR_rc1=-; HKR_t1=0; HKR_dn=0; HKR_moved=0; HKR_rc2=-; HKR_named=0; HKR_kept=0; HKR_ctl=-; HKR_cd=0               # docs/MAP.md alone
+HKN_ok=0; HKN_rc1=-; HKN_n1=0; HKN_k1=0; HKN_ctl=-; HKN_cd=0; HKN_rc2=-; HKN_t1=0; HKN_dn=0; HKN_moved=0; HKN_rc3=-; HKN_n3=0; HKN_k3=0   # a .md or .sh added or deleted
+HKN_rc4=-; HKN_n4=0; HKN_k4=0; HKN_ctl2=-; HKN_cd2=0; HKN_rc5=-; HKN_n5=0; HKN_k5=0; HKN_ctl3=-; HKN_cd3=0
+HKW_ok=0; HKW_rc1=-; HKW_n1=0; HKW_k1=0; HKW_ctl=-; HKW_rc2=-; HKW_n2=0; HKW_moved=0                                         # ROADMAP.md alone
 HKS_f=src/js/41-boot.js
 HKB_bait='fetch("/x",{method:"POST"});'
 HKB_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$HKB_t/w" -c user.name=probe -c user.email=probe@example.invalid "$@"; }
@@ -183,6 +204,90 @@ else
       HKB_git reset -q --hard "$HKR_head"
       [ "$HKR_rc1" = 0 ] && [ "$HKR_t1" = 1 ] && [ "$HKR_dn" = 1 ] && [ "$HKR_moved" = 1 ] && [ "$HKR_rc2" = 1 ] && [ "$HKR_named" = 1 ] \
         && [ "$HKR_kept" = 1 ] && [ "$HKR_ctl" = 0 ] && [ "$HKR_cd" = 1 ] && HKR_ok=1
+      # 12. a .md or .sh added or deleted, alone (the ADDED OR DELETED PROBE of the header): docs/hook-probe-new.md without a row is refused on
+      #     repo-map's row, HEAD kept; the control, the hook without the added-or-deleted rule, lets it through on the documents mode alone;
+      #     with its row in the map, and its name among this drop-in's subjects there, it lands, T1 and the documents mode green;
+      #     hook-probe.sh in the top directory without a row is refused on the same row; DESIGN-DECISIONS.md deleted alone, then renamed
+      #     alone, is refused on 'every path the map names exists', each with a control that lets it through on the documents mode alone.
+      HKB_git reset -q --hard HEAD
+      echo "A probe document." > "$HKB_t/w/docs/hook-probe-new.md"
+      HKB_git add docs/hook-probe-new.md
+      HKN_head=$(HKB_git rev-parse HEAD)
+      HKB_git commit -q -m newdoc > "$HKB_t/c13.txt" 2>&1; HKN_rc1=$?
+      grep -q 'every script, tool and document has a row' "$HKB_t/c13.txt" && grep -q 'hook-probe-new.md: a document without a row' "$HKB_t/c13.txt" && HKN_n1=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKN_head" ] && HKN_k1=1
+      # control: the hook without the added-or-deleted rule => the same new document lands on the documents mode alone
+      sed '/staged_ad/d' "$HKB_t/w/.githooks/pre-commit" > "$HKB_t/hook.noad"
+      if ! cmp -s "$HKB_t/hook.noad" "$HKB_t/w/.githooks/pre-commit"; then
+        cp "$HKB_t/hook.noad" "$HKB_t/w/.githooks/pre-commit"; chmod +x "$HKB_t/w/.githooks/pre-commit"
+        HKB_git commit -q -m newdocctl > "$HKB_t/c13c.txt" 2>&1; HKN_ctl=$?
+        grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c13c.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c13c.txt" && HKN_cd=1
+      else HKN_ctl=nochange; fi
+      HKB_git reset -q --hard "$HKN_head"
+      echo "A probe document." > "$HKB_t/w/docs/hook-probe-new.md"
+      awk '/^\| `hook-behavior` \|/ { sub(/ \|$/, " `docs/hook-probe-new.md` |") } { print } /^\| `docs\/MAP\.md` \|/ { print "| `docs/hook-probe-new.md` | |" }' "$HKB_t/w/docs/MAP.md" > "$HKB_t/map.new" && cp "$HKB_t/map.new" "$HKB_t/w/docs/MAP.md"
+      HKB_git add docs/hook-probe-new.md docs/MAP.md
+      HKB_git commit -q -m newdocrow > "$HKB_t/c14.txt" 2>&1; HKN_rc2=$?
+      grep -q '^pre-commit: quick: [0-9]* PASS, 0 FAIL' "$HKB_t/c14.txt" && HKN_t1=1
+      grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c14.txt" && HKN_dn=1
+      [ "$(HKB_git rev-parse HEAD)" != "$HKN_head" ] && HKN_moved=1
+      HKB_git reset -q --hard "$HKN_head"
+      printf '%s\n' '#!/bin/sh' '# SPDX-License-Identifier: GPL-3.0-or-later' ': probe' > "$HKB_t/w/hook-probe.sh"
+      HKB_git add hook-probe.sh
+      HKB_git commit -q -m newscript > "$HKB_t/c15.txt" 2>&1; HKN_rc3=$?
+      grep -q 'every script, tool and document has a row' "$HKB_t/c15.txt" && grep -q 'hook-probe.sh: a script without a row' "$HKB_t/c15.txt" && HKN_n3=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKN_head" ] && HKN_k3=1
+      HKB_git reset -q --hard "$HKN_head"; rm -f "$HKB_t/w/hook-probe.sh" "$HKB_t/w/docs/hook-probe-new.md"
+      # a document the map names deleted alone: T1 red on 'every path the map names exists', HEAD kept; the control, a copy of the hook that
+      # looks at additions only, lets it land on the documents mode alone
+      HKB_git rm -q DESIGN-DECISIONS.md
+      HKB_git commit -q -m deldoc > "$HKB_t/c18.txt" 2>&1; HKN_rc4=$?
+      grep -q 'every path the map names exists' "$HKB_t/c18.txt" && grep -q '"DESIGN-DECISIONS.md" does not exist' "$HKB_t/c18.txt" && HKN_n4=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKN_head" ] && HKN_k4=1
+      sed 's/--diff-filter=AD/--diff-filter=A/' "$HKB_t/w/.githooks/pre-commit" > "$HKB_t/hook.addonly"
+      if ! cmp -s "$HKB_t/hook.addonly" "$HKB_t/w/.githooks/pre-commit"; then
+        cp "$HKB_t/hook.addonly" "$HKB_t/w/.githooks/pre-commit"; chmod +x "$HKB_t/w/.githooks/pre-commit"
+        HKB_git commit -q -m deldocctl > "$HKB_t/c18c.txt" 2>&1; HKN_ctl2=$?
+        grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c18c.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c18c.txt" && HKN_cd2=1
+      else HKN_ctl2=nochange; fi
+      HKB_git reset -q --hard "$HKN_head"
+      # the same document renamed alone: T1 red (the old name gone from the tree, the new one without a row), HEAD kept; the control, a copy
+      # without --no-renames on the added-or-deleted list, lets it land on the documents mode alone (git then reports a rename, neither A nor D)
+      HKB_git mv DESIGN-DECISIONS.md DESIGN-DECISIONS-2.md
+      HKB_git commit -q -m mvdoc > "$HKB_t/c19.txt" 2>&1; HKN_rc5=$?
+      grep -q '"DESIGN-DECISIONS.md" does not exist' "$HKB_t/c19.txt" && grep -q 'DESIGN-DECISIONS-2.md: a document without a row' "$HKB_t/c19.txt" && HKN_n5=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKN_head" ] && HKN_k5=1
+      sed '/^staged_ad=/s/ --no-renames//' "$HKB_t/w/.githooks/pre-commit" > "$HKB_t/hook.renames"
+      if ! cmp -s "$HKB_t/hook.renames" "$HKB_t/w/.githooks/pre-commit"; then
+        cp "$HKB_t/hook.renames" "$HKB_t/w/.githooks/pre-commit"; chmod +x "$HKB_t/w/.githooks/pre-commit"
+        HKB_git commit -q -m mvdocctl > "$HKB_t/c19c.txt" 2>&1; HKN_ctl3=$?
+        grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c19c.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c19c.txt" && HKN_cd3=1
+      else HKN_ctl3=nochange; fi
+      HKB_git reset -q --hard "$HKN_head"
+      [ "$HKN_rc1" = 1 ] && [ "$HKN_n1" = 1 ] && [ "$HKN_k1" = 1 ] && [ "$HKN_ctl" = 0 ] && [ "$HKN_cd" = 1 ] && [ "$HKN_rc2" = 0 ] && [ "$HKN_t1" = 1 ] \
+        && [ "$HKN_dn" = 1 ] && [ "$HKN_moved" = 1 ] && [ "$HKN_rc3" = 1 ] && [ "$HKN_n3" = 1 ] && [ "$HKN_k3" = 1 ] \
+        && [ "$HKN_rc4" = 1 ] && [ "$HKN_n4" = 1 ] && [ "$HKN_k4" = 1 ] && [ "$HKN_ctl2" = 0 ] && [ "$HKN_cd2" = 1 ] \
+        && [ "$HKN_rc5" = 1 ] && [ "$HKN_n5" = 1 ] && [ "$HKN_k5" = 1 ] && [ "$HKN_ctl3" = 0 ] && [ "$HKN_cd3" = 1 ] && HKN_ok=1
+      # 13. ROADMAP.md alone (the WIDER DOCUMENTS PROBE of the header): a hand-typed check count is refused by the documents mode, T1 not run,
+      #     HEAD kept; the control, the document filter switched off, lets it through; a comment line lands on the documents mode alone.
+      printf '%s\n' '- `--selftest` green (42 checks) under BusyBox' >> "$HKB_t/w/ROADMAP.md"
+      HKB_git add ROADMAP.md
+      HKW_head=$(HKB_git rev-parse HEAD)
+      HKB_git commit -q -m roadmapcount > "$HKB_t/c16.txt" 2>&1; HKW_rc1=$?
+      grep -q 'hand-typed check count' "$HKB_t/c16.txt" && grep -q 'documents mode' "$HKB_t/c16.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c16.txt" && HKW_n1=1
+      [ "$(HKB_git rev-parse HEAD)" = "$HKW_head" ] && HKW_k1=1
+      sed 's/&& need_docs=1$/\&\& need_docs=0/' "$HKB_t/w/.githooks/pre-commit" > "$HKB_t/hook.off2"
+      if ! cmp -s "$HKB_t/hook.off2" "$HKB_t/w/.githooks/pre-commit"; then
+        cp "$HKB_t/hook.off2" "$HKB_t/w/.githooks/pre-commit"; chmod +x "$HKB_t/w/.githooks/pre-commit"
+        HKB_git commit -q -m roadmapctl > "$HKB_t/c16c.txt" 2>&1; HKW_ctl=$?
+      else HKW_ctl=nochange; fi
+      HKB_git reset -q --hard "$HKW_head"
+      echo "<!-- hook probe roadmap -->" >> "$HKB_t/w/ROADMAP.md"
+      HKB_git add ROADMAP.md
+      HKB_git commit -q -m roadmapclean > "$HKB_t/c17.txt" 2>&1; HKW_rc2=$?
+      grep -q '^pre-commit: quick docs: [0-9]* PASS, 0 FAIL' "$HKB_t/c17.txt" && ! grep -q '^pre-commit: quick: ' "$HKB_t/c17.txt" && HKW_n2=1
+      [ "$(HKB_git rev-parse HEAD)" != "$HKW_head" ] && HKW_moved=1
+      [ "$HKW_rc1" = 1 ] && [ "$HKW_n1" = 1 ] && [ "$HKW_k1" = 1 ] && [ "$HKW_ctl" = 0 ] && [ "$HKW_rc2" = 0 ] && [ "$HKW_n2" = 1 ] && [ "$HKW_moved" = 1 ] && HKW_ok=1
     fi
   fi
 fi
@@ -207,5 +312,13 @@ if [ "$HKT_ok" != 1 ] && [ -n "$HKB_t" ] && [ -f "$HKB_t/c10.txt" ]; then echo "
 rowif "pre-commit hook, only docs/MAP.md staged: a comment line rc $HKR_rc1 (want 0), T1 green $HKR_t1, documents mode green $HKR_dn, commit landed $HKR_moved; a line naming a document the tree has not got rc $HKR_rc2 (want 1), repo-map's row named $HKR_named, HEAD kept $HKR_kept; code filter without the map rc $HKR_ctl (want 0), the documents mode alone $HKR_cd" [ "$HKR_ok" = 1 ]
 if [ "$HKR_ok" != 1 ] && [ -n "$HKB_t" ]; then
   for HKR_x in c11 c12 c12c; do [ -f "$HKB_t/$HKR_x.txt" ] && { echo "    -- $HKR_x:"; tail -n 8 "$HKB_t/$HKR_x.txt" | cut -c1-200 | sed 's/^/    /'; }; done
+fi
+rowif "pre-commit hook, a .md or .sh added or deleted, alone: docs/hook-probe-new.md without a row rc $HKN_rc1 (want 1), repo-map's row named $HKN_n1, HEAD kept $HKN_k1; hook without the added-or-deleted rule rc $HKN_ctl (want 0), the documents mode alone $HKN_cd; with its row and subject in the map rc $HKN_rc2 (want 0), T1 green $HKN_t1, documents mode green $HKN_dn, commit landed $HKN_moved; hook-probe.sh without a row rc $HKN_rc3 (want 1), named $HKN_n3, HEAD kept $HKN_k3; DESIGN-DECISIONS.md deleted alone rc $HKN_rc4 (want 1), named $HKN_n4, HEAD kept $HKN_k4, additions-only copy rc $HKN_ctl2 (want 0) on the documents mode alone $HKN_cd2; renamed alone rc $HKN_rc5 (want 1), named $HKN_n5, HEAD kept $HKN_k5, copy without --no-renames rc $HKN_ctl3 (want 0) on the documents mode alone $HKN_cd3" [ "$HKN_ok" = 1 ]
+if [ "$HKN_ok" != 1 ] && [ -n "$HKB_t" ]; then
+  for HKN_x in c13 c13c c14 c15 c18 c18c c19 c19c; do [ -f "$HKB_t/$HKN_x.txt" ] && { echo "    -- $HKN_x:"; tail -n 8 "$HKB_t/$HKN_x.txt" | cut -c1-200 | sed 's/^/    /'; }; done
+fi
+rowif "pre-commit hook, only ROADMAP.md staged (every .md is a document): hand-typed count rc $HKW_rc1 (want 1), named and T1 not run $HKW_n1, HEAD kept $HKW_k1; filter off rc $HKW_ctl (want 0); a comment line rc $HKW_rc2 (want 0), the documents mode alone $HKW_n2, commit landed $HKW_moved" [ "$HKW_ok" = 1 ]
+if [ "$HKW_ok" != 1 ] && [ -n "$HKB_t" ]; then
+  for HKW_x in c16 c16c c17; do [ -f "$HKB_t/$HKW_x.txt" ] && { echo "    -- $HKW_x:"; tail -n 8 "$HKB_t/$HKW_x.txt" | cut -c1-200 | sed 's/^/    /'; }; done
 fi
 [ -z "$HKB_t" ] || rm -rf "$HKB_t"

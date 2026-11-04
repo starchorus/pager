@@ -8,24 +8,27 @@
 # raises a false alarm. `git commit <paths>` and `-a` are covered the same way (git points the hook at the right index).
 # Code filter: T1 runs when a staged path is the page (also index.html), the collector, a display script, payload*,
 # starchorus-serve.sh, or below src/ (the page's fragments), tests/, tools/ (tools/build-page.sh among them), library/, packaging/,
-# .githooks/ or .github/, or docs/MAP.md (a document as well, below). Deletions count as staged. A commit that stages a fragment
-# under src/ without the rebuilt page runs T1 and goes red on the row "page = build of src/"; rebuild with `sh tools/build-page.sh`
-# and stage the page with the fragment.
+# .githooks/ or .github/, or docs/MAP.md (a document as well, below); and when a staged path that ends in .md or .sh is added or deleted
+# (repo-map, in T1, wants a row in docs/MAP.md for every document and script, and every path the map names has to exist). Deletions
+# count as staged. A commit that stages a fragment under src/ without the rebuilt page runs T1 and goes red on the row "page = build
+# of src/"; rebuild with `sh tools/build-page.sh` and stage the page with the fragment.
 # The hook only checks; it never rebuilds (that would change the index behind the committer's back).
-# Documents: a commit that stages a DOCUMENT (README.md, SECURITY.md, CHANGELOG.md, INSTALL.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, LICENSE,
-# OFL.txt, anything below docs/, a README.md below library/, packaging/hak5/README.md, tools/README.md) runs the documents mode, `sh tools/quick.sh docs`
-# (about 15 s), on the same export: doc-drift, doc-binding (the spec's tables, the page's functions, hotkeys and query parameters) and
-# doc-truth (hand-typed lists and numbers against their sources). T1 alone never ran the last two and skipped a documents-only commit.
-#   - documents only: the documents mode alone;  code only: T1 alone, as before;  both (a mixed commit, or a README below library/ or
-#     packaging/, which the code filter names too): T1 first, then the documents mode if T1 was green. T1 stays Chrome-free; the
-#     documents mode is not, it needs Chrome for doc-binding, and without it the hook says so ("MISSING: chrome", exit 2 of quick.sh)
-#     and refuses the commit as it does for a missing jq. tools/README.md is both: below tools/ (code filter) and a document, because
-#     doc-truth binds its fixture table (a commit of it alone used to land without that check); it runs T1 and then the documents mode.
-#     docs/MAP.md is both as well: a document below docs/, and code because its checker, repo-map, runs in T1 and not in the documents
-#     mode; it runs T1 and then the documents mode.
-#   Still outside both: a commit that stages only files that match neither filter (a stray file in the top directory); the hook does not
-#   look at it. A new .md or .sh file without its row in docs/MAP.md, or a document the map names that is gone, shows on repo-map's rows
-#   at the next T1: a documents-only commit runs the documents mode, which does not run repo-map.
+# Documents: a commit that stages a DOCUMENT (any path that ends in .md, LICENSE, OFL.txt, anything below docs/) runs the documents mode,
+# `sh tools/quick.sh docs` (about 15 s), on the same export: doc-drift, doc-binding (the spec's tables, the page's functions, hotkeys and
+# query parameters) and doc-truth (hand-typed lists and numbers against their sources). T1 alone never ran the last two and skipped a
+# documents-only commit.
+#   - documents only, no .md or .sh file added or deleted: the documents mode alone;  code only: T1 alone, as before;  both (a mixed
+#     commit, a document the code filter names by path, or a .md file, or a .sh file below docs/, added or deleted): T1 first, then the
+#     documents mode if T1 was green. T1 stays Chrome-free; the documents mode is not, it needs Chrome for doc-binding, and without it the
+#     hook says so ("MISSING: chrome", exit 2 of quick.sh) and refuses the commit as it does for a missing jq. A document below a directory
+#     the code filter names (library/, packaging/, src/, tests/, tools/, .githooks/, .github/), and docs/MAP.md, is both; today those are
+#     tools/README.md (doc-truth binds its fixture table; a commit of it alone used to land without that check), docs/MAP.md (its checker,
+#     repo-map, runs in T1 and not in the documents mode), the READMEs below library/, packaging/hak5/ and tools/bench/, and the pull
+#     request template below .github/.
+#   Still outside both: a commit that stages only files that match neither filter (a stray file in the top directory that is not a
+#   document; a script of that kind is looked at only when added or deleted); the hook does not look at it. A change inside a document
+#   the code filter does not name runs the documents mode without repo-map: a heading the map lists for that document, renamed, shows on
+#   repo-map's rows at the next T1.
 # When the checker itself (tools/passivity-check.sh, tools/passivity-mutate.sh) is staged, the passivity mutation probe runs too. The probe
 #   keeps the reports of its last green run under out/mutation-memo of the work tree (gitignored) and replays them when every input is the
 #   same; the export has no such directory, so the hook points the probe at the work tree's (STARCHORUS_MUTATE_MEMO_DIR): a staged checker
@@ -41,9 +44,11 @@ set -u
 top=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
 cd "$top" || exit 1
 staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames) || { echo "pre-commit: cannot list the index" >&2; exit 1; }
+staged_ad=$(git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter=AD) || { echo "pre-commit: cannot list the index" >&2; exit 1; }
 need_t1=0; need_docs=0
 printf '%s\n' "$staged" | grep -Eq '^(starchorus\.html|index\.html|starchorus-collect\.sh|starchorus-display\.sh|starchorus-serve\.sh|payload[^/]*|library/|packaging/|src/|tests/|tools/|\.githooks/|\.github/|docs/MAP\.md)' && need_t1=1
-printf '%s\n' "$staged" | grep -Eq '^((README|SECURITY|CHANGELOG|INSTALL|CONTRIBUTING|CODE_OF_CONDUCT)\.md|LICENSE|OFL\.txt|docs/.*|library/.*README\.md|packaging/hak5/README\.md|tools/README\.md)$' && need_docs=1
+printf '%s\n' "$staged_ad" | grep -Eq '\.(md|sh)$' && need_t1=1
+printf '%s\n' "$staged" | grep -Eq '^(.*\.md|LICENSE|OFL\.txt|docs/.*)$' && need_docs=1
 if [ "$need_t1" = 0 ] && [ "$need_docs" = 0 ]; then
   exit 0   # only files outside both filters: neither tier has anything to say about them (see the paragraphs above)
 fi

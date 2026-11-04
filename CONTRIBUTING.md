@@ -98,9 +98,10 @@ Beyond the two mandatory checks, everything here is offered to contributors, not
   [docs/MAP.md](docs/MAP.md); `--run` runs them alone through `sh tools/quick.sh only`. A help for work in pieces:
   the full run, `sh tools/regress.sh`, stays the gate before the merge.
 - `sh tools/install-hooks.sh`: once per clone; after that, `quick.sh` runs on the staged state with
-  every commit that touches code, tests, tools or the repository map (`docs/MAP.md`), and `quick.sh docs`
-  with every commit that stages a document (this file, the README, `docs/` and the like), alone, or after
-  `quick.sh` when code is staged too.
+  every commit that touches code, tests, tools or the repository map (`docs/MAP.md`), or adds or deletes a
+  Markdown file or a shell script (a path that ends in `.md` or `.sh`), and `quick.sh docs` with every commit that
+  stages a document (any `.md` file, `LICENSE`, `OFL.txt`, anything below `docs/`), alone, or after `quick.sh`
+  when code is staged too or a Markdown file or a shell script is added or deleted.
 - `sh tools/verify.sh starchorus.html demo out/demo`: load the page headless in Chrome and check it.
 
 What the test nets prove, and what they do not, is set out in [tools/README.md](tools/README.md). A
