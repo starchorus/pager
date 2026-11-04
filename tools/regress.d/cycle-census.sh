@@ -11,7 +11,9 @@
 #                  points and 299 stations in the window; names made up, addresses 02:00:00:xx:xx:xx), seeded. The totals and the programs that matter
 #                  are CEILINGS set to the values measured on 24 October 2026 on the development machine (macOS; GNU `ls` on Linux starts fewer, so a
 #                  ceiling set on a Mac holds there too). A ceiling is only ever LOWERED: when a lever takes a process out, lower the number in the same
-#                  commit. It also guards the batch: the batch of a cycle with the window cut out once (the temporary table) answers byte for byte what the
+#                  commit. The same census runs once more with the derived alerts on (STARCHORUS_WIDS=1, the default): the layers pass then runs on
+#                  every cycle, and that run has ceilings of its own, measured on 3 November 2026 on the same machine, only ever lowered too.
+#                  It also guards the batch: the batch of a cycle with the window cut out once (the temporary table) answers byte for byte what the
 #                  same batch on the table itself answers (sqlite3 required: NOT COVERED without it), and the shell's own reading of the batch's output: a
 #                  build with STARCHORUS_HOPINFO=1 and STARCHORUS_MAX_AGE=0 (the collector's own default window, 2 MB of output at the documented scale) must not
 #                  cost more CPU than three times a build with HOPINFO=0 and a second over (a section read from the end of that text costs the square of its
@@ -19,12 +21,13 @@
 #                  meets a thousand new stations in its tail (CLI and PRB without a winner yet, three thousand rows) must not cost more than three times the same
 #                  builds with that one asked as a first batch and a second over (a tail cut before its row test costs the square of its rows: 16.7 s against 0.14 s).
 # NEGATIVE PROBE:  the same census over a copy of the collector whose cycle starts three more `date`s must be over its ceiling (the row's judge is run on it and
-#                  must say no); the batch comparison is run on a batch whose temporary table keeps only the rows of types 4 and 5 (the access points are lost) and must say "differs";
+#                  must say no), and the run with the derived alerts on, read against the base ceilings, must be over them (the census tells the two
+#                  runs apart, so the switch reached the collector); the batch comparison is run on a batch whose temporary table keeps only the rows of types 4 and 5 (the access points are lost) and must say "differs";
 #                  the CPU judge of the hop builds is run on the figures of a hop section read from the end (30,070 ms against 1,090 ms), that of the tail builds on the
 #                  figures of a tail cut before its row test (16,700 ms against 140 ms; both development machine, dash, 24 October 2026), and must say no.
 # NOT PROVEN:      the cost on the device (a start there is about 10 ms, the compute, by the estimate of the sighting of 24 October 2026, 60 to 300 times the development machine's: the figures are processes and
 #                  a ratio of CPU times on this machine, information only; the device readings D1 to D3, D7 and D12 listed in docs/device-notes.md section 6a measure the Pager); the
-#                  count on a Linux machine with GNU ls (fewer starts, a ceiling holds); the Bluetooth and Traffic layers (opt-in, off here); the first
+#                  count on a Linux machine with GNU ls (fewer starts, a ceiling holds); the Bluetooth and Traffic layers (opt-in, off in both runs); the first
 #                  pass after a restart builds the vendor index (done before the first counted cycle).
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only CCN_* globals are set.
 
@@ -111,7 +114,7 @@ mark c5; run_cycle 2>>"$CEN_ERR" >/dev/null
 mark end
 echo "skips=$RS_SKIPS"
 DRV
-# ccn_run FUNCS-FILE TAG: the census of one collector text; the log in $CCN_D/TAG.log, the stderr in TAG.err
+# ccn_run FUNCS-FILE TAG [WIDS]: the census of one collector text; the log in $CCN_D/TAG.log, the stderr in TAG.err; WIDS 1 runs it with the derived alerts on
 ccn_run() {
   cp "$CCN_D/recon.db" "$CCN_D/work-$2.db"
   : > "$CCN_D/$2.log"; : > "$CCN_D/$2.err"; rm -rf "$CCN_D/out-$2" "$CCN_D/ram-$2"; mkdir -p "$CCN_D/out-$2" "$CCN_D/ram-$2"
@@ -120,7 +123,7 @@ ccn_run() {
   env CEN_SQLDIR="$R/$CCN_D/sql-$2" CEN_LOG="$R/$CCN_D/$2.log" CEN_ERR="$R/$CCN_D/$2.err" CEN_REALPATH="$PATH" CEN_FUNCS="$R/$1" CEN_OLD="$CEN_OLD" PATH="$R/$CCN_D/bin:$PATH" \
     STARCHORUS_OUTDIR="$R/$CCN_D/out-$2" STARCHORUS_RECON_DB="$R/$CCN_D/work-$2.db" STARCHORUS_SOURCE=recondb STARCHORUS_MAX_AGE=3600 STARCHORUS_INTERVAL=30 \
     STARCHORUS_VENDOR=1 STARCHORUS_OUI_FILE="$R/$CCN_D/oui.txt" STARCHORUS_TMPDIR="$R/$CCN_D/ram-$2" STARCHORUS_ALERT_DIR="$R/$CCN_D/alerts" STARCHORUS_BLUETOOTH=0 \
-    STARCHORUS_TRAFFIC=0 STARCHORUS_CREATE_MON=0 STARCHORUS_HOMING_BSSID= \
+    STARCHORUS_TRAFFIC=0 STARCHORUS_WIDS="${3:-0}" STARCHORUS_CREATE_MON=0 STARCHORUS_HOMING_BSSID= \
     sh "$R/$CCN_D/drive.sh" > "$CCN_D/$2.out" 2>&1
 }
 # ccn_n TAG CYCLE [PROGRAM]: the starts in cycle c1..c5 (of one program)
@@ -140,6 +143,9 @@ if [ "$CCN_OK" = 1 ] && [ "$CCN_MAIN" = 1 ]; then
   CCN_PL=$(grep -c '^run_cycle() { date' "$CCN_D/funcs-plant.sh")
   ccn_run "$CCN_D/funcs-plant.sh" plant
   CCN_P3=$(ccn_n plant c3)
+  # the same collector with the derived alerts on
+  ccn_run "$CCN_D/funcs.sh" wids 1
+  CCN_W1=$(ccn_n wids c1); CCN_W2=$(ccn_n wids c2); CCN_W3=$(ccn_n wids c3); CCN_W4=$(ccn_n wids c4); CCN_W5=$(ccn_n wids c5)
 fi
 
 # CEILINGS, 24 October 2026, development machine (macOS, one-true-awk 20200816, sqlite3 CLI; `ls -lnL --full-time` is missing there, so a stamp is an ls and two stat: GNU ls
@@ -153,10 +159,18 @@ CCN_MAX_QUIET=22      # a full pass that keeps its document for the skips that f
 CCN_PROG_BUSY="sqlite3=1 awk=3 rm=1 date=2 cp=1 df=0 mktemp=0 tr=1 wc=2"
 CCN_PROG_FIRST="sqlite3=1 awk=4 rm=2 date=2 cp=1 df=1 mktemp=0 tr=1"
 CCN_PROG_SKIP="sqlite3=0 awk=1 cp=0 df=0 mktemp=0 date=2 wc=1"
+# With the derived alerts on (3 November 2026, the same machine and driver): the layers pass runs on every cycle, ten starts more than the base in each of
+# the four: its awk, two sed reads of its stat file, the cat of the new memory, two rm, and post_keep's mv, tail and two wc. Only ever LOWERED.
+CCN_MAX_FIRST_W=35; CCN_MAX_SKIP_W=22; CCN_MAX_BUSY_W=31; CCN_MAX_QUIET_W=32
+CCN_PROG_BUSY_W="sqlite3=1 awk=4 rm=3 date=2 cp=1 df=0 mktemp=0 tr=1 wc=4"
+CCN_PROG_FIRST_W="sqlite3=1 awk=5 rm=4 date=2 cp=1 df=1 mktemp=0 tr=1"
+CCN_PROG_SKIP_W="sqlite3=0 awk=2 cp=0 df=0 mktemp=0 date=2 wc=3"
 # ccn_prog TAG CYCLE "prog=max ..." -> the programs over their ceiling ("" = none)
 ccn_prog() { _cp_bad=""; for _cp_x in $3; do _cp_n=$(ccn_n "$1" "$2" "${_cp_x%%=*}"); [ "$_cp_n" -le "${_cp_x#*=}" ] || _cp_bad="$_cp_bad ${_cp_x%%=*}:$_cp_n>${_cp_x#*=}"; done; printf '%s' "$_cp_bad"; }
 
 ccn_skips() { ccn_judge "$CCN_C2" "$CCN_MAX_SKIP" && ccn_judge "$CCN_C5" "$CCN_MAX_SKIP"; }
+ccn_wids() { ccn_judge "$CCN_W1" "$CCN_MAX_FIRST_W" && ccn_judge "$CCN_W2" "$CCN_MAX_SKIP_W" && ccn_judge "$CCN_W5" "$CCN_MAX_SKIP_W" && ccn_judge "$CCN_W3" "$CCN_MAX_BUSY_W" && ccn_judge "$CCN_W4" "$CCN_MAX_QUIET_W"; }
+ccn_wids_apart() { ! ccn_judge "$CCN_W3" "$CCN_MAX_BUSY" && ! ccn_judge "$CCN_W2" "$CCN_MAX_SKIP"; }   # the run with the rules on is over the base ceilings
 ccn_probe() { [ "$CCN_PL" = 1 ] && [ "$CCN_P3" = "$((CCN_C3 + 3))" ] && ! ccn_judge "$CCN_P3" "$CCN_MAX_BUSY"; }
 # The batch of a busy full pass (cycle 3: HAS_TIME known, a window, so the reduced batch with the temporary table), and the same batch with the table itself: the
 # statements of the groups read ssid, the CREATE, its PRAGMA and the row that says the table is there are gone (that one marker row is the only line the table's answer has more). Both run read-only on the same copy; the answers must be the same bytes. CPU ratio: information.
@@ -283,6 +297,13 @@ else
   rowif "cycle census: per program (full pass: $CCN_PROG_BUSY; first: df 1; skip: $CCN_PROG_SKIP), over:${CCN_B:- none}" [ -z "$CCN_B" ]
   # the probe: three more dates in a cycle read over the ceiling, and the judge says so
   rowif "cycle census probe bites: a collector that starts three more dates a cycle reads $CCN_P3 on the busy pass against the ceiling $CCN_MAX_BUSY (judged red)" ccn_probe
+  # the same census with the derived alerts on (the default): the layers pass runs on every cycle
+  CCN_SW="$(ccn_n wids c1 sqlite3)/$(ccn_n wids c2 sqlite3)/$(ccn_n wids c3 sqlite3)/$(ccn_n wids c4 sqlite3)/$(ccn_n wids c5 sqlite3)"
+  rowif "cycle census, alert rules on: the cycles were the same five (sqlite3 starts $CCN_SW, want 1/0/1/1/0)" [ "$CCN_SW" = 1/0/1/1/0 ]
+  rowif "cycle census, alert rules on: the first pass starts $CCN_W1 (ceiling $CCN_MAX_FIRST_W), a skipped cycle $CCN_W2 and $CCN_W5 ($CCN_MAX_SKIP_W), a busy full pass $CCN_W3 ($CCN_MAX_BUSY_W), a quiet one $CCN_W4 ($CCN_MAX_QUIET_W): the layers pass on every cycle" ccn_wids
+  CCN_WB=$(ccn_prog wids c3 "$CCN_PROG_BUSY_W")$(ccn_prog wids c4 "$CCN_PROG_BUSY_W")$(ccn_prog wids c1 "$CCN_PROG_FIRST_W")$(ccn_prog wids c2 "$CCN_PROG_SKIP_W")$(ccn_prog wids c5 "$CCN_PROG_SKIP_W")
+  rowif "cycle census, alert rules on: per program (full pass: $CCN_PROG_BUSY_W; first: $CCN_PROG_FIRST_W; skip: $CCN_PROG_SKIP_W), over:${CCN_WB:- none}" [ -z "$CCN_WB" ]
+  rowif "cycle census probe bites, alert rules on: the base ceilings read against this run say no (busy $CCN_W3 against $CCN_MAX_BUSY, skip $CCN_W2 against $CCN_MAX_SKIP: the switch reached the collector)" ccn_wids_apart
   # the batch forms
   if ccn_batches; then
     CCN_CPU=$(ccn_cpu 2>/dev/null); CCN_SAME=0; ccn_same && CCN_SAME=1

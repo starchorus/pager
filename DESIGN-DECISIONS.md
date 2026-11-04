@@ -24,10 +24,11 @@ place, because a long read would hold a lock that stalls the writer.
 ## The data sources are layered, and degrade
 
 The collector follows an order of sources (a monitor interface it made itself, the recon database,
-an existing monitor interface, and, only with the active opt-in, `iw scan`). Each extra reading
-(Bluetooth, channel activity, alerts) is opt-in and off by default, because it depends on device
-behaviour that has to be verified first. When a source gives nothing, the document degrades cleanly
-to an empty one rather than failing.
+an existing monitor interface, and, only with the active opt-in, `iw scan`). Each extra reading that
+depends on device behaviour yet to be verified (Bluetooth, channel activity) is opt-in and off by
+default; the alert log, a file that exists only once the companion alert is in place, and the five
+derived kinds of alert, which read nothing from the air, are on by default. When a source gives
+nothing, the document degrades cleanly to an empty one rather than failing.
 
 ## The page is a single built file, from fragments
 

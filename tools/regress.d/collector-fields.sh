@@ -139,21 +139,22 @@ if [ "${CFL_CN:-0}" -ge 3 ] 2>/dev/null; then
 else
   rowif "collector fields: the payload defaults neither Bluetooth nor Traffic to 1 (Contract $CFL_CN: the exports with 0 are required from Contract 3; $CFL_PX/2 there, $CFL_P1 defaults of 1)" [ "$CFL_P1" = 0 ]
 fi
-# From Contract 4 the wids key (0.2.7) reaches the collector the same way: the payload exports STARCHORUS_WIDS with 0, exactly once, and
-# defaults it to 1 nowhere
-CFL_PW=$(grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-0\}"' "$CFL_PLB")
+# From Contract 4 the wids key (0.2.7) reaches the collector the same way, and the switch is on by default: the payload exports STARCHORUS_WIDS
+# with 1, exactly once, and defaults it to 0 nowhere; below Contract 4 (an old collector would ignore the key) it must default it to 1 nowhere
+CFL_PW=$(grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-1\}"' "$CFL_PLB")
+CFL_PW0=$(grep -cE 'STARCHORUS_WIDS:-0' "$CFL_PLB")
 CFL_PW1=$(grep -cE 'STARCHORUS_WIDS:-1' "$CFL_PLB")
 if [ "${CFL_CN:-0}" -ge 4 ] 2>/dev/null; then
-  rowif "collector fields: the payload exports 0 for the wids key (Contract $CFL_CN: $CFL_PW/1 export line, $CFL_PW1 defaults of 1)" [ "$CFL_PW/$CFL_PW1" = 1/0 ]
+  rowif "collector fields: the payload exports 1 for the wids key (Contract $CFL_CN: $CFL_PW/1 export line, $CFL_PW0 defaults of 0)" [ "$CFL_PW/$CFL_PW0" = 1/0 ]
 else
-  rowif "collector fields: the payload defaults the wids key nowhere to 1 (Contract $CFL_CN: the export with 0 is required from Contract 4; $CFL_PW/1 there, $CFL_PW1 defaults of 1)" [ "$CFL_PW1" = 0 ]
+  rowif "collector fields: the payload defaults the wids key nowhere to 1 (Contract $CFL_CN: the export with 1 is required from Contract 4; $CFL_PW/1 there, $CFL_PW1 defaults of 1)" [ "$CFL_PW1" = 0 ]
 fi
-# the wids row bites both ways: an export with a default of 1 is not counted as an export with 0, and is counted as a default of 1
+# the wids row bites both ways: an export with a default of 0 is not counted as an export with 1, and is counted as a default of 0
 # shellcheck disable=SC2016  # the text is the thing searched
-CFL_PWB=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-1}"' | grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-0\}"')
+CFL_PWB=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-0}"' | grep -cE '^export STARCHORUS_WIDS="\$\{STARCHORUS_WIDS:-1\}"')
 # shellcheck disable=SC2016
-CFL_PWB1=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-1}"' | grep -cE 'STARCHORUS_WIDS:-1')
-rowif "collector fields: the wids export row bites (a default of 1 is seen as one, and is not an export with 0: $CFL_PWB1/$CFL_PWB)" [ "$CFL_PWB1/$CFL_PWB" = 1/0 ]
+CFL_PWB0=$(printf '%s\n' 'export STARCHORUS_WIDS="${STARCHORUS_WIDS:-0}"' | grep -cE 'STARCHORUS_WIDS:-0')
+rowif "collector fields: the wids export row bites (a default of 0 is seen as one, and is not an export with 1: $CFL_PWB0/$CFL_PWB)" [ "$CFL_PWB0/$CFL_PWB" = 1/0 ]
 # the payload rows bite: a payload line that exports a Bluetooth default of 1 is counted as a default of 1 and not as an export with 0
 # shellcheck disable=SC2016  # the text is the thing searched
 CFL_PB=$(printf '%s\n' 'export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-1}"' | grep -cE 'STARCHORUS_(BLUETOOTH|TRAFFIC):-1')
@@ -209,15 +210,15 @@ CFL_RWS=0; [ -n "$(cfl_rw RUA)" ] && [ "$(cfl_rw RUA)" = "$(cfl_rv RID_UA)" ] &&
 CFL_RWN=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -c .)
 CFL_RWJ=$( { cfl_rw RUA; cfl_rw RST; cfl_rw RIT; } | grep -ciE 'evil|rogue|attack|threat|intru|malicious|spoof|karma|bandit|target|deauth|direction|bearing|heading|compass|north|south|east|west|ahead|behind|degree|metre|meter|feet|mile|distance|range|nearby|closer|farther|track|pilot|locat')
 rowif "collector fields: Remote ID: svcd leaves SQLite only as hex behind the FAFF0D test ($CFL_RS/1, other reads $CFL_RSX/0, hex(svcd) lines $CFL_RSH/1, hex(substr(mfr lines $CFL_MFH/1); the decoder's $CFL_RWN words are the validator's three lists ($CFL_RWS) and none is judged ($CFL_RWJ)" [ "$CFL_RS/$CFL_RSX/$CFL_RSH/$CFL_MFH/$CFL_RWS/$CFL_RWN/$CFL_RWJ" = 1/0/1/1/1/26/0 ]
-# ---- WIDS (0.2.7): the switch defaults to 0 in the collector and the README documents it so; the five kinds the collector raises (wcand) are the
+# ---- WIDS (0.2.7): the switch defaults to 1 in the collector and the README documents it so; the five kinds the collector raises (wcand) are the
 # validator's AL_TYPES beside deauth, word for word.
-CFL_WD=$(grep -cE '^WIDS=\$\{STARCHORUS_WIDS:-0\}( |$)' starchorus-collect.sh)
+CFL_WD=$(grep -cE '^WIDS=\$\{STARCHORUS_WIDS:-1\}( |$)' starchorus-collect.sh)
 # shellcheck disable=SC2016  # the backticks are the Markdown's
-CFL_WR=$(grep -c '^| `STARCHORUS_WIDS` | `0` |' README.md)
+CFL_WR=$(grep -c '^| `STARCHORUS_WIDS` | `1` |' README.md)
 CFL_WK=$(grep -oE '(wcand\(|wty = )"[a-z_]+"' starchorus-collect.sh | sed 's/.*"\([a-z_]*\)"/\1/' | LC_ALL=C sort -u | tr '\n' ' ')   # the kinds: raised directly (wcand) or chosen first (wty), both in AWK_LAYERS
 CFL_WV=$(sed -n 's/^AL_TYPES = (\(.*\))  *#.*/\1/p' tools/gen-testdata.py | tr -d '" ' | tr ',' '\n' | grep -v '^deauth$' | grep . | LC_ALL=C sort -u | tr '\n' ' ')
 CFL_WS=0; [ -n "$CFL_WK" ] && [ "$CFL_WK" = "$CFL_WV" ] && CFL_WS=1
-rowif "collector fields: WIDS off by default (collector $CFL_WD/1, README row $CFL_WR/1) and the five kinds the collector raises are the validator's types beside deauth ($CFL_WS: $CFL_WK)" [ "$CFL_WD/$CFL_WR/$CFL_WS" = 1/1/1 ]
+rowif "collector fields: WIDS on by default (collector $CFL_WD/1, README row $CFL_WR/1) and the five kinds the collector raises are the validator's types beside deauth ($CFL_WS: $CFL_WK)" [ "$CFL_WD/$CFL_WR/$CFL_WS" = 1/1/1 ]
 # ---- the watch list (0.2.7): the collector names no function watch* (the guard's sink word), reads the list with getline alone (no command takes an entry), the
 # README and the package README document the file, and the validator takes `watched` on access points, stations and Bluetooth records only when true.
 CFL_WLF=$(grep -cE '^watch[A-Za-z_]*\(\)' starchorus-collect.sh)

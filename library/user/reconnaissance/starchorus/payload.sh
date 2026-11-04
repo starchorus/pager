@@ -35,7 +35,7 @@
 #   (STARCHORUS_PORT), bind auto|all|IPv4 address (STARCHORUS_BIND; CLI only, no menu entry), vendor/survey on|off
 #   (STARCHORUS_VENDOR/_SURVEY 1|0), traffic/bluetooth/wids on|off (STARCHORUS_TRAFFIC/_BLUETOOTH/_WIDS 1|0: the channel activity
 #   the AP service reports and the frame counts of stations; the passive Bluetooth LE scan; five more kinds of alert derived from
-#   what the collector already holds; all three off by default, all three read by the collector only), page on|off (STARCHORUS_PAGE
+#   what the collector already holds; the first two off by default, wids on; all three read by the collector only), page on|off (STARCHORUS_PAGE
 #   1|0, read by this payload only). Three switches are environment only, with
 #   no key and no menu row: STARCHORUS_OWN (own interface MACs), STARCHORUS_DASHBOARD (0 = the
 #   Overview does not open after Start) and STARCHORUS_COLLECTOR (0 = no collector; the menu then refuses to run). One more
@@ -148,7 +148,7 @@ export STARCHORUS_OWN="${STARCHORUS_OWN:-0}"              # 1 = own interface MA
 export STARCHORUS_SURVEY="${STARCHORUS_SURVEY:-0}"        # 1 = channel busy time from the survey dump (read-only)
 export STARCHORUS_BLUETOOTH="${STARCHORUS_BLUETOOTH:-0}"  # 1 = the passive Bluetooth LE scan window every cycle (off by default)
 export STARCHORUS_TRAFFIC="${STARCHORUS_TRAFFIC:-0}"      # 1 = channel activity and station frame counts (off by default)
-export STARCHORUS_WIDS="${STARCHORUS_WIDS:-0}"            # 1 = five more kinds of alert, derived from what the collector already holds (off by default)
+export STARCHORUS_WIDS="${STARCHORUS_WIDS:-1}"            # 1 = five more kinds of alert, derived from what the collector already holds (on by default; 0 = off)
 STARCHORUS_COLLECTOR=${STARCHORUS_COLLECTOR:-1}           # payload only, environment only: start the collector
 STARCHORUS_PAGE=${STARCHORUS_PAGE:-1}                     # payload only: serve the page
 STARCHORUS_DASHBOARD=${STARCHORUS_DASHBOARD:-1}           # payload only, environment only: open the Overview after Start (menu)

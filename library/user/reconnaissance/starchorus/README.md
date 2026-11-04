@@ -24,7 +24,7 @@ WiFi Pineapple and WiFi Pineapple Pager are trademarks of Hak5 LLC.
   Two settings, both off by default, add to what it reads: 'Traffic' (channel activity from the AP
   service and the frame counts of stations) and 'Bluetooth' (a scan of 5 s per refresh). Bluetooth:
   passive LE scan only: by the Bluetooth specification a passive scan sends no scan request, it listens for advertisements that devices
-  broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)). A further setting, 'Alert Rules' (off by
+  broadcast anyway (this project measures the host side of it: [SECURITY.md](SECURITY.md)). A further setting, 'Alert Rules' (on by
   default), adds five more kinds of alert, which the collector derives from what it already holds, never from the air.
 - Page (`starchorus.html`, `index.html` on the device): a single, self-contained HTML file on port
   8199; it fetches only `starchorus.json` and sends nothing.
@@ -180,7 +180,7 @@ from the processes themselves, so a reboot or a crash never leaves a false 'Runn
 - **Stop** asks nothing. It stops the collector and the page server and waits until the collector
   has really ended.
 - **Settings** holds 'Web Page', 'Refresh', 'Show Last', 'Vendor Names', 'Channel Load', 'Traffic',
-  'Bluetooth', 'Alerts', 'Alert Rules', 'Port' and 'Reset to Defaults'. 'Traffic', 'Bluetooth' and 'Alert Rules' are OFF by default;
+  'Bluetooth', 'Alerts', 'Alert Rules', 'Port' and 'Reset to Defaults'. 'Traffic' and 'Bluetooth' are OFF by default, 'Alert Rules' ON;
   switching one on says in the log what it adds ('Traffic: channel activity and frame rates.', 'Bluetooth: passive LE
   scan, 5 s per refresh.', 'Alert rules: five more kinds, on the web page.'). A row with ON or OFF flips with one press; 'Refresh' and 'Show Last' open a
   short list ('Show Last' also offers 'All (may be slow)'), 'Port' a number entry. Every change is
@@ -263,7 +263,7 @@ touch the file.
 | `page` | `on` | `on`, `off` | payload only (`STARCHORUS_PAGE`): serve the page ('Web Page') |
 | `bluetooth` | `off` | `on`, `off` | `STARCHORUS_BLUETOOTH` (`1`/`0`): the passive Bluetooth LE scan, 5 s per refresh ('Bluetooth') |
 | `traffic` | `off` | `on`, `off` | `STARCHORUS_TRAFFIC` (`1`/`0`): channel activity from the AP service and the frame counts of stations ('Traffic') |
-| `wids` | `off` | `on`, `off` | `STARCHORUS_WIDS` (`1`/`0`): five more kinds of alert, derived from what the collector already holds; shown on the page, not in the Overview ('Alert Rules') |
+| `wids` | `on` | `on`, `off` | `STARCHORUS_WIDS` (`1`/`0`): five more kinds of alert, derived from what the collector already holds; shown on the page, not in the Overview ('Alert Rules') |
 
 'Refresh' in the menu is `interval`, 'Show Last' is `window`, 'Traffic' is `traffic`, 'Bluetooth' is `bluetooth` and 'Alert Rules' is `wids`.
 The collector options only read.

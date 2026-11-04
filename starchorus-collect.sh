@@ -100,7 +100,7 @@
 #                        log line. The window source names companies itself. The list is read only for
 #                        an identifier no earlier cycle looked up (BTCO_MEMO, emptied at the re-check
 #                        every 120 cycles), not once per cycle.                        (default auto)
-#   Everything that depends on device behaviour that is not verified yet is a FLAG, default OFF:
+#   Everything that depends on device behaviour that is not verified yet is a FLAG, default OFF (the alert log and the derived alerts, listed here too, default ON):
 #   STARCHORUS_HOPINFO        1 = top-level "channels": [{"freq", "last_heard"}] from the recon.db `time`
 #                        column (the front-end never calls an AP "gone" without it).  (default 0)
 #   STARCHORUS_SURVEY         1 = add "busy_pct" / "noise" to channels[] from `iw dev IF survey dump`
@@ -151,7 +151,7 @@
 #                        such entries beside the deauth entries, one per address, a deauth entry never displaced, the whole list newest first.
 #                        sec_weaker and chan_changed live for STARCHORUS_ALERT_WINDOW seconds; own_name, sec_profiles and bt_fixed_new stand while
 #                        their evidence is in the document. A name outside ASCII matches own_ssids on the recon database path only (the pineap source
-#                        writes such names escaped).  (default 0, until measured on the device)
+#                        writes such names escaped).  (default 1)
 #   STARCHORUS_SYSFS_BT       tests only: where the controller is looked for (default /sys/class/bluetooth), like STARCHORUS_SYSFS_NET.
 #   STARCHORUS_PROC_BT        tests only: where the Bluetooth window code reads /proc from (default /proc).
 #
@@ -223,7 +223,7 @@ PIDDIR=${STARCHORUS_PIDDIR:-$OUTDIR}
 VENDOR=${STARCHORUS_VENDOR:-1}
 OUI_FILE=${STARCHORUS_OUI_FILE:-auto}
 BTCO_FILE=${STARCHORUS_BT_COMPANIES_FILE:-auto}   # auto | path: the Bluetooth company-identifier list (id<TAB>name) that names the companies the blue5 source reports by number
-# Flags, default OFF: see the header (docs/device-notes.md).
+# Flags, default OFF but for ALERTS and WIDS: see the header (docs/device-notes.md).
 HOPINFO=${STARCHORUS_HOPINFO:-0}
 SURVEY=${STARCHORUS_SURVEY:-0}
 OWN=${STARCHORUS_OWN:-0}
@@ -234,7 +234,7 @@ BT_SOURCE=${STARCHORUS_BT_SOURCE:-auto}               # auto|blue5|window: the B
 BLUE5_DB=${STARCHORUS_BLUE5_DB:-/root/recon/blue5.db}  # the firmware's own Bluetooth database, read-only; the auto/blue5 source reads it
 TRAFFIC=${STARCHORUS_TRAFFIC:-0}
 ALERTS=${STARCHORUS_ALERTS:-1}                    # 1 = read $ALERT_DIR/alerts.log when it exists (the header says what writes it); nothing happens without the file
-WIDS=${STARCHORUS_WIDS:-0}                        # 1 = five more kinds of alert (own_name, sec_profiles, sec_weaker, chan_changed, bt_fixed_new) from the document and the Bluetooth database into alerts[]; nothing is read from the air for them; off until measured on the device
+WIDS=${STARCHORUS_WIDS:-1}                        # 1 = five more kinds of alert (own_name, sec_profiles, sec_weaker, chan_changed, bt_fixed_new) from the document and the Bluetooth database into alerts[]; nothing is read from the air for them; 0 switches them off
 case $WIDS in 1) ;; *) WIDS=0 ;; esac             # anything but 1 is off, for the shell and for the awk alike
 ALERT_DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}   # where the companion alert-deauth.sh writes alerts.log: a directory of its own, outside the one the page server serves
 BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
@@ -5473,7 +5473,7 @@ lay_selftest() {
     unset lal_p1 lal_p2 lal_p3 lal_w
 
     # 31) wids: five more kinds of alert from the document (own_name, sec_profiles, sec_weaker, chan_changed) and the Bluetooth database (bt_fixed_new) with
-    # STARCHORUS_WIDS=1; off by default, when a document that would speak stays byte-identical. lw_add adds an access-point line as the sources write them, lw_doc
+    # STARCHORUS_WIDS=1 (the default); off, a document that would speak stays byte-identical. lw_add adds an access-point line as the sources write them, lw_doc
     # writes the document (the text after center.label as $1), lw_run = alerts_look and run_layers on it (Bluetooth and Traffic off, no alert log unless a case
     # writes one), lw_al = the alerts line without its key. Every address and name is made up.
     lw_d="$LAY/wids"; mkdir -p "$lw_d"
@@ -8587,7 +8587,7 @@ KLRL
 usage() {
     # the USAGE/CONFIG block of the header, selected by its first and last line (not by line numbers)
     sed -n '/^# USAGE:$/,/one log line\.  (default auto)$/p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'
-    # The header goes on from there under a heading that calls every flag default OFF, and the alert log is not (default 1), so the rest is
+    # The header goes on from there under a heading that calls every flag default OFF, and the alert log and the derived alerts are not (default 1), so the rest is
     # set out here with the true defaults: the same flags as the entries of that part of the header, one line each (the pin in operator-tools.sh lists them).
     printf '%s\n' '  ./starchorus-collect.sh -h         # the same as --help'
     printf '%s\n' 'Opt-in layers, each off by default; none of them transmits (each reads, or listens):'
@@ -8608,6 +8608,7 @@ usage() {
     printf '%s\n' '  STARCHORUS_ALERTS          0 = do not read alerts.log (the companion alert payload) from STARCHORUS_ALERT_DIR,'
     printf '%s\n' '                             default /root/loot/starchorus-alerts.  (default 1)'
     printf '%s\n' '  STARCHORUS_ALERT_WINDOW    the seconds an alert is kept, 60 to 86400.  (default 600)'
+    printf '%s\n' '  STARCHORUS_WIDS            0 = none of the five derived kinds of alert in alerts[] (the header names them).  (default 1)'
     printf '%s\n' 'Tests only: STARCHORUS_SYSFS_BT, STARCHORUS_PROC_BT and STARCHORUS_SYSFS_NET name another root for sysfs and /proc.'
     printf '%s\n' 'Everything here is receive-only except the active scan opt-in, STARCHORUS_ALLOW_ACTIVE=1 (default 0: off).'
 }

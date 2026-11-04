@@ -35,8 +35,7 @@
 #                 R14's three planted words and R16's four copies (a friend kept, bt_fixed_new as a Wi-Fi kind, the kinds looked up with `in`, the note without the live
 #                 test) and R17's copy with the dwell keyed by the address alone are more.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
-#                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (STARCHORUS_WIDS stays 0 until
-#                 it is measured on the device); where the nine stars of wids.json land on a phone.
+#                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (none examined on the device yet); where the nine stars of wids.json land on a phone.
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only AL_* globals are set. Runs without ?fixed (nodes must fade in) and freezes the
 # clock itself (STARCHORUS.setFixedTime) for the samples; the WarGames persistence is switched off for them (it would blend neighbouring frames), and on in the one frame count of R5 that is about it.
 
