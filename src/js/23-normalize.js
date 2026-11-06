@@ -100,7 +100,7 @@ function normalizeDoc(raw) {
       // this device's own transmitters (interface MACs / operator file): kept in memory for the exclusion logic only; never rendered, exported or stored
       own_bssids: Array.isArray(rc.own_bssids) ? rc.own_bssids.map(normMac).filter(isMac).slice(0, 16) : [],
       own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
-    // optional alerts[] {type, t, ap, n}: local-live (P6)
+    // optional alerts[] {type, t, ap, n}: the note reaches the SITREP, the ring the PNG, the JSON and CSV nothing (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
       if (!isObj(x) || !Object.keys(AL_TXT).includes(x.type)) return null;
       const ap = normMac(x.ap);

@@ -7,14 +7,14 @@
 #   pulse, WarGames a seeded phosphor flicker in half-second steps, Whitehall a chalk blink of two levels) and stands steady under reduced motion · R3 it is drawn
 #   at the alerted access points and at no other, it reads the theme's alert token, and it leaves the pixels of the access point's own rings as they were · R4 the
 #   legend row exists exactly while such a ring can be drawn (not with its band filtered off), in the alert token, with the neutral words · R5 the frame loop is asked
-#   for each step of the flicker and for nothing else, and the ring takes both its levels on the canvas · R6 the observation notes are as before, two lines · R7 no P10
+#   for each step of the flicker and for nothing else, and the ring takes both its levels on the canvas · R6 the observation notes are as before, two lines, in the SITREP and not in the JSON or CSV, which carry no entry of alerts[] either (P6) · R7 no P10
 #   word in what the feature says · R8 the running page makes no request but GET to its own origin while the alert is shown · R9 the planted copies of the page
 #   (below) · R10 the colour role of the alert token · R11 the Scope's blip of an alerted access point blinks in the ring's rhythm (frames, both levels, reduced motion, paused, Foundation's
 #   pulse sampled at the half second) · R12 the ring's band, as section 14.6 states it (it touches the selection ring)
 #   Since 0.2.7 the five kinds of STARCHORUS_WIDS=1 (tests/fixtures/wids.json, the ground truth in the header of build_wids_doc): R1b the fixture and three more
 #   refusals of the validator · R13 the page knows the validator's six kinds · R14 the words of the six notes and the legend row (P10, direction, distance; three
 #   planted words) · R15 the kinds on the page (notes, legend, rings in three themes, friend, own, band filter, the Bluetooth note, inherited type names, exports)
-#   · R16 four planted copies for the keys of R15 · R17 the dwell key names the kind: a second kind at an alerted address waits its own two captures, a kind that
+#   · R16 six planted copies for the keys of R15 and R6 · R17 the dwell key names the kind: a second kind at an alerted address waits its own two captures, a kind that
 #   replaces another in one capture waits too, and a planted copy with the old key (by address alone) shows both at once
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
@@ -25,18 +25,20 @@
 #                 that the band stated in section 14.6 is no longer true. Since 0.2.7: a kind the page does not know, or a type name an object inherits taken for
 #                 one; a derived kind's ring or note at a friend, or a deauth one taken from it; a ring for bt_fixed_new; a Bluetooth note without a live fixed
 #                 mark of its address; a word in a note that P10, direction or distance forbid; a dwell keyed by the address alone, so that a second kind at an
-#                 alerted address, or a kind that replaces another, shows without its two captures.
+#                 alerted address, or a kind that replaces another, shows without its two captures; an alert note missing from the SITREP, or an alert
+#                 entry, its address or its note in the JSON or CSV (P6).
 # NEGATIVE PROBE: R9 runs the same evals on planted copies of the page, each differing from it in exactly one line (the old text exists once): the ring back at px + 8,
 #                 the flicker factor replaced by 1, the reduced-motion test removed, no frame request, a frame request every frame, and a legend row that ignores the band
 #                 filter; a step that arms the phosphor fade again (R5), in the Scope a loop never asked for the step and Foundation's pulse asked for on every frame (R11), and a ring thinned to
 #                 1.25 px at 11.4 (R12), are more. Each must turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
-#                 R14's three planted words and R16's four copies (a friend kept, bt_fixed_new as a Wi-Fi kind, the kinds looked up with `in`, the note without the live
-#                 test) and R17's copy with the dwell keyed by the address alone are more.
+#                 R14's three planted words and R16's five copies (a friend kept, bt_fixed_new as a Wi-Fi kind, the kinds looked up with `in`, the note without the live
+#                 test, the notes leaked into the JSON export, alerts[] itself in the JSON export) and R17's copy with the dwell keyed by the address alone are more.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
 #                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (bt_fixed_new was raised on the device on 4 November 2026, in the first cycles of the build with the
-#                 rules on, 66 reports for one strong address; the four Wi-Fi kinds have not shown there yet); where the nine stars of wids.json land on a phone.
+#                 rules on, 66 reports for one strong address; the four Wi-Fi kinds have not shown there yet); where the nine stars of wids.json land on a phone;
+#                 the PNG snapshot is not read (the ring is proved on the canvas, R3; the exports and entries keys read the three text exports).
 # Sourced by tools/regress.sh with cwd = repo root, after the core rows. Only AL_* globals are set. Runs without ?fixed (nodes must fade in) and freezes the
 # clock itself (STARCHORUS.setFixedTime) for the samples; the WarGames persistence is switched off for them (it would blend neighbouring frames), and on in the one frame count of R5 that is about it.
 
@@ -189,6 +191,9 @@ await ld(null,"al-back");o.back=vis();
 STARCHORUS.setToggles({bands:{"2.4":false}});await sleep(300);o.off24=vis();   // alert-a is 2.4 GHz and alert-b 5 GHz: one ring can still be drawn, then none
 STARCHORUS.setToggles({bands:{"5":false}});await sleep(300);o.off245=vis();
 STARCHORUS.setToggles({bands:{"2.4":true,"5":true}});await sleep(300);o.on=vis();
+const T=notes(),sr=STARCHORUS.exportText("sitrep"),js=STARCHORUS.exportText("json"),cs=STARCHORUS.exportText("csv"),said=t=>t.slice(0,t.lastIndexOf(": "));
+o.exports=[T.length,T.filter(t=>sr.includes("\n  "+t+"\n")).length,T.filter(t=>js.includes(said(t))||cs.includes(said(t))).length].join("/");   // P6: the notes reach the SITREP, never the JSON or CSV
+o.entries=S.alerts.filter(a=>js.includes(a.type)||cs.includes(a.type)).length+[sr,js,cs].filter(x=>x.includes(U)).length;   // P6: no entry of alerts[], and no address only an entry names, in any text export
 const all=[txt].concat(notes());o.text=all.join("|");
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 # al_legend PAGE PREFIX: the legend eval on PAGE (the page, or a planted copy); the value comes back in AL_L, the keys without the words in AL_LN
@@ -200,8 +205,8 @@ al_legend() {
   AL_LN=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; d=json.load(sys.stdin); d.pop("text",None); print(json.dumps(d,separators=(",",":"),sort_keys=True))' 2>/dev/null)
 }
 al_legend "$H" "$AL_T/legend"
-AL_LWANT='{"back":"1/2","errors":0,"none":"0/0","notes":"[\"many deauth/disassoc frames heard for this AP: alert-a (9)\",\"many deauth/disassoc frames heard for this AP: alert-b (4)\"]","off24":"1/2","off245":"0/2","on":"1/2","one":"1/1/1","own":"0/0","start":"1/2","tokens":"111","unknown":"0/0","words":true}'
-rowif "alerts: the legend row is there while a ring is drawn (2 notes) and gone with no alert, with only the unknown address, with both access points an own transmitter and with the bands of both filtered off (still there for one of them); in the alert token in all three themes; with its neutral words; the two observation notes read as before [${AL_LN:-no-value}]" [ "$AL_LN" = "$AL_LWANT" ]
+AL_LWANT='{"back":"1/2","entries":0,"errors":0,"exports":"2/2/0","none":"0/0","notes":"[\"many deauth/disassoc frames heard for this AP: alert-a (9)\",\"many deauth/disassoc frames heard for this AP: alert-b (4)\"]","off24":"1/2","off245":"0/2","on":"1/2","one":"1/1/1","own":"0/0","start":"1/2","tokens":"111","unknown":"0/0","words":true}'
+rowif "alerts: the legend row is there while a ring is drawn (2 notes) and gone with no alert, with only the unknown address, with both access points an own transmitter and with the bands of both filtered off (still there for one of them); in the alert token in all three themes; with its neutral words; the two observation notes read as before, and they reach the SITREP and neither the JSON nor the CSV, which carry no entry of alerts[] either (P6) [${AL_LN:-no-value}]" [ "$AL_LN" = "$AL_LWANT" ]
 [ "$AL_LN" = "$AL_LWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_L:-no-value}" | cut -c1-400)"
 AL_P10=$(sed -n "s/^NTL_P10_RE='\(.*\)'\$/\1/p" tools/regress.d/neutral-language.sh | head -n 1)   # the one definition of the P10 words, read where it lives
 AL_TXT=$(printf '%s' "$AL_L" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("text",""))' 2>/dev/null)
@@ -481,6 +486,7 @@ await ld(d=>{d.alerts.push({type:"bt_fixed_new",t:d.generated-400,ap:P+"04",n:3}
 await ld(d=>{d.alerts=[{type:"constructor",t:d.generated,ap:P+"04",n:3},{type:"__proto__",t:d.generated,ap:P+"03",n:3},{type:"toString",t:d.generated,ap:P+"07",n:1}];},"wd-proto");o.proto=[notes().length,S.alerts.length,row().visible].join("/");
 await ld(null,"wd-exp");const T=notes(),sr=STARCHORUS.exportText("sitrep"),js=STARCHORUS.exportText("json"),cs=STARCHORUS.exportText("csv"),said=t=>t.slice(0,t.lastIndexOf(": "));
 o.exports=[T.length,T.filter(t=>sr.includes("\n  "+t+"\n")).length,T.filter(t=>js.includes(said(t))||cs.includes(said(t))).length].join("/");
+o.entries=S.alerts.filter(a=>js.includes(a.type)||cs.includes(a.type)).length;   // P6: no entry of alerts[] in the JSON or CSV
 STARCHORUS.setFixedTime(null);o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 # al_wids PAGE PREFIX: the WIDS eval on PAGE (the page, or a planted copy); the value comes back in AL_W, with its keys sorted in AL_WN
 al_wids() {
@@ -491,11 +497,11 @@ al_wids() {
   AL_WN=$(printf '%s' "$AL_W" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin),separators=(",",":"),sort_keys=True))' 2>/dev/null)
 }
 al_wids "$H" "$AL_T/wids"
-AL_WWANT='{"bands":"00011/5/true","bt":"new fixed Bluetooth address, strong signal: 02:00:00:00:09:01 (5)/6/true/0","btAp":"0/5","btGone":5,"btRot":5,"errors":0,"exports":"5/5/0","friend":"0/1/4/true","legend":"true|alert ring = an alert for this AP, see Observations","notes":"[\"own name also sent by another transmitter: HomeNet (2)\",\"one name, several security profiles: Meadow (2)\",\"security weaker than when first heard: Orchard (1)\",\"channel changed since first heard: Paddock (1)\",\"channel changed since first heard: Spinney (2)\"]","own":"4/0","proto":"0/0/false","rings":"111110000|111110000|111110000"}'
+AL_WWANT='{"bands":"00011/5/true","bt":"new fixed Bluetooth address, strong signal: 02:00:00:00:09:01 (5)/6/true/0","btAp":"0/5","btGone":5,"btRot":5,"entries":0,"errors":0,"exports":"5/5/0","friend":"0/1/4/true","legend":"true|alert ring = an alert for this AP, see Observations","notes":"[\"own name also sent by another transmitter: HomeNet (2)\",\"one name, several security profiles: Meadow (2)\",\"security weaker than when first heard: Orchard (1)\",\"channel changed since first heard: Paddock (1)\",\"channel changed since first heard: Spinney (2)\"]","own":"4/0","proto":"0/0/false","rings":"111110000|111110000|111110000"}'
 rowif "alerts: the five kinds of 0.2.7 on wids.json: five notes exactly, the legend row in kind-neutral words, the ring at the five access points with a Wi-Fi kind and at none of the four others (own transmitter, phone hotspot, two without an entry) in three themes; a friend loses the derived ring and note and keeps a deauth one, an own transmitter loses both, a band filtered off keeps the note; bt_fixed_new a note only while the capture holds a fixed mark of it (not rotating, not after it left, never a ring, not at an access point of that address); inherited type names dropped; the SITREP lists the notes, JSON and CSV none [${AL_WN:-no-value}]" [ "$AL_WN" = "$AL_WWANT" ]
 [ "$AL_WN" = "$AL_WWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_W:-no-value}" | cut -c1-600)"
 
-# ---- R16 the keys of R15 bite: four planted copies, each differing from the page in exactly one line, each turns its own key (the copies boot without an error)
+# ---- R16 the keys of R15 and R6 bite: six planted copies, each differing from the page in exactly one line, each turns its own key (the copies boot without an error)
 al_wkey() { printf '%s' "$AL_W" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
 # a friend that keeps a derived kind's ring and note
 al_copy "$AL_T/p-wfriend.html" 'a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend") && S.aps.get(a.ap);' 'a.type !== "bt_fixed_new") && S.aps.get(a.ap);'
@@ -517,6 +523,17 @@ al_copy "$AL_T/p-wlive.html" '(S.bt.get("bt:" + a.ap) || {}).target === 1' 'S.bt
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wlive.html" "$AL_T/wids-live"; AL_V=$(al_wkey btGone errors)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "6,0" ] && AL_OK=1
 rowif "alerts: the live key bites: a Bluetooth note that only asks whether the mark exists outlives the capture its address left [copy differs in $AL_C1 line, btGone/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# the notes leaked into the JSON export: P6 lets the kind and the count into the SITREP and the PNG, nothing into the JSON or CSV
+al_lkey() { printf '%s' "$AL_L" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
+al_copy "$AL_T/p-lexp.html" 'return JSON.stringify(m, null, 1) + "\n";' 'return JSON.stringify(m, null, 1) + "\n" + S.obs.map(o => o.text).join("\n") + "\n";'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_legend "$AL_T/p-lexp.html" "$AL_T/legend-exp"; AL_V=$(al_lkey exports errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "2/2/2,0" ] && AL_OK=1
+rowif "alerts: the exports key bites: a page whose JSON export carries the observation notes reports them there, which P6 forbids [copy differs in $AL_C1 line, exports/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# alerts[] itself in the JSON export: the entries key sees the kind words of the three entries and the address only an entry names
+al_copy "$AL_T/p-lraw.html" 'mobile_hotspots: mob, crowding: S.crowding.level };' 'mobile_hotspots: mob, crowding: S.crowding.level, alerts: S.alerts };'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_legend "$AL_T/p-lraw.html" "$AL_T/legend-raw"; AL_V=$(al_lkey entries errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "4,0" ] && AL_OK=1
+rowif "alerts: the entries key bites: a page whose JSON export carries alerts[] itself reports its three entries and the unknown address there, which P6 forbids [copy differs in $AL_C1 line, entries/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
 
 # ---- R17 the dwell key names the kind (1 November 2026): at an alerted access point a second kind waits its own two captures, and a kind that replaces another in
 # the same capture waits too (keyed by the address alone, the first kind's clock served the next); the kinds that vanished go at once. Orchard (02:00:00:00:07:06)

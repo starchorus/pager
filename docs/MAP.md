@@ -231,7 +231,7 @@ negative probes: `tools/README.md` (Drop-ins) and the drop-in's own header.
 
 | Drop-in | Subjects |
 |---|---|
-| `alerts` | `page` `fixtures` `20-config` `23-normalize` `25-ingest` `29-analyzer` `30-step` `34-render-layers` `tools/check-colors.py` `tools/gen-testdata.py` `tools/regress.d/neutral-language.sh` `tools/regress.d/scope.sh` |
+| `alerts` | `page` `fixtures` `20-config` `23-normalize` `25-ingest` `29-analyzer` `30-step` `34-render-layers` `37-ui` `tools/check-colors.py` `tools/gen-testdata.py` `tools/regress.d/neutral-language.sh` `tools/regress.d/scope.sh` |
 | `ap-models` | `page` `fixtures` `23-normalize` `34-render-layers` `38-data-source` `tools/check-colors.py` `tools/gen-testdata.py` |
 | `cdp-ready` | `page` `fixtures` `docs/architecture.md` `tools/README.md` |
 | `channel-time` | `page` `fixtures` `25-ingest` `29-analyzer` `37-ui` `SECURITY.md` `tools/regress.d/edge-layout.sh` |
