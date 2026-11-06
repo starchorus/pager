@@ -238,7 +238,7 @@ function near1(a, b) {   // exactly one edit apart (substitution, insertion or d
 function obsCompute() {
   const tick = S.generated != null ? S.captureSeq : S.ingestSeq;
   const aps = S.apOrder.filter(n => !eventSkip(n)), raw = [];
-  const add = (key, group, text) => raw.push({ key, group, text });
+  const add = (key, group, text, alert) => raw.push(alert ? { key, group, text, alert } : { key, group, text });   // alert: what of an alerts[] entry the exports carry (P6)
   if (S.ui.baselineDiff && S.baseline) {   // Baseline
     const b = S.base;
     if (b.new) add("b-new", "Baseline", b.new + " network(s) not in the baseline");
@@ -267,7 +267,7 @@ function obsCompute() {
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
-  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: kind, name or address, count; the note reaches the SITREP, never the JSON or CSV; dwell per kind
+  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1, nm = !b && n ? n.ssidKnown || n.ssid || null : null; if (b || !eventSkip(n) && n.target === 1) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")", { kind: a.type, address: a.ap, name: nm, count: a.n }); }   // P6: kind, name or address, count, for an access point the capture holds (as the Bluetooth note its live mark); the note reaches the SITREP, the JSON and the CSV; dwell per kind
   if (S.cloudOrder.length) {   // §8.8a
     const k = S.cloudOrder.length, a = S.cloudOrder.reduce((x, c) => x + c.n, 0), one = k === 1 && !cloudMixed(S.cloudOrder[0]);
     add("s-clouds", "Stations", a + " randomised addresses in " + k + (k === 1 ? " cloud" : " clouds") + (one ? ": probably one nearby device changing its address" : ": possibly one or more nearby devices changing their address"));

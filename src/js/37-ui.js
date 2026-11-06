@@ -165,6 +165,7 @@ function exportModel() {
   });
   const sc = { free: 0, associated: 0 }; stations.forEach(x => { if (x.association) sc.associated++; else sc.free++; });
   const out = { footer: EXPORT_FOOTER, generated: S.generated, source: S.sourceKind, aps, stations, station_counts: sc, mobile_hotspots: mob, crowding: S.crowding.level };
+  const al = S.obs.filter(o => o.alert).map(o => ({ ...o.alert })); if (al.length) out.alerts = al;   // P6: of alerts[] the notes' kind, address, name and count, as the Observations show them; nothing the page shows no note for
   if (clouds) {   // §8.8a only with a live cloud
     sc.randomised = stations.filter(x => x.randomized).length; sc.in_clouds = stations.filter(x => x.cloud != null).length;
     out.clouds = S.cloudOrder.map(k => ({ id: k.id, addresses: k.n, rssi: k.rssi, rssi_min: k.rssiMin, rssi_max: k.rssiMax, first_heard: k.first, last_heard: k.last, cadence_s: k.cadenceS, bursts: k.bursts,
@@ -183,9 +184,11 @@ function exportText(fmt) {
     const head = "kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud";   // one table, a leading kind column, every row the same width
     const apRow = (a) => ["ap", a.bssid, a.ssid, a.band, a.channel, a.security, a.rssi, a.heard, a.alias || "", (a.tags || []).join(" "), "", "", "", ""];
     const stRow = (x) => ["station", x.mac, "", x.band, "", "", x.rssi, x.heard, x.alias || "", (x.tags || []).join(" "), x.association || "", x.randomized ? "1" : "", (x.probes || []).join(" "), x.cloud || ""];
+    const A = m.alerts || [], ea = A.length ? ",," : "";   // two alert columns (P6: the kind and the count), empty on the other rows
+    const alRow = (x) => ["alert", x.address, x.name || "", "", "", "", "", "", "", "", "", "", "", "", x.kind, x.count];
     const e = R.length ? ",,,,,,,,,," : "";   // ten Remote ID columns, empty on the other rows
-    return [head + (e && "," + RID_KEYS.join(","))].concat(m.aps.map(a => apRow(a).map(q).join(",") + e)).concat(m.stations.map(x => stRow(x).map(q).join(",") + e))
-      .concat(R.map(b => "remote_id," + b.addr + ",,,,," + b.rssi + "," + b.heard + ",,,,,,," + RID_KEYS.map(k => q(ridV(b.remote_id, k))).join(",")), e ? ["# " + RID_NOTE] : [], ["# " + EXPORT_FOOTER]).join("\n") + "\n";
+    return [head + (ea && ",alert,count") + (e && "," + RID_KEYS.join(","))].concat(m.aps.map(a => apRow(a).map(q).join(",") + ea + e)).concat(m.stations.map(x => stRow(x).map(q).join(",") + ea + e))
+      .concat(A.map(x => alRow(x).map(q).join(",") + e), R.map(b => "remote_id," + b.addr + ",,,,," + b.rssi + "," + b.heard + ",,,,,,," + ea + RID_KEYS.map(k => q(ridV(b.remote_id, k))).join(",")), e ? ["# " + RID_NOTE] : [], ["# " + EXPORT_FOOTER]).join("\n") + "\n";
   }
   if (fmt === "sitrep") {
     const by = (fn) => { const c = {}; for (const a of m.aps) c[fn(a)] = (c[fn(a)] || 0) + 1; return Object.keys(c).sort().map(k => k + " " + c[k]).join(" · "); };

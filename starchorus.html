@@ -1482,7 +1482,7 @@ function normalizeDoc(raw) {
       // this device's own transmitters (interface MACs / operator file): kept in memory for the exclusion logic only; never rendered, exported or stored
       own_bssids: Array.isArray(rc.own_bssids) ? rc.own_bssids.map(normMac).filter(isMac).slice(0, 16) : [],
       own_ssids: strs(rc.own_ssids, 32, 32) || [], bt_window: numOrNull(rc.bt_window), bt_hold: numOrNull(rc.bt_hold) },
-    // optional alerts[] {type, t, ap, n}: the note reaches the SITREP, the ring the PNG, the JSON and CSV nothing (P6)
+    // optional alerts[] {type, t, ap, n}: the note reaches the SITREP, the JSON and the CSV, the ring the PNG (P6)
     alerts: Array.isArray(raw.alerts) ? raw.alerts.slice(0, 20).map(x => {
       if (!isObj(x) || !Object.keys(AL_TXT).includes(x.type)) return null;
       const ap = normMac(x.ap);
@@ -3132,7 +3132,7 @@ function near1(a, b) {   // exactly one edit apart (substitution, insertion or d
 function obsCompute() {
   const tick = S.generated != null ? S.captureSeq : S.ingestSeq;
   const aps = S.apOrder.filter(n => !eventSkip(n)), raw = [];
-  const add = (key, group, text) => raw.push({ key, group, text });
+  const add = (key, group, text, alert) => raw.push(alert ? { key, group, text, alert } : { key, group, text });   // alert: what of an alerts[] entry the exports carry (P6)
   if (S.ui.baselineDiff && S.baseline) {   // Baseline
     const b = S.base;
     if (b.new) add("b-new", "Baseline", b.new + " network(s) not in the baseline");
@@ -3161,7 +3161,7 @@ function obsCompute() {
     if (hit) { S.obsWatchSeen = S.obsWatchSeen || new Set(); S.obsWatchSeen.add(w); add("w+" + w, "Watchlist", "watched SSID present: " + w); }
     else if (S.hop !== null && S.obsWatchSeen && S.obsWatchSeen.has(w)) add("w-" + w, "Watchlist", "watched SSID not heard now: " + w);
   }
-  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1; if (b || !eventSkip(n)) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")"); }   // P6: kind, name or address, count; the note reaches the SITREP, never the JSON or CSV; dwell per kind
+  for (const a of S.alerts) { const n = alertAp(a), b = a.type === "bt_fixed_new" && (S.bt.get("bt:" + a.ap) || {}).target === 1, nm = !b && n ? n.ssidKnown || n.ssid || null : null; if (b || !eventSkip(n) && n.target === 1) add("alert:" + a.type + ":" + a.ap, "Alerts", AL_TXT[a.type] + ": " + (b ? a.ap : n.ssidKnown || n.ssid || n.bssid) + " (" + a.n + ")", { kind: a.type, address: a.ap, name: nm, count: a.n }); }   // P6: kind, name or address, count, for an access point the capture holds (as the Bluetooth note its live mark); the note reaches the SITREP, the JSON and the CSV; dwell per kind
   if (S.cloudOrder.length) {   // §8.8a
     const k = S.cloudOrder.length, a = S.cloudOrder.reduce((x, c) => x + c.n, 0), one = k === 1 && !cloudMixed(S.cloudOrder[0]);
     add("s-clouds", "Stations", a + " randomised addresses in " + k + (k === 1 ? " cloud" : " clouds") + (one ? ": probably one nearby device changing its address" : ": possibly one or more nearby devices changing their address"));
@@ -5847,6 +5847,7 @@ function exportModel() {
   });
   const sc = { free: 0, associated: 0 }; stations.forEach(x => { if (x.association) sc.associated++; else sc.free++; });
   const out = { footer: EXPORT_FOOTER, generated: S.generated, source: S.sourceKind, aps, stations, station_counts: sc, mobile_hotspots: mob, crowding: S.crowding.level };
+  const al = S.obs.filter(o => o.alert).map(o => ({ ...o.alert })); if (al.length) out.alerts = al;   // P6: of alerts[] the notes' kind, address, name and count, as the Observations show them; nothing the page shows no note for
   if (clouds) {   // §8.8a only with a live cloud
     sc.randomised = stations.filter(x => x.randomized).length; sc.in_clouds = stations.filter(x => x.cloud != null).length;
     out.clouds = S.cloudOrder.map(k => ({ id: k.id, addresses: k.n, rssi: k.rssi, rssi_min: k.rssiMin, rssi_max: k.rssiMax, first_heard: k.first, last_heard: k.last, cadence_s: k.cadenceS, bursts: k.bursts,
@@ -5865,9 +5866,11 @@ function exportText(fmt) {
     const head = "kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud";   // one table, a leading kind column, every row the same width
     const apRow = (a) => ["ap", a.bssid, a.ssid, a.band, a.channel, a.security, a.rssi, a.heard, a.alias || "", (a.tags || []).join(" "), "", "", "", ""];
     const stRow = (x) => ["station", x.mac, "", x.band, "", "", x.rssi, x.heard, x.alias || "", (x.tags || []).join(" "), x.association || "", x.randomized ? "1" : "", (x.probes || []).join(" "), x.cloud || ""];
+    const A = m.alerts || [], ea = A.length ? ",," : "";   // two alert columns (P6: the kind and the count), empty on the other rows
+    const alRow = (x) => ["alert", x.address, x.name || "", "", "", "", "", "", "", "", "", "", "", "", x.kind, x.count];
     const e = R.length ? ",,,,,,,,,," : "";   // ten Remote ID columns, empty on the other rows
-    return [head + (e && "," + RID_KEYS.join(","))].concat(m.aps.map(a => apRow(a).map(q).join(",") + e)).concat(m.stations.map(x => stRow(x).map(q).join(",") + e))
-      .concat(R.map(b => "remote_id," + b.addr + ",,,,," + b.rssi + "," + b.heard + ",,,,,,," + RID_KEYS.map(k => q(ridV(b.remote_id, k))).join(",")), e ? ["# " + RID_NOTE] : [], ["# " + EXPORT_FOOTER]).join("\n") + "\n";
+    return [head + (ea && ",alert,count") + (e && "," + RID_KEYS.join(","))].concat(m.aps.map(a => apRow(a).map(q).join(",") + ea + e)).concat(m.stations.map(x => stRow(x).map(q).join(",") + ea + e))
+      .concat(A.map(x => alRow(x).map(q).join(",") + e), R.map(b => "remote_id," + b.addr + ",,,,," + b.rssi + "," + b.heard + ",,,,,,," + ea + RID_KEYS.map(k => q(ridV(b.remote_id, k))).join(",")), e ? ["# " + RID_NOTE] : [], ["# " + EXPORT_FOOTER]).join("\n") + "\n";
   }
   if (fmt === "sitrep") {
     const by = (fn) => { const c = {}; for (const a of m.aps) c[fn(a)] = (c[fn(a)] || 0) + 1; return Object.keys(c).sort().map(k => k + " " + c[k]).join(" · "); };
