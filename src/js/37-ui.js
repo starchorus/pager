@@ -1244,7 +1244,7 @@ wire("cam-reset", () => resetCamera());
 const DE = document.documentElement, PH_VARS = ["--ph-banner-t", "--ph-banner-b", "--ph-top", "--ph-bar-b", "--ph-sheet-h", "--ph-sky-cx"];
 const PH_MOVES = [["mast-brand", "bar", 1], ["mode-chip", "bar"], ["grp-bands", "sheet-lead", 1]].concat(["controls", "chanbar", "stats", "source", "masthead", "legend", "detail", "help"].map(id => [id, "sheet-body"]));   // [id, new parent, first]
 const PH_TITLE = { obs: "Observations", inv: "Inventory", home: "Homing", air: "Air quality", time: "Signal over time", rec: "Recording", legend: "Legend", help: "Keyboard shortcuts" };
-let phHome = null, phCard = null, phBase = "peek", phDock = null;
+let phHome = null, phCard = null, phBase = "peek", phDock = null, phHeadCtl = 0, phPeek = 0;   // phHeadCtl: the controls head's height, measured on every phone pass; skyBox holds the sky still while another card shows a lower head (section 9.8b); phPeek: the head's height of the last pass
 function applyPhone() {   // → true when the mode changed
   const on = query.phone === "1" || (query.phone !== "0" && mqPhone.matches), ds = DE.dataset;
   if (!phHome) phHome = PH_MOVES.map(([id]) => { const e = el(id); return [e, e.parentNode, e.nextSibling]; });   // each next sibling is a whitespace node: the way back is exact
@@ -1255,7 +1255,7 @@ function applyPhone() {   // → true when the mode changed
     for (const [e, p, nx] of phHome.slice().reverse()) p.insertBefore(e, nx);
     for (const k of ["card", "sheet", "dock", "sheetDrag"]) delete ds[k];
     for (const k of PH_VARS) DE.style.removeProperty(k);
-    el("bar").className = "panel ph-only"; delete edgeState.sheet;
+    el("bar").className = "panel ph-only"; delete edgeState.sheet; el("sheet-row").classList.remove("wrap"); phHeadCtl = phPeek = 0;
   }
   phCard = phDock = null; S.ui.sheet = "peek"; S.ui.legendCard = false;
   applyScope();
@@ -1303,11 +1303,18 @@ function phoneLayout(fromResize) {   // D21 the phone pass of layoutEdges(): the
   el("sheet-lead").hidden = el("t-legend").hidden = !ctl; title.hidden = el("sheet-close").hidden = ctl;
   title.textContent = card === "detail" ? detailTitle.textContent : PH_TITLE[card === "drawer" ? ds.drawer : card] || "";
   el("sheet-prev").hidden = el("sheet-next").hidden = !(card === "detail" && new Set([...S.pinned, ...S.wl]).size >= 2);
-  const sc = el("t-scope"), row = el("sheet-row"), room = row.clientWidth - [...row.children].reduce((s, c) => s + (c === sc || !c.scrollWidth ? 0 : c.scrollWidth + 8), -8) >= 52;
-  sc.hidden = !ctl; if (room !== (sc.parentNode === row)) (room ? row : el("grp-look")).insertBefore(sc, room ? el("t-legend") : null);
+  const sc = el("t-scope"), row = el("sheet-row"), lead = el("sheet-lead"), head = el("sheet-head"); sc.hidden = !ctl;
+  const wrapRow = () => row.classList.toggle("wrap", row.clientWidth - [...row.children].reduce((s, c) => s + (c === sc || !c.scrollWidth ? 0 : (c === lead ? el("grp-bands") : c).scrollWidth + 8), -8) < 52);   // the Scope's key keeps its place; the row takes two lines where it has not 52 px to spare for it (section 9.8b); the class may be on while measuring: the lead is read as its band group, whose width the wrap leaves alone
+  if (ctl) { wrapRow(); phHeadCtl = head.offsetHeight; }
+  else {   // the controls head, measured without a paint (the lead, the key and Legend shown, the title row hidden, for one layout): skyBox lays the sky out with it on every card, so a card with a one-line head does not move the sky
+    const swap = [lead, sc, el("t-legend"), title, el("sheet-close"), el("sheet-prev"), el("sheet-next")], was = swap.map(e => e.hidden);
+    swap.forEach((e, i) => { e.hidden = i > 2; }); wrapRow(); phHeadCtl = head.offsetHeight;
+    swap.forEach((e, i) => { e.hidden = was[i]; }); row.classList.remove("wrap");
+  }
   syncPressed("t-legend", S.ui.legendCard); el("sheet").setAttribute("aria-label", ctl ? "Controls" : title.textContent);
   const bottom = box("sheet").bottom, peek = el("sheet-head").offsetHeight, full = Math.min(peek + body.scrollHeight, Math.max(peek, Math.floor(bottom - bar.bottom - PHONE.gapPx)));
   const half = phDock === "side" ? full : Math.min(full, clamp(Math.floor(bottom - (bar.bottom + bottom - peek) / 2 - PHONE.centreClearPx), peek, Math.round(vh * PHONE.halfFrac)));   // clear of the device
+  const snap = (phCard === null || key === phCard) && peek !== phPeek; phPeek = peek;   // the head's own height (one line or two, section 9.8b) snaps; a detent animates
   if (key !== phCard) {   // another card, drawer or node (the first pass stays collapsed)
     if (phCard && phCard.startsWith("controls")) phBase = S.ui.sheet;
     if (phCard !== null) S.ui.sheet = ctl ? phBase : card === "detail" ? phDetailDetent(half, bottom) : S.ui.sheet === "peek" ? "half" : S.ui.sheet;
@@ -1316,7 +1323,7 @@ function phoneLayout(fromResize) {   // D21 the phone pass of layoutEdges(): the
   const open = (ds.sheet = S.ui.sheet) !== "peek", sb = skyBox();
   tg.textContent = open ? "⌄" : "⌃"; tg.setAttribute("aria-expanded", open); tg.setAttribute("aria-label", (open ? "Collapse" : "Expand") + " the sheet");
   const h = open ? (S.ui.sheet === "half" ? half : full) : peek;
-  if (ds.sheetDrag !== "on") set("--ph-sheet-h", h + "px");
+  if (ds.sheetDrag !== "on") { if (snap && !open) ds.sheetSnap = "on"; set("--ph-sheet-h", h + "px"); if (ds.sheetSnap) { void el("sheet").offsetHeight; delete ds.sheetSnap; } }   // the snap: no transition for this one height, applied in a layout of its own
   set("--ph-sky-cx", Math.round(sb.x + sb.w / 2) + "px");
   edgeState.sheet = { card, detent: S.ui.sheet, dock: phDock, peek, half, full, h };
   if (!fromResize && (Math.abs(sb.x + sb.w / 2 - CX) > 0.5 || Math.abs(sb.y + sb.h / 2 - CY) > 0.5 || Math.abs(sb.h - skyH) > 0.5)) { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 100); }   // theme, banners, fonts
@@ -1332,7 +1339,7 @@ function skyBox() {   // the free rectangle for the sky
   const bar = el("bar").getBoundingClientRect(), sh = el("sheet").getBoundingClientRect(), ban = DE.dataset.banner === "on", bx = (x, y, r, b) => ({ x, y, w: Math.max(40, r - x), h: Math.max(40, b - y) });
   if (!S.ui.panels) return bx(0, bar.top, W, sh.bottom - 52);   // above the pill
   if (phDock === "side") return bx(Math.max(bar.right, sh.right) + PHONE.gapPx, ban ? el("dtg").getBoundingClientRect().bottom + 4 : 0, W - bar.left, ban ? H - el("classbar-bot").offsetHeight : H);
-  return bx(0, bar.bottom + 4, W, sh.bottom - el("sheet-head").offsetHeight - 4);
+  return bx(0, bar.bottom + 4, W, sh.bottom - Math.max(el("sheet-head").offsetHeight, phHeadCtl) - 4);   // the controls head, so a card with a lower head does not move the sky
 }
 function setPanels(on) {   // §9.8 Hide panels, at every size; saved unless ?panels locks it
   on = !!on; if (on === S.ui.panels) return on;

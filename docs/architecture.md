@@ -2079,11 +2079,11 @@ into the sheet's head, and `#controls`, `#chanbar`, `#stats`, `#source`, `#masth
   'satellites' (mirrors of `#n-ap`/`#n-cl`), the chip. When they do not fit, the brand closes up (`.tight`), then the words are
   only read aloud (`.tighter`), then the counts go (`.tightest`; the Sky section keeps them).
 - **Sheet** `#sheet` (`role="region"`, labelled with its card): a head (grabber, row) and `#sheet-body`, the one scroller
-  (`overscroll-behavior: contain`). Three heights: **peek** (the head, 66 px), **half** (at most half the view and never over
+  (`overscroll-behavior: contain`). Three heights: **peek** (the head: 66 px, or 118 px when its row takes two lines, §9.8b; a change of the head's own height snaps, `data-sheet-snap`, while a change of height between the three animates), **half** (at most half the view and never over
   the device at rest: the half sheet's top stays `PHONE.centreClearPx` below the sky centre), **full** (up to 8 px below the
   bar); never taller than its content. Every load and every change of mode starts at peek.
 - **Cards**, one at a time, derived on every pass: help > detail > a drawer > legend > controls. Controls: the Bands group,
-  Legend and the chevron in the head; in the body View, Look (with Hide panels), Layers, Camera, Watch, Analyse (with Homing),
+  the Scope's key, Legend and the chevron in the head (two lines where the row is short of room, §9.8b); in the body View, Look (with Hide panels), Layers, Camera, Watch, Analyse (with Homing),
   then Channels, Sky (the stats as a four-column grid), Source (with Load…) and About (masthead, theme ornaments, Help). The
   other cards show their title (the detail's is the data string, D16), ‹ › with two or more pinned nodes, and ×. Leaving the
   controls remembers their height; a card opens at half if the sheet is lower; a new drawer or node opens at the top. A detail
@@ -2097,7 +2097,7 @@ into the sheet's head, and `#controls`, `#chanbar`, `#stats`, `#source`, `#masth
 - **On its side** (`data-dock="side"`, wider than high): the bar and the sheet form a left column (`clamp(300px, 42vw, 360px)`,
   half = full) and the sky centres in the free area to its right. The dock does not flip while a text field has the focus (a
   soft keyboard shortens the view).
-- **The sky** is centred in `skyBox()`: between the bar and the collapsed sheet (upright), right of the column (on its side),
+- **The sky** is centred in `skyBox()`: between the bar and the collapsed sheet (upright; the controls head's height, measured on every pass, so a card with a one-line head does not move the sky and the sky ends where the controls head would begin), right of the column (on its side),
   above the pill (panels hidden); `outerFrac` unchanged. `F3Dof()` takes the box's height.
 - **Whitehall** on a phone: the banners wrap (9 px) instead of losing the disclaimer; their measured heights (`--ph-banner-t/-b`)
   replace `--chrome-top/-bot`; the DTG sits under the top banner, the bar under the DTG, the sheet 8 px above the bottom banner.
@@ -2135,8 +2135,8 @@ is a view of what was heard, drawn by the same `drawGlows`, `drawClients`, `draw
 labels, selection and change cues unchanged) and never a sweep. It is **named** 'Scope', never 'Scanner' or 'Motion'; the page
 never says it looks for anything.
 
-**When.** `scopeOn = phoneOn && S.ui.scope`: phone mode only (≤ 720 px, a phone on its side, `?phone=1`). The button `#t-scope` (44×44,
-in `#sheet-row` before the legend button, where the row has 52 px to spare beyond its other buttons; where it has not, on a phone on its side and at 320 px wide, it goes to the end of the Look group as a button with its word, 90 to 96 px by 44), the key
+**When.** `scopeOn = phoneOn && S.ui.scope`: phone mode only (≤ 720 px, a phone on its side, `?phone=1`). The button `#t-scope` (44×44, icon only,
+in `#sheet-row` before the legend button at every size; where the row has not 52 px to spare for it beyond its other buttons (below about 372 px wide, 320 and 360 among the measured sizes; on a phone on its side; and below about 424 px once the Bluetooth key is up, 375 and 390 among them), `phoneLayout` gives the row the class `wrap`: it takes two lines, the band keys on the first, the Scope's key, Legend and the chevron on the second, and the collapsed sheet grows with its head to 118 px, so the key stays on the screen), the key
 `Z` and `?scope=1|0` (not saved) switch it; `S.ui.scope` is saved in `starchorus.ui.v1` and is **off by default**. The wide desktop
 has no button, no strip and no foot (`:root:not([data-scope=on])` hides them), and `?scope=1` there changes nothing. Hide panels (`U`)
 keeps the strip and the foot and hides the bar and the sheet. A saved 3D view stays saved and comes back with the Scope off.

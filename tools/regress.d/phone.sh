@@ -93,35 +93,69 @@ PHN_W='{"foundation":"ok","wargames":"ok","whitehall":"ok","errors":0}'
 rowif "phone 812x375 on its side: one left column, the sky right of it, full sheet below the bar, chip unclipped, no overlap, 44 px targets" [ "$PHN_V" = "$PHN_W" ]
 [ "$PHN_V" = "$PHN_W" ] || echo "    got: ${PHN_V:-no-value}"
 
-# ---- the Scope's button #t-scope (D22, spec 7.2): in #sheet-row where the row has the room (52 px beyond its other buttons: 375x812, 390x844, 430x932) and in #grp-look where it has not (320x568, and a
-# phone on its side); 44x44 or more where it is a square and small() names it; the row never scrolls sideways; shown on the controls card only (not on a drawer, the legend, the keys or a detail)
+# ---- the Scope's button #t-scope (D22, §9.8b): in #sheet-row before Legend at every size, 44x44, icon only, and on the screen with the sheet collapsed. Where the row has
+# not 52 px to spare for it beyond its other buttons (320x568, a phone on its side; 375x812 and 390x844 once the Bluetooth key is up) phoneLayout gives the row the class
+# wrap: two lines, the band keys on the first, the Scope's key, Legend and the chevron on the second, and the collapsed sheet grows with its head. Where it has the room
+# (375x812, 390x844 and 430x932 without Bluetooth; 430x932 with it) one line as before. The row never scrolls sideways; the key is shown on the controls card only (not on
+# a drawer, the legend, the keys or a detail), and no other card's row wraps; the row scrolls sideways neither collapsed nor at full; the sky's centre is the same on the
+# controls, a drawer and a detail (skyBox reads the controls head's height on every card). WANT = the lines the row should take, 1 or 2.
 PHN_EVS='(async()=>{'"$PHN_JS"'const W=STARCHORUS.wait,sc=E("t-scope"),row=E("sheet-row"),bad=[];
-for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(500);STARCHORUS.setSheet("full");await W(400);const r=R(sc);
- if(!vis(sc))bad.push(t+" hidden");else{if(r.width<43.5||r.height<43.5)bad.push(t+" "+Math.round(r.width)+"x"+Math.round(r.height));if(small().some(x=>x.indexOf("t-scope")===0))bad.push(t+" small()")}
- if(sc.parentNode.id!==WANT)bad.push(t+" in "+sc.parentNode.id);
+for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await W(500);STARCHORUS.setSheet("peek");await W(400);const r=R(sc),lines=new Set([...row.children].filter(vis).map(c=>Math.round(R(c).top))).size,wr=row.classList.contains("wrap");
+ if(!vis(sc))bad.push(t+" hidden");else{if(r.width<43.5||r.height<43.5)bad.push(t+" "+Math.round(r.width)+"x"+Math.round(r.height));if(small().some(x=>x.indexOf("t-scope")===0))bad.push(t+" small()");if(r.top<-0.5||r.bottom>innerHeight+0.5)bad.push(t+" off screen "+Math.round(r.top)+".."+Math.round(r.bottom)+"/"+innerHeight)}
+ if(sc.parentNode!==row||sc.nextElementSibling!==E("t-legend"))bad.push(t+" in "+sc.parentNode.id);
+ if(lines!==WANT||wr!==(WANT===2))bad.push(t+" lines "+lines+" wrap "+wr);
+ if(WANT===2&&!(R(E("sheet-lead")).bottom<=r.top+0.5&&R(E("t-legend")).left>r.right&&Math.abs(R(E("sheet-toggle")).right-R(row).right)<=1))bad.push(t+" order");
  if(row.scrollWidth>row.clientWidth)bad.push(t+" row "+row.scrollWidth+">"+row.clientWidth);
- if(wide())bad.push(t+" wide")}
-STARCHORUS.setToggles({inventory:true});await W(400);if(vis(sc))bad.push("drawer");STARCHORUS.setToggles({inventory:false});await W(300);
-E("t-legend").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("legend");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
-E("t-help").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("keys");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
-STARCHORUS.select(STARCHORUS.nodes("ap")[0].id);await W(400);if(vis(sc))bad.push("detail");STARCHORUS.deselect();await W(300);if(!vis(sc))bad.push("back");
+ if(wide())bad.push(t+" wide");
+ const bt=[...row.querySelectorAll("button")].filter(vis).map(R),rr=R(row);if(bt.some((x,i)=>bt.some((y,j)=>j>i&&x.left<y.right-0.5&&y.left<x.right-0.5&&x.top<y.bottom-0.5&&y.top<x.bottom-0.5)))bad.push(t+" overlap");if(bt.some(x=>x.left<rr.left-0.5||x.right>rr.right+0.5))bad.push(t+" outside the row");
+ STARCHORUS.setSheet("full");await W(400);if(row.scrollWidth>row.clientWidth||wide())bad.push(t+" full");STARCHORUS.setSheet("peek");await W(300)}
+const cy0=STARCHORUS.phone().sky.cy;STARCHORUS.setToggles({inventory:true});await W(400);if(vis(sc))bad.push("drawer");if(row.classList.contains("wrap"))bad.push("drawer wrap");if(Math.abs(STARCHORUS.phone().sky.cy-cy0)>0.5)bad.push("drawer sky "+STARCHORUS.phone().sky.cy+"/"+cy0);STARCHORUS.setToggles({inventory:false});await W(300);
+E("t-legend").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("legend");if(row.classList.contains("wrap"))bad.push("legend wrap");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
+E("t-help").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(400);if(vis(sc))bad.push("keys");if(row.classList.contains("wrap"))bad.push("keys wrap");E("sheet-close").dispatchEvent(new MouseEvent("click",{bubbles:true}));await W(300);
+STARCHORUS.select(STARCHORUS.nodes("ap")[0].id);await W(400);if(vis(sc))bad.push("detail");if(row.classList.contains("wrap"))bad.push("detail wrap");if(Math.abs(STARCHORUS.phone().sky.cy-cy0)>0.5)bad.push("detail sky "+STARCHORUS.phone().sky.cy+"/"+cy0);STARCHORUS.deselect();await W(300);if(!vis(sc))bad.push("back");
 return JSON.stringify([bad.join(";")||"ok",STARCHORUS.errors().length])})()'
-phn_scope() {   # phn_scope WANT WIDTH HEIGHT -> the eval's verdict on the page $H serves: ["ok",0], or what is wrong (WANT = the id of the parent the button should have)
-  runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-$2x$3" --width "$2" --height "$3" --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "(async()=>{const WANT=\"$1\";${PHN_EVS#\(async()=>\{}" >/dev/null 2>&1
-  evalv "out/$P-phn-sc-$2x$3.json" 1
+phn_scope() {   # phn_scope WANT WIDTH HEIGHT [FIXTURE] -> the eval's verdict on the page $H serves: ["ok",0], or what is wrong (WANT = the lines the row should take; the fixture devices.json, or one with Bluetooth)
+  runq "$F/${4:-devices.json}" "$PHN_Q" "out/$P-phn-sc-$2x$3${4:+-bt}" --width "$2" --height "$3" --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "(async()=>{const WANT=$1;${PHN_EVS#\(async()=>\{}" >/dev/null 2>&1
+  evalv "out/$P-phn-sc-$2x$3${4:+-bt}.json" 1
 }
 PHN_V=""
-for PHN_Z in sheet-row:375:812 sheet-row:390:844 sheet-row:430:932 grp-look:320:568 grp-look:812:375; do
+for PHN_Z in 1:375:812 1:390:844 1:430:932 2:320:568 2:812:375; do
   PHN_R=$(phn_scope "${PHN_Z%%:*}" "$(echo "$PHN_Z" | cut -d: -f2)" "${PHN_Z##*:}")
   [ "$PHN_R" = '["ok",0]' ] || PHN_V="$PHN_V ${PHN_Z}=${PHN_R:-no-value}"
 done
-rowif "phone: #t-scope sits in #sheet-row at 375x812, 390x844 and 430x932 and in #grp-look at 320x568 and on its side (812x375), is 44x44 or more where it is a square and small() names it, the row never scrolls sideways, in all three themes, and is shown on the controls card only${PHN_V:+ [$PHN_V]}" [ -z "$PHN_V" ]
-# the control: a page copy whose room test is 0 puts the button into the row at 320x568, where it does not fit: the row scrolls (or the button is not in #grp-look) and the verdict is not "ok"
-sed 's/c.scrollWidth + 8), -8) >= 52;/c.scrollWidth + 8), -8) >= 0;/' "$H" > "out/$P-phn-noroom.html"
-PHN_KH=$H; H="out/$P-phn-noroom.html"; PHN_R=$(phn_scope grp-look 320 568); H=$PHN_KH
+rowif "phone: #t-scope sits in #sheet-row before Legend, 44x44, on the screen with the sheet collapsed; the row takes one line at 375x812, 390x844 and 430x932 and two at 320x568 and on its side (812x375): the band keys, then the Scope's key, Legend and the chevron at the right; no key overlaps another or leaves the row, it never scrolls sideways, in all three themes; the key is shown on the controls card only, no other card's row wraps and the sky's centre is the same on the controls, a drawer and a detail${PHN_V:+ [$PHN_V]}" [ -z "$PHN_V" ]
+# with the Bluetooth key up (radio-pair.json) the row is short of room at 375 and 390 (3 and 18 px to spare) and takes two lines there; at 430 (58 px) it keeps one
+PHN_V=""
+for PHN_Z in 2:375:812 2:390:844 1:430:932; do
+  PHN_R=$(phn_scope "${PHN_Z%%:*}" "$(echo "$PHN_Z" | cut -d: -f2)" "${PHN_Z##*:}" radio-pair.json)
+  [ "$PHN_R" = '["ok",0]' ] || PHN_V="$PHN_V ${PHN_Z}=${PHN_R:-no-value}"
+done
+rowif "phone, the Bluetooth key up (radio pair): the row takes two lines at 375x812 and 390x844 and one at 430x932, #t-scope in the collapsed sheet and on the screen at all three, 44x44, the sky's centre the same on the controls, a drawer and a detail, in all three themes${PHN_V:+ [$PHN_V]}" [ -z "$PHN_V" ]
+# a drawer open at the load (?inv=1, the Bluetooth key up, 375x812): the controls head is measured without a paint on the drawer's pass, so the sky does not move
+# when the drawer closes and the controls take two lines (a head of 66 then 118; the sky's centre the same before and after)
+PHN_EVI='(async()=>{const W=STARCHORUS.wait,E=i=>document.getElementById(i),cy=()=>STARCHORUS.phone().sky.cy;await W(600);const c0=document.documentElement.dataset.card,y0=cy(),h0=E("sheet-head").offsetHeight;
+STARCHORUS.setToggles({inventory:false});await W(600);return [c0,document.documentElement.dataset.card,h0,E("sheet-head").offsetHeight,E("sheet-row").classList.contains("wrap"),Math.abs(cy()-y0)<=0.5,STARCHORUS.errors().length].join("/")})()'
+runq "$F/radio-pair.json" "$PHN_Q&inv=1" "out/$P-phn-sc-inv" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVI" >/dev/null 2>&1
+PHN_V=$(evalv "out/$P-phn-sc-inv.json" 1)
+rowif "phone, a drawer open at the load (?inv=1, the Bluetooth key up, 375x812): the sky's centre does not move when the drawer closes and the controls take two lines (card, head, wrap, still, errors: $PHN_V)" [ "$PHN_V" = "drawer/controls/66/118/true/true/0" ]
+# the head's own height snaps (data-sheet-snap, no sheet transition): at 375x812 on devices.json (one line) a capture with a Bluetooth mark (the fixture plus the sample's
+# bt fields) takes two lines and the sheet is 118 px within 50 ms; a capture without takes one and 66 px within 50 ms; a change of detent still animates (half from the
+# collapsed sheet is between the two heights after 50 ms and at its height after 500 ms)
+PHN_EVN='(async()=>{const E=i=>document.getElementById(i),W=STARCHORUS.wait,sh=()=>Math.round(E("sheet").getBoundingClientRect().height),hd=()=>E("sheet-head").offsetHeight,wr=()=>E("sheet-row").classList.contains("wrap"),d0=await (await fetch("starchorus.json")).json();
+const bt=JSON.parse(JSON.stringify(d0));bt.generated+=30;bt.center.bt_window=6;bt.center.bt_hold=120;bt.bluetooth=[{addr:"02:00:00:00:04:01",addr_type:"random-resolvable",rssi:-50,reports:3,last_seen:bt.generated-4,company:65535,company_name:"Maker A"}];
+STARCHORUS.load(bt,"x");await W(50);const a=[hd(),sh(),wr()].join("/");
+const d1=JSON.parse(JSON.stringify(d0));d1.generated+=60;STARCHORUS.load(d1,"x");await W(50);const b=[hd(),sh(),wr()].join("/");
+STARCHORUS.setSheet("half");await W(50);const c=sh()>hd()&&sh()<STARCHORUS.phone().h;await W(500);const d=sh()===STARCHORUS.phone().h;
+return [a,b,c,d,STARCHORUS.errors().length].join(" ")})()'
+runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-snap" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVN" >/dev/null 2>&1
+PHN_V=$(evalv "out/$P-phn-sc-snap.json" 1)
+rowif "phone: the head's own height snaps: a capture with a Bluetooth mark after one without sets the sheet to its two-line head (118/118/true) within 50 ms, one without back to 66/66/false, while half from the collapsed sheet still animates (between after 50 ms, at its height after 500 ms) [$PHN_V]" [ "$PHN_V" = "118/118/true 66/66/false true true 0" ]
+# the control: a page copy whose room test never fails keeps one line at 320x568, where the keys do not fit: the band group shrinks and its keys run into the Scope's key (overlap), or the row scrolls sideways, or a key leaves the row or the screen; the verdict, judged for one line, is not "ok"
+sed 's/\.scrollWidth + 8), -8) < 52);/.scrollWidth + 8), -8) < -9999);/' "$H" > "out/$P-phn-noroom.html"
+PHN_KH=$H; H="out/$P-phn-noroom.html"; PHN_R=$(phn_scope 1 320 568); H=$PHN_KH
 PHN_KD=$(diff "$H" "out/$P-phn-noroom.html" | grep -c '^<')
 PHN_KOK=0; [ "$PHN_KD" = 1 ] && [ "$PHN_R" != '["ok",0]' ] && PHN_KOK=1
-rowif "phone: the Scope button's control: a page copy with the 52 px room test set to 0 (one line differs: $PHN_KD) is red at 320x568 [${PHN_R:-no-value}]" [ "$PHN_KOK" = 1 ]
+rowif "phone: the Scope row's control: a page copy whose room test never fails (one line differs: $PHN_KD) is red at 320x568 [${PHN_R:-no-value}]" [ "$PHN_KOK" = 1 ]
 
 # ---- cards and tap targets (390x844): one card at a time, × back to the controls at their height, every target ≥ 44 px
 PHN_EVC='(async()=>{'"$PHN_JS"'const W=STARCHORUS.wait,o={},bad=[],cl=i=>E(i).dispatchEvent(new MouseEvent("click",{bubbles:true}));
@@ -337,8 +371,8 @@ rowif "2D zoom out (1440x900, 1200 stations): clamped to 0.5 and 4, buttons and 
 [ "$PHN_V" = "$PHN_W" ] || { echo "    got:  ${PHN_V:-no-value}"; echo "    want: $PHN_W"; }
 
 # ---- 0.2, the radio pair: the fourth band button (BT) in the sheet's Layers row, on tests/fixtures/radio-pair.json. At 375x812 all four are in the bar, 44 px or more,
-# clear of one another and of the screen edges, with no sideways scroll, in the three themes. Four layer buttons, Legend and the chevron need 338 px: below 375 px
-# the sheet row wraps (the chevron, at 320 px also Legend, on a second line), so the layer can be switched off on a 360 px and a 320 px phone too
+# clear of one another and of the screen edges, with no sideways scroll, in the three themes. Where the row has not 52 px to spare for the Scope's key phoneLayout wraps
+# it (the band keys on the first line; the Scope's key, Legend and the chevron on the second), so the layer can be switched off on a 360 px and a 320 px phone too
 PHN_EVR='(async()=>{const sleep=STARCHORUS.wait,o={};await sleep(1800);const R=(e)=>e.getBoundingClientRect(),vis=(e)=>e.offsetParent!==null||getComputedStyle(e).position==="fixed";
 const res=[];
 for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await sleep(500);STARCHORUS.frame();

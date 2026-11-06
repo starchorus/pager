@@ -33,6 +33,7 @@
   overflow: hidden; z-index: 15; backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(var(--panel-fill), var(--panel-fill)), var(--surface-base);
   transition: height .28s cubic-bezier(.2,.8,.2,1), opacity .18s; }
 :root[data-sheet-drag="on"] #sheet { transition: none; }   /* it follows the finger */
+:root[data-sheet-snap="on"] #sheet { transition: none; }   /* the head's own height (one line or two) snaps; phoneLayout sets it for one layout */
 #sheet-head { flex: none; padding: 0 8px 8px 12px; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: grab; }
 #sheet-grab { height: 14px; display: flex; align-items: center; justify-content: center; }
 #sheet-grab::before { content: ""; width: 36px; height: 5px; border-radius: 3px; background: var(--ink-muted); }
@@ -42,6 +43,10 @@
 #sheet-title { flex: 1; min-width: 0; margin: 0; font-size: var(--size-title); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary); }
 :root[data-card="detail"] #sheet-title { text-transform: none; }   /* D16: a data string */
 #t-legend { margin-left: auto; }
+#sheet-row.wrap { flex-wrap: wrap; }   /* two lines where the row has not 52 px to spare for the Scope's key (phoneLayout, section 9.8b): the band keys on the first; the Scope's key, Legend and the chevron on the second */
+#sheet-row.wrap #sheet-lead { flex-basis: 100%; }
+#sheet-row.wrap #t-legend { margin-left: 0; }
+#sheet-row.wrap #sheet-toggle { margin-left: auto; }
 #sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 16px; }
 :root[data-sheet="peek"] #sheet-body { overflow: hidden; visibility: hidden; transition: visibility 0s .28s; }
 :root[data-sheet-drag] #sheet-body { visibility: visible; transition: none; }   /* dragged up from collapsed */
@@ -86,5 +91,4 @@
 :root[data-rm="1"] #crt, :root[data-rm="1"] #intro { display: none !important; }
 :root:not([data-scope=on]) :is(#scope-strip,#scope-foot,#scope-lamps){display:none}
 :root[data-scope=on] :is(#bar-counts>*,#bar .ver,#caption,#grp-layers,#cam,#t-view,#t-spin){display:none!important}
-#t-scope{display:inline-flex;align-items:center;gap:6px}
-#sheet-row #t-scope{padding:0;width:44px;justify-content:center}#sheet-row .lbl{display:none}
+#sheet-row #t-scope{display:inline-flex;align-items:center;justify-content:center;padding:0;width:44px}   /* over #sheet .btn's padding */

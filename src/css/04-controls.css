@@ -14,7 +14,6 @@
 .btn.b5.on  { background: var(--band-5);  border-color: var(--band-5); }
 .btn.b6.on  { background: var(--band-6);  border-color: var(--band-6); }
 .btn.bbt.on { background: var(--bt-mark); border-color: var(--bt-mark); }
-@media (max-width: 374px) { #sheet-row { flex-wrap: wrap; justify-content: flex-end; } }   /* four layer buttons, Legend and the chevron need 338 px: below that the chevron (then Legend) goes to a second line */
 .btn.on:not([data-band]) { background: var(--toggle-on); border-color: var(--toggle-border); color: var(--toggle-ink); }
 .btn.forced { outline: 1px dashed var(--status-ring-neutral); }
 #cam .cam { min-width: 30px; text-align: center; }
