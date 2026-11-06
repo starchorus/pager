@@ -139,22 +139,31 @@ runq "$F/radio-pair.json" "$PHN_Q&inv=1" "out/$P-phn-sc-inv" --width 375 --heigh
 PHN_V=$(evalv "out/$P-phn-sc-inv.json" 1)
 rowif "phone, a drawer open at the load (?inv=1, the Bluetooth key up, 375x812): the sky's centre does not move when the drawer closes and the controls take two lines (card, head, wrap, still, errors: $PHN_V)" [ "$PHN_V" = "drawer/controls/66/118/true/true/0" ]
 # the head's own height snaps (data-sheet-snap, no sheet transition): at 375x812 on devices.json (one line) a capture with a Bluetooth mark (the fixture plus the sample's
-# bt fields) takes two lines and the sheet is 118 px within 50 ms; a capture without takes one and 66 px within 50 ms; a change of detent still animates (half from the
-# collapsed sheet is between the two heights after 50 ms and at its height after 500 ms)
+# bt fields) takes two lines and the sheet is at 118 px with no animation running on it (getAnimations, read 50 ms and two frames after the load); a capture without takes one and
+# 66 px the same way; a change of detent still animates (half from the collapsed sheet starts one animation, read at once, and is at its height after 500 ms); the
+# control is a copy without the snap rule, whose sheet animates both head changes (one line differs)
 PHN_EVN='(async()=>{const E=i=>document.getElementById(i),W=STARCHORUS.wait,sh=()=>Math.round(E("sheet").getBoundingClientRect().height),hd=()=>E("sheet-head").offsetHeight,wr=()=>E("sheet-row").classList.contains("wrap"),d0=await (await fetch("starchorus.json")).json();
 const bt=JSON.parse(JSON.stringify(d0));bt.generated+=30;bt.center.bt_window=6;bt.center.bt_hold=120;bt.bluetooth=[{addr:"02:00:00:00:04:01",addr_type:"random-resolvable",rssi:-50,reports:3,last_seen:bt.generated-4,company:65535,company_name:"Maker A"}];
-STARCHORUS.load(bt,"x");await W(50);const a=[hd(),sh(),wr()].join("/");
-const d1=JSON.parse(JSON.stringify(d0));d1.generated+=60;STARCHORUS.load(d1,"x");await W(50);const b=[hd(),sh(),wr()].join("/");
-STARCHORUS.setSheet("half");await W(50);const c=sh()>hd()&&sh()<STARCHORUS.phone().h;await W(500);const d=sh()===STARCHORUS.phone().h;
+const fr=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))),an=()=>E("sheet").getAnimations().length;
+STARCHORUS.load(bt,"x");await W(50);await fr();const a=[hd(),sh(),wr(),an()].join("/");
+const d1=JSON.parse(JSON.stringify(d0));d1.generated+=60;STARCHORUS.load(d1,"x");await W(50);await fr();const b=[hd(),sh(),wr(),an()].join("/");
+STARCHORUS.setSheet("half");void E("sheet").offsetHeight;const c=an();await W(500);const d=sh()===STARCHORUS.phone().h;
 return [a,b,c,d,STARCHORUS.errors().length].join(" ")})()'
 runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-snap" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVN" >/dev/null 2>&1
 PHN_V=$(evalv "out/$P-phn-sc-snap.json" 1)
-rowif "phone: the head's own height snaps: a capture with a Bluetooth mark after one without sets the sheet to its two-line head (118/118/true) within 50 ms, one without back to 66/66/false, while half from the collapsed sheet still animates (between after 50 ms, at its height after 500 ms) [$PHN_V]" [ "$PHN_V" = "118/118/true 66/66/false true true 0" ]
+rowif "phone: the head's own height snaps: a capture with a Bluetooth mark after one without sets the sheet to its two-line head with no animation on it (118/118/true/0), one without back to 66/66/false/0, while half from the collapsed sheet starts one animation and is at its height after 500 ms [$PHN_V]" [ "$PHN_V" = "118/118/true/0 66/66/false/0 1 true 0" ]
+# the control: a copy without the snap rule animates both head changes (an animation runs on the sheet two frames after each load); one line differs
+sed 's/:root\[data-sheet-snap="on"\] #sheet { transition: none; }/:root[data-sheet-snap="on"] #sheet { }/' "$H" > "out/$P-phn-nosnap.html"
+PHN_KD=$(diff "$H" "out/$P-phn-nosnap.html" | grep -c '^<')
+PHN_KH=$H; H="out/$P-phn-nosnap.html"; runq "$F/devices.json" "$PHN_Q" "out/$P-phn-sc-nosnap" --width 375 --height 812 --mobile --wait 4 --ready "$PHN_RDY" --fps 0 --eval-timeout 60 --eval "$PHN_EVN" >/dev/null 2>&1; H=$PHN_KH
+PHN_V=$(evalv "out/$P-phn-sc-nosnap.json" 1)
+PHN_KOK=0; case $PHN_V in "118/"*"/true/1 66/"*"/false/1 1 true 0") PHN_KOK=1 ;; esac
+rowif "phone: the snap's control: a page copy without the snap rule (one line differs: $PHN_KD) animates the head's own changes (one animation 50 ms and two frames after each load) [${PHN_V:-no-value}]" [ "$PHN_KD" = 1 ] && [ "$PHN_KOK" = 1 ]
 # the control: a page copy whose room test never fails keeps one line at 320x568, where the keys do not fit: the band group shrinks and its keys run into the Scope's key (overlap), or the row scrolls sideways, or a key leaves the row or the screen; the verdict, judged for one line, is not "ok"
 sed 's/\.scrollWidth + 8), -8) < 52);/.scrollWidth + 8), -8) < -9999);/' "$H" > "out/$P-phn-noroom.html"
 PHN_KH=$H; H="out/$P-phn-noroom.html"; PHN_R=$(phn_scope 1 320 568); H=$PHN_KH
 PHN_KD=$(diff "$H" "out/$P-phn-noroom.html" | grep -c '^<')
-PHN_KOK=0; [ "$PHN_KD" = 1 ] && [ "$PHN_R" != '["ok",0]' ] && PHN_KOK=1
+PHN_KOK=0; if [ "$PHN_KD" = 1 ]; then case $PHN_R in '["ok",0]') ;; '["'*',0]') PHN_KOK=1 ;; esac; fi   # a verdict of the copy that names what is wrong, with no error: an empty value is no verdict
 rowif "phone: the Scope row's control: a page copy whose room test never fails (one line differs: $PHN_KD) is red at 320x568 [${PHN_R:-no-value}]" [ "$PHN_KOK" = 1 ]
 
 # ---- cards and tap targets (390x844): one card at a time, × back to the controls at their height, every target ≥ 44 px

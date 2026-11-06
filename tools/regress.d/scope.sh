@@ -424,10 +424,10 @@ const key=k=>document.body.dispatchEvent(new KeyboardEvent("keydown",{key:k,bubb
 const lanes=()=>SC.g.lanes.map(l=>l.key+":"+l.k0.toFixed(4)+"/"+l.k1.toFixed(4)).join(" ");
 await W(400);
 const fx=await (await fetch("starchorus.json")).json();STARCHORUS.load(fx,"fx",{mode:"live"});await W(1800);STARCHORUS.frame();
-o.on=lanes();const g=SC.g,bl=g.lanes[4],marks=[...S.bt.values()].filter(k=>k.sc&&k.sc.st===SC.st);o.n=[marks.length,S.btOrder.length];
+o.on=lanes();const g=SC.g,bl=g.lanes[4]||{k0:NaN,k1:NaN},marks=[...S.bt.values()].filter(k=>k.sc&&k.sc.st===SC.st);o.n=[marks.length,S.btOrder.length];   // no fifth lane, no placed mark: the keys say so, the eval does not throw (a copy without the lane is judged, not crashed)
 const bad=[];for(const k of marks){const r=Math.hypot(k.sc.x-g.ox,k.sc.y-g.oy),want=g.rNear+(1-Math.min(1,Math.max(0,(k.rssi+90)/60)))*(g.rFar-g.rNear);if(Math.abs(r-want)>0.5)bad.push("r:"+k.id);if(!(k.sc.k>=bl.k0&&k.sc.k<=bl.k1))bad.push("lane:"+k.id)}
 o.marks=bad.join(";")||"ok";
-const m=[...marks].sort((a,b)=>b.rssi-a.rssi)[0];o.hit=STARCHORUS.hitTest(m.sx,m.sy)===m.id;
+const m=[...marks].sort((a,b)=>b.rssi-a.rssi)[0];o.hit=!!m&&STARCHORUS.hitTest(m.sx,m.sy)===m.id;
 o.leg=(()=>{const r=STARCHORUS.legendRows().find(r=>r.kind==="bt");return !!r&&r.visible})();
 key("4");await W(600);o.off=lanes();key("4");await W(600);o.back=lanes();
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o)})()'
@@ -646,71 +646,74 @@ SCP_R=$(scp_j stripgeom "$(scp_ev "$SCP_T-stripgeom.json")")
 scp_row "scope: an ingest that takes the strip's words off (class n) and one that brings them back leave the fan's top where the strip ends (SC.g.top = the box's top + the strip's height + 4 px, within 0.5 px) in all three themes, and the strip does change its height" "$SCP_R"
 
 # ---- the probes bite: page copies with one fault each (served to headless Chrome on 127.0.0.1 only) must turn their row red; the rows above are the control
-scp_mut() {   # scp_mut NAME SED_EXPR: a copy of the page with one substitution, which must have happened once
-  SCP_MP="$SCP_T/mut-$1.html"; sed "$2" "$H" > "$SCP_MP"; SCP_MN=$(cmp -l "$H" "$SCP_MP" 2>/dev/null | wc -l | tr -d ' ')
-  [ "$SCP_MN" != 0 ] || { SCP_MP=""; return 1; }
+scp_mut() {   # scp_mut NAME SED_EXPR [LINES]: a copy of the page whose substitution changed exactly LINES lines (1 unless said): a sed that matches nothing, or more than it says, is no mutant
+  SCP_MP="$SCP_T/mut-$1.html"; sed "$2" "$H" > "$SCP_MP"; SCP_MN=$(diff "$H" "$SCP_MP" 2>/dev/null | grep -c '^<')
+  [ "$SCP_MN" = "${3:-1}" ] || { SCP_MP=""; return 1; }
 }
 scp_mutrun() { SCP_HK=$H; H=$SCP_MP; "$@"; H=$SCP_HK; }   # runq serves $H: point it at the copy for the one call
+scp_bit() {   # scp_bit NAME VERDICT: the mutant bit when the judge read the copy and found it wrong; an empty value, a traceback or a copy that threw is no bite (the row names it)
+  case $2 in ok) SCP_MB="$SCP_MB $1" ;; ""|Traceback*|*"Expecting value"*|*errors*) SCP_MB="$SCP_MB $1(no verdict: ${2:-empty})" ;; esac
+}
 SCP_MB=""   # the mutants that did not bite
 # an arc that runs outward
 scp_mut outward 's/rf = g.rFar - (g.rFar - g.rNear) \* p, lv/rf = g.rNear + (g.rFar - g.rNear) * p, lv/' || SCP_MB="$SCP_MB outward(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mwave "$SCP_EVW" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j wave "$(scp_ev "$SCP_T-mwave.json")")" != ok ] || SCP_MB="$SCP_MB outward"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mwave "$SCP_EVW" "$F/devices.json" "$SCP_Q" 390 844; scp_bit outward "$(scp_j wave "$(scp_ev "$SCP_T-mwave.json")")"; }
 # a frame every tick
 scp_mut always 's/S.clock < SC.t0 + SC.dur + 1.5 ||/true ||/' || SCP_MB="$SCP_MB always(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ" "$SCP_T-midle" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; [ "$(scp_j idle "$(scp_ev "$SCP_T-midle.json")")" != ok ] || SCP_MB="$SCP_MB always"; }
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ" "$SCP_T-midle" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; scp_bit always "$(scp_j idle "$(scp_ev "$SCP_T-midle.json")")"; }
 # a radius that is not the signal
 scp_mut radius 's/r = scR(g, n.rssi ?? -85), t = /r = scR(g, n.rssi ?? -85) + 3, t = /' || SCP_MB="$SCP_MB radius(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mgeom "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j geom "$(scp_ev "$SCP_T-mgeom.json")" 20)" != ok ] || SCP_MB="$SCP_MB radius"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mgeom "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; scp_bit radius "$(scp_j geom "$(scp_ev "$SCP_T-mgeom.json")" 20)"; }
 # the bands ignored
 scp_mut lanes 's/ls\[a.band in ls ? a.band : (SC.unk = true, "6")\].push(a)/ls["2.4"].push(a)/' || SCP_MB="$SCP_MB lanes(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlane "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j geom "$(scp_ev "$SCP_T-mlane.json")" 20)" != ok ] || SCP_MB="$SCP_MB lanes"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlane "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; scp_bit lanes "$(scp_j geom "$(scp_ev "$SCP_T-mlane.json")" 20)"; }
 # no key Z
 scp_mut nokey 's/^KEY_ACT.z = .*$/KEY_ACT.z = () => {};/' || SCP_MB="$SCP_MB nokey(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mtoggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844 --ready "$SCP_RDY"; [ "$(scp_j toggle "$(scp_ev "$SCP_T-mtoggle.json")")" != ok ] || SCP_MB="$SCP_MB nokey"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mtoggle "$SCP_EVT" "$F/devices.json" "?poll=0&spin=0&intro=0&debug=1" 390 844 --ready "$SCP_RDY"; scp_bit nokey "$(scp_j toggle "$(scp_ev "$SCP_T-mtoggle.json")")"; }
 # no snow
 scp_mut nosnow 's/^  if (lv !== "live") {$/  if (false) {/' || SCP_MB="$SCP_MB nosnow(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlive "$SCP_EVL" "$F/devices.json" "$SCP_Q&theme=wargames" 390 844; [ "$(scp_j live "$(scp_ev "$SCP_T-mlive.json")")" != ok ] || SCP_MB="$SCP_MB nosnow"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlive "$SCP_EVL" "$F/devices.json" "$SCP_Q&theme=wargames" 390 844; scp_bit nosnow "$(scp_j live "$(scp_ev "$SCP_T-mlive.json")")"; }
 # a caption that claims a direction
-scp_mut caption 's/^not direction<\/span><span id="sc-ps">/ahead of you<\/span><span id="sc-ps">/;s/^not direction<\/span>/not direction<\/span>/' || SCP_MB="$SCP_MB caption(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mcap "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j geom "$(scp_ev "$SCP_T-mcap.json")" 20)" != ok ] || SCP_MB="$SCP_MB caption"; }
+scp_mut caption 's/^not direction<\/span><span id="sc-ps">/ahead of you<\/span><span id="sc-ps">/' || SCP_MB="$SCP_MB caption(no copy)"
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mcap "$SCP_EVG" "$F/devices.json" "$SCP_Q" 390 844; scp_bit caption "$(scp_j geom "$(scp_ev "$SCP_T-mcap.json")" 20)"; }
 # a request in the Scope's code
 scp_mut post 's/^function renderScope() {$/function renderScope() { fetch("\/x", { method: "POST" });/' || SCP_MB="$SCP_MB post(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?spin=0&intro=0&scope=1" "$SCP_T-mnet" --width 390 --height 844 --mobile --wait 8 --fps 0 --eval 'STARCHORUS.errors().length' >/dev/null 2>&1; H=$SCP_HK; net_verdict "$SCP_T-mnet.json" - 2 >/dev/null && SCP_MB="$SCP_MB post"; }
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?spin=0&intro=0&scope=1" "$SCP_T-mnet" --width 390 --height 844 --mobile --wait 8 --fps 0 --eval 'STARCHORUS.errors().length' >/dev/null 2>&1; H=$SCP_HK; SCP_NV=$(net_verdict "$SCP_T-mnet.json" - 2 2>&1); case $SCP_NV in *"method POST"*) ;; *) SCP_MB="$SCP_MB post(${SCP_NV:-no verdict})" ;; esac; }   # the verdict has to name the POST: a missing report is no bite
 # the lamps loop over every .lamps again (the Air drawer's strip is overwritten by the counter's lamps)
 scp_mut lamps 's/document.querySelectorAll("#lamps,#scope-lamps")/document.querySelectorAll(".lamps")/' || SCP_MB="$SCP_MB lamps(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j lamps "$(scp_ev "$SCP_T-mlamps.json")")" != ok ] || SCP_MB="$SCP_MB lamps"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlamps "$SCP_EVM" "$F/devices.json" "$SCP_Q" 390 844; scp_bit lamps "$(scp_j lamps "$(scp_ev "$SCP_T-mlamps.json")")"; }
 # no fitting of the strip (320x568: the words of WarGames and Whitehall run over the edge)
 scp_mut nofit 's/^  for (const x of "tn") if (sp.scrollWidth > sp.clientWidth + 1) cs.add(x);$//' || SCP_MB="$SCP_MB nofit(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mfit "$SCP_EVF" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j fit "$(scp_ev "$SCP_T-mfit.json")")" != ok ] || SCP_MB="$SCP_MB nofit"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mfit "$SCP_EVF" "$F/devices.json" "$SCP_Q" 320 568; scp_bit nofit "$(scp_j fit "$(scp_ev "$SCP_T-mfit.json")")"; }
 # the 3D ring labels drawn in the Scope again
 scp_mut ring3d 's/const is3d = !scopeOn && S.view.blend > 0.5/const is3d = S.view.blend > 0.5/' || SCP_MB="$SCP_MB ring3d(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mring "$SCP_EV3" "$F/devices.json" "$SCP_Q&view=3d" 390 844; [ "$(scp_j ring3d "$(scp_ev "$SCP_T-mring.json")")" != ok ] || SCP_MB="$SCP_MB ring3d"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mring "$SCP_EV3" "$F/devices.json" "$SCP_Q&view=3d" 390 844; scp_bit ring3d "$(scp_j ring3d "$(scp_ev "$SCP_T-mring.json")")"; }
 # the phosphor fade on every frame again
-scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePhase() >= 1);/S.persistOn = P > 0 \&\& S.ui.crt;/;s/S.persistOn \&\& !scopeOn ? RENDER.persistFadeFrames/S.persistOn ? RENDER.persistFadeFrames/' || SCP_MB="$SCP_MB persist(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ&theme=wargames" "$SCP_T-mpersist" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; [ "$(scp_j idle "$(scp_ev "$SCP_T-mpersist.json")")" != ok ] || SCP_MB="$SCP_MB persist"; }
+scp_mut persist 's/S.persistOn = P > 0 \&\& S.ui.crt \&\& !(scopeOn \&\& wavePhase() >= 1);/S.persistOn = P > 0 \&\& S.ui.crt;/;s/S.persistOn \&\& !scopeOn ? RENDER.persistFadeFrames/S.persistOn ? RENDER.persistFadeFrames/' 2 || SCP_MB="$SCP_MB persist(no copy)"
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq demo "$SCP_LQ&theme=wargames" "$SCP_T-mpersist" --width 390 --height 844 --mobile --wait 6 --fps 0 --eval-timeout 90 --eval "$SCP_EVI" >/dev/null 2>&1; H=$SCP_HK; scp_bit persist "$(scp_j idle "$(scp_ev "$SCP_T-mpersist.json")")"; }
 # a note that never shows
 scp_mut note 's/el("sc-no").hidden = L >= SCOPE.minL;/el("sc-no").hidden = true;/' || SCP_MB="$SCP_MB note(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnote "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320; [ "$(scp_j note "$(scp_ev "$SCP_T-mnote.json")")" != ok ] || SCP_MB="$SCP_MB note"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnote "$SCP_EVN" "$F/devices.json" "$SCP_Q" 568 320; scp_bit note "$(scp_j note "$(scp_ev "$SCP_T-mnote.json")")"; }
 # a fifth lane that is not squeezed in: the fan would span more than -1 to 1
 scp_mut btlane 's/u = ls.bt.length ? 0.8368 : 1;/u = 1;/' || SCP_MB="$SCP_MB btlane(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mbt "$SCP_EVQ" "$F/radio-pair.json" "$SCP_LQ" 390 844; [ "$(scp_j btlane "$(scp_ev "$SCP_T-mbt.json")")" != ok ] || SCP_MB="$SCP_MB btlane"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mbt "$SCP_EVQ" "$F/radio-pair.json" "$SCP_LQ" 390 844; scp_bit btlane "$(scp_j btlane "$(scp_ev "$SCP_T-mbt.json")")"; }
 # ticks that touch
 scp_mut ticks 's/if (t\[0\] - w < lx + 3) continue; //' || SCP_MB="$SCP_MB ticks(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mticks "$SCP_EVK" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j ticks "$(scp_ev "$SCP_T-mticks.json")")" != ok ] || SCP_MB="$SCP_MB ticks"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mticks "$SCP_EVK" "$F/devices.json" "$SCP_Q" 320 568; scp_bit ticks "$(scp_j ticks "$(scp_ev "$SCP_T-mticks.json")")"; }
 # a lane too narrow to nudge in: the nudge turns over and puts a point outside its lane
 scp_mut nudge 's/ \&\& l.k1 - l.k0 > 2 \* f \/ t//' || SCP_MB="$SCP_MB nudge(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; [ "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")" != ok ] || SCP_MB="$SCP_MB nudge"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; scp_bit nudge "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")"; }
 # a legend row of a kind the legend check does not know, and one that never shows
 scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP_MB="$SCP_MB legendkind(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --ready "$SCP_RDY" --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; [ "$(evalv "$SCP_T-mlegk.json" 1)" != "[]" ] || SCP_MB="$SCP_MB legendkind"; }
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --ready "$SCP_RDY" --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; case $(evalv "$SCP_T-mlegk.json" 1) in "[]"|"") SCP_MB="$SCP_MB legendkind(no finding)" ;; esac; }   # the legend check has to name the unknown kind: an empty value is no bite
 scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")" != ok ] || SCP_MB="$SCP_MB legendrow"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; scp_bit legendrow "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")"; }
 # a folded ESS member that a tap in the Scope skips again, and the count badge drawn in the Scope again
 scp_mut essnode 's/n.target !== 1 || (isEssFolded(n.id) \&\& !scopeOn)) return; near/n.target !== 1 || isEssFolded(n.id)) return; near/' || SCP_MB="$SCP_MB essnode(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run messn "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messn.json")")" != ok ] || SCP_MB="$SCP_MB essnode"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run messn "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; scp_bit essnode "$(scp_j ess "$(scp_ev "$SCP_T-messn.json")")"; }
 scp_mut essbadge 's/ap.alphaDraw > 0.05 \&\& !scopeOn) {/ap.alphaDraw > 0.05) {/' || SCP_MB="$SCP_MB essbadge(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run messb "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; [ "$(scp_j ess "$(scp_ev "$SCP_T-messb.json")")" != ok ] || SCP_MB="$SCP_MB essbadge"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run messb "$SCP_EVE" "$F/devices.json" "$SCP_LQ" 390 844; scp_bit essbadge "$(scp_j ess "$(scp_ev "$SCP_T-messb.json")")"; }
 # the strip's classes changed without the geometry following (renderScope as it was: a resize only when the feed's liveness changes)
 scp_mut stripgeom 's/if (ls !== SC.lv || cs.value !== c0) { SC.lv = ls; resize(); }/if (ls !== SC.lv) { SC.lv = ls; resize(); }/' || SCP_MB="$SCP_MB stripgeom(no copy)"
-[ -z "$SCP_MP" ] || { scp_mutrun scp_run mstripg "$SCP_EVH" "$F/devices.json" "$SCP_Q" 390 844; [ "$(scp_j stripgeom "$(scp_ev "$SCP_T-mstripg.json")")" != ok ] || SCP_MB="$SCP_MB stripgeom"; }
+[ -z "$SCP_MP" ] || { scp_mutrun scp_run mstripg "$SCP_EVH" "$F/devices.json" "$SCP_Q" 390 844; scp_bit stripgeom "$(scp_j stripgeom "$(scp_ev "$SCP_T-mstripg.json")")"; }
 rowif "scope probes bite: an outward arc, a frame every tick, a radius of signal + 3, the bands ignored, no key Z, no snow, a caption that says ahead, a POST in the Scope, the lamps loop over every .lamps, no fitting of the strip, the 3D ring labels, the phosphor fade on idle frames, a note that never shows, a fifth lane that overflows, touching ticks, a nudge that turns over in a narrow lane, a legend row of an unknown kind or that never shows, a folded ESS member a tap skips, the count badge drawn in the Scope, a strip whose change of form leaves the fan where it was each turn their row red (mutants that did not:${SCP_MB:- none})" [ -z "$SCP_MB" ]

@@ -130,12 +130,13 @@ const P=plain(F),harv=async(d)=>{const seen=new Set(),add=(s)=>{for(const l of S
 const on=await harv(F),off=await harv(P);return [...on].filter(l=>!off.has(l)).join("\n");})()'
 runq "$WM_FX" "$WM_Q" "out/$P-wm-harv" --fps 0 --wait 3 --ready "$WM_RDY" --eval-timeout 150 --eval "$WM_EV_HARV" >/dev/null 2>&1
 evalv "out/$P-wm-harv.json" 1 > "out/$P-wm-harv.txt"; printf 'track the target north of the pager and away\n' > "out/$P-wm-harv-dummy.txt"
+WM_DR=$(sed -n 's/^    h = re.findall(r"\(.*\)", t)$/\1/p' tools/regress.d/scope.sh)   # the one definition of the direction and distance words, read where it lives (the Scope judge), as alerts.sh reads it
 wm_judge() {   # wm_judge FILE -> "ok" or the hits (P10, direction and distance, track/pilot/locate/scanner)
-  python3 - "$1" <<'PY'
+  python3 - "$1" "$WM_DR" <<'PY'
 import re, sys
 t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
 P10 = r"(?a)\b(evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood)\b"
-DIR = r"\b(direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther|(?:near|close to|next to) (?:the )?pager|(?:nearest|closest) (?:ring|arc))\b|°"
+DIR = sys.argv[2] or "(?!)"   # no definition read: nothing matches, and the WM_JR guard below is red
 EXTRA = r"\b(track\w*|pilot\w*|locat\w*|scanner\w*|away|near\w*)\b"
 need = ["pinned, or in watch.list", "in watch.list on the device; edit that file to take the mark off", "Watched: 2 (in watch.list on the device)", "· in watch.list"]
 hits = [m.group(0) for rx in (P10, DIR, EXTRA) for m in re.finditer(rx, t, re.I)]
@@ -144,7 +145,7 @@ print("ok" if not hits and not miss else "hits=%s missing=%s" % (hits[:6], miss)
 PY
 }
 WM_JP=$(grep -cF 'evil[ -]?twin|rogue|attack(er)?|threat|intru(der|sion)|malicious|spoof(ed|ing)?|karma|bandit|target|deauth flood' tools/regress.d/neutral-language.sh)   # the P10 words of wm_judge are the one definition's, byte for byte (a copy that drifts is red)
-WM_JR=$(grep -cF 'direction|bearing|heading|compass|north|south|east|west|ahead|behind|degrees?|metres?|meters?|feet|miles?|km|distance|range|nearby|closer|farther' tools/regress.d/scope.sh)   # and the direction words the Scope judge's
+WM_JR=0; case $WM_DR in *"direction|bearing|heading"*"|°") WM_JR=1 ;; esac   # the definition was read whole from the Scope judge (its head and its tail)
 WM_JH=$(wm_judge "out/$P-wm-harv.txt"); WM_JD=$(wm_judge "out/$P-wm-harv-dummy.txt")
 WM_JL=$(sh tools/denylist-check.sh "$R/out/$P-wm-harv.txt" >/dev/null 2>&1; echo $?); WM_JN=$(grep -c . "out/$P-wm-harv.txt")
 WM_JOK=0; [ "$WM_JH" = ok ] && [ "$WM_JL" = 0 ] && [ "${WM_JD#hits=}" != "$WM_JD" ] && [ "$WM_JN" -ge 5 ] && [ "$WM_JP/$WM_JR" = 1/1 ] && WM_JOK=1
