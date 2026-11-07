@@ -2,8 +2,17 @@
 # T1 on other hardware: the same quick tier as the pre-commit hook (tools/quick.sh), without Chrome.
 # What this run does NOT prove: that the running page is passive (source text only), anything under
 # BusyBox, a Chrome regression run (T2 = sh tools/regress.sh stays local, before a release).
-# The runner may have a different ShellCheck version from the development machine and report more strictly
-# (for instance SC2015 on A && B || C); green locally does not mean green on the runner, and the runner decides.
+# ShellCheck: the runner installs 0.11.0, the development machine's version, from ShellCheck's own release archive (the version
+# and the SHA-256 of the archive are pinned in the step below, and the versions step refuses any other); the image's own package
+# is 0.9.0, which read the same files differently (7 November 2026, in a container: 17 findings in six files under tools/ that
+# 0.11.0 does not report, SC3013 on -ef, SC2015 and SC2002, none of them a defect), so a hook green on the development machine
+# is green here for these rows. The collector's row is the one that needs memory: its analysis with the dataflow pass (ShellCheck's
+# default) took 14.3 GB and 26 s on the development machine; in a 16 GB virtual machine with the container capped at 14.5 GB, 0.11.0
+# finished in 90 s and 0.9.0 was killed after 31 s, and caps of 12 GB and 10 GB killed 0.11.0 too, so it needs between 12 and
+# 14.5 GB. A hosted runner of a public repository has 16 GB, so the pinned version has a chance there, a narrow one, and the
+# image's had none; a run that dies there is red by the machine, not the code. Without the dataflow pass the analysis takes 0.3 GB
+# but reports 96 SC2086 sites the pass resolves, so nothing is switched off here: the row stays as the hook runs it, and the full
+# run on the development machine remains the proof of the collector.
 # On request only, since 31 October 2026: the pre-commit hook runs the same tier on every commit, and the mutation
 # probe takes about an hour on a hosted runner, so a run on every push spent the account's compute for nothing new.
 # Start it from the Actions tab (Run workflow) before a release, or when the runner's own verdict is wanted.
@@ -17,9 +26,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Tools (shellcheck, jq, python3 are present on ubuntu-latest; print the versions)
+      - name: ShellCheck 0.11.0 from its release archive (the image's package is 0.9.0)
         run: |
-          shellcheck --version | sed -n 2p
+          set -eu
+          curl -sSL --fail --retry 3 --max-time 120 -o /tmp/shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo '8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/shellcheck.tar.xz' | sha256sum -c -
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp shellcheck-v0.11.0/shellcheck
+          mkdir -p "$HOME/.local/bin" && mv /tmp/shellcheck-v0.11.0/shellcheck "$HOME/.local/bin/shellcheck"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Tools (print the versions; shellcheck must be the pinned one, jq and python3 are the image's)
+        run: |
+          v=$(shellcheck --version | sed -n 2p); echo "$v"; [ "$v" = 'version: 0.11.0' ]
           jq --version
           python3 -V
       - name: T1 quick tier with mutation probe
