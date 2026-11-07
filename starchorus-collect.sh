@@ -144,7 +144,7 @@
 #   STARCHORUS_WIDS           1 = five more kinds of alert in "alerts", derived from what the collector already holds (nothing is read from the air for
 #                        them): own_name (a name of center.own_ssids sent by an address that is not in own_bssids; needs STARCHORUS_OWN=1), sec_profiles
 #                        (one name, two or more security families), sec_weaker and chan_changed (an access point whose profile stood for five minutes
-#                        and then changed to open, WEP or legacy WPA, or to another channel, the new profile held for a minute; an unknown label or
+#                        and then changed to open, WEP or legacy WPA, or to another channel, the new profile held for a minute, seen cycle after cycle; an unknown label or
 #                        channel is no evidence; a memory of at most 500 access points, in RAM, a new address taken while there is room, forgotten after
 #                        a day without the address), bt_fixed_new (a public or random-static Bluetooth address whose first row is younger than ten
 #                        minutes, stronger than -50 dBm with three reports, from the blue5 source and a database older than an hour). At most eight
@@ -240,7 +240,7 @@ ALERT_DIR=${STARCHORUS_ALERT_DIR:-/root/loot/starchorus-alerts}   # where the co
 BT_WIN=${STARCHORUS_BT_WINDOW:-5}                 # the window in whole seconds, 5 to 15 (checked below, once the log helper exists)
 BT_SYSFS=${STARCHORUS_SYSFS_BT:-/sys/class/bluetooth}   # tests only: where the controller is looked for
 # The homing target: ONE access point the operator chose (rules and sources: see STARCHORUS_HOMING_BSSID in the header).
-WL_FILE=${STARCHORUS_WATCH_FILE:-}                # the watch list (0.2.7): a text file of addresses and names the operator writes by hand; empty = $OUTDIR/watch.list (wl_file)
+WL_FILE=${STARCHORUS_WATCH_FILE:-}                # the watch list (0.2.7): a text file of addresses and names the operator writes by hand; empty = $OUTDIR/watch.list (wl_look)
 WL_ON=0             # 1 = the watch list is a readable regular file with something in it this cycle (wl_look)
 HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}         # "aa:bb:cc:dd:ee:ff" or empty (then $OUTDIR/homing.target, if it exists)
 HOMING_PEAK=""; HOMING_POLLS=0               # peak hold across cycles (a new maximum resets, 12 quiet cycles decay it)
@@ -1905,7 +1905,7 @@ AWK_LAYERS='
             # sec_weaker and chan_changed: the memory of the access points (family and channel, since when and until when; a pending profile and since
             # when; the alarm, its time and count). A profile that stood for five minutes and gives way to another that holds for a minute is a change:
             # to a weaker family (open, wep, legacy) sec_weaker, to another channel chan_changed; the first sight of an address says nothing, a profile
-            # that comes and goes within the minute says nothing, and an alarm lives for the alert window. An address not heard for a day is forgotten.
+            # that comes and goes within the minute says nothing (an address missing from the document of a cycle drops its pending profile), and an alarm lives for the alert window. An address not heard for a day is forgotten.
             wsh = ENVIRON["SC_WSH"]; wnws = 0
             while ((getline line < wsh) > 0) {
                 if (split(line, wz, "|") < 11 || wz[1] !~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/ || wz[4] !~ /^[0-9]+$/ || wz[5] !~ /^[0-9]+$/) continue
@@ -1920,10 +1920,10 @@ AWK_LAYERS='
                 wb = wapb[wi]; wf = wapf[wi]; wch = wapc[wi]
                 if (!(wb in wsi)) {   # a first sight says nothing; the memory holds at most 500 addresses, a new one waits until an old one is forgotten
                     if (wnws >= 500) continue
-                    wj = wnws++; wsi[wb] = wj; wsb[wj] = wb; wsf[wj] = wf; wsc[wj] = wch; wss[wj] = ts; wsl[wj] = ts; wpf[wj] = ""; wpc[wj] = ""; wps[wj] = 0; wat[wj] = ""; wam[wj] = 0; wac[wj] = 0
+                    wj = wnws++; wsi[wb] = wj; wsb[wj] = wb; wsf[wj] = wf; wsc[wj] = wch; wss[wj] = ts; wsl[wj] = ts; wpf[wj] = ""; wpc[wj] = ""; wps[wj] = 0; wat[wj] = ""; wam[wj] = 0; wac[wj] = 0; wvis[wj] = 1
                     continue
                 }
-                wj = wsi[wb]
+                wj = wsi[wb]; wvis[wj] = 1
                 if (ts < wsl[wj]) { wsl[wj] = ts; if (ts < wss[wj]) wss[wj] = ts; if (wps[wj] > ts) wps[wj] = ts; if (wam[wj] > ts) { wat[wj] = ""; wam[wj] = 0; wac[wj] = 0 } }   # a clock that moved back: no span below zero, an alarm timed after now is void
                 wfd = (wf != "" && wsf[wj] != "" && wf != wsf[wj]); wcd = (wch != "" && wsc[wj] != "" && wch != wsc[wj])   # an unknown family or channel is no evidence of a change
                 if (!wfd && !wcd) { wsl[wj] = ts; if (wsf[wj] == "") wsf[wj] = wf; if (wsc[wj] == "") wsc[wj] = wch; wpf[wj] = ""; wpc[wj] = ""; wps[wj] = 0 }
@@ -1934,7 +1934,7 @@ AWK_LAYERS='
                         else if (wstable && wcd) wty = "chan_changed"
                         else wty = ""
                         if (wty != "") { if (wat[wj] == wty && ts - wam[wj] <= alwin) wac[wj]++; else wac[wj] = 1; wat[wj] = wty; wam[wj] = ts }
-                        wsf[wj] = wf; wsc[wj] = wch; wss[wj] = wps[wj]; wsl[wj] = ts; wpf[wj] = ""; wpc[wj] = ""; wps[wj] = 0
+                        if (wf != "") wsf[wj] = wf; if (wch != "") wsc[wj] = wch; wss[wj] = wps[wj]; wsl[wj] = ts; wpf[wj] = ""; wpc[wj] = ""; wps[wj] = 0   # known values only: an unknown label at a confirmed channel change leaves the remembered family, so a later drop is still seen
                     }
                 } else { wpf[wj] = wf; wpc[wj] = wch; wps[wj] = ts }
                 if (wat[wj] != "" && ts - wam[wj] <= alwin) wcand(wat[wj], wam[wj], wb, wac[wj], (wat[wj] == "sec_weaker") ? 2 : 4)
@@ -1965,6 +1965,7 @@ AWK_LAYERS='
             }
             # the memory for the next cycle (at most 500 addresses: a new one is taken only while there is room, see above)
             wsn = ENVIRON["SC_WSN"]
+            for (wk = 0; wk < wnws; wk++) if (!(wk in wvis)) { wpf[wk] = ""; wpc[wk] = ""; wps[wk] = 0 }   # an address not in the document of this cycle drops its pending profile: a change is a new profile held for a minute, cycle after cycle (the minute counts from its return)
             for (wk = 0; wk < wnws; wk++) printf "%s|%s|%s|%d|%d|%s|%s|%d|%s|%d|%d\n", wsb[wk], wsf[wk], wsc[wk], wss[wk], wsl[wk], wpf[wk], wpc[wk], wps[wk], wat[wk], wam[wk], wac[wk] > wsn
             close(wsn)
         }
@@ -4264,9 +4265,8 @@ homing_off() { [ -z "$HOMING_BSSID" ] && [ ! -e "$OUTDIR/homing.target" ]; }   #
 # by addr. The list is read with getline, its entries are only ever hash keys (never in a command, never in a regex), a name is compared after jesc so that
 # it meets the document's own escaping, and at most 64 entries are taken from at most 512 lines or 8 KiB. post_keep guards the shape: a pass that fails
 # leaves the document as it was. The list leaves the device never: not in the document, not in the log.
-wl_file() { if [ -n "$WL_FILE" ]; then printf '%s' "$WL_FILE"; else printf '%s/watch.list' "$OUTDIR"; fi; }
 wl_look() {
-    WL_ON=0; wl_f=$(wl_file)
+    WL_ON=0; if [ -n "$WL_FILE" ]; then wl_f=$WL_FILE; else wl_f=$OUTDIR/watch.list; fi   # assigned, not substituted: no fork; wl_apply reads wl_f
     [ -e "$wl_f" ] || return 0
     if [ -f "$wl_f" ] && [ -r "$wl_f" ]; then [ -s "$wl_f" ] && WL_ON=1
     else bt_issue wlread "Watch list: $wl_f is not a readable file; no marks this cycle"
@@ -4276,7 +4276,7 @@ wl_look() {
 wl_apply() {   # $1 = the document; the marks in place (post_keep)
     [ "$WL_ON" = 1 ] || return 0
     wl_st="$TMPDIR_RAM/starchorus-wl-$$.stat"; wl_um=$(umask); umask 077; : > "$wl_st" 2>/dev/null; umask "$wl_um"
-    SC_WL="$(wl_file)" SC_WLS="$wl_st" LC_ALL=C awk "$AWK_JSON_HELPERS"'
+    SC_WL="$wl_f" SC_WLS="$wl_st" LC_ALL=C awk "$AWK_JSON_HELPERS"'
         function wl_mac(s,   t) {   # six hex pairs with : or -, or twelve hex digits -> lower-case xx:xx:xx:xx:xx:xx; "" when it is no address
             t = tolower(s); gsub(/-/, ":", t)
             if (t ~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/) return t
@@ -4302,6 +4302,7 @@ wl_apply() {   # $1 = the document; the marks in place (post_keep)
                 kind = ""; v = line
                 if (tolower(substr(line, 1, 4)) == "mac:") { kind = "mac"; v = substr(line, 5) } else if (tolower(substr(line, 1, 5)) == "ssid:") { kind = "ssid"; v = substr(line, 6) }
                 m = ""; if (kind != "ssid") m = wl_mac(v)
+                if (m == "" && kind == "" && v ~ /^[0-9A-Fa-f][0-9A-Fa-f][:-][0-9A-Fa-f][0-9A-Fa-f][:-]/) { bad++; continue }   # begins like an address and is not one (a blank or a comment after it): a bad line, said once, never a name
                 if (m == "" && (kind == "mac" || length(v) < 1 || length(v) > 32)) { bad++; continue }   # judged before the cap: a bad line is said wherever it stands
                 if (ne >= 64) { over = 1; continue }
                 if (m != "") { if (!(m in wmac)) { wmac[m] = 1; ne++ } } else { k = jesc(v); if (!(k in wsid)) { wsid[k] = 1; ne++ } }
@@ -5544,6 +5545,33 @@ lay_selftest() {
     if [ -z "$lw_d1$lw_d2$lw_d3" ] && [ "$lw_d4" = "$lw_w4$lw_w4" ] && [ "$lw_d5" = "$lw_w4" ] && [ "$lw_d6" = "$lw_w6" ] && [ "$lw_d7" = "$lw_w7" ] && [ -z "$lw_d8$lw_d9" ] && [ "$lw_s1/$lw_s9" = 8/9 ] && json_ok < "$lw_d/doc.json"; then
         st_pass "wids: sec_weaker and chan_changed: a profile of exactly 300 s gives way to open, legacy WPA, WEP or another channel, held for exactly 60 s -> one entry each at the time of the change; enterprise to WPA2 and a label that becomes unknown say nothing, nor does a flap within the minute or a young profile; the entries live for exactly the window; a second confirmed change within it, after the new profile stood 310 s, counts 2 and starts the time anew; a clock that moves back and two broken memory lines break nothing"
     else st_fail "wids: sequence (1 [$lw_d1] 2 [$lw_d2] 3 [$lw_d3] 4 [$lw_d4] 5 [$lw_d5] 6 [$lw_d6] 7 [$lw_d7] 8 [$lw_d8] 9 [$lw_d9] memory $lw_s1/$lw_s9)"; fi
+    # a pending profile does not outlive the access point's absence (21 changes, 22 stands throughout): 21 WPA2@6 stands 300 s, goes to channel 11 at 330, is
+    # missing at 360 (its pending profile is dropped), comes back on 11 at 3670 (no entry: the minute counts from its return), stays at 3700, is confirmed at 3760
+    WIDS_SEEN=""
+    lw_seq $lw_t0            WPA2@6  WPA2@6; lw_e1=$(lw_al)
+    lw_seq $((lw_t0 + 300))  WPA2@6  WPA2@6; lw_e1="$lw_e1$(lw_al)"
+    lw_seq $((lw_t0 + 330))  WPA2@11 WPA2@6; lw_e1="$lw_e1$(lw_al)"
+    lw_seq $((lw_t0 + 360))  -       WPA2@6; lw_e1="$lw_e1$(lw_al)"
+    lw_seq $((lw_t0 + 3670)) WPA2@11 WPA2@6; lw_e2=$(lw_al)
+    lw_seq $((lw_t0 + 3700)) WPA2@11 WPA2@6; lw_e2="$lw_e2$(lw_al)"
+    lw_seq $((lw_t0 + 3760)) WPA2@11 WPA2@6; lw_e3=$(lw_al)
+    if [ -z "$lw_e1$lw_e2" ] && [ "$lw_e3" = '[{"type": "chan_changed", "t": 1789303760, "ap": "02:00:5e:b0:00:21", "n": 1}],' ] && json_ok < "$lw_d/doc.json"; then
+        st_pass "wids: a pending profile does not outlive the access point's absence: a change seen once, missing for a cycle and seen again an hour later is confirmed only once held for a minute from its return (one entry at the confirmation, nothing before)"
+    else st_fail "wids: a pending profile across an absence (1 [$lw_e1] 2 [$lw_e2] 3 [$lw_e3])"; fi
+    # a change confirmed under an unknown label keeps the remembered family: 21 WPA2@6 stands 300 s, goes to Secured@11 at 330, is confirmed at 400 (chan_changed; the
+    # family stays psk), stands to 700, drops to Open@11 at 730 and is confirmed at 800: sec_weaker, which takes the address's one entry
+    WIDS_SEEN=""
+    lw_seq $lw_t0            WPA2@6;     lw_e4=$(lw_al)
+    lw_seq $((lw_t0 + 300))  WPA2@6;     lw_e4="$lw_e4$(lw_al)"
+    lw_seq $((lw_t0 + 330))  Secured@11; lw_e4="$lw_e4$(lw_al)"
+    lw_seq $((lw_t0 + 400))  Secured@11; lw_e5=$(lw_al)
+    lw_seq $((lw_t0 + 700))  Secured@11; lw_e5="$lw_e5$(lw_al)"
+    lw_seq $((lw_t0 + 730))  Open@11;    lw_e5="$lw_e5$(lw_al)"
+    lw_seq $((lw_t0 + 800))  Open@11;    lw_e6=$(lw_al)
+    lw_w5='[{"type": "chan_changed", "t": 1789300400, "ap": "02:00:5e:b0:00:21", "n": 1}],'
+    if [ -z "$lw_e4" ] && [ "$lw_e5" = "$lw_w5$lw_w5$lw_w5" ] && [ "$lw_e6" = '[{"type": "sec_weaker", "t": 1789300800, "ap": "02:00:5e:b0:00:21", "n": 1}],' ] && json_ok < "$lw_d/doc.json"; then
+        st_pass "wids: a channel change confirmed under an unknown label keeps the remembered security family: the later drop to open is sec_weaker (the address's one entry, in place of the chan_changed)"
+    else st_fail "wids: an unknown label at a confirmed change (4 [$lw_e4] 5 [$lw_e5] 6 [$lw_e6])"; fi
     # the memory: 499 fresh lines and one a day old, plus a new address -> 500 lines, the stale one gone; a 501st address is not taken while there is no room
     WIDS_SEEN=$(lw_i=1; while [ "$lw_i" -le 499 ]; do printf '02:00:5e:b1:%02x:%02x|psk|6|1789290000|1789299000|||0||0|0\n' $((lw_i / 256)) $((lw_i % 256)); lw_i=$((lw_i + 1)); done; printf '02:00:5e:b2:00:01|psk|6|1789200000|1789213599|||0||0|0\n')
     ts=1789300000; lw_body=""; lw_add 02:00:5e:b0:00:51 Lane 6 -50 WPA2/PSK/CCMP; lw_doc ''; lw_run
@@ -5638,23 +5666,24 @@ lay_selftest() {
     if [ "$wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn" = 1/1/1/1/2 ] && json_ok < "$wl_d/doc.json"; then
         st_pass "watch list: an address that is also the homing target or an alert's access point marks its own record (a hidden network by address, a station) and nothing in homing, alerts or center"
     else st_fail "watch list: homing and alerts ($wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn)"; fi
-    # the limits: 70 entries (the first 64 count), two lines that are neither, 600 lines (read to 512); said once per episode
+    # the limits: 70 entries (the first 64 count), four lines that are neither (two of them begin like an address), 602 lines (read to 512); said once per episode
     { printf '02:00:5e:b0:00:01\n'; wl_i=2; while [ "$wl_i" -le 69 ]; do printf '02:00:5e:b0:01:%02x\n' "$wl_i"; wl_i=$((wl_i + 1)); done
-      printf '02:00:5e:b0:00:04\nmac:notamac\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\n'; wl_i=73; while [ "$wl_i" -lt 600 ]; do printf '#\n'; wl_i=$((wl_i + 1)); done; printf '02:00:5e:b0:00:03\n'; } > "$WL_FILE"
+      printf '02:00:5e:b0:00:04\nmac:notamac\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\n02:00:5e:b0:00:05 \n02:00:5e:b0:00:06 # phone\n'; wl_i=73; while [ "$wl_i" -lt 600 ]; do printf '#\n'; wl_i=$((wl_i + 1)); done; printf '02:00:5e:b0:00:03\n'; } > "$WL_FILE"
     BT_LOGGED=" "; wl_run; cp "$wl_d/log" "$wl_d/log1"; wl_run
     wl_l1=$(grep -c '{"bssid": "02:00:5e:b0:00:01", "watched": true' "$wl_d/doc.json"); wl_l4=$(grep -c '"bssid": "02:00:5e:b0:00:04", "ssid"' "$wl_d/doc.json"); wl_l3=$(grep -c '^    {"mac": "02:00:5e:b0:00:03", "rssi"' "$wl_d/doc.json")
-    wl_lo=$(grep -c 'Watch list: more than 64 entries' "$wl_d/log1"); wl_lb=$(grep -c 'Watch list: 2 line(s) are neither an address nor a name' "$wl_d/log1"); wl_l2=$(grep -c . "$wl_d/log")
-    if [ "$wl_l1/$wl_l4/$wl_l3/$wl_lo/$wl_lb/$wl_l2" = 1/1/1/1/1/0 ] && [ "$(wc -l < "$WL_FILE" | tr -d ' ')" = 600 ]; then
-        st_pass "watch list: limits: of 70 entries the first 64 are taken (the 70th marks nothing) and said once, two lines that are neither an address nor a name are said once, a 600-line file is read to line 512 (an address on line 600 marks nothing); the same episode is not said again"
+    wl_lo=$(grep -c 'Watch list: more than 64 entries' "$wl_d/log1"); wl_lb=$(grep -c 'Watch list: 4 line(s) are neither an address nor a name' "$wl_d/log1"); wl_l2=$(grep -c . "$wl_d/log")
+    if [ "$wl_l1/$wl_l4/$wl_l3/$wl_lo/$wl_lb/$wl_l2" = 1/1/1/1/1/0 ] && [ "$(wc -l < "$WL_FILE" | tr -d ' ')" = 602 ]; then
+        st_pass "watch list: limits: of 70 entries the first 64 are taken (the 70th marks nothing) and said once, four lines that are neither an address nor a name (two begin like an address: a trailing blank, a comment after it) are said once, a 602-line file is read to line 512 (an address on line 602 marks nothing); the same episode is not said again"
     else st_fail "watch list: limits ($wl_l1/$wl_l4/$wl_l3 over $wl_lo bad $wl_lb second run $wl_l2 lines; file $(wc -l < "$WL_FILE" | tr -d ' ') lines)"; fi
     # no file, an empty file, a directory, an unreadable file
     wl_doc > "$wl_d/ref.json"
     rm -f "$WL_FILE"; wl_run; wl_n1=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ ! -s "$wl_d/log" ] && wl_n1=1
     : > "$WL_FILE"; wl_run; wl_n2=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ ! -s "$wl_d/log" ] && wl_n2=1
     rm -f "$WL_FILE"; mkdir "$WL_FILE"; BT_LOGGED=" "; wl_run; wl_n3=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ "$(grep -c 'Watch list: .* is not a readable file' "$wl_d/log")" = 1 ] && wl_n3=1; rmdir "$WL_FILE"
-    printf 'HomeNet\n' > "$WL_FILE"; chmod 000 "$WL_FILE"; BT_LOGGED=" "; wl_run; wl_n4=0
-    if [ -r "$WL_FILE" ]; then wl_n4=1; else cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ "$(grep -c 'is not a readable file' "$wl_d/log")" = 1 ] && wl_n4=1; fi; chmod 600 "$WL_FILE"
-    if [ "$wl_n1/$wl_n2/$wl_n3/$wl_n4" = 1/1/1/1 ]; then st_pass "watch list: no file, an empty file, a directory and an unreadable file leave the document byte-identical; the directory and the unreadable file are said once, the others not at all"
+    printf 'HomeNet\n' > "$WL_FILE"; chmod 000 "$WL_FILE"
+    if [ -r "$WL_FILE" ]; then rm -f "$WL_FILE"; mkfifo "$WL_FILE"; fi   # root reads a mode-000 file (the self-test on the Pager): a pipe is no readable file to root either, and wl_look never opens it
+    BT_LOGGED=" "; wl_run; wl_n4=0; cmp -s "$wl_d/doc.json" "$wl_d/ref.json" && [ "$(grep -c 'is not a readable file' "$wl_d/log")" = 1 ] && wl_n4=1; rm -f "$WL_FILE"
+    if [ "$wl_n1/$wl_n2/$wl_n3/$wl_n4" = 1/1/1/1 ]; then st_pass "watch list: no file, an empty file, a directory and an unreadable file (as root, a pipe) leave the document byte-identical; the directory and the unreadable file are said once, the others not at all"
     else st_fail "watch list: absence ($wl_n1/$wl_n2/$wl_n3/$wl_n4, log [$(cat "$wl_d/log")])"; fi
     # hostile entries: a name with a quote, a backslash and a bracket; a JSON-shaped line; ssid: before an address text; mac: before a name
     printf 'Ho"me\\Net]\n", "x": 1\nssid:02:00:5e:b0:00:02\nmac:HomeNet\n' > "$WL_FILE"; BT_LOGGED=" "; wl_run
