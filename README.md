@@ -10,7 +10,7 @@ by Hak5; see [Trademarks](#trademarks).
 
 [![quick (T1)](https://github.com/starchorus/pager/actions/workflows/quick.yml/badge.svg)](https://github.com/starchorus/pager/actions/workflows/quick.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/Licence-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release: v0.2.6.2](https://img.shields.io/badge/Release-v0.2.6.2-orange.svg)](https://github.com/starchorus/pager/releases)
+[![Release: v0.2.7](https://img.shields.io/badge/Release-v0.2.7-orange.svg)](https://github.com/starchorus/pager/releases)
 
 [Quick start](#quick-start) · [Installation](INSTALL.md) · [Payload](#payload) · [Passivity](#passivity-as-a-design-guarantee) ·
 [Configuration](#configuration) · [Licence](#licence) · [Contributing](CONTRIBUTING.md) ·
@@ -94,14 +94,14 @@ the licence does not require one.
 
 ## Version
 
-Starchorus 0.2.6.2. The main parts carry the same number:
+Starchorus 0.2.7. The main parts carry the same number:
 
 | Part | File | Version |
 |---|---|---|
-| Page | `starchorus.html` | 0.2.6.2 |
-| Collector | `starchorus-collect.sh` | 0.2.6.2 |
-| On-device Overview | `starchorus-display.sh` | 0.2.6.2 |
-| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.6.2 |
+| Page | `starchorus.html` | 0.2.7 |
+| Collector | `starchorus-collect.sh` | 0.2.7 |
+| On-device Overview | `starchorus-display.sh` | 0.2.7 |
+| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.7 |
 
 ## What the page shows
 

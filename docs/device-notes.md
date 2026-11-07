@@ -971,7 +971,10 @@ What the collector does about it:
     (the pass the second cycle no longer runs), twenty times; D7, `ns_last_pid` across one Bluetooth window and `[ -S /proc/<pid>/fd/<n> ]` on a descriptor of `btmon`
     that holds its socket (the self-test makes its socket with `python3`; BusyBox `ash` is not run here); D11, the hourly line for an hour in a quiet room and an
     hour on a busy night; D12, the CPU of three builds with `STARCHORUS_HOPINFO=1` and `STARCHORUS_MAX_AGE=0` (no window, 2 MB of text) on BusyBox `ash`, against the same without the hop
-    section, and the builds without it before and after 0.2.6 (the drop-in's row reads `dash`). None of these has been taken as of 24 October 2026.
+    section, and the builds without it before and after 0.2.6 (the drop-in's row reads `dash`). D1 was taken on 7 November 2026 against a lab loop at the
+    payload's settings, and D11's quiet-room hours from the payload's log of 4 November (the paragraphs on those days below; the spawn counts of D1 were not
+    obtained, `ns_last_pid` reading as constant); D7 does not arise while the Bluetooth layer reads `blue5.db`; D2, D3, D12 and D11's busy night had not been
+    taken as of 7 November 2026.
 - **Priority.** The payloads start the collector, the page server and (on-device payload) the Overview with
   `nice -n 19` when `nice` exists, so that the Pager's own services come first; `sqlite3` and `awk` inherit it. A collector started by hand or by `crond` is not reniced.
 - **Source `pineap`** (§5a, V-3), opt-in, and not a cheaper path. The calls are cheap: `RECON APS` 0.33 s wall and
@@ -1080,6 +1083,30 @@ addresses, not with the build. Two facts for whoever measures next: the collecto
 started beside the payload's loop replaces that loop, which must then be started again (it was, the same evening); and a lab started
 without `nice` takes the core from a loop at nice 19 for as long as it runs. The collector's self-test passed in full on the device as of
 3 November 2026 (569 checks; 581 on the development machine as of the same day). With the rules on by default (the build of 4 November 2026), the first cycles on the device raised one derived alert, `bt_fixed_new` with 66 reports for one strong address; no Wi-Fi kind had shown by then, and the self-test passed in full there again (569 checks as of 4 November 2026).
+
+The loop measured a third time on 7 November 2026, with the collector of `fdaf671` (it differs from the 0.2.7 release's in its version line
+alone) copied into a RAM lab directory on the device, the same way (interval 30, the lab environment of 3 November, Bluetooth from
+`blue5.db`, `nice -n 19`, six cycles per variant, the lab removed afterwards). The payload itself was not running: the Pager had rebooted on
+6 November and nothing had been started on it since, so the lab replaced no loop and started none, and the device was left as it was found.
+A quiet neighbourhood this time: 27 access points, one station and 13 to 16 Bluetooth addresses, 8 to 11 of them with a company name. With the five derived kinds of alert off, 155 to 158 ticks per steady cycle (one cycle of 196); with them on, 264 to 270, so the
+rules cost about 110 ticks here; the first cycle 1,276 and 1,347 (the OUI index, 9 to 10 s). A ten-minute reading of the same loop with
+the rules on, once a second (D1): 482 ticks a minute for its children (18 cycles ran in the 600 s, one every 33 s or so, the interval plus the cycle
+itself), about 268 a cycle, 18 a cycle for the loop's own shell; the whole device at about 19 per cent of its core over those ten minutes (user 7,411, system 3,823, iowait 30 ticks of 60,040, the reading itself
+included), load average 0.2 to 0.8; the pid counter `ns_last_pid` read as constant on this kernel, so the spawn counts of D1, D4 and D7
+were not obtained. Where the rules' cost comes from: on a copy of the firmware's `blue5.db` of that evening (9,925 rows for 9,893
+addresses, one row per address and scan session, three sessions in nine days, 1.27 MB), the second SELECT of the `blue5` source, the query
+behind `bt_fixed_new`, cost 958 ms of CPU per run in its old form (a subquery per row) and 1,094 ms in the grouped form of 7 November, a
+stand-in for the B query beside it (one grouped pass, without its filters or its 120-s window) 596 ms: on a table with one row per address the grouped pass saves nothing, and this one query is in effect the whole
+cost of the rules; the saving the development machine showed (71 to 940 ms down to 4 to 9 ms) belongs to tables with many rows per
+address, which a device that keeps its scan sessions may grow into. Three readings beside it that day: the hourly line of the payload's
+own loop of 4 November (D11, eleven hours in a quiet room by day): 107 to 109 full cycles an hour, none skipped, mean wall time 3.4 to
+3.8 s; `time` is not monotonic in `rowid` in `recon.db` (D9: 1,317 of 58,898 rows of `ssid` carry a time below their predecessor's), so
+nothing may rely on rowid order for a time window; `/tmp` and `/mmc` are mounted `noatime` (D8), so a read of `starchorus.json` leaves no
+access time; and the eMMC took 476 KiB of writes a minute over the ten minutes while the collector wrote to RAM alone (D10: the firmware's
+own databases). The cap, as measured rather than set: a steady 30-s cycle of this collector on this device costs 152 to 214 ticks without
+the rules (the loops of 1, 3 and 7 November: 27 to 28 access points, one to 190 stations, 13 to 28 Bluetooth addresses) and 264 to 333
+with them (3 and 7 November); the plan's 200-tick figure holds without the rules at up to about 70 stations and 16 Bluetooth addresses (1 and 7 November), not at 160 to
+190 stations (3 November), and with the rules nowhere.
 
 ## 7. No web server, and how the display works
 
