@@ -360,5 +360,5 @@ if [ -s "out/$P-selftest.txt" ]; then
   case $CCN_FB in *'[loop pace:]'*'[hourly line:]'*) CCN_FBO=1 ;; *) CCN_FBO=0 ;; esac
   rowif "cycle census: that family row bites (an output without the pace and the hourly line cases names them)" [ "$CCN_FBO" = 1 ]
 else
-  notcov "cycle census: the self-test cases for the cheaper cycle (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
+  notcov "cycle census: the self-test cases for the cheaper cycle (no out/$P-selftest.txt: the full run, tools/regress.sh, writes it; a quick run does not)"
 fi

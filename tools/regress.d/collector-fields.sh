@@ -268,7 +268,7 @@ if [ -s "out/$P-selftest.txt" ]; then
   case $CFL_FB in *'[watchdog same:]'*'[size: a]'*) CFL_FBO=1 ;; *) CFL_FBO=0 ;; esac
   rowif "collector selftest: the family row bites (an output without the watchdog and size cases names them)" [ "$CFL_FBO" = 1 ]
 else
-  notcov "collector selftest: the Bluetooth, layer, traffic, hidden-network and skip cases (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
+  notcov "collector selftest: the Bluetooth, layer, traffic, hidden-network and skip cases (no out/$P-selftest.txt: the full run, tools/regress.sh, writes it; a quick run does not)"
 fi
 
 # ---- the cycle length (STARCHORUS_INTERVAL): whole seconds from 1 to 3600, anything else is 5 with one log line, so that the loop and the document agree.
@@ -312,7 +312,7 @@ if [ -s "out/$P-selftest.txt" ]; then
   case $CFL_FB2 in *'[doc_whole:]'*'[publish: a whole document]'*) CFL_FBO2=1 ;; *) CFL_FBO2=0 ;; esac
   rowif "collector selftest: that family row bites (an output without the publish and doc_whole cases names them)" [ "$CFL_FBO2" = 1 ]
 else
-  notcov "collector selftest: the cases for the recon.db copy, the publish checks and the interval (no out/$P-selftest.txt: run tools/static.sh or tools/regress.sh first)"
+  notcov "collector selftest: the cases for the recon.db copy, the publish checks and the interval (no out/$P-selftest.txt: the full run, tools/regress.sh, writes it; a quick run does not)"
 fi
 
 # ---- the self-test reaches no radio and no controller, whatever the environment holds (spec 2.11, preamble; tools/install.sh and the README call it "offline,
