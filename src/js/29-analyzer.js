@@ -990,7 +990,7 @@ function libraryImport(text) {   // "MAC class" per line; "aa:bb:cc:??:??:??" (o
     if (!identCanAdd(b)) { rej(l, "identity store full"); continue; }
     S.identity.set(b, cls); res.added++;
   }
-  saveIdentity(); saveLibrary(); buildLegend(); S.dirty = true; renderInv();
+  saveIdentity(); saveLibrary(); buildLegend(); S.dirty = true; renderInv(); obsCompute(); renderObs();
   const n = res.rejected.length; res.message = n ? n + " rejected" + (res.rejected.every(r => r.why === "not observed") ? ": not observed" : "") : "";
   return res;
 }
@@ -1015,7 +1015,7 @@ function libraryAssign(cls, filter) {   // bulk assign friend/neutral/suspect to
   };
   for (const ap of S.apOrder) take(ap, true);
   for (const cl of S.clientOrder) if (cl.target === 1) take(cl, false);
-  if (n) { saveIdentity(); buildLegend(); S.dirty = true; renderInv(); }
+  if (n) { saveIdentity(); buildLegend(); S.dirty = true; renderInv(); obsCompute(); renderObs(); }
   return n;
 }
 const SEC_RANK = { open: 0, wep: 1, "tkip-weak": 2, wpa: 3, wpa2: 4, enterprise: 5, "wpa3-transition": 6, owe: 7, wpa3: 8 };
@@ -1034,7 +1034,7 @@ function setIdentity(bssid, id) {
   if (id == null || id === "unknown") S.identity.delete(b);
   else if (id === "friend" || id === "neutral" || id === "hostile") { if (!observed(b) || !identCanAdd(b)) return identityOf(b); S.identity.set(b, id); }
   else return identityOf(b);
-  saveIdentity(); buildLegend(); S.dirty = true;
+  saveIdentity(); buildLegend(); S.dirty = true; obsCompute(); renderObs();   // the notes follow the identity at once: a friend's derived kind leaves the Observations and the three text exports before the next capture (P6, section 14.5)
   if (S.locked === b || (S.locked && String(S.locked).toLowerCase() === b)) openDetail(S.locked);
   return identityOf(b);
 }

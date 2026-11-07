@@ -86,8 +86,8 @@ else
   echo "    got:  $(printf '%s' "$OBV_O" | cut -c1-560)"; echo "    want: $OBV_OW"
 fi
 
-# ---- probes for a confirmed SSID (P4): the number of stations as counted, shown from the first capture that holds one (after the dwell
-# every note has), carried in the SITREP (and so in its print) and not in JSON or CSV, nothing without a confirmed set, no band word; then the same eval on a page
+# ---- probes for a confirmed SSID (P4): the number of stations as counted, shown once it has held for two captures (the dwell every note has;
+# the capture the mark followed counts, since an identity change recomputes the notes at once), carried in the SITREP (and so in its print) and not in JSON or CSV, nothing without a confirmed set, no band word; then the same eval on a page
 # copy that bands the number again ('<5' / '5 or more', the text of 0.2.6), which must turn exactly the count keys red (the copy differs
 # from the page in that one line: a negative control); and the page without the band text, the ten-minute gate and the new-station band.
 # NEGATIVE PROBES (by hand, one-line copies of the page, 2 November 2026): the k > 0 guard dropped -> the dwell row above reads n 10 with a
@@ -100,7 +100,7 @@ const mk=(g,un)=>({source:"recon-db",generated:g,aps:[ap(1,"HomeNet"),ap(2,"cafe
 const P=()=>STARCHORUS.observations().filter(x=>x.group==="Probes").map(x=>x.text).join("|"),T=()=>STARCHORUS.observations().map(x=>x.text).join(" ");
 const un3=[st(1,["HomeNet"]),st(2,["HomeNet","cafe"]),st(3,["HomeNet"]),st(4,["cafe"]),st(5,[])];
 STARCHORUS.load(mk(100,un3),"prb");STARCHORUS.setIdentity("aa:bb:cc:00:07:01","friend");   // observed first (P2), then confirmed
-STARCHORUS.load(mk(105,un3),"prb");o.first=P();   // the first capture with a confirmed set: the dwell holds the note back
+STARCHORUS.load(mk(105,un3),"prb");o.first=P();   // the second capture the note has held for (the mark recomputed the notes on the first): the dwell is met
 STARCHORUS.load(mk(110,un3),"prb");o.three=P();
 const un6=un3.concat([st(6,["HomeNet"]),st(7,["homenet"]),st(8,["HomeNet"]),st(9,["HomeNet"]),st(10,["HomeNet"])]);   // 7 differs in case: no hit; 10 is an own transmitter: not counted
 STARCHORUS.load(mk(115,un6),"prb");o.six=P();
@@ -116,9 +116,9 @@ obv_probes() {   # obv_probes NAME: the eval on the page $H serves; OBV_P = the 
   OBV_P=$(evalv "out/$P-obv-$1.json" 1 | obv_nj); OBV_PE=$(evalv "out/$P-obv-$1.json" 2)
 }
 obv_probes probes
-OBV_PW=$(printf '%s' '{"first":"","three":"3 station(s) probed for a confirmed SSID","six":"6 station(s) probed for a confirmed SSID","sitrep":"  6 station(s) probed for a confirmed SSID","noJsonCsv":true,"band":false,"p10":false,"zero":"","noFriend":"","errors":0}' | obv_nj)
+OBV_PW=$(printf '%s' '{"first":"3 station(s) probed for a confirmed SSID","three":"3 station(s) probed for a confirmed SSID","six":"6 station(s) probed for a confirmed SSID","sitrep":"  6 station(s) probed for a confirmed SSID","noJsonCsv":true,"band":false,"p10":false,"zero":"","noFriend":"","errors":0}' | obv_nj)
 if [ "$OBV_P" = "$OBV_PW" ] && [ "$OBV_PE" = 0 ]; then
-  row "observations: stations that probed for a confirmed SSID are counted as they are (3, then 6; a name that differs in case is no hit, an own transmitter is not counted), from the first capture that holds one after the dwell, in the SITREP (and so in its print), not in JSON or CSV, no note for none and none without a confirmed set, no band word, neutral wording" PASS
+  row "observations: stations that probed for a confirmed SSID are counted as they are (3, then 6; a name that differs in case is no hit, an own transmitter is not counted), from the second capture the note has held for (the mark recomputes the notes, so the capture it followed counts), in the SITREP (and so in its print), not in JSON or CSV, no note for none and none without a confirmed set, no band word, neutral wording" PASS
 else
   row "observations: stations that probed for a confirmed SSID, counted (err ${OBV_PE:-?})" FAIL
   echo "    got:  $(printf '%s' "$OBV_P" | cut -c1-560)"; echo "    want: $OBV_PW"
@@ -135,7 +135,7 @@ then
   OBV_HK=$H; H="out/$P-obv-band.html"; obv_probes band; H=$OBV_HK
   OBV_PD=$(python3 -c 'import json,sys; g,w=json.loads(sys.argv[1] or "{}"),json.loads(sys.argv[2]); print(",".join(sorted(k for k in set(g)|set(w) if g.get(k)!=w.get(k))))' "$OBV_P" "$OBV_PW" 2>/dev/null)
 else OBV_PD=anchor; fi
-rowif "observations: a page copy that bands the count again ('<5' / '5 or more') turns exactly the count keys red [$OBV_PD]" [ "$OBV_PD" = "band,sitrep,six,three" ]
+rowif "observations: a page copy that bands the count again ('<5' / '5 or more') turns exactly the count keys red [$OBV_PD]" [ "$OBV_PD" = "band,first,sitrep,six,three" ]
 OBV_BT=$(grep -c '"<5" : "5 or more"' starchorus.html); OBV_GT=$(grep -c 'OBS_PROBE_S\|obsProbe\|newStationsText' starchorus.html)
 rowif "observations: the page holds no band text of the probes note ($OBV_BT), no ten-minute gate and no new-station band ($OBV_GT; the sky statistics' own cell rule, D11, is not this)" [ "$OBV_BT/$OBV_GT" = 0/0 ]
 
