@@ -1101,6 +1101,8 @@ bt_blue5_done() {
 #   * with STARCHORUS_WIDS=1 a second SELECT adds W-lines (W, addr, strongest rssi, reports, first_seen, last_seen) for bt_fixed_new in
 #     AWK_LAYERS: public or random-static addresses whose first row is younger than ten minutes, heard within the hold, stronger than -50 dBm
 #     with three reports or more, and only from a database whose oldest row is older than an hour (a fresh database makes nothing new); eight at most.
+#     The first row of an address comes from one grouped pass over the table joined on the address (a derived table SQLite indexes once), not from a
+#     subquery per row: on a table of two thousand rows the per-row form cost 25 times the B query and grew with the square of the rows (7 November 2026).
 bt_blue5_sql() {
     if [ "$BT5_SV" = 1 ]; then b5_cx="'', '', '', ''"; b5_ci=""
     else
@@ -1112,13 +1114,13 @@ bt_blue5_sql() {
     fi
     b5_w=""
     [ "$WIDS" != 1 ] || b5_w="SELECT 'W', lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)), r, pk, fs, ls
-FROM (SELECT mac, MAX(rssi_avg) AS r, MIN(CAST(TOTAL(packets) AS INTEGER), 2147483647) AS pk,
-             (SELECT MIN(b2.first_seen) FROM bt_device AS b2 WHERE b2.mac=bt_device.mac AND typeof(b2.first_seen)='integer') AS fs, MAX(last_seen) AS ls
-      FROM bt_device
-      WHERE transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
-        AND typeof(rssi_avg)='integer' AND rssi_avg BETWEEN -127 AND -1 AND typeof(last_seen)='integer' AND typeof(packets)='integer'
-        AND (le_random=0 OR (instr('0123456789ABCDEF',substr(upper(mac),1,1))-1)/4=3)
-      GROUP BY mac)
+FROM (SELECT d.mac AS mac, MAX(d.rssi_avg) AS r, MIN(CAST(TOTAL(d.packets) AS INTEGER), 2147483647) AS pk, f.fs AS fs, MAX(d.last_seen) AS ls
+      FROM bt_device AS d
+      JOIN (SELECT mac, MIN(first_seen) AS fs FROM bt_device WHERE typeof(first_seen)='integer' GROUP BY mac) AS f ON f.mac=d.mac
+      WHERE d.transports=1 AND length(d.mac)=12 AND d.mac NOT GLOB '*[^0-9A-Fa-f]*'
+        AND typeof(d.rssi_avg)='integer' AND d.rssi_avg BETWEEN -127 AND -1 AND typeof(d.last_seen)='integer' AND typeof(d.packets)='integer'
+        AND (d.le_random=0 OR (instr('0123456789ABCDEF',substr(upper(d.mac),1,1))-1)/4=3)
+      GROUP BY d.mac, f.fs)
 WHERE fs IS NOT NULL AND fs>=$2-600 AND ls<=$2 AND ls>=$2-120 AND r>-50 AND pk>=3 AND (SELECT MIN(first_seen) FROM bt_device WHERE typeof(first_seen)='integer')<=$2-3600
 ORDER BY r DESC LIMIT 8;"
     sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
