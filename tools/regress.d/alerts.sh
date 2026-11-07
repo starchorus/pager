@@ -14,7 +14,7 @@
 #   Since 0.2.7 the five kinds of STARCHORUS_WIDS=1 (tests/fixtures/wids.json, the ground truth in the header of build_wids_doc): R1b the fixture and three more
 #   refusals of the validator · R13 the page knows the validator's six kinds · R14 the words of the six notes and the legend row (P10, direction, distance; three
 #   planted words) · R15 the kinds on the page (notes, legend, rings in three themes, friend, own, band filter, the Bluetooth note, inherited type names, exports)
-#   · R16 six planted copies for the keys of R15 and R6 · R17 the dwell key names the kind: a second kind at an alerted address waits its own two captures, a kind that
+#   · R16 nine planted copies for the keys of R15 and R6 · R17 the dwell key names the kind: a second kind at an alerted address waits its own two captures, a kind that
 #   replaces another in one capture waits too, and a planted copy with the old key (by address alone) shows both at once
 # GUARDS AGAINST: a ring that does not flicker, flickers faster than twice a second or flickers under reduced motion; a ring drawn for an address the capture does not
 #                 hold, for an own transmitter, or at an access point that was not reported; a colour typed in the draw code instead of the theme's token; a legend row that
@@ -33,8 +33,8 @@
 #                 1.25 px at 11.4 (R12), are more. Each must turn its own key red (the key and the value are in the label of the row), and the copies must boot without an error. R1's twelve variants
 #                 are the validator's own controls (the unbroken fixture is green); R3 compares the same sky with and without its alerts, and swaps the alert token for a
 #                 green one; R5 compares with the same page without alerts, under reduced motion and paused; R10 mutates the token sets (amber, a band colour, no token).
-#                 R14's three planted words and R16's seven copies (a friend kept, the friend mark without the recompute, bt_fixed_new as a Wi-Fi kind, the kinds looked up with
-#                 `in`, the note without the live test, the exports without the alerts, alerts[] itself in the exports) and R17's copy with the dwell keyed by the address alone are more.
+#                 R14's three planted words and R16's nine copies (a friend kept, the friend mark, the bulk mark and the library import without the recompute, bt_fixed_new as a Wi-Fi
+#                 kind, the kinds looked up with `in`, the note without the live test, the exports without the alerts, alerts[] itself in the exports) and R17's copy with the dwell keyed by the address alone are more.
 # NOT PROVEN:     how the flicker looks on a phone or under a real display's refresh; photosensitivity beyond the rule that nothing steps more than twice a second;
 #                 an alert from a real flood (none has been measured: docs/device-notes.md section 5c); the five kinds from a real capture (bt_fixed_new was raised on the device on 4 November 2026, in the first cycles of the build with the
 #                 rules on, 66 reports for one strong address; the four Wi-Fi kinds have not shown there yet); where the nine stars of wids.json land on a phone;
@@ -476,8 +476,11 @@ o.notes=JSON.stringify(notes());
 o.legend=row().visible+"|"+document.getElementById("leg-alert").textContent;
 const rr=[];for(const th of TH){STARCHORUS.setTheme(th);rr.push(await rings(R1.concat(R0)));}o.rings=rr.join("|");
 STARCHORUS.setTheme("foundation");const tSP=notes().find(t=>t.includes("Spinney"));
+const tup=()=>{const s1=STARCHORUS.exportText("sitrep"),e1=JSON.parse(STARCHORUS.exportText("json")).alerts||[],r1=STARCHORUS.exportText("csv").split("\n").filter(l=>l.startsWith("alert,"));return [!!tSP,notes().includes(tSP),s1.includes("\n  "+tSP+"\n"),e1.some(x=>x.address===SP),r1.some(r=>r.split(",")[1]===SP)].join("/");};   // the note in the Observations, the SITREP, the JSON and the CSV
+STARCHORUS.libraryAssign("friend",{ids:[SP]});o.friendBulk=tup();STARCHORUS.setIdentity(SP,"unknown");await ld(null,"wd-back1");   // the bulk mark takes the note out at once; unmarked, it returns after its dwell
+STARCHORUS.libraryImport(SP+" friend");o.friendImport=tup();STARCHORUS.setIdentity(SP,"unknown");await ld(null,"wd-back2");   // the library import too
 STARCHORUS.setIdentity(SP,"friend");const f1=await rings([SP]),k1=S.alerts;S.alerts=k1.concat([{type:"deauth",t:0,ap:SP,n:3}]);const f2=await rings([SP]);S.alerts=k1;
-const sr1=STARCHORUS.exportText("sitrep"),ex1=JSON.parse(STARCHORUS.exportText("json")).alerts||[],rw1=STARCHORUS.exportText("csv").split("\n").filter(l=>l.startsWith("alert,"));o.friendNow=[!!tSP,notes().includes(tSP),sr1.includes("\n  "+tSP+"\n"),ex1.some(x=>x.address===SP),rw1.some(r=>r.split(",")[1]===SP)].join("/");   // P6: the friend mark takes the note out of the Observations, the SITREP, the JSON and the CSV at once, before the next capture
+o.friendNow=tup();   // P6: the friend mark takes the note out of the Observations, the SITREP, the JSON and the CSV at once, before the next capture
 await ld(null,"wd-friend");const f3=notes().length;
 await ld(d=>{d.alerts=d.alerts.filter(a=>a.ap!==SP).concat([{type:"deauth",t:d.generated-300,ap:SP,n:3}]);},"wd-friend-deauth");
 o.friend=[f1,f2,f3,notes().includes("many deauth/disassoc frames heard for this AP: Spinney (3)")].join("/");
@@ -505,11 +508,11 @@ al_wids() {
   AL_WN=$(printf '%s' "$AL_W" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin),separators=(",",":"),sort_keys=True))' 2>/dev/null)
 }
 al_wids "$H" "$AL_T/wids"
-AL_WWANT='{"bands":"00011/5/true","bt":"new fixed Bluetooth address, strong signal: 02:00:00:00:09:01 (5)/6/true/0","btAp":"0/5","btGone":5,"btRot":5,"csvAlerts":"alert,02:00:00:00:07:02,HomeNet,,,,,,,,,,,,own_name,2|alert,02:00:00:00:07:05,Meadow,,,,,,,,,,,,sec_profiles,2|alert,02:00:00:00:07:06,Orchard,,,,,,,,,,,,sec_weaker,1|alert,02:00:00:00:07:07,Paddock,,,,,,,,,,,,chan_changed,1|alert,02:00:00:00:07:09,Spinney,,,,,,,,,,,,chan_changed,2|,alert,count","entries":0,"errors":0,"exports":"5/5/5/5","friend":"0/1/4/true","friendNow":"true/false/false/false/false","jsonAlerts":"[{\"kind\":\"own_name\",\"address\":\"02:00:00:00:07:02\",\"name\":\"HomeNet\",\"count\":2},{\"kind\":\"sec_profiles\",\"address\":\"02:00:00:00:07:05\",\"name\":\"Meadow\",\"count\":2},{\"kind\":\"sec_weaker\",\"address\":\"02:00:00:00:07:06\",\"name\":\"Orchard\",\"count\":1},{\"kind\":\"chan_changed\",\"address\":\"02:00:00:00:07:07\",\"name\":\"Paddock\",\"count\":1},{\"kind\":\"chan_changed\",\"address\":\"02:00:00:00:07:09\",\"name\":\"Spinney\",\"count\":2}]","legend":"true|alert ring = an alert for this AP, see Observations","notes":"[\"own name also sent by another transmitter: HomeNet (2)\",\"one name, several security profiles: Meadow (2)\",\"security weaker than when first heard: Orchard (1)\",\"channel changed since first heard: Paddock (1)\",\"channel changed since first heard: Spinney (2)\"]","own":"4/0","proto":"0/0/false","rings":"111110000|111110000|111110000"}'
+AL_WWANT='{"bands":"00011/5/true","bt":"new fixed Bluetooth address, strong signal: 02:00:00:00:09:01 (5)/6/true/0","btAp":"0/5","btGone":5,"btRot":5,"csvAlerts":"alert,02:00:00:00:07:02,HomeNet,,,,,,,,,,,,own_name,2|alert,02:00:00:00:07:05,Meadow,,,,,,,,,,,,sec_profiles,2|alert,02:00:00:00:07:06,Orchard,,,,,,,,,,,,sec_weaker,1|alert,02:00:00:00:07:07,Paddock,,,,,,,,,,,,chan_changed,1|alert,02:00:00:00:07:09,Spinney,,,,,,,,,,,,chan_changed,2|,alert,count","entries":0,"errors":0,"exports":"5/5/5/5","friend":"0/1/4/true","friendBulk":"true/false/false/false/false","friendImport":"true/false/false/false/false","friendNow":"true/false/false/false/false","jsonAlerts":"[{\"kind\":\"own_name\",\"address\":\"02:00:00:00:07:02\",\"name\":\"HomeNet\",\"count\":2},{\"kind\":\"sec_profiles\",\"address\":\"02:00:00:00:07:05\",\"name\":\"Meadow\",\"count\":2},{\"kind\":\"sec_weaker\",\"address\":\"02:00:00:00:07:06\",\"name\":\"Orchard\",\"count\":1},{\"kind\":\"chan_changed\",\"address\":\"02:00:00:00:07:07\",\"name\":\"Paddock\",\"count\":1},{\"kind\":\"chan_changed\",\"address\":\"02:00:00:00:07:09\",\"name\":\"Spinney\",\"count\":2}]","legend":"true|alert ring = an alert for this AP, see Observations","notes":"[\"own name also sent by another transmitter: HomeNet (2)\",\"one name, several security profiles: Meadow (2)\",\"security weaker than when first heard: Orchard (1)\",\"channel changed since first heard: Paddock (1)\",\"channel changed since first heard: Spinney (2)\"]","own":"4/0","proto":"0/0/false","rings":"111110000|111110000|111110000"}'
 rowif "alerts: the five kinds of 0.2.7 on wids.json: five notes exactly, the legend row in kind-neutral words, the ring at the five access points with a Wi-Fi kind and at none of the four others (own transmitter, phone hotspot, two without an entry) in three themes; a friend loses the derived ring and note and keeps a deauth one, an own transmitter loses both, a band filtered off keeps the note; bt_fixed_new a note only while the capture holds a fixed mark of it (not rotating, not after it left, never a ring, not at an access point of that address); inherited type names dropped; the SITREP, the JSON and the CSV carry the notes, word for word, and nothing beyond them, the three addresses without a note in no text export [${AL_WN:-no-value}]" [ "$AL_WN" = "$AL_WWANT" ]
 [ "$AL_WN" = "$AL_WWANT" ] || printf '    %s\n' "$(printf '%s' "${AL_W:-no-value}" | cut -c1-600)"
 
-# ---- R16 the keys of R15 and R6 bite: six planted copies, each differing from the page in exactly one line, each turns its own key (the copies boot without an error)
+# ---- R16 the keys of R15 and R6 bite: nine planted copies, each differing from the page in exactly one line, each turns its own key (the copies boot without an error)
 al_wkey() { printf '%s' "$AL_W" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(str(d.get(k)) for k in sys.argv[1:]))' "$@" 2>/dev/null; }
 # a friend that keeps a derived kind's ring and note
 al_copy "$AL_T/p-wfriend.html" 'a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend") && S.aps.get(a.ap);' 'a.type !== "bt_fixed_new") && S.aps.get(a.ap);'
@@ -521,6 +524,15 @@ al_copy "$AL_T/p-wstale.html" 'saveIdentity(); buildLegend(); S.dirty = true; ob
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wstale.html" "$AL_T/wids-stale"; AL_V=$(al_wkey friendNow errors)
 AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "true/true/true/true/true,0" ] && AL_OK=1
 rowif "alerts: the friendNow key bites: a page that marks the friend without recomputing the notes keeps its note in the Observations, the SITREP, the JSON and the CSV until the next capture [copy differs in $AL_C1 line, friendNow/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+# the bulk mark without the recompute, and the library import without it
+al_copy "$AL_T/p-wbulk.html" 'renderInv(); obsCompute(); renderObs(); }' 'renderInv(); }'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wbulk.html" "$AL_T/wids-bulk"; AL_V=$(al_wkey friendBulk errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "true/true/true/true/true,0" ] && AL_OK=1
+rowif "alerts: the friendBulk key bites: a page whose bulk assignment does not recompute the notes keeps a friend's note in the Observations and the three text exports [copy differs in $AL_C1 line, friendBulk/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
+al_copy "$AL_T/p-wimport.html" 'saveLibrary(); buildLegend(); S.dirty = true; renderInv(); obsCompute(); renderObs();' 'saveLibrary(); buildLegend(); S.dirty = true; renderInv();'
+AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wimport.html" "$AL_T/wids-import"; AL_V=$(al_wkey friendImport errors)
+AL_OK=0; [ "$AL_C1R" = 0 ] && [ "$AL_C1" = 1 ] && [ "$AL_V" = "true/true/true/true/true,0" ] && AL_OK=1
+rowif "alerts: the friendImport key bites: a page whose library import does not recompute the notes keeps a friend's note in the Observations and the three text exports [copy differs in $AL_C1 line, friendImport/errors ${AL_V:-no-value}]" [ "$AL_OK" = 1 ]
 # bt_fixed_new treated as a Wi-Fi kind: a ring and a note at an access point of that address
 al_copy "$AL_T/p-wbt.html" '(a.type === "deauth" || a.type !== "bt_fixed_new" && identityOf(a.ap) !== "friend")' '(a.type === "deauth" || identityOf(a.ap) !== "friend")'
 AL_C1=$AL_CPD; AL_C1R=$AL_CPR; al_wids "$AL_T/p-wbt.html" "$AL_T/wids-bt"; AL_V=$(al_wkey btAp errors)

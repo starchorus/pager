@@ -239,7 +239,8 @@ Environment variables, all optional:
 by hand, with no key in `settings.conf`. One entry per line: an address (`aa:bb:cc:00:00:01`,
 `aa-bb-cc-00-00-01` or `aabbcc000001`) or a network name (byte for byte, 1 to 32 bytes), `mac:` or
 `ssid:` in front where a name looks like an address, `#` for a comment. From the next refresh on,
-every access point, station and Bluetooth record whose address or name is listed carries
+every access point whose address or name is listed, and every station and Bluetooth record whose
+address is, carries
 `"watched": true` in `starchorus.json`; at most 64 entries count, from at most 512 lines. The collector
 reads the file and nothing else: the list is in no document and no log, and the page server does not
 serve it. The page draws the pin mark on them, names the list in the tooltip and in the detail sheet of an access point or a station, and counts the watched access points and stations in the report.

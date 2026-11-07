@@ -705,7 +705,7 @@ scp_mut nudge 's/ \&\& l.k1 - l.k0 > 2 \* f \/ t//' || SCP_MB="$SCP_MB nudge(no 
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mnudge "$SCP_EVC" "$F/devices.json" "$SCP_Q" 320 568; scp_bit nudge "$(scp_j nudge "$(scp_ev "$SCP_T-mnudge.json")")"; }
 # a legend row of a kind the legend check does not know, and one that never shows
 scp_mut legendkind 's/data-kind="scope" hidden/data-kind="scopx" hidden/' || SCP_MB="$SCP_MB legendkind(no copy)"
-[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --ready "$SCP_RDY" --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; case $(evalv "$SCP_T-mlegk.json" 1) in "[]"|"") SCP_MB="$SCP_MB legendkind(no finding)" ;; esac; }   # the legend check has to name the unknown kind: an empty value is no bite
+[ -z "$SCP_MP" ] || { SCP_HK=$H; H=$SCP_MP; runq "$F/many-clients.json" "?intro=0&poll=0&spin=0&fixed=$STARCHORUS_FIXED&debug=1" "$SCP_T-mlegk" --fps 0 --wait 3 --ready "$SCP_RDY" --eval "$(cat "$R/tools/evals/legend-truth.js")" >/dev/null 2>&1; H=$SCP_HK; case $(evalv "$SCP_T-mlegk.json" 1) in *"kind scopx"*) ;; *) SCP_MB="$SCP_MB legendkind(no finding)" ;; esac; }   # the legend check has to name the unknown kind (": kind scopx"): anything else, an empty value or a thrown eval, is no bite
 scp_mut legendrow 's/ vis("leg-scope", scopeOn);//' || SCP_MB="$SCP_MB legendrow(no copy)"
 [ -z "$SCP_MP" ] || { scp_mutrun scp_run mlegr "$SCP_EVY" "$F/devices.json" "$SCP_Q" 390 844; scp_bit legendrow "$(scp_j legend "$(scp_ev "$SCP_T-mlegr.json")")"; }
 # a folded ESS member that a tap in the Scope skips again, and the count badge drawn in the Scope again

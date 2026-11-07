@@ -99,7 +99,7 @@ const st=(n,probes)=>({mac:"02:00:00:00:07:"+String(n).padStart(2,"0"),rssi:-60-
 const mk=(g,un)=>({source:"recon-db",generated:g,aps:[ap(1,"HomeNet"),ap(2,"cafe")],unassociated:un,center:{label:"x",own_bssids:["02:00:00:00:07:10"]}}),o={};
 const P=()=>STARCHORUS.observations().filter(x=>x.group==="Probes").map(x=>x.text).join("|"),T=()=>STARCHORUS.observations().map(x=>x.text).join(" ");
 const un3=[st(1,["HomeNet"]),st(2,["HomeNet","cafe"]),st(3,["HomeNet"]),st(4,["cafe"]),st(5,[])];
-STARCHORUS.load(mk(100,un3),"prb");STARCHORUS.setIdentity("aa:bb:cc:00:07:01","friend");   // observed first (P2), then confirmed
+STARCHORUS.load(mk(100,un3),"prb");STARCHORUS.setIdentity("aa:bb:cc:00:07:01","friend");o.atMark=P();   // observed first (P2), then confirmed; the mark itself shows no note (the dwell)
 STARCHORUS.load(mk(105,un3),"prb");o.first=P();   // the second capture the note has held for (the mark recomputed the notes on the first): the dwell is met
 STARCHORUS.load(mk(110,un3),"prb");o.three=P();
 const un6=un3.concat([st(6,["HomeNet"]),st(7,["homenet"]),st(8,["HomeNet"]),st(9,["HomeNet"]),st(10,["HomeNet"])]);   // 7 differs in case: no hit; 10 is an own transmitter: not counted
@@ -116,9 +116,9 @@ obv_probes() {   # obv_probes NAME: the eval on the page $H serves; OBV_P = the 
   OBV_P=$(evalv "out/$P-obv-$1.json" 1 | obv_nj); OBV_PE=$(evalv "out/$P-obv-$1.json" 2)
 }
 obv_probes probes
-OBV_PW=$(printf '%s' '{"first":"3 station(s) probed for a confirmed SSID","three":"3 station(s) probed for a confirmed SSID","six":"6 station(s) probed for a confirmed SSID","sitrep":"  6 station(s) probed for a confirmed SSID","noJsonCsv":true,"band":false,"p10":false,"zero":"","noFriend":"","errors":0}' | obv_nj)
+OBV_PW=$(printf '%s' '{"atMark":"","first":"3 station(s) probed for a confirmed SSID","three":"3 station(s) probed for a confirmed SSID","six":"6 station(s) probed for a confirmed SSID","sitrep":"  6 station(s) probed for a confirmed SSID","noJsonCsv":true,"band":false,"p10":false,"zero":"","noFriend":"","errors":0}' | obv_nj)
 if [ "$OBV_P" = "$OBV_PW" ] && [ "$OBV_PE" = 0 ]; then
-  row "observations: stations that probed for a confirmed SSID are counted as they are (3, then 6; a name that differs in case is no hit, an own transmitter is not counted), from the second capture the note has held for (the mark recomputes the notes, so the capture it followed counts), in the SITREP (and so in its print), not in JSON or CSV, no note for none and none without a confirmed set, no band word, neutral wording" PASS
+  row "observations: stations that probed for a confirmed SSID are counted as they are (3, then 6; a name that differs in case is no hit, an own transmitter is not counted), nothing at the mark itself, from the second capture the note has held for (the mark recomputes the notes, so the capture it followed counts), in the SITREP (and so in its print), not in JSON or CSV, no note for none and none without a confirmed set, no band word, neutral wording" PASS
 else
   row "observations: stations that probed for a confirmed SSID, counted (err ${OBV_PE:-?})" FAIL
   echo "    got:  $(printf '%s' "$OBV_P" | cut -c1-560)"; echo "    want: $OBV_PW"

@@ -1841,7 +1841,9 @@ automatically (passive → no statement about intent). Values: `friend` (allow l
 Set in the detail panel (four buttons), persisted in `localStorage["starchorus.identity.v1"]`; the legend shows the three
 classes in the 'Operator' block. API §10: `setIdentity(key, id)`, `identity(key)`, `identities()`, `identitySource(key)`;
 `stats().identities`. No automatic finding. A change of identity, by the buttons, a bulk assignment or a library
-import, recomputes the Observations at once, so a friend's derived kind leaves the drawer and the exports with the mark (P6, §14.5).
+import, recomputes the Observations at once, so a friend's derived kind leaves the drawer and the exports with the mark (P6, §14.5); a mark
+counts as an evaluation for the dwell: a note the mark brings about shows with the next capture, and a note it takes away returns after
+the dwell.
 
 ### 8.11 Observe and compare (display only)
 

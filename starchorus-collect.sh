@@ -1916,7 +1916,7 @@ AWK_LAYERS='
             }
             close(wsh)
             for (wi = 0; wi < wnap; wi++) {
-                if (wapf[wi] == "" && wapc[wi] == "") continue
+                if (wapf[wi] == "" && wapc[wi] == "") { if (wapb[wi] in wsi) wvis[wsi[wapb[wi]]] = 1; continue }   # no known profile is no evidence either way; the address is in the document, so its pending profile stays
                 wb = wapb[wi]; wf = wapf[wi]; wch = wapc[wi]
                 if (!(wb in wsi)) {   # a first sight says nothing; the memory holds at most 500 addresses, a new one waits until an old one is forgotten
                     if (wnws >= 500) continue
@@ -4302,7 +4302,7 @@ wl_apply() {   # $1 = the document; the marks in place (post_keep)
                 kind = ""; v = line
                 if (tolower(substr(line, 1, 4)) == "mac:") { kind = "mac"; v = substr(line, 5) } else if (tolower(substr(line, 1, 5)) == "ssid:") { kind = "ssid"; v = substr(line, 6) }
                 m = ""; if (kind != "ssid") m = wl_mac(v)
-                if (m == "" && kind == "" && v ~ /^[0-9A-Fa-f][0-9A-Fa-f][:-][0-9A-Fa-f][0-9A-Fa-f][:-]/) { bad++; continue }   # begins like an address and is not one (a blank or a comment after it): a bad line, said once, never a name
+                if (m == "" && kind == "" && (v ~ /^[0-9A-Fa-f][0-9A-Fa-f][:-][0-9A-Fa-f][0-9A-Fa-f][:-]/ || (length(v) > 12 && substr(v, 1, 12) ~ /^[0-9A-Fa-f]+$/ && substr(v, 13, 1) !~ /[0-9A-Fa-f]/))) { bad++; continue }   # begins like an address (two hex pairs with : or -, or twelve hex digits and then something else) and is not one: a bad line, said once, never a name; a name that begins so takes the prefix ssid:
                 if (m == "" && (kind == "mac" || length(v) < 1 || length(v) > 32)) { bad++; continue }   # judged before the cap: a bad line is said wherever it stands
                 if (ne >= 64) { over = 1; continue }
                 if (m != "") { if (!(m in wmac)) { wmac[m] = 1; ne++ } } else { k = jesc(v); if (!(k in wsid)) { wsid[k] = 1; ne++ } }
@@ -4325,7 +4325,7 @@ wl_apply() {   # $1 = the document; the marks in place (post_keep)
     wl_rc=$?
     post_keep "$1" w "$wl_rc" 0 || { rm -f "$wl_st" 2>/dev/null; return 1; }
     wl_b=$(sed -n 's/^bad //p' "$wl_st" 2>/dev/null); wl_o=$(sed -n 's/^over //p' "$wl_st" 2>/dev/null); rm -f "$wl_st" 2>/dev/null
-    case $wl_b in ''|0|*[!0-9]*) ;; *) bt_issue wlbad "Watch list: $wl_b line(s) are neither an address nor a name of 1 to 32 bytes; they are skipped" ;; esac
+    case $wl_b in ''|0|*[!0-9]*) ;; *) bt_issue wlbad "Watch list: $wl_b line(s) are neither an address nor a name of 1 to 32 bytes, or begin like an address and are not one (a name that begins so takes the prefix ssid:); they are skipped" ;; esac
     [ "$wl_o" != 1 ] || bt_issue wlover "Watch list: more than 64 entries; the first 64 are taken"
     return 0
 }
@@ -5572,6 +5572,20 @@ lay_selftest() {
     if [ -z "$lw_e4" ] && [ "$lw_e5" = "$lw_w5$lw_w5$lw_w5" ] && [ "$lw_e6" = '[{"type": "sec_weaker", "t": 1789300800, "ap": "02:00:5e:b0:00:21", "n": 1}],' ] && json_ok < "$lw_d/doc.json"; then
         st_pass "wids: a channel change confirmed under an unknown label keeps the remembered security family: the later drop to open is sec_weaker (the address's one entry, in place of the chan_changed)"
     else st_fail "wids: an unknown label at a confirmed change (4 [$lw_e4] 5 [$lw_e5] 6 [$lw_e6])"; fi
+    # a security change confirmed on a row without a channel keeps the remembered channel: 21 WPA2@6 stands 300 s, drops to Open with no channel at 330 ("channel": null
+    # reads as none), is confirmed at 400 (sec_weaker; the channel stays 6), stands to 700, moves to channel 11 at 730 and is confirmed at 800: chan_changed, the one entry
+    WIDS_SEEN=""
+    lw_seq $lw_t0            WPA2@6;    lw_e7=$(lw_al)
+    lw_seq $((lw_t0 + 300))  WPA2@6;    lw_e7="$lw_e7$(lw_al)"
+    lw_seq $((lw_t0 + 330))  Open@null; lw_e7="$lw_e7$(lw_al)"
+    lw_seq $((lw_t0 + 400))  Open@null; lw_e8=$(lw_al)
+    lw_seq $((lw_t0 + 700))  Open@null; lw_e8="$lw_e8$(lw_al)"
+    lw_seq $((lw_t0 + 730))  Open@11;   lw_e8="$lw_e8$(lw_al)"
+    lw_seq $((lw_t0 + 800))  Open@11;   lw_e9=$(lw_al)
+    lw_w8='[{"type": "sec_weaker", "t": 1789300400, "ap": "02:00:5e:b0:00:21", "n": 1}],'
+    if [ -z "$lw_e7" ] && [ "$lw_e8" = "$lw_w8$lw_w8$lw_w8" ] && [ "$lw_e9" = '[{"type": "chan_changed", "t": 1789300800, "ap": "02:00:5e:b0:00:21", "n": 1}],' ] && json_ok < "$lw_d/doc.json"; then
+        st_pass "wids: a security change confirmed on a row without a channel keeps the remembered channel: the later move to channel 11 is chan_changed (the address's one entry, in place of the sec_weaker)"
+    else st_fail "wids: a confirmed change on a row without a channel (7 [$lw_e7] 8 [$lw_e8] 9 [$lw_e9])"; fi
     # the memory: 499 fresh lines and one a day old, plus a new address -> 500 lines, the stale one gone; a 501st address is not taken while there is no room
     WIDS_SEEN=$(lw_i=1; while [ "$lw_i" -le 499 ]; do printf '02:00:5e:b1:%02x:%02x|psk|6|1789290000|1789299000|||0||0|0\n' $((lw_i / 256)) $((lw_i % 256)); lw_i=$((lw_i + 1)); done; printf '02:00:5e:b2:00:01|psk|6|1789200000|1789213599|||0||0|0\n')
     ts=1789300000; lw_body=""; lw_add 02:00:5e:b0:00:51 Lane 6 -50 WPA2/PSK/CCMP; lw_doc ''; lw_run
@@ -5666,14 +5680,14 @@ lay_selftest() {
     if [ "$wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn" = 1/1/1/1/2 ] && json_ok < "$wl_d/doc.json"; then
         st_pass "watch list: an address that is also the homing target or an alert's access point marks its own record (a hidden network by address, a station) and nothing in homing, alerts or center"
     else st_fail "watch list: homing and alerts ($wl_h/$wl_a/$wl_hid/$wl_st2/$wl_mn)"; fi
-    # the limits: 70 entries (the first 64 count), four lines that are neither (two of them begin like an address), 602 lines (read to 512); said once per episode
+    # the limits: 70 entries (the first 64 count), five lines that are neither (three of them begin like an address), 603 lines (read to 512); said once per episode
     { printf '02:00:5e:b0:00:01\n'; wl_i=2; while [ "$wl_i" -le 69 ]; do printf '02:00:5e:b0:01:%02x\n' "$wl_i"; wl_i=$((wl_i + 1)); done
-      printf '02:00:5e:b0:00:04\nmac:notamac\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\n02:00:5e:b0:00:05 \n02:00:5e:b0:00:06 # phone\n'; wl_i=73; while [ "$wl_i" -lt 600 ]; do printf '#\n'; wl_i=$((wl_i + 1)); done; printf '02:00:5e:b0:00:03\n'; } > "$WL_FILE"
+      printf '02:00:5e:b0:00:04\nmac:notamac\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\n02:00:5e:b0:00:05 \n02:00:5e:b0:00:06 # phone\n02005eb00007 # tag\n'; wl_i=73; while [ "$wl_i" -lt 600 ]; do printf '#\n'; wl_i=$((wl_i + 1)); done; printf '02:00:5e:b0:00:03\n'; } > "$WL_FILE"
     BT_LOGGED=" "; wl_run; cp "$wl_d/log" "$wl_d/log1"; wl_run
     wl_l1=$(grep -c '{"bssid": "02:00:5e:b0:00:01", "watched": true' "$wl_d/doc.json"); wl_l4=$(grep -c '"bssid": "02:00:5e:b0:00:04", "ssid"' "$wl_d/doc.json"); wl_l3=$(grep -c '^    {"mac": "02:00:5e:b0:00:03", "rssi"' "$wl_d/doc.json")
-    wl_lo=$(grep -c 'Watch list: more than 64 entries' "$wl_d/log1"); wl_lb=$(grep -c 'Watch list: 4 line(s) are neither an address nor a name' "$wl_d/log1"); wl_l2=$(grep -c . "$wl_d/log")
-    if [ "$wl_l1/$wl_l4/$wl_l3/$wl_lo/$wl_lb/$wl_l2" = 1/1/1/1/1/0 ] && [ "$(wc -l < "$WL_FILE" | tr -d ' ')" = 602 ]; then
-        st_pass "watch list: limits: of 70 entries the first 64 are taken (the 70th marks nothing) and said once, four lines that are neither an address nor a name (two begin like an address: a trailing blank, a comment after it) are said once, a 602-line file is read to line 512 (an address on line 602 marks nothing); the same episode is not said again"
+    wl_lo=$(grep -c 'Watch list: more than 64 entries' "$wl_d/log1"); wl_lb=$(grep -c 'Watch list: 5 line(s) are neither an address nor a name' "$wl_d/log1"); wl_l2=$(grep -c . "$wl_d/log")
+    if [ "$wl_l1/$wl_l4/$wl_l3/$wl_lo/$wl_lb/$wl_l2" = 1/1/1/1/1/0 ] && [ "$(wc -l < "$WL_FILE" | tr -d ' ')" = 603 ]; then
+        st_pass "watch list: limits: of 70 entries the first 64 are taken (the 70th marks nothing) and said once, five lines that are neither an address nor a name (three begin like an address: a trailing blank, a comment after it, the twelve-digit form with a comment) are said once, a 603-line file is read to line 512 (an address on line 603 marks nothing); the same episode is not said again"
     else st_fail "watch list: limits ($wl_l1/$wl_l4/$wl_l3 over $wl_lo bad $wl_lb second run $wl_l2 lines; file $(wc -l < "$WL_FILE" | tr -d ' ') lines)"; fi
     # no file, an empty file, a directory, an unreadable file
     wl_doc > "$wl_d/ref.json"
