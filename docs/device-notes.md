@@ -339,7 +339,7 @@ and the copy is capped (a code comment puts the file at about 40 kB on the devic
 
 **What is read.** One query with a completeness sentinel over the table `bt_device` (with `STARCHORUS_WIDS=1` a second SELECT in the same read-only call, for `bt_fixed_new`): LE only
 (`transports = 1`), a 12-hex address, `rssi_avg` between -127 and -1, the last-seen time within 120 s before the
-cycle clock and never after it, the newest row per address, the strongest first, no more than 256. `reports`
+cycle clock or up to 60 s after it (the copy is taken a few seconds after the clock, and the layer clamps such a stamp to the clock), the newest row per address, the strongest first, no more than 256. `reports`
 is `packets` (floored at 1); `company` is kept only as a real id (not 0 or 65535); `name` has TAB, LF and CR
 turned to spaces and is cut to 32; `connectable` only when 1; the address sub-type comes from `le_random` and
 the top two address bits (public, random-static, random-resolvable, random-nonresolvable). `last_seen` is the

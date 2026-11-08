@@ -3,6 +3,12 @@
 All notable changes to Starchorus are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Fixed
+
+- **Bluetooth addresses refreshed between the cycle clock and the copy are kept.** The `blue5` queries dropped every address whose row the firmware had stamped after the cycle clock, although the copy of the database is taken a few seconds later: a device advertising without pause fell out of the layer in such a cycle and lived on as a held record only, and `bt_fixed_new` never saw it. Both queries now take stamps up to 60 s after the clock, as the alerts pass does, and the layer clamps them to the clock; the self-test holds a row stamped 3 s after the clock (kept, at the clock) and one 61 s after it (dropped). Read on the device on 8 November 2026: the firmware stamps in batches 10 to 15 s apart, and three samples taken six seconds after the clock caught no batch in the gap, so the loss was occasional there, not constant.
+
 ## 0.2.7 - 2026-11-07
 
 ### Added

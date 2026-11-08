@@ -1087,7 +1087,8 @@ bt_blue5_done() {
 #     bits (public, random-static/resolvable/non-resolvable) as the window path does, not a bare "random";
 #   * rssi is rssi_avg (steadier than the last sample) and must be a real reading (-127..-1); reports is packets, floored at 1; company
 #     is kept only as a real id (0 and 65535 mean "no id"); the name BLOB has TAB/LF/CR turned to spaces and is cut to 32;
-#   * only addresses seen within BT_HOLD (120 s) of ts are kept, and never one stamped later than ts (a clock that moved back);
+#   * only addresses seen within BT_HOLD (120 s) before ts are kept, and up to 60 s after it: the copy is taken a few seconds after ts, so a row
+#     the firmware refreshed in between is kept, not dropped (AWK_LAYERS clamps such a stamp to ts); later than that is a clock that moved back;
 #   * one row per address, the newest, via MAX(last_seen) with its bare columns in a sub-query (the single-aggregate form SQLite defines);
 #   * fields 11-13, the class columns of the firmware's 2.0 schema (device-notes §2c), cut IN SQL so that only what the table in AWK_LAYERS can
 #     name leaves the database: of mfr the first three bytes as hex (the company id, little-endian, and the byte after it: Apple's message
@@ -1121,7 +1122,7 @@ FROM (SELECT d.mac AS mac, MAX(d.rssi_avg) AS r, MIN(CAST(TOTAL(d.packets) AS IN
         AND typeof(d.rssi_avg)='integer' AND d.rssi_avg BETWEEN -127 AND -1 AND typeof(d.last_seen)='integer' AND typeof(d.packets)='integer'
         AND (d.le_random=0 OR (instr('0123456789ABCDEF',substr(upper(d.mac),1,1))-1)/4=3)
       GROUP BY d.mac, f.fs)
-WHERE fs IS NOT NULL AND fs>=$2-600 AND ls<=$2 AND ls>=$2-120 AND r>-50 AND pk>=3 AND (SELECT MIN(first_seen) FROM bt_device WHERE typeof(first_seen)='integer')<=$2-3600
+WHERE fs IS NOT NULL AND fs>=$2-600 AND ls<=$2+60 AND ls>=$2-120 AND r>-50 AND pk>=3 AND (SELECT MIN(first_seen) FROM bt_device WHERE typeof(first_seen)='integer')<=$2-3600
 ORDER BY r DESC LIMIT 8;"
     sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
 SELECT 'B',
@@ -1143,7 +1144,7 @@ FROM (SELECT mac, le_random, rssi_avg, packets, company, name, connectable, $b5_
       FROM bt_device
       WHERE transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
         AND rssi_avg IS NOT NULL AND rssi_avg BETWEEN -127 AND -1
-        AND last_seen<=$2 AND last_seen>=$2-120
+        AND last_seen<=$2+60 AND last_seen>=$2-120
       GROUP BY mac)
 ORDER BY rssi_avg DESC;
 $b5_w
@@ -1945,7 +1946,7 @@ AWK_LAYERS='
             if (mode == 1 && btsrc == "blue5") {
                 f = ENVIRON["SC_BTP"]
                 while ((getline line < f) > 0) {
-                    if (split(line, c, "\t") >= 6 && c[1] == "W" && c[2] ~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/ && c[4] ~ /^[0-9]+$/ && c[4] + 0 > 0 && c[6] ~ /^[0-9]+$/ && c[6] + 0 <= ts) wcand("bt_fixed_new", c[6] + 0, c[2], c[4] + 0, 5)
+                    if (split(line, c, "\t") >= 6 && c[1] == "W" && c[2] ~ /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/ && c[4] ~ /^[0-9]+$/ && c[4] + 0 > 0 && c[6] ~ /^[0-9]+$/ && c[6] + 0 <= ts + 60) wcand("bt_fixed_new", (c[6] + 0 > ts ? ts : c[6] + 0), c[2], c[4] + 0, 5)
                 }
                 close(f)
             }
@@ -1986,7 +1987,7 @@ AWK_LAYERS='
             while ((getline line < f) > 0) {
                 if (split(line, c, "\t") >= 9 && c[1] == "B") {
                     ls = (c[10] ~ /^[0-9]+$/) ? c[10] + 0 : ts   # a blue5 B-line carries the real last_seen in a 10th field; a window line has none (-> ts, heard now)
-                    if (ls > ts) ls = ts                         # never later than the document that holds it (a clock that moved back)
+                    if (ls > ts) ls = ts                         # never later than the document that holds it (a row the firmware refreshed between ts and the copy, or a clock that moved back)
                     if (ls >= ts - hold) {
                         riA = (c[2] in hid) ? hid[c[2]] : ""; riP = ""
                         if (c[14] != "" && rcand < 8 && ridec(c[14])) { rcand++; riA = ridmerge(riA); riP = ridpos() }   # field 14 (blue5 only): the Remote ID service data; eight decoded addresses a cycle, the strongest first
@@ -5040,10 +5041,11 @@ lay_selftest() {
         b5_dup=0; printf '%s' "$b5_line" | grep -q '"addr": "aa:bb:cc:00:00:0a", "addr_type": "public", "rssi": -40, "reports": 7' && b5_dup=1
         b5_sub=0; printf '%s' "$b5_line" | grep -q '"addr": "c0:aa:bb:00:00:02", "addr_type": "random-static"' && printf '%s' "$b5_line" | grep -q '"addr": "40:aa:bb:00:00:03", "addr_type": "random-resolvable"' && b5_sub=1
         b5_nm=0; printf '%s' "$b5_line" | grep -q '"name": "t n"' && b5_nm=1
-        b5_ex=0; printf '%s' "$b5_line" | grep -q -e ':00:06' -e ':00:07' -e ':00:09' && b5_ex=1
-        if [ "$b5_rc" = 0 ] && [ "$b5_ar" = 0 ] && [ "$b5_cnt" = 5 ] && [ "$b5_src" = 1 ] && [ "$b5_win" = 0 ] && [ "$b5_dup" = 1 ] && [ "$b5_sub" = 1 ] && [ "$b5_nm" = 1 ] && [ "$b5_ex" = 0 ] && json_ok < "$b5/doc.json"; then
-            st_pass "blue5: bt_blue5_read maps blue5.db read-only to 5 records (newest per address, LE/rssi/age/MAC filtered, subtype from the address top bits, TAB in a name -> space, 0/65535 company dropped); center bt_source=blue5, no bt_window"
-        else st_fail "blue5 read: rc $b5_rc ar $b5_ar cnt $b5_cnt src $b5_src win $b5_win dup $b5_dup sub $b5_sub nm $b5_nm ex $b5_ex"; fi
+        b5_ex=0; printf '%s' "$b5_line" | grep -q -e ':00:06' -e ':00:07' -e ':00:09' -e ':00:0c' && b5_ex=1
+        b5_gap=0; printf '%s' "$b5_line" | grep -q '"addr": "aa:bb:cc:00:00:0b"[^}]*"last_seen": 1000000' && b5_gap=1
+        if [ "$b5_rc" = 0 ] && [ "$b5_ar" = 0 ] && [ "$b5_cnt" = 6 ] && [ "$b5_src" = 1 ] && [ "$b5_win" = 0 ] && [ "$b5_dup" = 1 ] && [ "$b5_sub" = 1 ] && [ "$b5_nm" = 1 ] && [ "$b5_ex" = 0 ] && [ "$b5_gap" = 1 ] && json_ok < "$b5/doc.json"; then
+            st_pass "blue5: bt_blue5_read maps blue5.db read-only to 6 records (newest per address, LE/rssi/age/MAC filtered, a row stamped 3 s after the clock kept at the clock and one 61 s after it dropped, subtype from the address top bits, TAB in a name -> space, 0/65535 company dropped); center bt_source=blue5, no bt_window"
+        else st_fail "blue5 read: rc $b5_rc ar $b5_ar cnt $b5_cnt src $b5_src win $b5_win dup $b5_dup sub $b5_sub nm $b5_nm ex $b5_ex gap $b5_gap"; fi
         # the company list names the identifier the database holds (76 = 004C): that record gets company_name; an identifier the list lacks (12) stays bare
         printf '0000\tEricsson AB\n004C\tApple, Inc.\n0076\tCreative Technology Ltd.\n' > "$b5/companies.txt"; b5_sCP=$BTCO_PATH; BTCO_PATH="$b5/companies.txt"; BT_HELD=""
         bt_blue5_read "$b5_ts"; b5_nrc=$?; lay_doc "$b5_ts" > "$b5/doc2.json"; add_layers "$b5/doc2.json" 1 blue5
@@ -5146,10 +5148,11 @@ lay_selftest() {
         if [ "$b5r_n/$b5r_raw/$b5r_plain" = ------/0/1 ]; then
             st_pass "remote id: refusals (the app code 0C, a pack count beyond its bytes, a message size other than 25, svcd as text, a blob over 232 bytes, NULL); no raw bytes reach the document and a record without Remote ID is unchanged"
         else st_fail "remote id: refusals ($b5r_n raw $b5r_raw plain $b5r_plain)"; fi
-        # cycle 2 (30 s on): the address of the Basic ID now broadcasts a Location: identity carried, position from this cycle; cycle 3 (void): identity, operator fields, never a position
-        ts=$((b5r_ts + 30)); bt_blue5_read "$ts" 2>/dev/null; lay_doc "$ts" > "$b5/r2.json"; add_layers "$b5/r2.json" 1 blue5; BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null)
+        # cycle 2 (90 s on, past the 60 s the queries allow after the clock): the address of the Basic ID now broadcasts a Location: identity carried, position from this
+        # cycle; cycle 3 (110 s on, void, inside the hold): identity, operator fields, never a position
+        ts=$((b5r_ts + 90)); bt_blue5_read "$ts" 2>/dev/null; lay_doc "$ts" > "$b5/r2.json"; add_layers "$b5/r2.json" 1 blue5; BT_HELD=$(cat "$LAY/ram/starchorus-bt-$$.new" 2>/dev/null)
         b5r_l=$(grep '^  "bluetooth": ' "$b5/r2.json"); b5r_m1=$(b5r_rid 01); b5r_m3=$(b5r_rid 03)
-        ts=$((b5r_ts + 60)); lay_doc "$ts" > "$b5/r3.json"; add_layers "$b5/r3.json" 2 blue5
+        ts=$((b5r_ts + 110)); lay_doc "$ts" > "$b5/r3.json"; add_layers "$b5/r3.json" 2 blue5
         b5r_l=$(grep '^  "bluetooth": ' "$b5/r3.json"); b5r_h1=$(b5r_rid 01); b5r_h2=$(b5r_rid 02); b5r_h3=$(b5r_rid 03); b5r_h4=$(b5r_rid 04); b5r_h5=$(b5r_rid 05)
         if [ "$b5r_m1" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001", "status": "airborne", "lat": 0.5000000, "lon": -30.2500000, "alt_m": 120.5' ] \
            && [ "$b5r_h1" = '"ua_type": "multirotor", "id_type": "serial", "uas_id": "TEST-ID.0001"' ] && [ "$b5r_h2" = - ] && [ "$b5r_h3" = '"operator_lat": 0.7500000, "operator_lon": -30.5000000' ] \
@@ -5609,8 +5612,8 @@ lay_selftest() {
         WIDS_SEEN=""; BLUETOOTH=1; BT_SRC=blue5; BLUE5_DB="$LAY_BLUE5_FIX"; TMPDIR_RAM="$LAY/ram"; BT5_MAX=4194304; BT_HELD=""; BT5_SV=""; ts=5000000
         lw_body=""; lw_doc ''; lw_run; lw_e1=$(lw_al); lw_e1b=$(grep -c '"addr": "aa:bb:cc:00:04:01"' "$lw_d/doc.json")
         WIDS=0; BT_HELD=""; lw_doc ''; lw_run; lw_e0=$(lw_al); WIDS=1
-        if [ "$lw_e1" = '[{"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:01", "n": 5}, {"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:08", "n": 3}, {"type": "bt_fixed_new", "t": 5000000, "ap": "c0:aa:bb:00:04:02", "n": 3}],' ] && [ "$lw_e1b" = 1 ] && [ -z "$lw_e0" ] && json_ok < "$lw_d/doc.json"; then
-            st_pass "wids: bt_fixed_new: of ten addresses of the blue5 source a public, a random-static and one exactly ten minutes old with exactly three reports, strong, from a database older than an hour -> three entries, n = the reports; a resolvable address, an older first row, a weak signal, exactly -50 dBm, a signal of 0 and two reports say nothing; with the switch off the query asks for none"
+        if [ "$lw_e1" = '[{"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:01", "n": 5}, {"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:08", "n": 3}, {"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:0b", "n": 5}, {"type": "bt_fixed_new", "t": 5000000, "ap": "c0:aa:bb:00:04:02", "n": 3}],' ] && [ "$lw_e1b" = 1 ] && [ -z "$lw_e0" ] && json_ok < "$lw_d/doc.json"; then
+            st_pass "wids: bt_fixed_new: of twelve addresses of the blue5 source a public, a random-static, one exactly ten minutes old with exactly three reports and one stamped 3 s after the clock (kept, at the clock), strong, from a database older than an hour -> four entries, n = the reports; one stamped 61 s after the clock is not read, a resolvable address, an older first row, a weak signal, exactly -50 dBm, a signal of 0 and two reports say nothing; with the switch off the query asks for none"
         else st_fail "wids: bt_fixed_new ([$lw_e1] off [$lw_e0] record $lw_e1b)"; fi
         BLUETOOTH=0; BT_SRC=window
     fi
@@ -6439,7 +6442,8 @@ CSV
     # blue5 fixtures for the layers selftest, built here where a non-read-only sqlite3 is a test fixture (not a production read); lay_selftest reads them.
     # Two schemas with the same first rows (scans 1 and 2, clock 1000000): the device's 2.0 schema (device-notes §2c: ad_flags, appearance, svc16,
     # svc_other, mfr, svcd beside the 0.2.6 columns), whose second set (scans 3 and 4, clock 2000000) carries the class columns, and the 0.2.6
-    # schema without them, the control for the narrow query. Every address is made up.
+    # schema without them, the control for the narrow query. The first set also holds a row stamped 3 s after the clock (the copy is taken after ts:
+    # kept, clamped to ts) and one 61 s after it (dropped). Every address is made up.
     LAY_BLUE5_FIX="$tdir/blue5-fix.db"; LAY_BLUE5_OLD="$tdir/blue5-old.db"
     if have sqlite3; then
         rm -f "$LAY_BLUE5_FIX" "$LAY_BLUE5_OLD"
@@ -6448,7 +6452,8 @@ CSV
  (1,'40AABB000003',1000000,1,1,0,-70,1,46517,'Res'),(1,'AABBCC000005',1000000,1,0,1,-55,0,65535,'t'||char(9)||'n'),
  (1,'AABBCC000006',1000000,1,0,1,NULL,10,76,'x'),(1,'AABBCC000007',999800,1,0,1,-50,10,76,'old'),
  (1,'AABBCC000009',1000000,2,0,1,-50,10,76,'cls'),(1,'AABBCC00000A',999990,1,0,1,-90,3,76,'o'),
- (2,'AABBCC00000A',1000000,1,0,1,-40,7,76,'n');"
+ (2,'AABBCC00000A',1000000,1,0,1,-40,7,76,'n'),
+ (1,'AABBCC00000B',1000003,1,0,1,-65,2,76,'gap'),(1,'AABBCC00000C',1000061,1,0,1,-66,2,76,'late');"
         sqlite3 "$LAY_BLUE5_OLD" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,PRIMARY KEY(scan,mac));
 $b5x_rows" 2>/dev/null
         # the class set: Apple types 12/07/02/10/0F/0C/05 and an unlisted 99; services FE2C/FEAA/1812/181A and the unlisted FD59; the appearance categories
@@ -6500,8 +6505,8 @@ INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_a
  (5,'AABBCC000211',3000000,1,0,0,-66,1,NULL,'','FAFF0D010212544553542D49442E303030310000000000000000000000'),
  (5,'AABBCC000212',3000000,1,0,0,-67,1,NULL,'',X'FAFF0D01'||zeroblob(300)),
  (5,'AABBCC000213',3000000,1,0,0,-68,1,NULL,'',NULL),
- (6,'AABBCC000201',3000030,1,0,0,-50,2,NULL,'',X'FAFF0D011220000000404B4C006037F8ED0000C1080000000000000000'),
- (6,'AABBCC000203',3000030,1,0,0,-52,2,NULL,'',NULL),
+ (6,'AABBCC000201',3000090,1,0,0,-50,2,NULL,'',X'FAFF0D011220000000404B4C006037F8ED0000C1080000000000000000'),
+ (6,'AABBCC000203',3000090,1,0,0,-52,2,NULL,'',NULL),
  (9,'AABBCC000221',3400000,1,0,0,-50,1,NULL,'',X'FAFF0D0152004F502D544553545F303100000000000000000000000000'),
  (9,'AABBCC000222',3400000,1,0,0,-51,1,NULL,'',X'FAFF0D011220000000404B4C006037F8ED0000C1080000000000000000'),
  (9,'AABBCC000223',3400000,1,0,0,-52,1,NULL,'',X'FAFF0D0112200000008074D21A009435770000C1080000000000000000'),
@@ -6518,7 +6523,8 @@ INSERT INTO bt_device(scan,mac,first_seen,last_seen,transports,le_random,connect
  (8,'40AABB000403',4999900,5000000,1,1,1,-40,5,NULL,''),(8,'AABBCC000404',4999000,5000000,1,0,1,-40,5,NULL,''),
  (8,'AABBCC000405',4999900,5000000,1,0,1,-55,5,NULL,''),(8,'AABBCC000406',4999900,5000000,1,0,1,-40,2,NULL,''),
  (8,'AABBCC000407',4000000,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC000408',4999400,5000000,1,0,1,-49,3,NULL,''),
- (8,'AABBCC000409',4999900,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC00040A',4999900,5000000,1,0,1,0,5,NULL,'');" 2>/dev/null
+ (8,'AABBCC000409',4999900,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC00040A',4999900,5000000,1,0,1,0,5,NULL,''),
+ (8,'AABBCC00040B',4999900,5000003,1,0,1,-40,5,NULL,''),(8,'AABBCC00040C',4999900,5000061,1,0,1,-40,5,NULL,'');" 2>/dev/null
     else LAY_BLUE5_FIX=""; LAY_BLUE5_OLD=""; fi
     lay_selftest "$tdir"
     printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"
