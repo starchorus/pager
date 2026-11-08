@@ -63,7 +63,7 @@ if [ "$(git -C "$R" rev-parse --show-toplevel 2>/dev/null)" = "$R" ]; then
 else
   tar -C "$R" --exclude ./out --exclude ./.git -cf - . | tar -xf - -C "$DTR_w"
 fi
-dtr_mut() {   # dtr_mut FILE MODE A [B]   modes: none | create (file with the line A) | append (line A) | replace (A -> B, A exactly once) | delline (the one line holding A) | bump (the number that the first match of the regex A captures, plus B or 1)
+dtr_mut() {   # dtr_mut FILE MODE A [B]   modes: none | insertafter (the line B after the first line that starts with A) | create (file with the line A) | append (line A) | replace (A -> B, A exactly once) | delline (the one line holding A) | bump (the number that the first match of the regex A captures, plus B or 1)
   python3 -B -c '
 import os, re, sys
 mode, p, a = sys.argv[1:4]; b = sys.argv[4] if len(sys.argv) > 4 else ""
@@ -89,6 +89,11 @@ if mode == "bump":
         sys.stderr.write("no match for the regex: %s\n" % a); sys.exit(3)
     n = int(m.group(1).replace(",", "")) + int(b or 1)
     open(p, "w", encoding="utf-8").write(s[:m.start(1)] + str(n) + s[m.end(1):]); sys.exit(0)
+if mode == "insertafter":
+    ls = s.split("\n"); k = [i for i, l in enumerate(ls) if l.startswith(a)]
+    if not k:
+        sys.stderr.write("no line starts with: %s\n" % a); sys.exit(3)
+    ls.insert(k[0] + 1, b); open(p, "w", encoding="utf-8").write("\n".join(ls)); sys.exit(0)
 sys.exit(2)
 ' "$2" "$1" "$3" "${4:-}"
 }
@@ -223,7 +228,9 @@ checks.' ''
   dtr_probe 1 'README.md no longer states the number of blinded parts of the checker' figures README.md delline 'blinded parts of the checker' ''
   dtr_probe 1 'packaging/hak5/README.md:' figures packaging/hak5/README.md bump '(\d[\d,]*)\s+mutations' ''
   dtr_probe 1 'tools/README.md:' figures tools/README.md bump '(\d[\d,]*)\s+alternatives' '-2'
-  dtr_probe 1 'CHANGELOG.md:' figures CHANGELOG.md bump '(\d[\d,]*)\s+controls' ''
+  # CHANGELOG.md: the check reads its newest section only, so the break is a wrong figure put INTO that section (a bump of a figure in an older
+  # section, the released one, is not read and would prove nothing once an Unreleased section stands above it)
+  dtr_probe 1 'CHANGELOG.md:' figures CHANGELOG.md insertafter '## ' '- The passivity probe holds 999 controls (a probe line).'
   dtr_probe 0 '' figures CHANGELOG.md bump '(\d[\d,]*)\s+alternatives \(one for every word of the new lists\)' ''
   dtr_probe 1 'hold a command that is no entry' figures tools/passivity-mutate.sh replace '# ---- page: the network surface' 'for zz in 1 2; do mut zz-$zz starchorus.html append x "" y; done'
 }
