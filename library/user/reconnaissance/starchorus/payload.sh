@@ -120,7 +120,8 @@ STARCHORUS_DIR=${STARCHORUS_DIR:-/root/loot/starchorus}
 # below, and the page sweep matches uhttpd by our -h directory, which must be the same absolute path uhttpd is launched with).
 case $STARCHORUS_DIR in
     /*) ;;
-    *)  pl_abs=$(cd "$STARCHORUS_DIR" 2>/dev/null && pwd) && STARCHORUS_DIR=$pl_abs ;;
+    *)  mkdir -p "$STARCHORUS_DIR" 2>/dev/null   # made here, so that a directory that does not exist yet is absolute as well (pl_install would make it later, and every derived path would stay relative to the cwd)
+        pl_abs=$(cd "$STARCHORUS_DIR" 2>/dev/null && pwd) && STARCHORUS_DIR=$pl_abs ;;
 esac
 SETTINGS=$STARCHORUS_DIR/settings.conf
 # Which settings the environment sets: read BEFORE any default is applied (the environment beats the settings file).
@@ -458,6 +459,8 @@ pl_col_up() { [ -n "$(pl_loop_pid)" ]; }   # R6 COLLECTOR_UP: the loop pidfile n
 pl_clean_pids() {
     [ -n "$(pl_loop_pid)" ] || rm -f "$PL_PIDDIR/starchorus-loop.pid"
     [ -n "$(pl_ad_pid)" ] || rm -f "$PL_PIDDIR/starchorus-airodump.pid"
+    pl_hpc=$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)   # the python page server's: ours by program and directory, else dropped
+    if [ -n "$pl_hpc" ] && ! { pl_own "$pl_hpc" "http.server" && pl_own "$pl_hpc" "$STARCHORUS_DIR/www"; }; then rm -f "$STARCHORUS_DIR/httpd.pid"; fi
 }
 
 # pl_kids PID -> the pids of PID's children whose command is sleep: /proc/*/stat field 4 is the parent, field 2 the
@@ -484,7 +487,7 @@ pl_nap() { if sleep 0.5 2>/dev/null; then PL_NAP=5; else sleep 1; PL_NAP=10; fi;
 # the Bluetooth window in seconds the collector will use: STARCHORUS_BT_WINDOW as it reads it (whole seconds 5 to 15, a leading zero is no octal), else 5
 pl_btwin() {
     pl_w=${STARCHORUS_BT_WINDOW:-5}
-    case $pl_w in ''|*[!0-9]*) pl_w=5 ;; *) while [ "${#pl_w}" -gt 1 ] && [ "${pl_w#0}" != "$pl_w" ]; do pl_w=${pl_w#0}; done; if [ "$pl_w" -lt 5 ] || [ "$pl_w" -gt 15 ]; then pl_w=5; fi ;; esac
+    case $pl_w in ''|*[!0-9]*) pl_w=5 ;; *) while [ "${#pl_w}" -gt 1 ] && [ "${pl_w#0}" != "$pl_w" ]; do pl_w=${pl_w#0}; done; case $pl_w in ???*) pl_w=5 ;; esac; if [ "$pl_w" -lt 5 ] || [ "$pl_w" -gt 15 ]; then pl_w=5; fi ;; esac   # three digits or more are out of range before the shell has to read them as a number
     printf '%s' "$pl_w"
 }
 
@@ -552,7 +555,7 @@ stop_servers() {
     pl_pp=$(cat "$STARCHORUS_DIR/page.port" 2>/dev/null)
     pl_held=""                                                  # the ports a server was sent a stop for
     pl_hp=$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
-    if pl_own "$pl_hp" "http.server"; then   # only while it still is our python server
+    if pl_own "$pl_hp" "http.server" && pl_own "$pl_hp" "$STARCHORUS_DIR/www"; then   # only while it still is our python server: the program and our directory (a reused pid under a foreign http.server is left alone)
         kill "$pl_hp" 2>/dev/null
         pl_held="$pl_held ${pl_pp:-$STARCHORUS_PORT}"
     fi
@@ -747,7 +750,8 @@ pl_page_up() {
     if pl_valid port "$pl_pp"; then PL_UPPORT=$pl_pp; else PL_UPPORT=$STARCHORUS_PORT; fi
     PL_UPADDR=$(cat "$STARCHORUS_DIR/page.addr" 2>/dev/null)
     pl_ipv4 "$PL_UPADDR" || PL_UPADDR=$(pl_addr quiet)
-    [ -f "$STARCHORUS_DIR/httpd.pid" ] && pl_own "$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)" "http.server" && return 0
+    pl_hpu=$(cat "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
+    [ -z "$pl_hpu" ] || { pl_own "$pl_hpu" "http.server" && pl_own "$pl_hpu" "$STARCHORUS_DIR/www" && return 0; }   # ours by program and directory
     [ -f "$STARCHORUS_DIR/starchorus-serve.pid" ] && pl_own "$(cat "$STARCHORUS_DIR/starchorus-serve.pid" 2>/dev/null)" "starchorus-serve" && return 0
     for pl_pt in "$STARCHORUS_PORT" "$pl_pp"; do
         if ! pl_valid port "$pl_pt"; then continue; fi
@@ -1047,8 +1051,8 @@ pl_alert_install() {
     ui_confirm "Install the alert\ncompanion? It may run at\nonce; switch it off on\nthe firmware Alerts page." || return 0       # C2
     # the README's three steps; the copy goes through a temporary file of the same directory and a rename, made executable first
     rm -f "$PL_ALERT_DIR/payload.sh.tmp"
-    if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
-        && chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null; then
+    if [ ! -d "$PL_ALERT_DIR/payload.sh" ] && mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
+        && chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null && pl_alert_on; then   # a directory of that name is refused before anything is copied (mv would put the copy inside it and return 0); the result is judged all the same
         ui_log "Alerts: the firmware's reports are noted."                                                                 # L8f
     else
         rm -f "$PL_ALERT_DIR/payload.sh.tmp"; rmdir "$PL_ALERT_DIR" 2>/dev/null   # an empty directory of ours is not left behind
@@ -1173,9 +1177,9 @@ pl_apply() {
         if ! pl_web_up; then
             pl_np=$STARCHORUS_PORT
             pl_set port "$pl_op" >/dev/null 2>&1 || STARCHORUS_PORT=$pl_op
-            pl_web_up
+            if pl_web_up; then pl_m="Kept $pl_op."; else pl_m="No web page now.\nUse Start Web Page."; fi   # "Kept" only when the old port came back
             ui_spin_stop "$pl_id"
-            ui_err "Port $pl_np is in use.\nKept $pl_op."                              # E8
+            ui_err "Port $pl_np is in use.\n$pl_m"                                     # E8
             return 0
         fi
     fi

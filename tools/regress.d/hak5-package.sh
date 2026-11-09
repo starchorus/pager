@@ -6,7 +6,7 @@
 #                 without Title/Description/Author/Version/Category, a version that is not the page's, a category other than
 #                 the directory's, a companion alert without its header or its bash shebang; a companion alert that writes
 #                 anything but one line of times and addresses (a message, an upper-case address, a text that is no address),
-#                 keeps more than 2,000 lines, or fails; personal data (an e-mail address, a home directory, a key) in any packaged file; a
+#                 keeps more than 2,200 lines or cuts back to other than its last 2,000, or fails; personal data (an e-mail address, a home directory, a key) in any packaged file; a
 #                 missing or altered LICENSE; a generator that leaves a stale file behind or writes despite differing
 #                 Overview copies, or that removes the repo's own payload sources when told to build into the repo root (also when the root, the payload directory or a path
 #                 inside it is written in other letter case on a case-insensitive file system, which a string comparison misses); a packaged payload that cannot install itself from its own directory;
@@ -17,7 +17,7 @@
 #                 test (test -ef) removed => "in other letter case" red (tried on a copy; NOT COVERED where the file system is case-sensitive); pl_install removed from the payload => "installs" red.
 #                 The companion alert: out of the map, not executable in the repo, an Author line or the licence line removed, another
 #                 Version or shebang => "file list" / "header" red; its lower-casing, address test, message-free line, cap (a limit of
-#                 2,001 or a tail of 1,999), umask, flock call or exit status changed => "companion alert" red (each tried on a copy).
+#                 2,201 or 2,199, or a tail of 1,999 or 2,001), umask, flock call or exit status changed => "companion alert" red (each tried on a copy).
 #                 The README's required phrases are read by one function (hkp_readme_bad): a copy of the packaged README without the paragraph on the passivity check, and copies with either of
 #                 its two phrases worded differently, must each be named for exactly what they lack => "README phrase check bites" red when the list lost a phrase or the function stopped reading.
 # NOT PROVEN:     that Hak5 accepts the directory (their review is by hand); anything on the device; the payload's first-run
@@ -252,8 +252,8 @@ for HKP_f in starchorus-collect.sh starchorus-display.sh starchorus-serve.sh; do
 rowif "hak5 package: the packaged payload installs itself into an empty data dir, settings.conf there (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
 # ---- 7 · the companion alert, run from the package with the variables of a stand-in event (synthetic addresses): one line of tab-separated fields in the order the collector
-#           reads, addresses in lower case and "-" for what is no address or is not set, the message not written, the log private, the cap at 2,000 lines (1,999 stay,
-#           the 2,001st drops the oldest), flock asked for once per event when it is there and not needed when it is not, exit 0 when the directory cannot be made.
+#           reads, addresses in lower case and "-" for what is no address or is not set, the message not written, the log private, the cap (cut back to the last 2,000 lines once past 2,200: 2,200 stay,
+#           the 2,201st cuts), flock asked for once per event when it is there and not needed when it is not, exit 0 when the directory cannot be made.
 #           The tools it may use are linked into a PATH of their own, so the run does not depend on the machine's flock.
 HKP_BAD=""
 HKP_AL="$HKP_P/alert-deauth.sh"; HKP_AD="$HKP_T/al dir"; HKP_AB="$HKP_T/albin"; HKP_FL="$HKP_T/flock.log"
@@ -280,12 +280,12 @@ grep -qE 'flood|:ee' "$HKP_LG" 2>/dev/null && HKP_BAD="$HKP_BAD message"
 rm -f "$HKP_LG"
 [ "$(hkp_ev "$HKP_AD" "$HKP_AB")" = 0 ] || HKP_BAD="$HKP_BAD rc-empty"
 [ "$(awk -F'\t' 'NF == 6 && $1 ~ /^[0-9]+$/ && $2 == "deauth" && $3 == "-" && $4 == "-" && $5 == "-" && $6 == "-" { n++ } END { print n + 0 }' "$HKP_LG" 2>/dev/null)" = 1 ] || HKP_BAD="$HKP_BAD empty-event"
-# the cap: 1,999 lines and one event make 2,000 with the oldest still there; one more event drops the oldest
-awk 'BEGIN { for (i = 1; i <= 1999; i++) printf "%d\tdeauth\t02:00:00:00:00:01\t-\t-\t-\n", 1000000000 + i }' > "$HKP_LG"
+# the cap: 2,199 lines and one event make 2,200 with the oldest still there; one more passes 2,200 and cuts the log back to its last 2,000 (the first 201 go)
+awk 'BEGIN { for (i = 1; i <= 2199; i++) printf "%d\tdeauth\t02:00:00:00:00:01\t-\t-\t-\n", 1000000000 + i }' > "$HKP_LG"
 hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; HKP_C1="$(wc -l < "$HKP_LG" | tr -d ' ')/$(sed -n 1p "$HKP_LG" | cut -f1)"
 hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; HKP_C2="$(wc -l < "$HKP_LG" | tr -d ' ')/$(sed -n 1p "$HKP_LG" | cut -f1)/$(tail -n 1 "$HKP_LG" | cut -f3)"
-[ "$HKP_C1" = 2000/1000000001 ] || HKP_BAD="$HKP_BAD cap1:$HKP_C1"
-[ "$HKP_C2" = 2000/1000000002/02:00:5e:00:00:0a ] || HKP_BAD="$HKP_BAD cap2:$HKP_C2"
+[ "$HKP_C1" = 2200/1000000001 ] || HKP_BAD="$HKP_BAD cap1:$HKP_C1"
+[ "$HKP_C2" = 2000/1000000202/02:00:5e:00:00:0a ] || HKP_BAD="$HKP_BAD cap2:$HKP_C2"
 [ "$(cd "$HKP_AD" && find . -type f | tr '\n' ' ')" = "./alerts.log " ] || HKP_BAD="$HKP_BAD leftovers"
 # its own directory: with STARCHORUS_DIR pointing elsewhere the log still lands in STARCHORUS_ALERT_DIR, and nothing is written where a page server would serve it
 HKP_OD="$HKP_T/other dir"; mkdir -p "$HKP_OD"; rm -f "$HKP_LG"
@@ -303,7 +303,7 @@ hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null; hkp_ev1 "$HKP_AD" "$HKP_AB" >/dev/null
 # a directory that cannot be made: exit 0, nothing written
 : > "$HKP_T/afile"
 [ "$(hkp_ev1 "$HKP_T/afile/sub" "$HKP_AB")" = 0 ] || HKP_BAD="$HKP_BAD rc-nodir"
-rowif "hak5 package: the companion alert writes one line EPOCH deauth AP SOURCE DESTINATION CLIENT (lower-case addresses, - for a text that is none or unset, no message), private, keeps 2,000 lines, asks flock once per event, exits 0 (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
+rowif "hak5 package: the companion alert writes one line EPOCH deauth AP SOURCE DESTINATION CLIENT (lower-case addresses, - for a text that is none or unset, no message), private, cut back to its last 2,000 lines once past 2,200, asks flock once per event, exits 0 (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
 # ---- 9 · the release tool (tools/release.sh, 0.2.5): the Pager archive and SHA256SUMS, the same bytes on one machine. Built twice into two directories: identical bytes; every entry root/root with uid and gid 0 and
 #          the one time of the commit (or of SOURCE_DATE_EPOCH where there is no commit), the four directories first and then the eight files in sorted order; SHA256SUMS holds exactly nine lines, the archive and the

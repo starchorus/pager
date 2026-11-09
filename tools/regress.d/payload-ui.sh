@@ -906,7 +906,7 @@ pui_is bluetooth_off [ "$(pui_x LIST_PICKER Settings 'Web Page: ON' 'Refresh: 30
 pui_is l8d [ "$(pui_x LOG 'Traffic: channel activity and frame rates.')" = 2 ]
 pui_is l8e [ "$(pui_x LOG 'Bluetooth: passive LE scan, 5 s per refresh.')" = 1 ]
 # L8e names the window the collector will use: STARCHORUS_BT_WINDOW as the collector reads it (9; 07 is 7; 4, 16 and text are 5)
-for pui_w in 9:9 07:7 4:5 16:5 abc:5; do
+for pui_w in 9:9 07:7 4:5 16:5 abc:5 99999999999999999999:5; do   # the last: a number the shell cannot read is 5 before it has to
   pui_new; pui_ans "=Settings" "=Bluetooth: OFF" "!2" "!2"
   pui_run_ui "$PUI_UIP" STARCHORUS_BT_WINDOW="${pui_w%%:*}" sh "$PUI_PL"
   pui_is "l8e_${pui_w%%:*}" [ "$(pui_x LOG "Bluetooth: passive LE scan, ${pui_w#*:} s per refresh.")" = 1 ]
@@ -1165,8 +1165,8 @@ alert-deauth.sh) pl_p=$PL_ALERT_DIR/payload.sh ;;
 pl_alert_on() { [ -f "$PL_ALERT_DIR/payload.sh" ]; }
 pl_alert_dis() { [ -f "$PL_ALERT_DIS/payload.sh" ]; }
 rm -f "$PL_ALERT_DIR/payload.sh.tmp"
-if mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
-&& chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null; then
+if [ ! -d "$PL_ALERT_DIR/payload.sh" ] && mkdir -p "$PL_ALERT_DIR" 2>/dev/null && cp "$PL_ALSRC" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null \
+&& chmod +x "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null && mv -f "$PL_ALERT_DIR/payload.sh.tmp" "$PL_ALERT_DIR/payload.sh" 2>/dev/null && pl_alert_on; then
 rm -f "$PL_ALERT_DIR/payload.sh.tmp"; rmdir "$PL_ALERT_DIR" 2>/dev/null
 rm -f "$PL_ALERT_DIR/payload.sh" "$PL_ALERT_DIR/payload.sh.tmp" 2>/dev/null
 rmdir "$PL_ALERT_DIR" 2>/dev/null
@@ -1988,6 +1988,21 @@ pui_is beside pui_alive "$PUI_OLD1"
 pui_run "$PUI_PGP" sh "$PUI_PL" stop
 for pui_p in $PUI_NEW1 "$PUI_OLD1"; do pui_is "gone2:$pui_p" pui_gone "$pui_p"; done
 rowif "payload ui: served old docroot: a server of the build before (-h <dir>, uhttpd or python3 in both spellings) is seen by status and stopped by stop beside the new one; a server of another directory stays (served-old; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# a pid reused by a foreign http.server (another directory) under our httpd.pid is not ours by program and directory: status does not report the page and drops
+# the stale pidfile (pl_clean_pids), stop leaves the process alone; with the pidfile trusted on the word http.server alone, both rows would be wrong
+PUI_BAD=""; pui_new "port=18286"; printf '<!doctype html>\n' > "$PUI_D/index.html"; mkdir -p "$PUI_T/elsewhere"
+pui_bg "$PUI_T/py/python3" -m http.server 18286 --bind 172.16.52.1 --directory "$PUI_T/elsewhere"; PUI_FOR=$PUI_BGP
+printf '%s\n' "$PUI_FOR" > "$PUI_D/httpd.pid"
+pui_run "$PUI_PGP" sh "$PUI_PL" status
+pui_is notup [ "$(grep -c '^Page: 172.16.52.1:18286 not running$' "$PUI_T/out")" = 1 ]
+pui_is dropped pui_absent "$PUI_D/httpd.pid"
+pui_is alive1 pui_alive "$PUI_FOR"
+printf '%s\n' "$PUI_FOR" > "$PUI_D/httpd.pid"
+pui_run "$PUI_PGP" sh "$PUI_PL" stop
+pui_is spared pui_alive "$PUI_FOR"
+pui_is dropped2 pui_absent "$PUI_D/httpd.pid"
+kill "$PUI_FOR" 2>/dev/null
+rowif "payload ui: a pid reused by a foreign http.server under httpd.pid is not ours: status says not running and drops the pidfile, stop leaves the process alone (served-foreign-pid; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 # planted-copy CONTROL: everything a browser must not reach is planted in the OLD docroot, <dir> itself; the names check run against it must fail,
 # and so must it against a www that holds one thing too many, a regular file, a wrong target or a link where a directory should be. Each pui_is below passes
 # ONLY because the check returned non-zero.

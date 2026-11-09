@@ -10,14 +10,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Drop this whole folder at /root/loot/starchorus on the device (starchorus-collect.sh, starchorus.html
-# as index.html, and this payload.sh). Run it from the Payloads UI or by hand. Stop with
-# `./payload.sh stop`.  Everything here is receive-only.
+# as index.html, and this payload.sh). Run it from the Payloads UI or by hand (`start`, or no word). Stop with
+# `./payload.sh stop`, ask with `./payload.sh status`; any other word gets the usage line. Everything here is receive-only.
 # The page server is given $STARCHORUS_DIR/www, a directory of its own that holds two symbolic links and nothing else
 # (index.html and starchorus.json, both pointing one level up), never the whole of STARCHORUS_DIR: the settings, pid files,
 # logs and the like stay out of reach of a browser. When www is not ours, no page server starts. A server of an earlier build
 # (given the whole directory) is still found and stopped.
 
 STARCHORUS_DIR=${STARCHORUS_DIR:-/root/loot/starchorus}      # persistent eMMC (== /mmc/root/loot/starchorus)
+case $STARCHORUS_DIR in *[[:space:]]*) echo "STARCHORUS_DIR must not contain whitespace (our servers are found by their directory as one word)" >&2; exit 1 ;; esac
 STARCHORUS_PORT=${STARCHORUS_PORT:-8199}                # NOT 1471 (mgmt UI) and NOT 80
 # The page server listens on one address: auto (default) = the IPv4 address of br-lan (USB-C and management Wi-Fi), else
 # 172.16.52.1 when an interface has it, else 127.0.0.1 (with a note); an explicit IPv4 address; or all = 0.0.0.0, every
@@ -151,13 +152,25 @@ case "$1" in
         for p in $(our_servers); do kill "$p" 2>/dev/null; done
         echo "starchorus stopped" >&2
         ;;
-    *)
+    status)
+        ./starchorus-collect.sh --status
+        sp=$(sed -n 1p "$STARCHORUS_DIR/httpd.pid" 2>/dev/null)
+        if own_server "$sp"; then echo "page server RUNNING (pid $sp)" >&2; else echo "page server not running" >&2; fi
+        ;;
+    start|'')
         # start the passive collector loop in the background, then serve the page
         # shellcheck disable=SC2086   # NICE is "nice -n 19" or empty: split on purpose
         $NICE ./starchorus-collect.sh >/dev/null 2>"$STARCHORUS_DIR/collect.log" &
         ADDR=$(bind_addr)
-        serve
-        if [ "$ADDR" = 0.0.0.0 ]; then url="http://<device-ip>:$STARCHORUS_PORT/  (all interfaces)"; else url="http://$ADDR:$STARCHORUS_PORT/"; fi
-        echo "Starchorus (passive) on $url  (collector -> $STARCHORUS_DIR/starchorus.json)" >&2
+        if serve; then
+            if [ "$ADDR" = 0.0.0.0 ]; then url="http://<device-ip>:$STARCHORUS_PORT/  (all interfaces)"; else url="http://$ADDR:$STARCHORUS_PORT/"; fi
+            echo "Starchorus (passive) on $url  (collector -> $STARCHORUS_DIR/starchorus.json)" >&2
+        else
+            echo "Starchorus (passive): the collector runs, no page server started (see above; collector -> $STARCHORUS_DIR/starchorus.json)" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "usage: payload.sh [start|stop|status]" >&2; exit 2   # any other word used to start a collector and a server
         ;;
 esac

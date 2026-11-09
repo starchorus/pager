@@ -1204,6 +1204,7 @@ starchorus-collect.sh:selftest:( cd "$klw/d1" && exec sh "$klw/d1/starchorus-col
 library/user/reconnaissance/starchorus/payload.sh:pl_status:./starchorus-collect.sh --status 2>&1 | while IFS= read -r pl_sl; do ui_log "${pl_sl#\[starchorus\] }"; done
 library/user/reconnaissance/starchorus/payload.sh:pl_fast_stop:if [ "$ONDEV" = 1 ]; then ./starchorus-collect.sh --stop >/dev/null 2>&1; else ./starchorus-collect.sh --stop; fi
 payload.sh:-:./starchorus-collect.sh --stop
+payload.sh:-:./starchorus-collect.sh --status
 SINKPINS
 scoped_n '(^|[^A-Za-z0-9_])system[[:space:]]*\(' > "$tmp/s_text"
 {

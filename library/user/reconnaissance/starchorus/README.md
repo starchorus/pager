@@ -135,7 +135,7 @@ ssh root@<device> 'chmod +x /root/payloads/alerts/deauth_flood_detected/starchor
 
 Either way, check on the firmware's Alerts page that it is listed and switched on: whether a copied alert needs the `chmod` and starts enabled has not been tried on a device
 yet. For each report the file appends one line to `/root/loot/starchorus-alerts/alerts.log` (a directory of its own, outside the one the page server serves) (the time, `deauth`, and the access point, source, destination and client
-addresses, tab separated, lower case, `-` where there is none), keeps the last 2,000 lines, and writes no message text. The collector shows the lines of the last
+addresses, tab separated, lower case, `-` where there is none), keeps its last 2,000 lines (cut back once it passes 2,200), and writes no message text. The collector shows the lines of the last
 `STARCHORUS_ALERT_WINDOW` seconds on the page as 'many deauth/disassoc frames heard for this AP'. The report has no channel, no signal strength and no count of
 frames, and its source address is usually not the sender's, so it is a hint and not a diagnosis; whether the Pager's own deauth frames would raise it is not known.
 The repository's README and `docs/architecture.md` §14.6 say more; `docs/device-notes.md` §5c lists what has not been measured on the device.
