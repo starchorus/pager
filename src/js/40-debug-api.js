@@ -5,10 +5,10 @@ window.addEventListener("unhandledrejection", (e) => pushError((e.reason && e.re
 function guard(fn) { try { return fn(); } catch (e) { pushError(e); return { error: String(e) }; } }
 function pubNode(n) {
   if (!n) return null;
-  if (n.kind === "ap") return { id: n.id, kind: "ap", bssid: n.bssid, ssid: n.ssid, ssidKnown: n.ssidKnown, hidden: n.hidden,
+  if (n.kind === "ap") return { id: n.id, kind: "ap", bssid: n.bssid, ssid: n.ssid, ssidKnown: n.ssidKnown, hidden: n.hidden, hid: !!n.hid,
     band: n.band, channel: n.channel, freq: n.freq, rssi: n.rssi, security: n.security, sec: n.sec, vendor: n.vendor, rate: n.rate,
     width: n.width, phy: n.phy, caps: n.caps, beacons: n.beacons, last_seen: n.last_seen, clientCount: n.clientCount, ageS: n.ageS, freshTier: n.freshTier, akm: n.akm, cipher: n.cipher, auth: n.auth, respondedSsids: n.respondedSsids, packets: n.packets, mobile: n.mobile, baseState: n.baseState || null, isNew: isNewAp(n), newSeq: n.newSeq, changedSeq: n.changedSeq, cueSeq: n.cueSeq,
-    phyEstimate: phyEstimate(n), pmf: pmfDerived(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt,
+    phyEstimate: phyEstimate(n), pmf: pmfDerived(n), basePxMax: r3(n.basePxMax), flare: r3(n.flare), flareT: n.flareT, pState: n.pState, revealAt: n.revealAt, revealGen: n.revealGen,
     sx: r3(n.sx), sy: r3(n.sy), zc: r3(n.zc), px: r3(n.px), fog: r3(n.fog), alphaDraw: r3(n.alphaDraw), bubble: null, bubbleBlend: 0, pinned: S.pinned.has(n.id), watched: S.wl.has(n.id) };
   return { id: n.id, kind: "client", mac: n.mac, rssi: n.rssi, vendor: n.vendor, randomized: n.randomized, last_seen: n.last_seen, ageS: n.ageS, freshTier: n.freshTier, isNew: isNewAp(n),
     packets: n.packets, fps: n.fps == null ? null : r3(n.fps), glow: n.cue ? n.gl : 0, parent: n.parent, free: n.free, affinity: !!n.affinity, probeVia: n.probeVia || null, probes: n.probes ? n.probes.slice() : null, band: n.band, basePxMax: r3(n.basePxMax),

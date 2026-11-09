@@ -4,7 +4,7 @@ function newAp(id) {
     hidden: true, clientCount: 0, vendor: null, rate: null, last_seen: null, width: null, phy: null, caps: null, beacons: null,
     a0: 0, angleT: null, radiusT: 0.5, angle: null, radius: 0.5, wx: 0, wz: 0, p3: [0, 0, 0], p: [0, 0, 0], jitY: hash(id + "y"),
     sx: 0, sy: 0, zc: 1, px: 0, fog: 1, lod: 0, alphaDraw: 0, basePx: 0, basePxMax: LAYOUT.basePxMaxCore,
-    target: 1, alpha: 0, born: 0, phase: hash(id + "p") * Math.PI * 2, capSeq: -1, newSeq: -1, changedSeq: -1, cueSeq: -1, cueT0: 0, cueAmp: 0, revealAt: null,
+    target: 1, alpha: 0, born: 0, phase: hash(id + "p") * Math.PI * 2, capSeq: -1, newSeq: -1, changedSeq: -1, cueSeq: -1, cueT0: 0, cueAmp: 0, revealAt: null, revealGen: null,
     akm: null, cipher: null, auth: null, respondedSsids: null, packets: null, mobile: false, groupKey: null, interfere: [], sparkDirty: true, flare: 0, flareT: 0, ageS: null, freshTier: null, freshA: 1, freshAT: 1,
     pStart: -1, pCount: 0, pState: null, pT0: 0, orbitRcap: LAYOUT.orbitMaxPx, hexA: 0, seen: false };
 }
@@ -141,7 +141,7 @@ function ingest(doc, opts = {}) {
     }
     if (n.rssi !== a.rssi || n.ssid !== a.ssid || n.band !== a.band) changed = true;   // placement: radius, constellation pull (SSID), band filter
     if (a.ssid) {
-      if (n.seen && n.hidden) { n.revealAt = now; S.revealed++; }
+      if (n.seen && n.hidden) { n.revealAt = now; n.revealGen = S.generated; S.revealed++; }   // revealAt drives the fade on the animation clock; revealGen is the capture time the sheet counts from
       n.ssidKnown = a.ssid; n.hidden = false;
     } else if (n.ssidKnown == null) n.hidden = true;
     n.seen = true;
@@ -232,6 +232,7 @@ function ingest(doc, opts = {}) {
   updateStats();   // ends in layoutEdges() → drawChannelBar() with the fresh S._stats/analyzer counts
   if (S.locked && !((S.aps.get(S.locked) || S.clients.get(S.locked) || {}).target === 1 || liveCloud(S.locked) || (S.bt.get(S.locked) || {}).target === 1)) closeDetail();
   else if (S.locked) openDetail(S.locked);
+  if (S.hover && tip.style.opacity === "1") { const h = nodeById(S.hover); if (!h || h.target !== 1 || !(h.alphaDraw >= 0.25)) setHover(null); else showTip(h); }   // a showing tooltip follows the data: fresh after a capture, gone with its node or once the node is no longer drawn; a hover without a tooltip (the lamp strip) is left alone
   S.dirty = true;
   return { aps: seenAp.size, clients: seenCl.size, free, assoc };
 }

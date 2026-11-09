@@ -189,7 +189,7 @@ ApNode = {
   basePx,                            // core radius px (theme-free, §3.4) – hit test, label offset, drawing
   basePxMax,                         // theme-free maximum (§4.1) – the only size used for layout spacing
   // --- Lifecycle ---
-  target: 1|0, alpha, born, phase, twinkleUntil, twinkleAmp, revealAt,
+  target: 1|0, alpha, born, phase, twinkleUntil, twinkleAmp, revealAt, revealGen,   // revealAt on the animation clock (the fade), revealGen the capture time of the reveal (the sheet)
   // --- Analyzer ---
   groupKey, interfere: [{id, score, kind}] (max 6), sparkDirty, flare: 0..1, flareT: 0|1,
   // --- Foundation particles (pointers into the pool) ---
@@ -364,7 +364,7 @@ The contract stands; all rules are tolerant, no path throws.
 | `unassociated` missing / not an array | `[]`; non-object entries skipped |
 | `source` | String or `""`; `"none"` → valid empty document: the sky empties softly, source panel 'No capture source · <note>' (`note` escaped, max 80 characters), chip 'No feed' (`sourceKind` `none`, never stale). A `source` matching `/ACTIVE/i` sets `sourceKind` `active` – taking precedence over any arrival route – and switches all passivity statements to the ACTIVE copy (D4, §9.5) |
 | `center.label` | String (max 40 characters, control characters removed) → core text and `#src-center`; missing → **'YOU ARE HERE'** |
-| `generated` | Finite number → timestamp and age reference; otherwise `null` (everything undated) |
+| `generated` | Finite number from 0 to below 7.7 · 10¹⁰ (a capture time from 1970 to about the year 4400) → timestamp and age reference; otherwise `null` (everything undated) |
 | `bssid` | `String(x).trim().toLowerCase()`, `-` → `:`, 12 hex digits without separators → with `:`; missing → `"ap"+i` |
 | `ssid` | String; `null`/missing → `""` (hidden); control characters removed; max 32 characters; always escaped on display |
 | `band` | `"2.4"/"5"/"6"` or with suffix `/\s*ghz$/i`; otherwise from `freq` (≥ 5925 → 6, ≥ 5000 → 5, ≥ 2400 → 2.4); otherwise from `channel` (> 177 → 6; 32..177 → 5; 1..14 → 2.4; 6 GHz channels ≤ 177 cannot be told apart from 5 GHz without `band`/`freq` and end up on 5); otherwise `"unknown"` (own encoding: square; `#n-24/-5/-6` do not count `unknown`). The node also keeps `bandF`, the band from `band`/`freq` alone and never from `channel`, for the PMF row (§8.3) |
@@ -681,8 +681,8 @@ three themes carry the same keys (`validateThemes`, regression `tools/regress.d/
 Frame of reference: world units, `1.0 = maxRadius = LAYOUT.outerFrac · min(W, H)/2` px; origin = the observer (the
 device, core); 2D world `(wx, wz)`, screen `sx = CX + wx·maxRadius`, `sy = CY + wz·maxRadius`. All distances in `LAYOUT`
 are **CSS pixels** and are converted to world units with `/maxRadius`, so that minimum distances hold regardless of device.
-`inner = clamp(LAYOUT.innerFrac·maxRadius, innerMinPx, innerPx)` (scaled, so that the core does not eat half the radius
-on small viewports). `rssiT(dbm) = clamp((dbm + 90)/60, 0, 1)`, `rssiToRadius(dbm) = inner + (1 − t)·(maxRadius − inner)`
+`inner = min(clamp(LAYOUT.innerFrac·maxRadius, innerMinPx, innerPx), 0.8·maxRadius)` (scaled, so that the core does not eat half
+the radius on small viewports, and on a very small sky the floor of 64 px stays inside the ring). `rssiT(dbm) = clamp((dbm + 90)/60, 0, 1)`, `rssiToRadius(dbm) = inner + (1 − t)·(maxRadius − inner)`
 (px). **Distance = signal, not range;** direction is not measured (legend line 'geometry', D10). The rings
 sit at −40/−60/−80 dBm (the device's signal thresholds) and bound four signal tiers (D9). All values in this
 section live in `LAYOUT`/`AGG` (section 20):
@@ -1071,7 +1071,7 @@ There is no depth-sorted list of nodes. Each layer (§6.2) draws its own kind of
 that has faded out is deleted from its map in the same step (`stepNodes`: alpha < 0.02, target 0). Hit test (`nodeAt`, section 36)
 in projected coordinates: in 3D the candidates are sorted by `zc` from **near to far** on each call and the first hit wins,
 in 2D the nearest centre within its radius wins; hit when `(mx − sx)² + (my − sy)² ≤ max(px + pad, HIT.minPx)²` (AP 6, client 5,
-bubble 4; touch min 16), only `alphaDraw ≥ 0.25`; bubble members with `blend > 0.5` cannot be hit.
+bubble 4; touch min 16), only `alphaDraw ≥ 0.25` (in 2D as in 3D and the Scope: what is not drawn is not hit); bubble members with `blend > 0.5` cannot be hit.
 One hit test per frame. Connections are drawn before all nodes in three depth buckets with the
 fog alpha of the bucket mean.
 
@@ -1142,6 +1142,7 @@ HIT    = { apPad: 6, clientPad: 5, bubblePad: 4, minPx: 12, touchMinPx: 16, pinD
 
 ```
 tick(t):
+  try {
   if (S.fixedTime != null) { dt = 0; liveDt = 0; clock = S.fixedTime/1000; lastT = t }   // setFixedTime: time stands still (§10)
   else { dt = lastT ? clamp((t − lastT)/1000, 1/240, RENDER.dtMax) : 1/60; lastT = t
          liveDt = paused ? 0 : dt; clock += liveDt }
@@ -1157,7 +1158,8 @@ tick(t):
   if (S.fixedTime != null) animating = false                              // frozen: only dirty renders
   if (dirty || animating) { render(); dirty = false }
   budget.endFrame(); perf.tick(t)                                        // stats().fps counts rAF ticks
-  requestAnimationFrame(tick)
+  } catch (e) { pushError(e); dirty = true }                              // one exception in a frame does not end the chain (as tryPoll holds for the poll)
+  finally { requestAnimationFrame(tick) }
 ```
 - Pause freezes `clock` (orbits, breathing, twinkle, travelling dots, particle drift, cursor, sky rotation); fade-in/fade-out,
   layout easing and the camera run on `dt`. Paused and nothing moving → no `render()`. Under persistence, a further
@@ -1623,8 +1625,8 @@ ingest/filter) → legend: per class a ring swatch + glyph + label + count; a cl
 ### 8.5 Hidden SSIDs and reveal
 
 `hidden = ssid === ""`: no label, outer dashed ring `[4,4]` at `basePx + 10` in `status.hidden`, tooltip
-'(hidden SSID)'. If a later ingest supplies a name for the same BSSID: `ssidKnown = ssid`, `revealAt = clock`,
-`hidden = false`; the label is drawn from the next frame and the hidden ring is no longer drawn, with no fade of its own (the node's own fade-in is the only one), and the detail says 'name revealed 12 s ago'.
+'(hidden SSID)'. If a later ingest supplies a name for the same BSSID: `ssidKnown = ssid`, `revealAt = clock` (the fade), `revealGen = generated`,
+`hidden = false`; the label is drawn from the next frame and the hidden ring is no longer drawn, with no fade of its own (the node's own fade-in is the only one), and the sheet's row 'Name revealed' gives the age of the reveal in capture time (`generated − revealGen`, as the sheet's other ages; the animation clock stands still in a hidden tab), no row when the capture is undated.
 **Memory:** if an even later poll returns `""` again, `ssidKnown` remains as the label (italic, `title="last seen name"`).
 `stats().revealed`. The group key uses `ssidKnown ?? ssid`. A hidden network shows no name: on the device measured on 17 October 2026 every hidden beacon row holds zero bytes only and no row of any type holds a name for a hidden BSSID (device-notes §4a), so the collector blanks the name of a hidden row, as it has done since the first release, and there is no field for one.
 
@@ -1933,7 +1935,7 @@ security (class + glyph), clients, freshness, overlaps (max 2, with 'derived'), 
 <SSID>' / 'client · unassociated' / probe orbit, MAC, **Vendor** ('—' or 'randomised'), Probes ('named probe: <SSID>', 'named probes: a, b',
 three names at most and then '+n'; 'no named probe heard'), signal ('n/a' without RSSI). Bubble:
 §4.6. Random cloud (§8.8a): 'random cloud', 'n randomised addresses · about every 47 s', Signal with its range, Heard, Probes (the same words); no sparkline. With `data-plaque="on"` the same rows side by side in pairs. Values in `ink.primary`, keys in `ink.secondary`.
-Touch: a tap shows the tooltip briefly, a second tap opens the detail. One hit test per frame.
+Touch: a tap shows the tooltip briefly, a second tap opens the detail. One hit test per frame. A showing tooltip follows the data: at the end of each ingest it is drawn afresh from its node's new values, and it goes with the hover when the node has left the sky or is no longer drawn (`alphaDraw < 0.25`).
 
 ### 9.4 Legend (`#legend`, `buildLegend()`, rebuilt per theme)
 

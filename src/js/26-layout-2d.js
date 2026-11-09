@@ -53,6 +53,7 @@ function placeAPs() {
         if (g > bestGap) { bestGap = g; best = cand[ci]; bestR = rad; }
       }
     }
+    if (best === null) { best = cand[0]; bestR = r; }   // no spot inside the ring (a sky too small for the nudges): the first angle at its own radius, never none
     ap.angleT = best; ap.radiusT = bestR / maxRadius;
     const p = { x: Math.cos(best) * bestR, y: Math.sin(best) * bestR, bp }, pk = Math.floor(p.x / pcell) * CELLP + Math.floor(p.y / pcell);
     const arr = pgrid.get(pk); if (arr) arr.push(p); else pgrid.set(pk, [p]);

@@ -969,7 +969,7 @@ function notesSet(bssid, patch) {   // alias (<= 24), note (<= 120), up to 4 tag
   saveNotes(); S.dirty = true; return S.notes.get(b) ? { alias: e.a, note: e.n, tags: e.t.slice() } : { alias: "", note: "", tags: [] };
 }
 const aliasOf = (id) => { const e = S.notes.get(String(id).toLowerCase()); return e && e.a ? e.a : ""; };
-const LIB_CLASS = { friend: "friend", neutral: "neutral", suspect: "hostile", hostile: "hostile", unknown: "unknown" };
+const LIB_CLASS = Object.assign(Object.create(null), { friend: "friend", neutral: "neutral", suspect: "hostile", hostile: "hostile", unknown: "unknown" });   // no prototype: constructor, toString and the like are no classes
 function libraryImport(text) {   // "MAC class" per line; "aa:bb:cc:??:??:??" (or *) is a rule (friend/neutral/suspect, never unknown); # starts a comment
   const res = { added: 0, rules: 0, rejected: [], message: "" };
   const rej = (line, why) => res.rejected.push({ line: line.slice(0, 60), why });

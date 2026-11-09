@@ -8,12 +8,12 @@ function nodeAt(mx, my, touch) {
   if (tS < 0.5 || scopeOn) {
     // 2D: nearest wins (clients/stars over bubbles); the Scope: as drawn
     let best = null, bd = Infinity;
-    const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd && (!scopeOn || n.alphaDraw >= 0.25)) { bd = d; best = n; } };
-    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98 && !scopeOn) return; if (n.randOut && !(n.alphaDraw >= 0.25)) return; near(n, hitRadius(n, touch)); });
+    const near = (n, r) => { const d = hyp(n.sx - mx, n.sy - my); if (d <= r && d < bd && n.alphaDraw >= 0.25) { bd = d; best = n; } };   // §5.5: only what is drawn can be hit, in 2D as in 3D and the Scope
+    S.clients.forEach(n => { if (n.target !== 1) return; if (n.bubble != null && n.bubbleBlend >= 0.98 && !scopeOn) return; near(n, hitRadius(n, touch)); });
     if (S.ui.random === "cloud") S.clouds.forEach(k => { if (k.target !== 1) return; near(k, hitRadius(k, touch)); });
     if (S.ui.filters.bt) S.bt.forEach(k => { if (k.target === 1 && k.rank < BT.drawMax) near(k, hitRadius(k, touch)); });
     S.aps.forEach(n => { if (n.target !== 1 || (isEssFolded(n.id) && !scopeOn)) return; near(n, hitRadius(n, touch)); });
-    if (!scopeOn) S.bubbles.forEach(b => { if (b.target !== 1 && b.alpha <= 0.02) return; near(b, b.px + HIT.bubblePad); });
+    if (!scopeOn) S.bubbles.forEach(b => { if (!(b.alphaDraw >= 0.25)) return; near(b, b.px + HIT.bubblePad); });
     return best ? best.id : null;
   }
   // 3D: projected hit-test from near to far, first covering wins
@@ -134,6 +134,7 @@ KEY_ACT.z = () => { if (phoneOn) setToggle("scope", !S.ui.scope); };
 window.addEventListener("keydown", (e) => {
   const k = (e.key || "").toLowerCase();
   if (k === "escape") {
+    if (e.repeat) { e.preventDefault(); return; }   // one layer per press: a held Esc does not run down the stack
     // Esc closes one layer per press, topmost first: paste, export, help, selection, hover; on a phone then a drawer or the
     // legend card, then the sheet (§9.8).
     if (getComputedStyle(pasteWrap).display !== "none") { closePaste(); e.preventDefault(); return; }
@@ -146,7 +147,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (!shortcutsAllowed() || e.metaKey || (e.ctrlKey && !e.altKey)) return;   // Cmd/Ctrl + a key is the browser's; AltGr (Ctrl+Alt) types [ ]
-  if (k === "?") { toggleHelp(); e.preventDefault(); return; }
+  if (k === "?") { if (!e.repeat) toggleHelp(); e.preventDefault(); return; }   // a held ? does not flap the help card
   if (k === "enter" && liveCloud(S.locked)) { expandCloud(S.locked); e.preventDefault(); return; }   // §8.8a
   // camera keys (3D orbit / 2D zoom around centre / reset)
   const c = S.cam; let camHandled = true;
@@ -160,6 +161,6 @@ window.addEventListener("keydown", (e) => {
     else camHandled = false;
   }
   if (camHandled) { S.dirty = true; e.preventDefault(); return; }
-  if (KEY_ACT[k]) { KEY_ACT[k](); e.preventDefault(); }
+  if (KEY_ACT[k]) { if (!e.repeat) KEY_ACT[k](); e.preventDefault(); }   // a held toggle key fires once (the camera keys above keep repeating); a key that is no shortcut keeps its default, held or not
 });
 

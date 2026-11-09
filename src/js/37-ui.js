@@ -8,7 +8,7 @@ const legend = el("legend"), statsEl = el("stats"), tip = el("tip"), detail = el
 tip.innerHTML = '<div id="tip-body"></div><canvas id="tip-spark" width="120" height="28" hidden></canvas>';
 const tipBody = el("tip-body"), tipSpark = el("tip-spark"), detailSpark = el("detail-spark"), legendBody = el("legend-body");
 let sparkFocus = { id: null, cross: -1 }, detailShown = null;   // detailShown: the node or bubble whose sheet #detail holds (openDetail)
-function fmtBand(b) { return b === "unknown" ? "? GHz" : b + " GHz"; }
+function fmtBand(b) { return b && b !== "unknown" ? b + " GHz" : "? GHz"; }   // a station without a band says ? GHz, not a bare GHz
 function heardWord(n) { return n.freshTier == null ? ENCODING.fresh.undated : ENCODING.fresh.words[n.freshTier]; }   // D1 tier word
 function freshZero() { return { t0: 0, t1: 0, t2: 0, t3: 0, undated: 0 }; }
 function fmtSignal(dbm) {   // D9: "-58 dBm (53 %, good)"; the level word is the theme's voice (copy.signal); null → "n/a"
@@ -858,7 +858,7 @@ function openDetail(id) {
     const cl = S.chg.get(n.id);   // what changed on this AP since this source was first read (DS channel, security class, SSID, band)
     if (cl && cl.length) body += row("Changes", esc(cl.map(c => (c.kind === "channel" ? "ch " : c.kind + " ") + (c.from == null || c.from === "" ? "—" : c.from) + " → " + (c.to == null || c.to === "" ? "—" : c.to)).join(" · ")));
     if (S.ui.baselineDiff && S.baseline && n.baseState) body += row("Baseline", esc(n.baseState === "new" ? "not in the baseline" : n.baseState === "changed" ? "changed against the baseline" : "as in the baseline"));
-    if (n.revealAt != null && n.revealAt > 0) body += row("Name revealed", esc(fmtAge(S.clock - n.revealAt)));
+    if (n.revealGen != null && S.generated != null && S.generated >= n.revealGen) body += row("Name revealed", esc(fmtAge(S.generated - n.revealGen)));   // in capture time, as the other ages of the sheet (the animation clock stands still in a hidden tab)
     body += row("Beacons", n.beacons != null ? String(n.beacons) : "—");
     const ov = overlapText(n, 3); body += row("Overlaps", ov ? esc(ov) : "—");
     const gk = n.groupKey ? S.groups.get(n.groupKey) : null;

@@ -91,7 +91,7 @@ function normalizeDoc(raw) {
   const strs = (v, n, m) => Array.isArray(v) ? v.filter(x => typeof x === "string").map(x => stripCtl(x, m)).filter(Boolean).slice(0, n) : null;
   const rc = isObj(raw.center) ? raw.center : {};
   const doc = {
-    generated: (g => g * g < 6e22 ? g : null)(numOrNull(raw.generated)),
+    generated: (g => g != null && g >= 0 && g < 7.7e10 ? g : null)(numOrNull(raw.generated)),   // a capture time of this era (1970 to about 4400): anything else is undated, never a six-digit year
     source: typeof raw.source === "string" ? stripCtl(raw.source, 32) : "",
     note: stripCtl(raw.note, 120),
     center: { label: rc.label != null ? stripCtl(rc.label, 40).trim() : "",
@@ -142,7 +142,8 @@ function normalizeDoc(raw) {
     // merge duplicate bssid: strongest RSSI, first non-empty value per field
     if (ap.rssi != null && (prev.rssi == null || ap.rssi > prev.rssi)) prev.rssi = ap.rssi;
     const empty = (v) => v === null || v === "" || v === undefined;
-    for (const k of ["ssid", "channel", "freq", "security", "vendor", "rate", "width", "last_seen", "phy", "caps", "beacons", "packets", "akm", "cipher", "auth", "responded_ssids"]) if (empty(prev[k]) && !empty(ap[k])) prev[k] = ap[k];
+    if (empty(prev.ssid) && !empty(ap.ssid)) { prev.ssid = ap.ssid; prev.hid = ap.hid; } else if (empty(prev.ssid)) prev.hid = prev.hid || ap.hid;   // the name and its hidden mark travel together; two nameless records keep the mark either carried
+    for (const k of ["channel", "freq", "security", "vendor", "rate", "width", "last_seen", "phy", "caps", "beacons", "packets", "akm", "cipher", "auth", "responded_ssids"]) if (empty(prev[k]) && !empty(ap[k])) prev[k] = ap[k];
     if (prev.band === "unknown" && ap.band !== "unknown") prev.band = ap.band;
     if (prev.bandF === "unknown" && ap.bandF !== "unknown") prev.bandF = ap.bandF;
     const have = new Set(prev.clients.map(c => c.mac));

@@ -17,7 +17,7 @@ function labelCandidateList(devCarrier) {
   const prio = (n) => (n.id === S.locked ? 4 : 0) + (n.id === S.hover ? 3 : 0) + (S.pinned.has(n.id) || S.wl.has(n.id) ? 2 : 0);
   const cand = [];
   for (const ap of S.apOrder) {
-    if (ap.hidden) continue;
+    if (ap.hidden || ap.alphaDraw <= 0.02) continue;   // a star that is not drawn (its band filtered off) has no label, pinned or not, as the layers hold
     const forced = isForced(ap.id);
     if (trans && !forced) continue;   // during 2D↔3D transition only Hover/Pinned/Locked labels
     if (!forced && (ap.alphaDraw <= 0.6 || ap.px < 5 * Math.min(1, S.cam.zoom2d))) continue;   // zoomed out in 2D the bound shrinks with the stars

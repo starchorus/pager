@@ -182,25 +182,27 @@ function wargamesAnimating() {   // travel dots / probe arcs keep the frame (and
   return false;
 }
 function tick(t) {
-  let dt, liveDt;
-  if (S.fixedTime != null) { dt = 0; liveDt = 0; S.clock = S.fixedTime / 1000; lastT = t; }
-  else {
-    dt = lastT ? clamp((t - lastT) / 1000, 1 / 240, RENDER.dtMax) : 1 / 60; lastT = t;
-    liveDt = S.ui.paused ? 0 : dt; S.clock += liveDt;
-  }
-  if (S.replay) replayTick(liveDt);
-  budgetBegin(t);
-  if (scopeOn) scopeStep(dt, liveDt); else step(dt, liveDt);
-  const animating = scopeOn ? scopeWantsFrame() : S.fixedTime == null && (S.moving || S.settling || S.cam.tween !== null || wargamesAnimating());
-  if (S.dirty || animating) {
-    render(); S.dirty = false; S.perf.rendered++;
-    S.persistFade = S.persistOn && !scopeOn ? RENDER.persistFadeFrames : 0;
-  } else if (S.persistFade > 0) {   // §6.7 idle trail: let phosphor spurs fade, then one clean full frame
-    S.persistFade--; render(); S.perf.rendered++;
-    if (S.persistFade === 0 && S.persistOn) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }
-  } else if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }   // alert step
-  perfTick(t);
-  requestAnimationFrame(tick);
+  try {
+    let dt, liveDt;
+    if (S.fixedTime != null) { dt = 0; liveDt = 0; S.clock = S.fixedTime / 1000; lastT = t; }
+    else {
+      dt = lastT ? clamp((t - lastT) / 1000, 1 / 240, RENDER.dtMax) : 1 / 60; lastT = t;
+      liveDt = S.ui.paused ? 0 : dt; S.clock += liveDt;
+    }
+    if (S.replay) replayTick(liveDt);
+    budgetBegin(t);
+    if (scopeOn) scopeStep(dt, liveDt); else step(dt, liveDt);
+    const animating = scopeOn ? scopeWantsFrame() : S.fixedTime == null && (S.moving || S.settling || S.cam.tween !== null || wargamesAnimating());
+    if (S.dirty || animating) {
+      render(); S.dirty = false; S.perf.rendered++;
+      S.persistFade = S.persistOn && !scopeOn ? RENDER.persistFadeFrames : 0;
+    } else if (S.persistFade > 0) {   // §6.7 idle trail: let phosphor spurs fade, then one clean full frame
+      S.persistFade--; render(); S.perf.rendered++;
+      if (S.persistFade === 0 && S.persistOn) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }
+    } else if (S.fixedTime == null && !S.ui.paused && S.clock >= alAt) { ctxSky.clearRect(0, 0, W, H); render(); S.perf.rendered++; }   // alert step
+    perfTick(t);
+  } catch (e) { pushError(e); S.dirty = true; }   // one exception in a frame must not end the chain (as tryPoll holds for the poll)
+  finally { requestAnimationFrame(tick); }
 }
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
@@ -227,7 +229,7 @@ function resize() {
   if (phoneOn) phoneLayout(true);
   const sb = skyBox(); skyR = sb; CX = sb.x + sb.w / 2; CY = sb.y + sb.h / 2; skyH = sb.h;   // the sky is centred in the free rectangle: the whole viewport outside phone mode
   maxRadius = Math.min(sb.w, sb.h) / 2 * LAYOUT.outerFrac || 1;
-  inner = clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx);
+  inner = Math.min(clamp(LAYOUT.innerFrac * maxRadius, LAYOUT.innerMinPx, LAYOUT.innerPx), 0.8 * maxRadius);   // on a very small sky the floor of 64 px must stay inside the ring
   if (scopeOn) { scopeGeom(); SC.sg = ""; renderScope(); }
   resizeCanvases();
   rebuildBackground();

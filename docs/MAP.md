@@ -261,6 +261,7 @@ negative probes: `tools/README.md` (Drop-ins) and the drop-in's own header.
 | `observations` | `page` `fixtures` `29-analyzer` `SECURITY.md` `tools/regress.d/edge-layout.sh` |
 | `operator-tools` | `page` `collector` `fixtures` `05-tooltip-detail` `20-config` `22-util` `29-analyzer` `37-ui` `SECURITY.md` `tools/regress.d/edge-layout.sh` |
 | `order-invariance` | `page` `fixtures` `25-ingest` `tools/evals/order-invariance.js` `tools/static.sh` |
+| `page-hygiene` | `page` `fixtures` `22-util` `23-normalize` `25-ingest` `26-layout-2d` `29-analyzer` `30-step` `35-render-hud` `36-interaction` `37-ui` `40-debug-api` |
 | `page-server` | `serve` |
 | `payload-ui` | `collector` `overview` `payload` `serve` `fixtures` `index.html` `tools/install.sh` |
 | `phone` | `page` `fixtures` `03-panels-hud` `09-responsive-motion` `14-controls` `20-config` `35-render-hud` `37-ui` `40-debug-api` `tools/regress.d/scope.sh` |
