@@ -509,7 +509,8 @@ and the companion alert share, and the installed netcat server and page by versi
 …, payload …' for another version, 'Installed files differ from the payload.' for the same version
 with another contract. The dialogue names the remedy: 'Run tools/install.sh.', or, with the Hak5
 library copy, which has no `tools` folder on the Pager, the collector file to delete; for the
-companion alert, whose copy in the alert tree only the Alerts row replaces, 'Switch Alerts off, then on.' A payload
+companion alert, whose copy in the alert tree only the Alerts row of the payload's Settings replaces, 'In Settings, switch
+Alerts off, then on.' (the firmware's own Alerts page renames the alert directory and renews nothing). A payload
 replaced on its own is caught at the same version too. Files from the first release carry no
 Contract line and count as contract 1. The netcat server and the page have no contract line, so only
 their version is compared (as of 24 October 2026; the dialogue is the same and appears once, for the

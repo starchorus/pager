@@ -677,15 +677,15 @@ pui_is skewprev [ "$(pui_x ERROR_DIALOG "$PUI_SKD")/$(pui_x LOG red 'Installed f
 pui_new; mkdir -p "$PUI_T/alerts/deauth_flood_detected/starchorus"
 printf '# Version: %s\n# Contract: %s\n' "$PUI_VER" "$((PUI_CON - 1))" > "$PUI_T/alerts/deauth_flood_detected/starchorus/payload.sh"
 pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
-pui_is skewcomp [ "$(pui_x ERROR_DIALOG "Installed files differ from\\nthe payload.\\nSwitch Alerts off, then on.")/$(pui_x LOG red 'Installed files differ from the payload.')/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+pui_is skewcomp [ "$(pui_x ERROR_DIALOG "Installed files differ from\\nthe payload.\\nIn Settings, switch Alerts\\noff, then on.")/$(pui_x LOG red 'Installed files differ from the payload.')/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
 pui_run "$PUI_HL" sh "$PUI_PL" status
-pui_is skewcompcli [ "$(grep -c "installed alert-deauth.sh is $PUI_VER (contract $((PUI_CON - 1))), this payload is $PUI_VER (contract $PUI_CON); switch Alerts off, then on" "$PUI_T/out")" = 1 ]
+pui_is skewcompcli [ "$(grep -c "installed alert-deauth.sh is $PUI_VER (contract $((PUI_CON - 1))), this payload is $PUI_VER (contract $PUI_CON); in Settings, switch Alerts off, then on" "$PUI_T/out")" = 1 ]
 # the same companion of another version (what a release update meets: the version names the difference, the remedy is the companion's)
 pui_new; printf '# Version: 0.0.9\n# Contract: %s\n' "$((PUI_CON - 1))" > "$PUI_T/alerts/deauth_flood_detected/starchorus/payload.sh"
 pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_PL"
-pui_is skewcompver [ "$(pui_x ERROR_DIALOG "Installed 0.0.9, payload $PUI_VER.\\nSwitch Alerts off, then on.")/$(pui_x LOG red "Installed 0.0.9, payload $PUI_VER.")/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
+pui_is skewcompver [ "$(pui_x ERROR_DIALOG "Installed 0.0.9, payload $PUI_VER.\\nIn Settings, switch Alerts\\noff, then on.")/$(pui_x LOG red "Installed 0.0.9, payload $PUI_VER.")/$(pui_x "$PUI_STOP" Start)" = 1/1/1 ]
 pui_run "$PUI_HL" sh "$PUI_PL" status
-pui_is skewcompvercli [ "$(grep -c "installed alert-deauth.sh is 0.0.9 (contract $((PUI_CON - 1))), this payload is $PUI_VER (contract $PUI_CON); switch Alerts off, then on" "$PUI_T/out")" = 1 ]
+pui_is skewcompvercli [ "$(grep -c "installed alert-deauth.sh is 0.0.9 (contract $((PUI_CON - 1))), this payload is $PUI_VER (contract $PUI_CON); in Settings, switch Alerts off, then on" "$PUI_T/out")" = 1 ]
 rm -rf "$PUI_T/alerts"
 # the netcat server and the page (index.html, its `  version: "x.y.z",` line) carry no contract of their own: the version alone is judged, and the
 # dialogue stays one dialogue however many files differ. An installed server or page of another version: once; the same version: none; a server with no

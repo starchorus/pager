@@ -91,8 +91,9 @@ commands above, or, with the self-contained directory below, the new directory p
 `/root/loot/starchorus/starchorus-collect.sh`. The payload compares the installed collector and
 Overview with itself when it opens, by version and by `# Contract:` number, and says so when they
 differ (see Operation), so a payload replaced on its own does not go unnoticed. While Alerts is ON, the
-companion alert in the firmware's alert tree is compared as well: switch Alerts off and on again after
-the upgrade, which renews it (the dialogue says 'Switch Alerts off, then on.' until you do). The settings in
+companion alert in the firmware's alert tree is compared as well: switch Alerts off and on again in the
+payload's Settings after the upgrade, which renews it (the dialogue says 'In Settings, switch Alerts off,
+then on.' until you do; the firmware's own Alerts page only renames the directory). The settings in
 `settings.conf` are kept. The first start after an upgrade takes a little longer: the collector splits
 the vendor (OUI) list into an index once.
 
@@ -200,8 +201,8 @@ companion alert in the firmware's alert tree, differs from the payload
 in version, or in the interface number of its `# Contract:` header, a dialogue says so once when the
 payload opens ('Installed …, payload …' for another version, 'Installed files differ from the
 payload.' for another contract); run `tools/install.sh` again (with the self-contained layout the
-dialogue names the file to delete instead; for the companion alert it says 'Switch Alerts off, then
-on.', which renews that copy). Files without a `# Contract:` line, those of the first
+dialogue names the file to delete instead; for the companion alert it says 'In Settings, switch Alerts
+off, then on.', which renews that copy; the firmware's own Alerts page does not). Files without a `# Contract:` line, those of the first
 release, count as contract 1.
 
 Command line (without any on-device menu, on the device as well):

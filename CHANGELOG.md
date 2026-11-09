@@ -5,6 +5,11 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ## Unreleased
 
+### Changed
+
+- **The dialogue on a companion alert of another version names the place.** 'In Settings, switch Alerts off, then on.', on two lines: the firmware's own Alerts page only renames the alert directory and renews nothing, so a reader sent to 'Alerts' went there; INSTALL.md and the library README say the same.
+- **The package README says what the Bluetooth layer shows.** A paragraph on the `class` word and on Remote ID: as broadcast and not checked, no direction or distance from the Pager, whose position is not read, no path and no history.
+
 ### Fixed
 
 - **A stop or a start signals only real collector loops.** The loops were found by the script's name anywhere in a `ps w` line, so an editor, a `tail -f` or a checksum run on the file counted as a loop and got the TERM of a Stop, a Start or a Settings change. `loop_list` now takes a line only when the script is the command itself or the argument of a shell, with no `--` flag behind it; the self-test keeps an editor and a tail on the file alive beside the loops it stops.

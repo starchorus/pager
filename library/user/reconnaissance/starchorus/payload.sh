@@ -782,7 +782,8 @@ pl_status() {
 # with that interface, so a payload updated on its own is caught at the same version too. An installed file with a version but no
 # contract line is contract 1; a file with no version header at all is not judged. The remedy named is tools/install.sh, or, where this payload's own directory
 # carries the files (Hak5's library layout, no tools/ on the device), the one file whose absence makes the next run copy them; for the
-# companion alert, whose copy only the Alerts row replaces (read-only here), it is "Switch Alerts off, then on.".
+# companion alert, whose copy only the Alerts row of this payload's Settings replaces (read-only here), it is "In Settings, switch Alerts off, then on."
+# on two lines: the firmware's own Alerts page only renames the alert directory and renews nothing, so the place has to be named.
 pl_ver() { sed -n 's/^# Version:[[:space:]]*\([0-9][0-9A-Za-z.-]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_con() { sed -n 's/^# Contract:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -n 1; }
 pl_pver() { sed -n '/^  version: "[0-9][0-9A-Za-z.-]*",$/{s/^  version: "\(.*\)",$/\1/p;q;}' "$1" 2>/dev/null; }   # the page's version line (tools/doc-truth.py reads the same one); q: sed stops at the first match and does not read the rest of the page
@@ -808,7 +809,7 @@ pl_skew() {
             *) pl_c=$(pl_con "$pl_p"); pl_c=${pl_c:-1}; pl_cn=" (contract $pl_c)" ;;
         esac
         if [ "$pl_v/$pl_c" = "$pl_me/$pl_mc" ]; then continue; fi
-        case $pl_f in alert-deauth.sh) pl_fd="Switch Alerts off, then on."; pl_fn="switch Alerts off, then on" ;; esac   # only the Alerts row renews this copy (the check ends below, so no later file meets this remedy)
+        case $pl_f in alert-deauth.sh) pl_fd="In Settings, switch Alerts\noff, then on."; pl_fn="in Settings, switch Alerts off, then on" ;; esac   # only the Alerts row renews this copy (the check ends below, so no later file meets this remedy)
         if [ "$ONDEV" = 1 ]; then
             if [ "$pl_v" = "$pl_me" ]; then pl_sk="Installed files differ from\nthe payload."; pl_sl="Installed files differ from the payload."
             else pl_sk="Installed $pl_v, payload $pl_me."; pl_sl=$pl_sk; fi
