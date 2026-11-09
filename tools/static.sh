@@ -14,8 +14,9 @@
 # shellcheck disable=SC2034   # names read by the sourcing script (regress.sh/quick.sh) and by the drop-ins
 fail=0
 ncov=0   # rows reported NOT COVERED (a deliberate switch such as ALLOW_NO_SQLITE=1): not a PASS, not a FAIL, counted and announced
-row() { printf '%-44s %s\n' "$1" "$2"; [ "$2" = PASS ] || fail=1; }
-notcov() { printf '%-44s %s\n' "$1" "NOT COVERED"; ncov=$((ncov + 1)); }
+nrow=0   # every row printed (PASS, FAIL or NOT COVERED): tools/regress.sh asks each drop-in for at least one
+row() { printf '%-44s %s\n' "$1" "$2"; nrow=$((nrow + 1)); [ "$2" = PASS ] || fail=1; }
+notcov() { printf '%-44s %s\n' "$1" "NOT COVERED"; nrow=$((nrow + 1)); ncov=$((ncov + 1)); }
 rowif() { _n=$1; shift; if "$@"; then row "$_n" PASS; else row "$_n" FAIL; fi; }
 g() { grep -c "$1" "$H"; }
 le() { [ "$1" -le "$2" ] 2>/dev/null; }   # false (not an error) when a count is "NOSLICE", i.e. its section anchor broke
@@ -162,7 +163,7 @@ DATENOW_STRIP='s,/\*[^*]*\*/,,g;s,//[^"'"'"']*$,,'   # drop block comments and q
 # (anchor + comment strip: neither a trailing `// dtgString(` nor `/* dtgString( */` can launder a Date.now line)
 # ---- floors of the check sets: a row must not turn green because the set it checks got empty or shrank.
 # "must not shrink": raise these when the set legitimately grows, never lower them without a reason in the commit text.
-MIN_SELFTEST=607          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (607 checks), 8 November 2026: the bug hunt's package A adds twenty-three (the own loop signalled once, an editor, a tail and a wrapper line untouched and a loop under sh -x stopped, the start claim, the stop wiring, cleanup's second signal, start_airodump beside a daemon, airodump's power -1 and its gate, the iw parser and its security rules, recondb_failed's words, the homing target, its change and its absence, the sweeps of the bt5 copy and the .g file, cache_break's fresh take, write_empty's escaping, btco_fill's TAB); 584 on 7 November 2026: the pending profile across an absence, the unknown label at a confirmed change and the row without a channel add three; 581 on 1 November 2026: the memo's wiring in bt_blue5_read and an unreadable list add two; 579 the same day: the memo of the Bluetooth company list adds seven; 572 on 31 October 2026: the review of the 0.2.7 collector commits added four (Remote ID ranges and ids once more, the WIDS rank for one address, the WIDS memory, the ceiling of 20); 568 the same day: the watch list of 0.2.7 is in (six checks: the forms, homing and alerts untouched, the limits, absence, hostile entries, a whole cycle); 562 the same day: the Bluetooth classes of 0.2.7 are in (seven checks: Apple message types, 16-bit services, appearance categories, the rank, the refusals, hold and the window source, a database without the columns), Remote ID (five: the messages and a pack, the refusals, ranges and ids, hold and merge, the cap of eight) and the WIDS kinds (seven: the switch, own_name, sec_profiles, the sequence of sec_weaker and chan_changed, bt_fixed_new, the caps and the rank, hostile names); 543 on 30 October 2026 with the cases of 0.2.6.2; 533 on 24 October 2026: the cheaper cycle of 0.2.6 is in (the window cut out once, the reduced batch and its tail, the pace, the hourly line, the small savings, the readiness poll and the verdict without processes: 29 checks, among them the table judged by its CREATE, the shape change under the winners, a winner that comes back empty, a batch through the pick with the table, a tail with rows, the hop section at the start, the markers the final awk skips, the window's wait off the pace); 504 the same day with the cases for the recon.db copy, the failed pass, the publish checks and the interval; 482 on 19 October 2026 with the alert log's eleven cases)
+MIN_SELFTEST=608          # sh starchorus-collect.sh --selftest 2>&1 | sed -n 's/.*SELFTEST: //p'   (measured: ALL PASS (608 checks), 9 November 2026: bt_pick's table adds one; 607 on 8 November 2026: the bug hunt's package A adds twenty-three (the own loop signalled once, an editor, a tail and a wrapper line untouched and a loop under sh -x stopped, the start claim, the stop wiring, cleanup's second signal, start_airodump beside a daemon, airodump's power -1 and its gate, the iw parser and its security rules, recondb_failed's words, the homing target, its change and its absence, the sweeps of the bt5 copy and the .g file, cache_break's fresh take, write_empty's escaping, btco_fill's TAB); 584 on 7 November 2026: the pending profile across an absence, the unknown label at a confirmed change and the row without a channel add three; 581 on 1 November 2026: the memo's wiring in bt_blue5_read and an unreadable list add two; 579 the same day: the memo of the Bluetooth company list adds seven; 572 on 31 October 2026: the review of the 0.2.7 collector commits added four (Remote ID ranges and ids once more, the WIDS rank for one address, the WIDS memory, the ceiling of 20); 568 the same day: the watch list of 0.2.7 is in (six checks: the forms, homing and alerts untouched, the limits, absence, hostile entries, a whole cycle); 562 the same day: the Bluetooth classes of 0.2.7 are in (seven checks: Apple message types, 16-bit services, appearance categories, the rank, the refusals, hold and the window source, a database without the columns), Remote ID (five: the messages and a pack, the refusals, ranges and ids, hold and merge, the cap of eight) and the WIDS kinds (seven: the switch, own_name, sec_profiles, the sequence of sec_weaker and chan_changed, bt_fixed_new, the caps and the rank, hostile names); 543 on 30 October 2026 with the cases of 0.2.6.2; 533 on 24 October 2026: the cheaper cycle of 0.2.6 is in (the window cut out once, the reduced batch and its tail, the pace, the hourly line, the small savings, the readiness poll and the verdict without processes: 29 checks, among them the table judged by its CREATE, the shape change under the winners, a winner that comes back empty, a batch through the pick with the table, a tail with rows, the hop section at the start, the markers the final awk skips, the window's wait off the pace); 504 the same day with the cases for the recon.db copy, the failed pass, the publish checks and the interval; 482 on 19 October 2026 with the alert log's eleven cases)
 MIN_SECTIONS=42           # grep -c '==== [0-9][0-9] ' starchorus.html                        (measured: 00..41; a bare '==== [0-9]' also counts the 17b marker)
 MIN_SRC_FILES=37          # grep -c '' src/PAGE.list   (measured: 46 = four frame parts and one fragment for each of 00..41; about 80 %)
 MIN_FIXTURES=16           # ls tests/fixtures/*.json | wc -l   (measured: 16, wids.json of 0.2.7 included; 15 before)
@@ -469,7 +470,9 @@ rowif "theme-id comparisons outside §39:$tc" [ "$tcbad" = 0 ]
 dt=$(grep -o '\[data-theme[~^$*|]\{0,1\}=' "$H" | wc -l | tr -d ' ')
 rowif "[data-theme= = $dt (≤ baseline $BASE_DATA_THEME)" [ "$dt" -le "$BASE_DATA_THEME" ]
 dn=$(sed "$DATENOW_STRIP" "$H" | grep 'Date\.now' | grep -vcE "$DATENOW_OK")
-rowif "Date.now outside DTG clock = $dn (≤ $BASE_DATENOW_BAD)" [ "$dn" -le "$BASE_DATENOW_BAD" ]
+dn1=$(sed "$DATENOW_STRIP" "$H" | grep -E "$DATENOW_OK" | grep -o 'Date\.now' | grep -c .)   # the one allowed line holds exactly one: a second call on it would otherwise be laundered
+dnok=0; [ "$dn" -le "$BASE_DATENOW_BAD" ] && [ "$dn1" = 1 ] && dnok=1
+rowif "Date.now outside DTG clock = $dn (≤ $BASE_DATENOW_BAD); the dtgTick line holds one ($dn1)" [ "$dnok" = 1 ]
 # the dump is line-numbered, so it cannot reuse the anchored $DATENOW_OK: it prints every Date.now line
 [ "$dn" -le "$BASE_DATENOW_BAD" ] || grep -n 'Date\.now' "$H" | cut -c1-140 | sed 's/^/    /'
 nd=$(grep -cE 'new Date\([[:space:]]*\)' "$H"); bd=$(grep -E '(^|[^.A-Za-z0-9_$])Date[[:space:]]*\(' "$H" | grep -vc 'new Date')
@@ -503,9 +506,11 @@ for fj in "$F"/*.json; do
 done
 fxok=0; [ "$vbad" = 0 ] && ge "$vn" "$MIN_FIXTURES" && fxok=1
 rowif "fixtures validate ($vn files ≥ $MIN_FIXTURES)" [ "$fxok" = 1 ]
+rm -f "out/$P-active.json"   # no copy of an earlier run may stand in for a generator that failed
+axok=1
 # shellcheck disable=SC2086   # ACTIVE_GEN is a flag list
-python3 tools/gen-testdata.py $ACTIVE_GEN --out "out/$P-active.json" 2>/dev/null
-rowif "active.json = gen-testdata $ACTIVE_GEN" cmp -s "out/$P-active.json" "$F/active.json"
+python3 tools/gen-testdata.py $ACTIVE_GEN --out "out/$P-active.json" 2>/dev/null && cmp -s "out/$P-active.json" "$F/active.json" && axok=0
+rowif "active.json = gen-testdata $ACTIVE_GEN (the generator exits 0, the file is fresh)" [ "$axok" = 0 ]
 # self-containment covers the WHOLE harness, not just tools/*.sh|*.py: the drop-ins and the eval sources
 # are exactly where a change is most likely to bake in an absolute path. The git hook is part of it.
 set -- tools/*.sh tools/*.py .githooks/pre-commit

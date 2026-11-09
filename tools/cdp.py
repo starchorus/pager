@@ -35,7 +35,7 @@ have run and the report is written. Without it an unmet --ready shows only as "m
 sky for one on its capture. A caller that reads no report passes --ready-strict.
 
 Exit code 0 on success (even if the page logged errors -- check the report),
-1 on driver failure, 3 for an unmet --ready under --ready-strict. SIGTERM and SIGHUP end the run as 143 and 129, Chrome stopped
+1 on driver failure or on a page that never loaded (navigate_error in the report; the --ready-strict check of 3 comes first), 3 for an unmet --ready under --ready-strict. SIGTERM and SIGHUP end the run as 143 and 129, Chrome stopped
 and its profile removed first. The report (JSON) lists console entries, exceptions,
 eval results (--eval, then eval/clickat steps, in order) and measured fps.
 It also lists every request the page actually made (CDP Network domain) under "requests":
@@ -211,7 +211,10 @@ class CDP:
         if "exceptionDetails" in r:
             ex = r["exceptionDetails"]
             return {"error": ex.get("exception", {}).get("description") or ex.get("text")}
-        return r.get("result", {}).get("value")
+        res = r.get("result", {})
+        if "unserializableValue" in res:   # NaN, Infinity, -0, a BigInt: CDP cannot send these by value, and null would read as undefined
+            return {"unserializable": res["unserializableValue"]}
+        return res.get("value")
 
 
 def fmt_console_arg(a):
@@ -311,7 +314,9 @@ def main():
         cdp.call("Log.enable")
         cdp.call("Network.enable")   # the requests the page really makes (see "requests" in the report)
         cdp.call("Page.enable")
-        cdp.call("Page.navigate", {"url": args.url})
+        nav = cdp.call("Page.navigate", {"url": args.url})
+        if isinstance(nav, dict) and nav.get("errorText"):   # a page that never loaded (connection refused, a wrong port): said, counted, exit 1
+            report["navigate_error"] = nav["errorText"]
         if args.ready is None:
             cdp.pump(args.wait)
         else:
@@ -327,7 +332,7 @@ def main():
                     v = cdp.evaluate(args.ready, timeout=max(0.2, min(left, 5.0)))
                 except RuntimeError:
                     v = None
-                if v and not (isinstance(v, dict) and "error" in v):
+                if v and not (isinstance(v, dict) and ("error" in v or "unserializable" in v)):   # NaN, -0 and 0n are falsy in JS: not met
                     met = True
                     break
                 cdp.pump(0.1)
@@ -448,13 +453,15 @@ def main():
             signal.signal(s, signal.SIG_DFL)
 
     errors = [c for c in report["console"] if c.get("type") in ("error", "assert")] + report["exceptions"]
-    report["error_count"] = len(errors)
+    report["error_count"] = len(errors) + (1 if report.get("navigate_error") else 0)
     if args.json:
         print(json.dumps(report, indent=1))
     else:
         print("url:        ", report["url"])
         print("fps:        ", report["fps"])
         print("errors:     ", report["error_count"])
+        if report.get("navigate_error"):
+            print("navigate:   ", report["navigate_error"])
         print("requests:   ", len(report["requests"]))
         for e in errors:
             print("  ERROR:", json.dumps(e))
@@ -468,6 +475,8 @@ def main():
     if args.ready_strict and not report["ready"]["met"]:   # after the report: it says what was asked and what the probes saw
         print("cdp.py: --ready not met within --wait %g s (--ready-strict): exit 3" % args.wait, file=sys.stderr)
         return 3
+    if report.get("navigate_error"):
+        return 1
     return 0
 
 

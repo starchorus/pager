@@ -244,7 +244,7 @@ ins_cmds_bad() {   # ins_cmds_bad LOG -> the remote commands the header's list d
                    # and so is a log line of the wrong shape, and an scp whose remote path is not one of the two directories (legacy scp -O hands that path to the remote shell)
   awk -F'\t' "$INS_AWK_SHAPE"'
     BEGIN {
-      dp = "/root/(loot/starchorus|payloads/user/reconnaissance/starchorus)/[A-Za-z0-9._-]+"
+      dp = "/root/(loot/starchorus|payloads/user/reconnaissance/starchorus)/[A-Za-z0-9_-][A-Za-z0-9._-]*"   # a file name, never . or .. (the directory itself or its parent)
       n = 0
       ok[++n] = "^mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus$"
       ok[++n] = "^chmod [+]x " dp "( " dp ")*$"

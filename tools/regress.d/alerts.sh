@@ -48,9 +48,9 @@ AL_Q="?poll=0&spin=0&intro=0&debug=1"
 AL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # ---- R1 the fixture and the validator
-python3 tools/gen-testdata.py --alerts --out "$AL_T/gen.json" 2>/dev/null
+rm -f "$AL_T/gen.json"; AL_GRC=0; python3 tools/gen-testdata.py --alerts --out "$AL_T/gen.json" 2>/dev/null || AL_GRC=$?   # a fresh file, and the generator's own status
 AL_VL=$(python3 tools/gen-testdata.py --validate "$AL_FX" 2>&1 | tail -n 1)
-AL_OK=0; if cmp -s "$AL_FX" "$AL_T/gen.json"; then case $AL_VL in *" OK") AL_OK=1 ;; esac; fi
+AL_OK=0; if [ "$AL_GRC" = 0 ] && cmp -s "$AL_FX" "$AL_T/gen.json"; then case $AL_VL in *" OK") AL_OK=1 ;; esac; fi
 rowif "alerts: alerts.json = gen-testdata.py --alerts byte for byte, and it validates" [ "$AL_OK" = 1 ]
 [ "$AL_OK" = 1 ] || echo "    validate: $AL_VL"
 # twelve broken alerts[]: each must be refused for alerts[] itself (a PROBLEM line naming it), the unbroken fixture not
@@ -88,9 +88,9 @@ rowif "alerts: the validator refuses twelve broken alerts[] (a type outside the 
 # ---- R1b the fixture of the five kinds of 0.2.7 (tests/fixtures/wids.json = gen-testdata.py --wids, the ground truth in the header of build_wids_doc): the
 # generator's, valid, and three more refusals on its alerts[]: a kind outside the six, a second kind for one address, a name where the address belongs
 AL_WX="$F/wids.json"
-python3 tools/gen-testdata.py --wids --out "$AL_T/gen-wids.json" 2>/dev/null
+rm -f "$AL_T/gen-wids.json"; AL_WGRC=0; python3 tools/gen-testdata.py --wids --out "$AL_T/gen-wids.json" 2>/dev/null || AL_WGRC=$?
 AL_WVL=$(python3 tools/gen-testdata.py --validate "$AL_WX" 2>&1 | tail -n 1)
-AL_OK=0; if cmp -s "$AL_WX" "$AL_T/gen-wids.json"; then case $AL_WVL in *" OK") AL_OK=1 ;; esac; fi
+AL_OK=0; if [ "$AL_WGRC" = 0 ] && cmp -s "$AL_WX" "$AL_T/gen-wids.json"; then case $AL_WVL in *" OK") AL_OK=1 ;; esac; fi
 rowif "alerts: wids.json = gen-testdata.py --wids byte for byte, and it validates" [ "$AL_OK" = 1 ]
 [ "$AL_OK" = 1 ] || echo "    validate: $AL_WVL"
 AL_WBR=$(python3 - "$AL_WX" "$AL_T" <<'PY'

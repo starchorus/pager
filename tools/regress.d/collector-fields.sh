@@ -14,8 +14,9 @@ CFL_Q="?poll=0&spin=0&intro=0&debug=1"
 CFL_RDY="window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'"
 
 # ---- fixture = generator output
-python3 tools/gen-testdata.py --secsuite --out "out/$P-secsuite.json" 2>/dev/null
-rowif "secsuite.json = gen-testdata --secsuite" cmp -s "out/$P-secsuite.json" "$F/secsuite.json"
+rm -f "out/$P-secsuite.json"   # no copy of an earlier run may stand in for a generator that failed
+CFL_GEN=1; python3 tools/gen-testdata.py --secsuite --out "out/$P-secsuite.json" 2>/dev/null && cmp -s "out/$P-secsuite.json" "$F/secsuite.json" && CFL_GEN=0
+rowif "secsuite.json = gen-testdata --secsuite (the generator exits 0, the file is fresh)" [ "$CFL_GEN" = 0 ]
 
 # ---- the page reads the collector's fields: classes, legend, detail rows, counts only for own_*, P1 for stations
 CFL_EV='(async()=>{

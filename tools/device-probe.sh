@@ -44,7 +44,7 @@
 #     directory (the exact output is recorded: -c 4 must give the last four bytes); `/bin/bash --version`; and one `case` that holds [[:xdigit:]]
 #     patterns, run with `-c` on two literals once under /bin/bash and, for comparison, once under `sh -c`. No script and no file of the device is
 #     given to either shell, and both are started with BASH_ENV and ENV empty, so none is sourced. Besides these run only `readlink -f` and the text
-#     filters head, cut, tr and sed on their output, and the privacy filter that every section ends with (flush: tr, sed, awk, grep, cut). That bash
+#     filters head, cut, tr and sed on their output, and the privacy filter that every section ends with (flush: tr, sed, awk, grep). That bash
 #     exists and takes the pattern is all this shows: how the firmware starts an alert payload (which shell, which variables, once per event or per
 #     burst) stays open (docs/device-notes.md 5c).
 #   * Privacy (rule P9: the pasted output ends up in the repo): everything that comes out of recon.db is a count,
@@ -159,7 +159,7 @@ flush() {
     [ -s "$OUT" ] || return 0
     clean < "$OUT" | scrub > "$T/flushed"
     RED=$((RED + $(grep -c '<mac-withheld>' "$T/flushed")))
-    cut -c1-400 "$T/flushed"
+    awk '/^V-[0-9]/ { print; next } { print substr($0, 1, 400) }' "$T/flushed"   # the verdict lines keep their hint whole; every other line is cut at 400
     : > "$OUT"
 }
 heading() { flush; printf '\n== %s. %s ==\n' "$1" "$2"; }
@@ -216,7 +216,7 @@ sqk() {
     if [ "$_kr" -ne 0 ]; then say "note: query failed (rc $_kr): $(sqerr)"; fi
 }
 hascol() { case $1 in *",$2,"*) return 0 ;; esac; return 1; }      # hascol ",a,b," name
-tok() { printf '%s\n' "$1" | sed -n "s/.* $2=\\([-0-9a-zA-Z.]*\\).*/\\1/p" | head -n 1; }   # value of " key=" in a line
+tok() { printf '%s\n' "$1" | sed -n "s|.* $2=\\([-0-9a-zA-Z./]*\\).*|\\1|p" | head -n 1; }   # value of " key=" in a line (a / as well: the SQL says n/a for a missing time; | delimits, so no backslash enters the class)
 hint_add() { _hint="${_hint:+$_hint; }$1"; }                    # append one observation to the running hint text
 # Names on a device can carry an SSID or a BSSID (rule P9), so a name is never printed "if it looks harmless" but
 # only "if it is on a list". Candidate paths (section 6): a path component is printed only when every token of it

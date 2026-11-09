@@ -2147,7 +2147,7 @@ alerts_look() {
 }
 # $1 = the document (rewritten in place, or left alone when the pass failed its shape check), $2 = the Bluetooth mode (see AWK_LAYERS). Reads $ts,
 # BT_HELD, the window's parse output, the RECON CHANNELS file of this process and, when alerts_look set AL_ON, the last 256 KiB of alerts.log: a snapshot,
-# so that the awk reads a file that stays as it is while a companion alert appends to the log (the companion keeps 2,000 lines of about 90 bytes, so a
+# so that the awk reads a file that stays as it is while a companion alert appends to the log (the companion keeps at most 2,200 lines of about 90 bytes, so a
 # log of its own is read whole; a larger one is somebody else's, and its first line, cut in the middle, is skipped and said). Returns post_keep's answer;
 # BT_HELD_NEW = the records for the next cycle. The alert lines the awk skipped are said once per episode.
 add_layers() {
@@ -5081,7 +5081,8 @@ lay_selftest() {
         [ "$lay_m" = "$lay_x" ] || lay_wok=0
     done
     STARCHORUS_OUTDIR="$lay_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_BT_WINDOW=20 sh "$0" --once > /dev/null 2> "$LAY/w.log"
-    if [ "$lay_wok" = 1 ] && ! grep -q 'Bluetooth' "$LAY/w.log"; then st_pass "STARCHORUS_BT_WINDOW: 5 to 15 whole seconds are taken (a leading zero is no octal), anything else is 5 with one log line; with Bluetooth off the collector says nothing about it"; else st_fail "STARCHORUS_BT_WINDOW: ($lay_wok) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
+    # the positive control of the bare negative below: the run got as far as resolving its source (a collector that died silently would say nothing either)
+    if [ "$lay_wok" = 1 ] && grep -q 'resolved data source:' "$LAY/w.log" && ! grep -q 'Bluetooth' "$LAY/w.log"; then st_pass "STARCHORUS_BT_WINDOW: 5 to 15 whole seconds are taken (a leading zero is no octal), anything else is 5 with one log line; with Bluetooth off the collector says nothing about it"; else st_fail "STARCHORUS_BT_WINDOW: ($lay_wok) $(grep Bluetooth "$LAY/w.log" | head -n 2)"; fi
     # the default: no STARCHORUS_BT_WINDOW at all, or an empty one, is a window of 5 s and no complaint (the loop above always names a value, so it cannot tell the default from the fallback)
     lay_dk=1
     for lay_dw in unset empty; do
@@ -6507,6 +6508,19 @@ selftest() {
         if printf '%s' "$2" | json_ok; then st_pass "$1 valid JSON"; else st_fail "$1 JSON"; fi
     }
 
+    # bt_pick, the choice of the Bluetooth source (the device's default auto reads blue5.db when it is there, else the window; an unknown word is none, said once):
+    # driven here, since the preamble above pins the source to window for every later case
+    bp_sv=$BT_SOURCE; bp_sd=$BLUE5_DB; bp_r=""; true > "$tdir/bp.db"
+    for bp_c in auto:present:blue5 auto:absent:window blue5:absent:blue5 window:present:window junk:present:none; do
+        BT_SOURCE=${bp_c%%:*}; bp_m=${bp_c#*:}; bp_m=${bp_m%%:*}
+        if [ "$bp_m" = present ]; then BLUE5_DB="$tdir/bp.db"; else BLUE5_DB="$tdir/no-such.db"; fi
+        BT_CUR=" "; BT_LOGGED=" "; bt_pick 2> "$tdir/bp.log"; bp_r="$bp_r $BT_SRC"
+        [ "$BT_SOURCE" != junk ] || { grep -q "is not auto, blue5 or window" "$tdir/bp.log" && bp_r="$bp_r+said"; }
+    done
+    BT_SOURCE=$bp_sv; BLUE5_DB=$bp_sd; BT_SRC=window; BT_CUR=" "; BT_LOGGED=" "
+    if [ "$bp_r" = " blue5 window blue5 window none+said" ]; then st_pass "bt_pick: auto reads blue5.db when it is there and takes the window when not; blue5 and window as named; an unknown word is none and is said"
+    else st_fail "bt_pick: [$bp_r]"; fi
+
     # ---- 1) airodump CSV -------------------------------------------------------------------
     cat > "$CAPDIR/starchorus-01.csv" <<'CSV'
 BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
@@ -7575,7 +7589,7 @@ SQL
         build_from_recondb "$lt" > "$rpt/lp0.json" 2>/dev/null
         if [ "$lp_c1" = 1 ] && json_ok < "$rpt/lp1.json" \
            && grep -q '"mac": "02:00:00:02:02:01", "rssi": -60, "last_seen": 1789999990, "packets": 40, "probes": \["Q"\]}' "$rpt/lp1.json" \
-           && ! grep '02:00:00:02:02:02' "$rpt/lp1.json" | grep -q packets && grep -q '"mac": "02:00:00:02:02:03".*"packets": 0' "$rpt/lp1.json"; then
+           && grep -q '"mac": "02:00:00:02:02:02"' "$rpt/lp1.json" && ! grep '02:00:00:02:02:02' "$rpt/lp1.json" | grep -q packets && grep -q '"mac": "02:00:00:02:02:03".*"packets": 0' "$rpt/lp1.json"; then   # the station is there first, then it has no packets
             st_pass "station packets: STARCHORUS_TRAFFIC=1 takes the counter of the rows heard in the last 300 s (the newer session's 40, not the old session's 9999), none for a station not heard for five minutes, a zero counter is 0, one query batch"
         else st_fail "station packets: [$(grep '"mac"' "$rpt/lp1.json" | head -n 4)]"; fi
         if ! grep -q packets "$rpt/lp0.json" && json_ok < "$rpt/lp0.json"; then st_pass "station packets: with STARCHORUS_TRAFFIC=0 no station has a packets field"; else st_fail "station packets: field written with Traffic off"; fi

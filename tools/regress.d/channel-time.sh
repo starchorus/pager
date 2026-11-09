@@ -276,10 +276,14 @@ rowif "P8 exactly the six storage keys; the recording, the histories and the thr
 CHT_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); CHT_FE=$(grep -c 'fetch(' starchorus.html)
 if [ "$CHT_NET" = 0 ] && [ "$CHT_FE" = 1 ]; then row "channel/time passivity: no send path in the page (= $CHT_NET), fetch( = $CHT_FE" PASS
 else row "channel/time passivity: no send path in the page (= $CHT_NET), fetch( = $CHT_FE" FAIL; fi
-CHT_CLK=$(awk '/^\/\/ ---- channel\/air\/history\/replay models/,/^function phyEstimate\(/' starchorus.html | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(\)|setTimeout|setInterval')
-rowif "channel/time models read no wall clock and no random (poll-clocked: $CHT_CLK)" [ "$CHT_CLK" = 0 ]
-CHT_UI=$(awk '/^function setDx\(/,/^function applyDrawer\(/' starchorus.html | grep -cE 'Math\.random|Date\.now|performance\.now|setTimeout|setInterval')
-rowif "channel/time drawers read no wall clock and no random ($CHT_UI)" [ "$CHT_UI" = 0 ]
+CHT_MS=$(awk '/^\/\/ ---- channel\/air\/history\/replay models/,/^function phyEstimate\(/' starchorus.html); CHT_ML=$(printf '%s\n' "$CHT_MS" | grep -c .)
+CHT_CLK=$(printf '%s\n' "$CHT_MS" | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(\)|setTimeout|setInterval')
+CHT_MOK=0; [ "$CHT_CLK" = 0 ] && [ "$CHT_ML" -ge 100 ] && printf '%s\n' "$CHT_MS" | grep -q '^function phyEstimate(' && CHT_MOK=1   # the slice must be there and end where it should
+rowif "channel/time models read no wall clock and no random (poll-clocked: $CHT_CLK; slice $CHT_ML lines ≥ 100, ends at phyEstimate)" [ "$CHT_MOK" = 1 ]
+CHT_US=$(awk '/^function setDx\(/,/^function applyDrawer\(/' starchorus.html); CHT_UL=$(printf '%s\n' "$CHT_US" | grep -c .)
+CHT_UI=$(printf '%s\n' "$CHT_US" | grep -cE 'Math\.random|Date\.now|performance\.now|setTimeout|setInterval')
+CHT_UOK=0; [ "$CHT_UI" = 0 ] && [ "$CHT_UL" -ge 100 ] && printf '%s\n' "$CHT_US" | grep -q '^function applyDrawer(' && CHT_UOK=1
+rowif "channel/time drawers read no wall clock and no random ($CHT_UI; slice $CHT_UL lines ≥ 100, ends at applyDrawer)" [ "$CHT_UOK" = 1 ]
 CHT_SEC=$(grep -c 'recording' SECURITY.md)
 rowif "P8 SECURITY.md says the recording, the histories and the threshold are memory only ($CHT_SEC)" [ "$CHT_SEC" -ge 1 ]
 

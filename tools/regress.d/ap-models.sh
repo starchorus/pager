@@ -247,8 +247,9 @@ else
 fi
 
 # ---- fixtures: aged.json = generator output; every recon-db fixture carries last_seen (the collector writes it); field-probes-aged exists
-python3 tools/gen-testdata.py --aged --out "out/$P-aged.json" 2>/dev/null
-rowif "aged.json = gen-testdata --aged" cmp -s "out/$P-aged.json" "$F/aged.json"
+rm -f "out/$P-aged.json"   # no copy of an earlier run may stand in for a generator that failed
+APM_GEN=1; python3 tools/gen-testdata.py --aged --out "out/$P-aged.json" 2>/dev/null && cmp -s "out/$P-aged.json" "$F/aged.json" && APM_GEN=0
+rowif "aged.json = gen-testdata --aged (the generator exits 0, the file is fresh)" [ "$APM_GEN" = 0 ]
 APM_LS=$(python3 - "$F" <<'PY'
 import glob, json, sys
 bad = []

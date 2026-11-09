@@ -109,8 +109,11 @@ tm_lap "phase hygiene, drop-in pin, quick.sh"
 # (sourced in glob order; may use row/rowif/runq/runseq/evalv/ev3/ev3eq/nomatch/budget, $P $F $H $R)
 for rd in tools/regress.d/*.sh; do
   [ -f "$rd" ] || continue
+  rdrb=$nrow
   # shellcheck disable=SC1090   # drop-ins are shellchecked by the row above
   . "./$rd"
+  # a drop-in that ran must have produced a row (PASS, FAIL or NOT COVERED): an emptied or cut file is no silent green
+  rowif "drop-in $(basename "$rd" .sh) ran ($((nrow - rdrb)) rows)" [ "$((nrow - rdrb))" -ge 1 ]
   tm_lap "drop-in $(basename "$rd" .sh)"
 done
 tm_total

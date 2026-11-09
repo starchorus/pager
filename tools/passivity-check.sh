@@ -1373,7 +1373,7 @@ sect_platform:kv device.clock_epoch "$(date +%s 2>/dev/null)"
 main:say "# started (device clock, UTC): $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)"
 ## sed is a filter on a pipe whose program is its own text (the privacy filter's two substitutions, a key=value reader, a line prefix, a trailing comma or blank cut); none is given -i, a w command or a file to change. The privacy filter's command goes on over a backslash: its second line is pinned with the first
 scrub:sed -E -e 's/([0-9A-Fa-f]{2}[:._-]){5}[0-9A-Fa-f]{2}/<mac-withheld>/g' \
--:tok() { printf '%s\n' "$1" | sed -n "s/.* $2=\\([-0-9a-zA-Z.]*\\).*/\\1/p" | head -n 1; }   # value of " key=" in a line
+-:tok() { printf '%s\n' "$1" | sed -n "s|.* $2=\\([-0-9a-zA-Z./]*\\).*|\\1|p" | head -n 1; }   # value of " key=" in a line (a / as well: the SQL says n/a for a missing time; | delimits, so no backslash enters the class)
 sect_recon:_cols=$(cut -d'|' -f2 "$T/ti" | tr -cd 'A-Za-z0-9_\n' | tr '\n' ',' | sed 's/,$//')
 sect_recon:_pk=$(awk -F'|' '$6 + 0 > 0 { printf "%s ", $2 }' "$T/ti" | tr -cd 'A-Za-z0-9_ ' | sed 's/ $//')
 sect_platform:grep '^DISTRIB_' "$RF/etc/openwrt_release" 2>/dev/null | clean | cut -c1-120 | sed 's/^/openwrt_release: /' >> "$OUT"

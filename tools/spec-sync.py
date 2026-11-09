@@ -47,7 +47,13 @@ def replace(doc, name, body):
     for m in (b, e):
         if m not in doc:
             raise ValueError("marker %s not found" % m)
-    return doc[:doc.index(b) + len(b)] + "\n" + body + doc[doc.index(e):]
+    if doc.count(b) != 1 or doc.count(e) != 1:
+        raise ValueError("marker %s or %s is not unique" % (b, e))
+    i = doc.index(b) + len(b)
+    j = doc.find(e, i)   # the end marker after the begin marker, not the first one in the document
+    if j < 0:
+        raise ValueError("marker %s does not follow %s" % (e, b))
+    return doc[:i] + "\n" + body + doc[j:]
 
 
 def main(argv):

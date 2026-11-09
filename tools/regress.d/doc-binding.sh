@@ -27,10 +27,10 @@ runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-dbn-api" --wait 1 --fps 0 --r
 DBN_API=$(evalv "out/$P-dbn-api.json" 1)
 awk '/^## 10\. /{f=1} /^## 11\. /{f=0} f' "$DBN_SPEC" > "$DBN_T/s10.txt"
 cat > "$DBN_T/miss.py" <<'PY'
-import json, sys
+import json, re, sys
 names = json.load(sys.stdin)
 t = open(sys.argv[1], encoding="utf-8").read()
-print(",".join(n for n in names if (n + "(") not in t and ("`" + n + "`") not in t and (n + " ") not in t and (n + ",") not in t))
+print(",".join(n for n in names if not re.search(r"(?<![A-Za-z0-9_])" + re.escape(n) + r"(?![A-Za-z0-9_])", t)))   # the name as a word, not the tail of a longer one
 PY
 DBN_MISS=$(printf '%s' "$DBN_API" | python3 "$DBN_T/miss.py" "$DBN_T/s10.txt" 2>/dev/null)
 DBN_NAPI=$(printf '%s' "$DBN_API" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)))' 2>/dev/null)
@@ -47,7 +47,7 @@ else row "spec binding: every hotkey ($DBN_KEYS) is in §9.6 (missing:${DBN_KM:-
 # every query parameter of the page is in §2.7 (query.intro0 -> ?intro, poll0 -> ?poll, demo1 -> ?demo, rm1 -> ?rm, debug1 -> ?debug)
 DBN_Q=$(grep -o 'query\.[a-zA-Z0-9]*' starchorus.html | sed 's/query\.//' | sort -u | sed 's/^intro0$/intro/;s/^poll0$/poll/;s/^demo1$/demo/;s/^rm1$/rm/;s/^debug1$/debug/' | tr '\n' ' ')
 awk '/^### 2\.7 /{f=1} /^### 2\.8 /{f=0} f' "$DBN_SPEC" > "$DBN_T/s27.txt"
-DBN_QM=""; for DBN_P in $DBN_Q; do grep -q "?$DBN_P" "$DBN_T/s27.txt" || DBN_QM="$DBN_QM $DBN_P"; done
+DBN_QM=""; for DBN_P in $DBN_Q; do grep -Eq "\?$DBN_P([^A-Za-z0-9_]|$)" "$DBN_T/s27.txt" || DBN_QM="$DBN_QM $DBN_P"; done   # ?poll, not ?pollto standing in for it
 if [ -z "$DBN_QM" ] && [ -n "$DBN_Q" ]; then row "spec binding: every query parameter ($DBN_Q) is in §2.7 (missing:${DBN_QM:- none})" PASS
 else row "spec binding: every query parameter ($DBN_Q) is in §2.7 (missing:${DBN_QM:- none})" FAIL; fi
 

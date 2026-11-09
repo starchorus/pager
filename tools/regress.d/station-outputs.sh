@@ -89,7 +89,9 @@ SOU_PG_HAS=$(printf '%s\n' "$SOU_PGO" | grep -c 'Stations (GEN')
 SOU_PG_DBM=$(printf '%s\n' "$SOU_PGO" | sed -n 's/^\(-[0-9]*\) dBm .*/\1/p')
 SOU_PG_ORD=$(printf '%s\n' "$SOU_PG_DBM" | awk 'NR>1 && $1>prev{bad=1} {prev=$1} END{print bad+0}')   # 1 = a line was stronger than the one above (wrong)
 # tie determinism: the two MACs at the weakest shown level appear in ascending MAC order (the sort_by(-.r,.mac) tie-break)
-SOU_PG_RE=$(awk '/^screen_clients\(\)/,/^}/' "$R/starchorus-display.sh" | grep -cE '\b(test|match|capture|scan|sub|gsub)\(')
+SOU_PG_RS=$(sed -n '/^JQ_CLIENTS=/,/^screen_clients()/p' "$R/starchorus-display.sh"); SOU_PG_RL=$(printf '%s\n' "$SOU_PG_RS" | grep -c .)   # the jq program of the screen, not only the eight shell lines
+SOU_PG_RE=$(printf '%s\n' "$SOU_PG_RS" | grep -cE '\b(test|match|capture|scan|sub|gsub)\(')
+[ "$SOU_PG_RL" -ge 10 ] || SOU_PG_RE=NOSLICE
 if [ "$SOU_PG_N" = 8 ] && [ "$SOU_PG_HAS" -ge 1 ] && [ "$SOU_PG_ORD" = 0 ] && [ "$SOU_PG_RE" = 0 ]; then
   row "display Stations screen: 8 client MACs, strongest-first (dBm non-increasing), regex-free jq" PASS
 else

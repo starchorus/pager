@@ -36,9 +36,9 @@ cld_nj() { python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin),sor
 cld_dsp() { STARCHORUS_DISPLAY_PLAIN=1 sh "$1" --once "$2" "$3" 2>&1; }
 
 # ---- R1 the fixture: clouds.json is the generator's output byte for byte and passes the contract check
-python3 tools/gen-testdata.py --clouds --out "$CLD_T/gen.json" 2>/dev/null
+rm -f "$CLD_T/gen.json"; CLD_GRC=0; python3 tools/gen-testdata.py --clouds --out "$CLD_T/gen.json" 2>/dev/null || CLD_GRC=$?   # a fresh file, and the generator's own status
 CLD_VL=$(python3 tools/gen-testdata.py --validate "$CLD_FX" 2>&1 | tail -n 1)
-CLD_OK=0; if cmp -s "$CLD_FX" "$CLD_T/gen.json"; then case $CLD_VL in *" OK") CLD_OK=1 ;; esac; fi
+CLD_OK=0; if [ "$CLD_GRC" = 0 ] && cmp -s "$CLD_FX" "$CLD_T/gen.json"; then case $CLD_VL in *" OK") CLD_OK=1 ;; esac; fi
 rowif "clouds: clouds.json = gen-testdata.py --clouds byte for byte, and it validates" [ "$CLD_OK" = 1 ]
 [ "$CLD_OK" = 1 ] || echo "    validate: $CLD_VL"
 

@@ -128,7 +128,7 @@ DST_BIN="$DST_D/bin"; DST_T="$DST_D/tmp"; mkdir -p "$DST_BIN" "$DST_T" "$DST_D/n
 DST_JQ=$(command -v jq); DST_SH=$(command -v sh); case $DST_SH in /*) ;; *) DST_SH=/bin/sh ;; esac
 DST_MARK='jq incomplete on this device -- counts may be blank. Run: sh starchorus-display.sh --selftest'
 DST_KEEP=0
-DST_SHELLS="sh"; if command -v dash >/dev/null 2>&1; then DST_SHELLS="sh dash"; fi
+DST_SHELLS="sh"; if command -v dash >/dev/null 2>&1; then DST_SHELLS="sh dash"; else notcov "display: the trap rows under dash (dash is not installed: bash as sh runs EXIT on TERM and would mask a missing TERM trap)"; fi
 
 cat > "$DST_BIN/jq" <<'DSTJQ'
 #!/bin/sh

@@ -48,8 +48,10 @@ CTR_N0=$(awk '/==== 34 RENDER LAYERS/,/==== 35 RENDER HUD/' "out/$P-contrast-nor
 CTR_S0=$(awk '/^function drawScopeBg\(/,/^}/' "out/$P-contrast-noring.html" | grep -c 'strokeStyle = THEME\.line\.ring')
 rowif "contrast: the ring pin refuses a page whose Scope has no line.ring stroke (it reads $((CTR_N0 - CTR_S0))/$CTR_S0, not 2/1)" [ "$((CTR_N0 - CTR_S0))/$CTR_S0" = 2/0 ]
 CTR_C=$(grep -c 'c.fillStyle = THEME.ink.secondary; c.fillText(TD.upper ? "CLIENTS"' "$H")
-CTR_P=$(sed -n '/^const CONTRAST_PAIRS/,/^window.STARCHORUS = /p' "$H" | grep -c 'Date\.now\|Math\.random\|performance\.now\|document\.\|getComputedStyle\|fetch(')
-rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P)" [ "$CTR_C/$CTR_P" = 1/0 ]
+CTR_PS=$(sed -n '/^const CONTRAST_PAIRS/,/^window.STARCHORUS = /p' "$H"); CTR_PL=$(printf '%s\n' "$CTR_PS" | grep -c .); CTR_PF=$(printf '%s\n' "$CTR_PS" | grep -c '^function contrastPairs')
+CTR_P=$(printf '%s\n' "$CTR_PS" | grep -c 'Date\.now\|Math\.random\|performance\.now\|document\.\|getComputedStyle\|fetch(')
+CTR_POK=0; [ "$CTR_C" = 1 ] && [ "$CTR_P" = 0 ] && [ "$CTR_PF" = 1 ] && [ "$CTR_PL" -ge 40 ] && CTR_POK=1   # the range must hold contrastPairs and have a body: an empty range reads as pure
+rowif "contrast: bubble caption ink.secondary ($CTR_C), contrast() pure ($CTR_P; range $CTR_PL lines ≥ 40 with contrastPairs = $CTR_PF)" [ "$CTR_POK" = 1 ]
 
 # ---- 0.2, the radio pair: the Bluetooth mark is a contrast pair of its own (render.btMark on surface.base, minimum 3, the ring minimum), in all three themes; the pair is one of
 # the rows CTR_EV1 above already requires to pass. A mark too dark for the ground fails the same API, so the row can bite.

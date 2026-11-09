@@ -211,8 +211,9 @@ done
 # ---- static: keys, passivity of the new code, versions, docs
 OPS_KEYS=$(grep -oE '"starchorus\.[a-z]+\.v[0-9]+"' starchorus.html | sort -u | tr '\n' ' ')
 rowif "P8 the page's local-storage keys are exactly ui/identity/baseline/watch/library/notes [$OPS_KEYS]" [ "$OPS_KEYS" = '"starchorus.baseline.v1" "starchorus.identity.v1" "starchorus.library.v1" "starchorus.notes.v1" "starchorus.ui.v1" "starchorus.watch.v1" ' ]
-OPS_SEC=$(grep -c 'starchorus.library.v1\|starchorus.notes.v1' SECURITY.md)
-rowif "P8 SECURITY.md lists the library and notes keys with their limits ($OPS_SEC)" [ "$OPS_SEC" -ge 2 ]
+OPS_SEC="$(grep -c 'starchorus.library.v1' SECURITY.md)/$(grep -c 'starchorus.notes.v1' SECURITY.md)"   # each key on its own
+OPS_SOK=0; [ "${OPS_SEC%/*}" -ge 1 ] && [ "${OPS_SEC#*/}" -ge 1 ] && OPS_SOK=1
+rowif "P8 SECURITY.md lists the library and notes keys with their limits (library/notes lines $OPS_SEC)" [ "$OPS_SOK" = 1 ]
 OPS_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); OPS_FE=$(grep -c 'fetch(' starchorus.html)
 if [ "$OPS_NET" = 0 ] && [ "$OPS_FE" = 1 ]; then row "operator tools passivity: no send path in the page (method:/POST/XHR/WebSocket/EventSource/sendBeacon = $OPS_NET, fetch( = $OPS_FE)" PASS
 else row "operator tools passivity: no send path in the page (method:/POST/XHR/WebSocket/EventSource/sendBeacon = $OPS_NET, fetch( = $OPS_FE)" FAIL; fi

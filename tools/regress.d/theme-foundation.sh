@@ -108,8 +108,10 @@ fi
 TFD_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); TFD_FE=$(grep -c 'fetch(' starchorus.html)
 if [ "$TFD_NET" = 0 ] && [ "$TFD_FE" = 1 ]; then row "Foundation: passivity: no send path in the page (= $TFD_NET), fetch( = $TFD_FE" PASS
 else row "Foundation: passivity: no send path in the page (= $TFD_NET), fetch( = $TFD_FE" FAIL; fi
-TFD_CLK=$(awk '/^function skyLine\(/,/^function renderAir\(/' starchorus.html | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
-rowif "Foundation: the Compendium and the Vault read no wall clock and no random ($TFD_CLK)" [ "$TFD_CLK" = 0 ]
+TFD_RNG=$(awk '/^function skyLine\(/,/^function renderAir\(/' starchorus.html); TFD_RL=$(printf '%s\n' "$TFD_RNG" | grep -c .); TFD_RA=$(grep -c '^function skyLine(' starchorus.html)
+TFD_CLK=$(printf '%s\n' "$TFD_RNG" | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
+TFD_COK=0; [ "$TFD_CLK" = 0 ] && [ "$TFD_RA" = 1 ] && [ "$TFD_RL" -ge 15 ] && TFD_COK=1   # the range must be there (a renamed function would leave it empty, and 0 would prove nothing)
+rowif "Foundation: the Compendium and the Vault read no wall clock and no random ($TFD_CLK; skyLine once = $TFD_RA, range $TFD_RL lines ≥ 15)" [ "$TFD_COK" = 1 ]
 TFD_LC=$(grep -c 'Math\.random' starchorus.html)
 rowif "Foundation: the dust stays deterministic (Math.random = $TFD_LC)" [ "$TFD_LC" = 0 ]
 

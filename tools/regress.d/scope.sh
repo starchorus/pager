@@ -51,10 +51,10 @@ for SCP_F in $SCP_FNS; do awk -v FN="$SCP_F" '$0 ~ ("^function " FN "\\(") , /^}
 for SCP_C in thv scXY scL scR scU wavePhase; do grep "^const $SCP_C = " "$H" >> "$SCP_CODE"; done
 SCP_CN=$(wc -l < "$SCP_CODE" | tr -d ' ')
 # theme-free: the geometry, the placement, the tick and the frame rule read no token (the drawing functions may)
-SCP_TF=0
-for SCP_F in scopeGeom scopePlace scopeStep scopeWantsFrame; do SCP_X=$(awk -v FN="$SCP_F" '$0 ~ ("^function " FN "\\(") , /^}/' "$H" | grep -cE 'THEME|[^A-Za-z]TD\.|[^A-Za-z]TK[^A-Za-z]'); SCP_TF=$((SCP_TF + SCP_X)); done
+SCP_TF=0; SCP_FN=0   # SCP_FN: the four functions found, each once with a body (an empty range would read 0 and prove nothing)
+for SCP_F in scopeGeom scopePlace scopeStep scopeWantsFrame; do SCP_B=$(awk -v FN="$SCP_F" '$0 ~ ("^function " FN "\\(") , /^}/' "$H"); SCP_X=$(printf '%s\n' "$SCP_B" | grep -cE 'THEME|[^A-Za-z]TD\.|[^A-Za-z]TK[^A-Za-z]'); SCP_TF=$((SCP_TF + SCP_X)); [ "$(grep -c "^function $SCP_F(" "$H")" = 1 ] && [ "$(printf '%s\n' "$SCP_B" | grep -c .)" -ge 2 ] && SCP_FN=$((SCP_FN + 1)); done
 SCP_TF=$((SCP_TF + $(grep -E '^const (thv|scXY|scR|scU) = ' "$H" | grep -cE 'THEME|[^A-Za-z]TD\.|[^A-Za-z]TK[^A-Za-z]')))
-rowif "scope: the geometry, the placement, the tick and the frame rule read no theme token (scopeGeom, scopePlace, scopeStep, scopeWantsFrame, thv, scXY, scR, scU: $SCP_TF reads)" [ "$SCP_TF" = 0 ]
+rowif "scope: the geometry, the placement, the tick and the frame rule read no theme token (scopeGeom, scopePlace, scopeStep, scopeWantsFrame, thv, scXY, scR, scU: $SCP_TF reads; functions found $SCP_FN of 4)" [ "$SCP_TF/$SCP_FN" = 0/4 ]
 SCP_BAD='Math\.random|Date\.now|performance\.now|new Date|createRadialGradient|shadowBlur|AudioContext|new Audio|vibrate\(|fetch\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|new Image|navigator\.|localStorage|sessionStorage|setInterval|\.send\('
 SCP_H=$(grep -cE "$SCP_BAD" "$SCP_CODE")
 # the judge can say no: a dummy with each of three offences must be flagged by the same pattern

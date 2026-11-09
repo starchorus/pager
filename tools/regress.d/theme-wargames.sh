@@ -146,7 +146,9 @@ done
 TWG_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); TWG_FE=$(grep -c 'fetch(' starchorus.html)
 if [ "$TWG_NET" = 0 ] && [ "$TWG_FE" = 1 ]; then row "WarGames: passivity: no send path in the page (= $TWG_NET), fetch( = $TWG_FE" PASS
 else row "WarGames: passivity: no send path in the page (= $TWG_NET), fetch( = $TWG_FE" FAIL; fi
-TWG_CLK=$(awk '/^function recvRingObj\(/,/^function drawThreshold\(/' starchorus.html | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
-rowif "WarGames: the receive ring is page-clock driven, no wall clock or random ($TWG_CLK)" [ "$TWG_CLK" = 0 ]
+TWG_RNG=$(awk '/^function recvRingObj\(/,/^function drawThreshold\(/' starchorus.html); TWG_RL=$(printf '%s\n' "$TWG_RNG" | grep -c .); TWG_RA=$(grep -c '^function recvRingObj(' starchorus.html)
+TWG_CLK=$(printf '%s\n' "$TWG_RNG" | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
+TWG_COK=0; [ "$TWG_CLK" = 0 ] && [ "$TWG_RA" = 1 ] && [ "$TWG_RL" -ge 5 ] && TWG_COK=1   # the range must be there (a renamed function would leave it empty)
+rowif "WarGames: the receive ring is page-clock driven, no wall clock or random ($TWG_CLK; recvRingObj once = $TWG_RA, range $TWG_RL lines ≥ 5)" [ "$TWG_COK" = 1 ]
 TWG_CL=$(grep -c 'LISTEN ONLY' starchorus.html)
 rowif "WarGames: the LISTEN ONLY claim exists once, in the copy tokens ($TWG_CL)" [ "$TWG_CL" = 1 ]

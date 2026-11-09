@@ -180,5 +180,6 @@ OBV_BF=$(awk '/^function baselineSet\(/,/^}/' starchorus.html | sed 's://.*::') 
 OBV_BC=$(printf '%s\n' "$OBV_BF" | grep -c 'S\.clients'); OBV_BK=$(printf '%s\n' "$OBV_BF" | grep -c 'BASELINE_CL_MAX')
 OBV_BP=$(printf '%s\n' "$OBV_BF" | grep -c 'parent\|affinity\|probeVia')
 rowif "baseline: baselineSet walks stations once ($OBV_BC), capped by BASELINE_CL_MAX ($OBV_BK), no association stored ($OBV_BP)" [ "$OBV_BC/$OBV_BK/$OBV_BP" = 1/1/0 ]
-OBV_SEC=$(grep -c 'starchorus.baseline.v1\|starchorus.watch.v1' SECURITY.md)
-rowif "P8 SECURITY.md lists the baseline and watch keys ($OBV_SEC)" [ "$OBV_SEC" -ge 2 ]
+OBV_SEC="$(grep -c 'starchorus.baseline.v1' SECURITY.md)/$(grep -c 'starchorus.watch.v1' SECURITY.md)"   # each key on its own: two lines naming one key are not both
+OBV_SOK=0; [ "${OBV_SEC%/*}" -ge 1 ] && [ "${OBV_SEC#*/}" -ge 1 ] && OBV_SOK=1
+rowif "P8 SECURITY.md lists the baseline and watch keys (baseline/watch lines $OBV_SEC)" [ "$OBV_SOK" = 1 ]

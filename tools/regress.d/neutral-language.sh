@@ -76,6 +76,7 @@ for NTL_PG in starchorus-display.sh library/user/reconnaissance/starchorus/starc
   NTL_SCR="$NTL_SCR ${NTL_PG%/*}:$NTL_RUN/$NTL_ND"
   [ "$NTL_RUN" = "$NTL_ND" ] && [ "$NTL_ND" -ge 7 ] && [ "$NTL_DEF" = "$NTL_DIS" ] || NTL_SBAD="$NTL_SBAD $NTL_PG: covered $NTL_RUN (empty or = summary:${NTL_SILENT:- none}), defined [$NTL_DEF], dispatched [$NTL_DIS];"
   grep -v '^[[:space:]]*#' "$NTL_PG" | grep -o '"[^"]*"' >> "$NTL_LG"
+  grep -v '^[[:space:]]*#' "$NTL_PG" | grep -o "'[^']*'" >> "$NTL_LG"   # single-quoted text as well: a line no fixture reaches is read all the same
 done
 NTL_LN=$(wc -l < "$NTL_LG" | tr -d ' ')
 rowif "P10 display screens covered = screens defined = screens dispatched (covered/defined per copy, covered = output that is not empty and not the summary:$NTL_SCR)" [ -z "$NTL_SBAD" ]

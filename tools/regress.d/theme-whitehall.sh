@@ -151,8 +151,10 @@ done
 TWH_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); TWH_FE=$(grep -c 'fetch(' starchorus.html)
 if [ "$TWH_NET" = 0 ] && [ "$TWH_FE" = 1 ]; then row "Whitehall: passivity: no send path in the page (= $TWH_NET), fetch( = $TWH_FE" PASS
 else row "Whitehall: passivity: no send path in the page (= $TWH_NET), fetch( = $TWH_FE" FAIL; fi
-TWH_CLK=$(awk '/^function toteObj\(/,/^function renderBadge\(/' starchorus.html | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
-rowif "Whitehall: the clock and the tote read no wall clock and no random ($TWH_CLK)" [ "$TWH_CLK" = 0 ]
+TWH_RNG=$(awk '/^function toteObj\(/,/^function renderBadge\(/' starchorus.html); TWH_RL=$(printf '%s\n' "$TWH_RNG" | grep -c .); TWH_RA=$(grep -c '^function toteObj(' starchorus.html)
+TWH_CLK=$(printf '%s\n' "$TWH_RNG" | grep -cE 'Math\.random|Date\.now|performance\.now|new Date\(')
+TWH_COK=0; [ "$TWH_CLK" = 0 ] && [ "$TWH_RA" = 1 ] && [ "$TWH_RL" -ge 15 ] && TWH_COK=1   # the range must be there (a renamed function would leave it empty)
+rowif "Whitehall: the clock and the tote read no wall clock and no random ($TWH_CLK; toteObj once = $TWH_RA, range $TWH_RL lines ≥ 15)" [ "$TWH_COK" = 1 ]
 TWH_DIS=$(grep -c 'NOT A GOVERNMENT SYSTEM' starchorus.html)
 rowif "Whitehall: the disclaimer is in the copy tokens of every banner line ($TWH_DIS occurrences)" [ "$TWH_DIS" -ge 7 ]
 
