@@ -358,7 +358,11 @@ the barcode scanner left out on purpose. The rank is manufacturer type, then ser
 without a class is byte-identical to 0.2.6.2's, and the class is carried through the hold like the rest of the record.
 A database without those columns (the 0.2.6 schema, which the self-test keeps as its control fixture) gives the full
 query no answer: the collector then asks the narrow one, logs the switch once, and tries the full query again with
-the vendor re-check. Measured on the device on 30 October 2026: `mfr` filled in 1,840 of 1,963 rows (1,830 of them
+the vendor re-check. A table without `first_seen` (no firmware is known to have one) would have failed the full and the
+narrow query alike while Alert Rules are on, because the select for the 'new fixed address' rule shares the `-bail`
+call: the collector asks without that select as well, so the layer keeps its records and only that rule is
+silent, logged once and retried at the re-check.
+Measured on the device on 30 October 2026: `mfr` filled in 1,840 of 1,963 rows (1,830 of them
 Apple's), `svc16` in 120 (FCB2 in 107, which names no class), `appearance` in 1. The share of the type bytes and
 the cost of the three columns per cycle are still to be measured there.
 

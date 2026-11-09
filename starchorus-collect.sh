@@ -341,6 +341,8 @@ BT5_RAM=0           # 1 = BT5_DB is a copy of ours to remove after reading
 BT5_MAX=4194304     # cap on the blue5.db copy: above this, no Bluetooth this cycle (it is ~40 KB on the device; RAM only)
 BT5_SV=""           # 1 = blue5.db answered only the narrow query (no mfr, appearance or svc16 column, an older firmware): no classes until the vendor re-check retries the full one
 BT5_SVLOG=0         # 1 = the narrow-query line has been logged; the return to the full query is logged once as well
+BT5_SW=""           # 1 = blue5.db answered only without the W-select (no first_seen column: a schema no firmware is known to have): the rule bt_fixed_new is silent until the re-check retries the select
+BT5_SWLOG=0         # 1 = that line has been logged; the return is logged once as well
 WIDS_SEEN=""        # the WIDS memory (STARCHORUS_WIDS=1): one line per access point, bssid|family|channel|since|last|pending family|pending channel|pending since|alarm type|alarm time|alarm count, at most 500; in memory, like BT_HELD
 BT_HELD=""          # last cycle's Bluetooth records (tab separated: the B fields, last_seen, carry); in memory, like RS_DOCV: a file would outlive a killed collector
 BT_CUR=" "          # the log keys raised in this cycle, and BT_LOGGED = those of the cycle before: a message is logged once per episode (bt_issue)
@@ -1174,7 +1176,9 @@ bt_blue5_done() {
 #     service FFFA, little-endian, then the app code 0D): the decoder in AWK_LAYERS reads the broadcast's messages from it; any other service
 #     data stays in the database. With BT5_SV=1 (a database that lacks the columns, an older firmware: bt_blue5_read sets it when the full
 #     query gives no sentinel) the same statement carries four empty fields instead, so the B-line keeps its 14 fields and the layer its
-#     records; the vendor re-check clears BT5_SV and the full query is tried again;
+#     records; the vendor re-check clears BT5_SV and the full query is tried again; with BT5_SW=1 (a table without first_seen, which the
+#     W-select below needs; bt_blue5_read sets it when the query answers only without that select) the W-select is left out and the rule
+#     bt_fixed_new is silent; the re-check clears BT5_SW as well;
 #   * with STARCHORUS_WIDS=1 a second SELECT adds W-lines (W, addr, strongest rssi, reports, first_seen, last_seen) for bt_fixed_new in
 #     AWK_LAYERS: public or random-static addresses whose first row is younger than ten minutes, heard within the hold, stronger than -50 dBm
 #     with three reports or more, and only from a database whose oldest row is older than an hour (a fresh database makes nothing new); eight at most.
@@ -1190,7 +1194,7 @@ bt_blue5_sql() {
         b5_ci="mfr, appearance, svc16, svcd,"
     fi
     b5_w=""
-    [ "$WIDS" != 1 ] || b5_w="SELECT 'W', lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)), r, pk, fs, ls
+    [ "$WIDS" != 1 ] || [ "$BT5_SW" = 1 ] || b5_w="SELECT 'W', lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)), r, pk, fs, ls
 FROM (SELECT d.mac AS mac, MAX(d.rssi_avg) AS r, MIN(CAST(TOTAL(d.packets) AS INTEGER), 2147483647) AS pk, f.fs AS fs, MAX(d.last_seen) AS ls
       FROM bt_device AS d
       JOIN (SELECT mac, MIN(first_seen) AS fs FROM bt_device WHERE typeof(first_seen)='integer' GROUP BY mac) AS f ON f.mac=d.mac
@@ -1231,8 +1235,9 @@ SELECT '#STARCHORUS_BT5OK#';
 # last_seen. 0 = a complete read, the records (maybe none) in $BT_F.out; 1 = transient (no copy, a bad clock, or no complete answer:
 # the caller makes it a void cycle, mode 2, so the held records fade instead of the layer blinking off). The blue5 tools are never run.
 # The company name, which blue5.db does not hold, is filled from the company list (btco_fill) when one is in use. A copy that gives the full
-# query no complete answer is asked the narrow one once (BT5_SV=1, kept until the vendor re-check clears it): a database without the class
-# columns keeps its Bluetooth layer, without classes, and the switch is logged once each way; a copy that answers neither is the transient case.
+# query no complete answer is asked without the W-select, then the narrow one, then the narrow one without the W-select (BT5_SW=1 and BT5_SV=1,
+# kept until the vendor re-check clears them): a database without the class columns keeps its Bluetooth layer, without classes, one without
+# first_seen keeps it with the rule bt_fixed_new silent, and each switch is logged once each way; a copy that answers no form is the transient case.
 bt_blue5_read() {
     case $1 in ''|0|*[!0-9]*) return 1 ;; esac
     bt_blue5_copy "$BLUE5_DB" || return 1
@@ -1240,15 +1245,29 @@ bt_blue5_read() {
     br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
     case $br_raw in
         *"#STARCHORUS_BT5OK#"*)
-            if [ "$BT5_SV" != 1 ] && [ "$BT5_SVLOG" = 1 ]; then log "Bluetooth: blue5.db answers the full query again (mfr, appearance, svc16, svcd); classes and Remote ID are back"; BT5_SVLOG=0; fi ;;
+            if [ "$BT5_SV" != 1 ] && [ "$BT5_SVLOG" = 1 ]; then log "Bluetooth: blue5.db answers the full query again (mfr, appearance, svc16, svcd); classes and Remote ID are back"; BT5_SVLOG=0; fi
+            if [ "$BT5_SW" != 1 ] && [ "$BT5_SWLOG" = 1 ]; then log "Bluetooth: blue5.db answers with first_seen again; the rule 'new fixed address' (bt_fixed_new) is back"; BT5_SWLOG=0; fi ;;
         *)
-            if [ "$BT5_SV" != 1 ]; then
-                BT5_SV=1; br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
-                case $br_raw in
-                    *"#STARCHORUS_BT5OK#"*) [ "$BT5_SVLOG" = 1 ] || log "Bluetooth: blue5.db has no mfr, appearance, svc16 or svcd column (an older firmware); addresses without a class or Remote ID until the next re-check"; BT5_SVLOG=1 ;;
-                    *) BT5_SV="" ;;
-                esac
-            fi ;;
+            # no complete answer: the parts a schema may lack are left out one at a time, first the W-select (first_seen), then the class columns, then
+            # both; the first form that answers is kept until the re-check (BT5_SW, BT5_SV), each switch logged once. A part an earlier cycle left out
+            # is never asked for again here, and without the W-select (WIDS off) there is nothing to leave out of it. A copy that answers no form is the
+            # transient case below, the flags as they were.
+            br_sv=$BT5_SV; br_sw=$BT5_SW
+            for br_try in 01 10 11; do
+                br_s=${br_try%?}; br_x=${br_try#?}
+                [ "$br_s$br_x" != "${br_sv:-0}${br_sw:-0}" ] || continue
+                [ "$br_s" -ge "${br_sv:-0}" ] && [ "$br_x" -ge "${br_sw:-0}" ] || continue
+                [ "$br_x" = 0 ] || [ "$WIDS" = 1 ] || continue
+                BT5_SV=${br_s#0}; BT5_SW=${br_x#0}
+                br_raw=$(bt_blue5_sql "$BT5_DB" "$1")
+                case $br_raw in *"#STARCHORUS_BT5OK#"*) break ;; esac
+            done
+            case $br_raw in
+                *"#STARCHORUS_BT5OK#"*)
+                    if [ "$BT5_SV" = 1 ] && [ "$br_sv" != 1 ] && [ "$BT5_SVLOG" != 1 ]; then log "Bluetooth: blue5.db has no mfr, appearance, svc16 or svcd column (an older firmware); addresses without a class or Remote ID until the next re-check"; BT5_SVLOG=1; fi
+                    if [ "$BT5_SW" = 1 ] && [ "$br_sw" != 1 ] && [ "$BT5_SWLOG" != 1 ]; then log "Bluetooth: blue5.db has no first_seen column (a schema no firmware is known to have): the layer keeps its records, the rule 'new fixed address' (bt_fixed_new) is silent until the next re-check"; BT5_SWLOG=1; fi ;;
+                *) BT5_SV=$br_sv; BT5_SW=$br_sw ;;
+            esac ;;
     esac
     bt_blue5_done
     case $br_raw in *"#STARCHORUS_BT5OK#"*) ;; *) return 1 ;; esac
@@ -5258,6 +5277,35 @@ lay_selftest() {
         if [ "$b5o_rc/$b5o_sv/$b5o_rc2/$b5o_sv2/$b5o_n/$b5o_rc3/$b5o_sv3/$b5o_n3/$b5o_rc4/$b5o_sv4/$b5o_b/$b5o_same" = 0/1/0/1/1/0/1/0/0//1/1 ] && ! grep -q '"class"' "$b5/o.json"; then
             st_pass "blue5 class: a database without the columns (the 0.2.6 schema) answers the narrow query, logged once, BT5_SV until the re-check clears it; its records are byte-identical to the 2.0 fixture's at the same clock"
         else st_fail "blue5 class: narrow schema (rc/sv $b5o_rc/$b5o_sv then $b5o_rc2/$b5o_sv2, logged $b5o_n; rich with BT5_SV $b5o_rc3/$b5o_sv3 logged $b5o_n3; cleared $b5o_rc4/$b5o_sv4 back $b5o_b; same lines $b5o_same)"; fi
+        # a table without first_seen (no firmware is known to have one): with Alert Rules on the W-select for bt_fixed_new shares the -bail call, so the full and
+        # the narrow query both fail; the query is asked without that select, logged once, the records are those of the control at the same clock, no W-line
+        # is written, BT5_SW holds until the re-check clears it and the return is logged once; without Alert Rules the full query answers at once (control)
+        b5w_sW=$WIDS; WIDS=1; BLUE5_DB="$LAY_BLUE5_NOFS"; BT_HELD=""; ts=$b5_ts; BT5_SV=""; BT5_SW=""; BT5_SVLOG=0; BT5_SWLOG=0
+        bt_blue5_read "$b5_ts" 2> "$b5/w.log"; b5w_rc=$?; b5w_f="$BT5_SV/$BT5_SW"; b5w_wl=$(grep -c "^W" "$BT_F.out" 2>/dev/null); lay_doc "$b5_ts" > "$b5/w.json"; add_layers "$b5/w.json" 1 blue5
+        b5w_l=$(grep '^  "bluetooth": ' "$b5/w.json")
+        bt_blue5_read "$b5_ts" 2>> "$b5/w.log"; b5w_rc2=$?; b5w_f2="$BT5_SV/$BT5_SW"; b5w_n=$(grep -c 'has no first_seen column' "$b5/w.log"); b5w_nc=$(grep -c 'has no mfr' "$b5/w.log")
+        BLUE5_DB="$b5_db"; BT5_SV=""; BT5_SW=""; bt_blue5_read "$b5_ts" 2> "$b5/w2.log"; b5w_rc3=$?; b5w_f3="$BT5_SV/$BT5_SW"; b5w_b=$(grep -c 'answers with first_seen again' "$b5/w2.log")   # the re-check clears both, the full query answers
+        WIDS=0; BLUE5_DB="$LAY_BLUE5_NOFS"; BT5_SV=""; BT5_SW=""; BT5_SWLOG=0; bt_blue5_read "$b5_ts" 2> "$b5/w3.log"; b5w_rc4=$?; b5w_f4="$BT5_SV/$BT5_SW"; b5w_n4=$(grep -c . "$b5/w3.log")
+        if [ "$b5w_rc/$b5w_f/$b5w_wl/$b5w_rc2/$b5w_f2/$b5w_n/$b5w_nc/$b5w_rc3/$b5w_f3/$b5w_b/$b5w_rc4/$b5w_f4/$b5w_n4" = "0//1/0/0//1/1/0/0///1/0///0" ] && [ "$b5w_l" = "$b5_line" ]; then
+            st_pass "blue5 schema without first_seen: with Alert Rules on the query answers without the W-select (BT5_SW, logged once, no W-line, the control's records); the re-check brings the select back, logged once; without Alert Rules nothing is left out"
+        else st_fail "blue5 schema without first_seen: $b5w_rc/$b5w_f/$b5w_wl/$b5w_rc2/$b5w_f2/$b5w_n/$b5w_nc/$b5w_rc3/$b5w_f3/$b5w_b/$b5w_rc4/$b5w_f4/$b5w_n4 (want 0//1/0/0//1/1/0/0///1/0///0), same lines $([ "$b5w_l" = "$b5_line" ] && echo 1 || echo 0)"; fi
+        # without first_seen and without the class columns: the narrow query without the W-select answers, both switches logged once
+        WIDS=1; BLUE5_DB="$LAY_BLUE5_NOFSOLD"; BT_HELD=""; BT5_SV=""; BT5_SW=""; BT5_SVLOG=0; BT5_SWLOG=0
+        bt_blue5_read "$b5_ts" 2> "$b5/w4.log"; b5w_rc5=$?; b5w_f5="$BT5_SV/$BT5_SW"; b5w_n5=$(grep -c -e 'has no first_seen column' -e 'has no mfr' "$b5/w4.log"); lay_doc "$b5_ts" > "$b5/w4.json"; add_layers "$b5/w4.json" 1 blue5
+        b5w_l5=$(grep '^  "bluetooth": ' "$b5/w4.json")
+        if [ "$b5w_rc5/$b5w_f5/$b5w_n5" = "0/1/1/2" ] && [ "$b5w_l5" = "$b5_line" ]; then
+            st_pass "blue5 schema without first_seen or the class columns: the narrow query without the W-select answers (BT5_SV and BT5_SW, both switches logged once), the control's records"
+        else st_fail "blue5 schema without first_seen or the class columns: $b5w_rc5/$b5w_f5/$b5w_n5 (want 0/1/1/2), same lines $([ "$b5w_l5" = "$b5_line" ] && echo 1 || echo 0)"; fi
+        # the real 0.2.6 schema (first_seen kept, no class columns) with Alert Rules on, the path a device on that firmware takes: the full query fails, the
+        # form without the W-select fails too (the class columns are still asked for), the narrow one with the W-select answers; BT5_SW stays empty,
+        # the class line is logged once and the first_seen line never, the records are the control's
+        WIDS=1; BLUE5_DB="$LAY_BLUE5_OLD"; BT_HELD=""; BT5_SV=""; BT5_SW=""; BT5_SVLOG=0; BT5_SWLOG=0
+        bt_blue5_read "$b5_ts" 2> "$b5/w5.log"; b5w_rc6=$?; b5w_f6="$BT5_SV/$BT5_SW"; b5w_n6=$(grep -c 'has no mfr' "$b5/w5.log"); b5w_x6=$(grep -c 'has no first_seen' "$b5/w5.log")
+        b5w_wl6=$(grep -c "^W" "$BT_F.out" 2>/dev/null); lay_doc "$b5_ts" > "$b5/w5.json"; add_layers "$b5/w5.json" 1 blue5; b5w_l6=$(grep '^  "bluetooth": ' "$b5/w5.json")
+        if [ "$b5w_rc6/$b5w_f6/$b5w_n6/$b5w_x6/$b5w_wl6" = "0/1//1/0/0" ] && [ "$b5w_l6" = "$b5_line" ]; then
+            st_pass "blue5 schema of 0.2.6 with Alert Rules on: the narrow query with the W-select answers (BT5_SV alone, the class line logged once, no first_seen line), the control's records, no W-line from its young rows"
+        else st_fail "blue5 schema of 0.2.6 with Alert Rules on: $b5w_rc6/$b5w_f6/$b5w_n6/$b5w_x6/$b5w_wl6 (want 0/1//1/0/0), same lines $([ "$b5w_l6" = "$b5_line" ] && echo 1 || echo 0)"; fi
+        WIDS=$b5w_sW; BLUE5_DB="$b5_db"; BT5_SV=""; BT5_SW=""; BT5_SVLOG=0; BT5_SWLOG=0
         # 25d) Remote ID (ASTM F3411) from svcd: the fixture's third set (clock 3000000) holds single messages, packs and refusals (eight candidates, the cap), the
         # one at 3200000 the ranges and ids, the one at 4000000 twenty candidates
         b5r_ts=3000000; BLUE5_DB="$b5_db"; BT_HELD=""; ts=$b5r_ts; BT5_SV=""; BT5_SVLOG=0
@@ -6712,7 +6760,16 @@ INSERT INTO bt_device(scan,mac,first_seen,last_seen,transports,le_random,connect
  (8,'AABBCC000407',4000000,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC000408',4999400,5000000,1,0,1,-49,3,NULL,''),
  (8,'AABBCC000409',4999900,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC00040A',4999900,5000000,1,0,1,0,5,NULL,''),
  (8,'AABBCC00040B',4999900,5000003,1,0,1,-40,5,NULL,''),(8,'AABBCC00040C',4999900,5000061,1,0,1,-40,5,NULL,'');" 2>/dev/null
-    else LAY_BLUE5_FIX=""; LAY_BLUE5_OLD=""; fi
+        # two more schemas, neither seen on any firmware, for the forms the query falls back to with Alert Rules on: the 2.0 columns without first_seen,
+        # and the 0.2.6 columns without first_seen (the same first rows, so the records are those of the control at the same clock)
+        LAY_BLUE5_NOFS="$tdir/blue5-nofs.db"; LAY_BLUE5_NOFSOLD="$tdir/blue5-nofsold.db"; rm -f "$LAY_BLUE5_NOFS" "$LAY_BLUE5_NOFSOLD"
+        sqlite3 "$LAY_BLUE5_NOFS" "CREATE TABLE bt_device(scan INT,mac TEXT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,
+ad_flags INT,appearance INT,svc16 TEXT,svc_other TEXT,mfr BLOB,svcd BLOB,packets INT,name TEXT);
+$b5x_rows" 2>/dev/null
+        sqlite3 "$LAY_BLUE5_NOFSOLD" "CREATE TABLE bt_device(scan INT,mac TEXT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,
+packets INT,name TEXT);
+$b5x_rows" 2>/dev/null
+    else LAY_BLUE5_FIX=""; LAY_BLUE5_OLD=""; LAY_BLUE5_NOFS=""; LAY_BLUE5_NOFSOLD=""; fi
     lay_selftest "$tdir"
     printf '%s\n' "$out" > "$tdir/emit-csv.json"; lay_check "airodump-csv document" "$tdir/emit-csv.json"
     write_empty 1710000000 "no data" > "$tdir/emit-empty.json"; lay_check "write_empty document" "$tdir/emit-empty.json"
@@ -9079,7 +9136,7 @@ while :; do
     cycle_step
     # Every 120 cycles (10 min at the default interval) re-check the OUI file: a replaced /
     # rewritten file (firmware update, swapped USB stick) restarts the cache. Cheap: a few stats.
-    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; [ "$BLUETOOTH" = 1 ] && setup_btco; BT5_SV=""; fi   # BT5_SV: the full blue5 query is tried again (bt_blue5_read)
+    cyc=$((cyc+1)); if [ "$cyc" -ge 120 ]; then cyc=0; setup_vendor; [ "$BLUETOOTH" = 1 ] && setup_btco; BT5_SV=""; BT5_SW=""; fi   # BT5_SV, BT5_SW: the full blue5 query is tried again (bt_blue5_read)
     # A plain foreground sleep: under busybox ash a caught INT/TERM is handled after the current
     # sleep returns, so --stop takes effect within at most the longer of one INTERVAL and the backoff below (3600 s at most). Backgrounding the sleep and
     # `wait`-ing on it does NOT deliver the trap sooner under ash.
