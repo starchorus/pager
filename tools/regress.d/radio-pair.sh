@@ -418,7 +418,7 @@ rp_row "radio: activity kept apart: activity on 5500 MHz with no channels[] give
   '{"activity":2,"control":"0/1/0/1|watched SSID not heard now: Hub-4432","errors":0,"hopNull":true,"noHop":"0/0/0/0","present":"watched SSID present: Hub-4432","watchNoHop":""}'
 
 # ---- exports: JSON carries bluetooth[] (nine addresses with the mark each is drawn in, the heard word, no exact time) and bluetooth_counts, and a station's rate; the CSV is the 0.1 table
-# (14 columns, every row as wide: Bluetooth addresses are not in it)
+# (15 columns, every row as wide: Bluetooth addresses are not in it)
 RP_EV_EXP="(async()=>{$RP_JS"'
 const A="02:00:00:00:02:01";ld(d=>{d.unassociated.forEach(u=>{if(u.mac===A)u.packets=1000;else delete u.packets;});},G,"rp-exp");ld(d=>{d.unassociated.forEach(u=>{if(u.mac===A)u.packets=1100;else delete u.packets;});},G+40,"rp-exp");await sleep(300);
 const J=JSON.parse(STARCHORUS.exportText("json")),csv=STARCHORUS.exportText("csv").split("\n");
@@ -426,9 +426,9 @@ o.keys=Object.keys(J).join(",");o.apKeys=[...new Set(J.aps.flatMap(a=>Object.key
 o.rate=J.stations.filter(s=>s.rate!==undefined).map(s=>s.mac+"="+s.rate).join(",");
 o.head=csv[0];o.widths=[...new Set(csv.filter(l=>l&&l[0]!=="#").map(l=>l.split(",").length))].join();o.csvBt=csv.filter(l=>/^bluetooth,/.test(l)).length;
 o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
-RP_WANT_EXP='{"apKeys":"band,bssid,channel,class,heard,rssi,security,ssid","bt":"9:addr,addr_type,rssi,reports,company,company_name,name,connectable,heard,mark","counts":"{\"addresses\":9,\"marks\":6,\"rotating\":7,\"fixed\":2,\"window\":6,\"hold\":120}","csvBt":0,"errors":0,"head":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding,bluetooth,bluetooth_counts","noTime":true,"rate":"02:00:00:00:02:01=2.5","widths":"14"}'
+RP_WANT_EXP='{"apKeys":"band,bssid,channel,class,heard,rssi,security,ssid","bt":"9:addr,addr_type,rssi,reports,company,company_name,name,connectable,heard,mark","counts":"{\"addresses\":9,\"marks\":6,\"rotating\":7,\"fixed\":2,\"window\":6,\"hold\":120}","csvBt":0,"errors":0,"head":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud,watched","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding,bluetooth,bluetooth_counts","noTime":true,"rate":"02:00:00:00:02:01=2.5","widths":"15"}'
 rp_run exp "$RP_EV_EXP"
-rp_row "radio: exports: JSON bluetooth[] (9 addresses, the mark of each, a heard word, no exact time), bluetooth_counts, no name field on a hidden network, a station rate of 2.5; the CSV is the 0.1 table, 14 columns, every row as wide, no Bluetooth row" "$RP_WANT_EXP"
+rp_row "radio: exports: JSON bluetooth[] (9 addresses, the mark of each, a heard word, no exact time), bluetooth_counts, no name field on a hidden network, a station rate of 2.5; the CSV is the 0.1 table and the watched column, 15 columns, every row as wide, no Bluetooth row" "$RP_WANT_EXP"
 RP_DB=$(grep -c 'doc.unassociated.length \* 160 + (doc.bluetooth ? doc.bluetooth.length \* 150 : 0);' "$H")
 rowif "radio: docBytes counts bluetooth[] at 150 bytes a record ($RP_DB)" [ "$RP_DB" = 1 ]
 

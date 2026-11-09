@@ -121,6 +121,16 @@ wm_row "watch marks: words and exports: 'in watch.list' in the tooltips of the t
 
 # ---- the judges over what the marks add: the lines of legend, tooltips, sheets and exports (3 themes) that the marked document has and the unmarked one
 # has not; P10, the legal denylist, the direction and distance words and track/pilot/locate/scanner find nothing; a dummy with 'track the target north' is flagged
+# ---- the CSV export: the fifteenth column, watched, is 1 on exactly the listed access point and station (the listed hotspot and own transmitter are no
+# rows of the export at all), empty on the two others and on every row of the unmarked document; no other value
+WM_EV_CSV="(async()=>{$WM_JS"'
+const C=STARCHORUS.exportText("csv").split("\n").filter(l=>l&&l[0]!=="#"),hi=C[0].split(",").indexOf("watched"),cell=(l)=>l.split(",")[hi];
+const on=C.slice(1).filter(l=>cell(l)==="1").map(l=>l.split(",")[0]+":"+l.split(",")[1]).sort().join(" "),off=C.slice(1).filter(l=>cell(l)==="").length,bad=C.slice(1).filter(l=>cell(l)!=="1"&&cell(l)!=="").length;
+o.csv=[hi,on,off,bad].join("|");o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
+wm_run csv "$WM_EV_CSV"; WM_CSV=$WM_V
+wm_run csvplain "$WM_EV_CSV" "out/$P-wm-plain.json"; WM_CSVP=$WM_V
+rowif "watch marks: the CSV column watched is 1 on exactly the listed access point and station, empty on the other two rows and on all four of the unmarked document [$WM_CSV | $WM_CSVP]" [ "$WM_CSV/$WM_CSVP" = '{"csv":"14|ap:02:00:00:00:0d:01 station:02:00:00:00:0e:01|2|0","errors":0}/{"csv":"14||4|0","errors":0}' ]
+
 WM_EV_HARV="(async()=>{$WM_JS"'
 const P=plain(F),harv=async(d)=>{const seen=new Set(),add=(s)=>{for(const l of String(s==null?"":s).split("\n")){const t=l.trim();if(t)seen.add(t);}};STARCHORUS.load(d,"wm-harv");await sleep(1200);
  for(const t of ["foundation","wargames","whitehall"]){STARCHORUS.setTheme(t);await sleep(200);add(document.getElementById("legend").innerText);

@@ -36,7 +36,7 @@ dsp_airp() { DSP_PG air "$1" | awk '
 DSP_BAD=0; DSP_N=0; DSP_SHOW=""
 for DSP_J in "$F"/*.json; do
   DSP_B=$(basename "$DSP_J" .json); DSP_N=$((DSP_N + 1))
-  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding,s.randomisedFree,s.clouds]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
+  runq "$DSP_J" "$DSP_Q" "out/$P-dsp-$DSP_B" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);const s=STARCHORUS.stats(),f=s.fresh,b=s.bandsTotal;return JSON.stringify([s.apsTotal,b["2.4"],b["5"],b["6"],s.alarms,f.t0,f.t1,f.t2,f.t3,f.undated,s.crowding,s.randomisedFree,s.clouds,s.wl]);})()' --eval "$DSP_BZE" --eval "$DSP_AQE" --eval "$DSP_BTE" --eval "$DSP_ACE" >/dev/null 2>&1
   DSP_PAGE=$(evalv "out/$P-dsp-$DSP_B.json" 1 | python3 -c 'import json,sys;print(" ".join(str(x) for x in json.load(sys.stdin)))' 2>/dev/null)
   DSP_OUT=$(DSP_PG summary "$DSP_J")
   DSP_DISP=$(printf '%s\n' "$DSP_OUT" | awk '
@@ -45,11 +45,12 @@ for DSP_J in "$F"/*.json; do
     /^heard < 1 min / { t0=$5; t1=$11; t2=$17; t3=$21; u=0; for (i=1;i<=NF;i++) if ($i=="undated") u=$(i+1) }
     /^Crowding / { split($2,c,"/"); cr=c[1] }
     /^Clients / { for (i=1;i<=NF;i++) { if ($i ~ /^\([0-9]+$/ && $(i+1) ~ /^random/) { rn=substr($i,2) } if ($i ~ /^[0-9]+$/ && $(i+1) ~ /^clouds?\)$/) { nc=$i } } }
-    END { print aps+0, b24+0, b5+0, b6+0, open+0, t0+0, t1+0, t2+0, t3+0, u+0, cr+0, rn+0, nc+0 }')
+    /^Watched: / { w=$2 }
+    END { print aps+0, b24+0, b5+0, b6+0, open+0, t0+0, t1+0, t2+0, t3+0, u+0, cr+0, rn+0, nc+0, w+0 }')
   if [ "$DSP_PAGE" != "$DSP_DISP" ]; then DSP_BAD=$((DSP_BAD + 1)); DSP_SHOW="$DSP_SHOW $DSP_B: page [$DSP_PAGE] display [$DSP_DISP];"; fi
 done
-if [ "$DSP_BAD" = 0 ] && [ "$DSP_N" -ge 13 ]; then row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds; $DSP_BAD differ)" PASS
-else row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds; $DSP_BAD differ)" FAIL; fi
+if [ "$DSP_BAD" = 0 ] && [ "$DSP_N" -ge 13 ]; then row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds, watched; $DSP_BAD differ)" PASS
+else row "display summary = page stats() on all $DSP_N fixtures (APs, bands, alarms, freshness stages, crowding, randomised, clouds, watched; $DSP_BAD differ)" FAIL; fi
 [ "$DSP_BAD" = 0 ] || echo "   $DSP_SHOW"
 
 # ---- busiest channel: the display script's "busiest" = the page's crowdingOf() busiest, on every fixture AND on generated edge documents.
@@ -106,6 +107,19 @@ for DSP_J in "$F"/*.json "$DSP_TD"/*.json; do
   [ "$DSP_BPG" = "$DSP_BPR" ] || { DSP_BZBAD=$((DSP_BZBAD + 1)); DSP_BZSHOW="$DSP_BZSHOW $DSP_B: page [$DSP_BPG] display [$DSP_BPR];"; }
 done
 DSP_BZT=$(find "$DSP_TD" -name '*.json' | wc -l | tr -d ' ')
+# ---- the watch list: on a generated document with one listed access point and one listed station the summary's 'Watched' line = the page's
+# stats().watched (the count of listed access points and stations present), and the mark * ends exactly the listed rows of the top and
+# stations screens (no fixture carries watched, so the fixture loop above compares 0 with 0 there)
+DSP_WD="out/$P-dsp-watched-doc.json"   # not in DSP_TD: the busiest and air loops read every document there
+printf '{"generated":1700000000,"source":"fixture","center":{"label":"edge","own_bssids":["02:00:00:00:00:23"]},"unassociated":[{"mac":"02:00:00:00:00:31","rssi":-60,"watched":true},{"mac":"02:00:00:00:00:32","rssi":-61}],"aps":[%s]}
+' "$(dsp_ap 21 6 -50 2.4 '"watched":true'),$(dsp_ap 22 36 -55 5),$(dsp_ap 23 11 -45 2.4 '"watched":true')" > "$DSP_WD"
+runq "$DSP_WD" "$DSP_Q" "out/$P-dsp-watched" --wait 2 --fps 0 --ready "$DSP_RDY" --eval-timeout 60 --eval '(async()=>{await STARCHORUS.wait(900);return STARCHORUS.stats().wl;})()' >/dev/null 2>&1
+DSP_WP=$(evalv "out/$P-dsp-watched.json" 1); DSP_WS=$(DSP_PG summary "$DSP_WD" | sed -n 's/^Watched: \([0-9]*\) .*/\1/p')
+DSP_WT=$(DSP_PG top "$DSP_WD"); DSP_WC=$(DSP_PG clients "$DSP_WD")
+DSP_WTM=$(printf '%s\n' "$DSP_WT" | grep -c ' \*$'); DSP_WTL=$(printf '%s\n' "$DSP_WT" | grep -c '^-50 dBm  E21  2.4G  WPA2 \*$')
+DSP_WCM=$(printf '%s\n' "$DSP_WC" | grep -c ' \*$'); DSP_WCL=$(printf '%s\n' "$DSP_WC" | grep -c '^-60 dBm  02:00:00:00:00:31  free \*$')
+rowif "display watch list: the summary's Watched line = the page's stats().wl ($DSP_WP) on a generated document with one listed access point, one listed station and one listed own transmitter (left out by both), and the mark * ends exactly the two listed rows of the top ($DSP_WTM) and stations ($DSP_WCM) screens" [ "$DSP_WP/$DSP_WS/$DSP_WTM/$DSP_WTL/$DSP_WCM/$DSP_WCL" = "2/2/1/1/1/1" ]
+
 # vacuity: all 12 fixtures + all 10 edge documents compared; only empty-none has no channel on the page
 if [ "$DSP_BZBAD" = 0 ] && [ "$DSP_BZT" = 10 ] && [ "$DSP_BZN" -ge 22 ] && [ "$DSP_BZE0" = 1 ]; then row "display busiest channel = the page's crowdingOf() on $DSP_BZN documents ($DSP_BZT generated ties/edges; $DSP_BZBAD differ, $DSP_BZE0 without a channel)" PASS
 else row "display busiest channel = the page's crowdingOf() on $DSP_BZN documents ($DSP_BZT generated ties/edges; $DSP_BZBAD differ, $DSP_BZE0 without a channel)" FAIL; fi

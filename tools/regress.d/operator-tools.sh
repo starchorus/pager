@@ -129,7 +129,7 @@ o.errors=STARCHORUS.errors().length;
 return JSON.stringify(o);})()'
 runq "$F/many-clients.json" "$OPS_Q" "out/$P-ops-exp" --wait 3 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval-timeout 90 --eval "$OPS_EVX" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 OPS_X=$(evalv "out/$P-ops-exp.json" 1 | ops_nj); OPS_XE=$(evalv "out/$P-ops-exp.json" 2)
-OPS_XW='{"apKeys":"bssid,ssid,band,channel,security,class,rssi,heard","apsAll":true,"assocColo":true,"csvHead":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud","csvRows":243,"det":"true,true","dialog":"{\"open\":true,\"ta\":true,\"csv\":true,\"sitrep\":true,\"png\":true,\"printed\":1,\"printable\":true,\"esc\":true,\"closed\":true}","errors":0,"footers":"true,true,2","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding","mobile":1,"nAps":25,"own":"02:00:00:00:07:01","sitrepHead":"SITREP · Starchorus / Starchorus · passive observation · not a government system · no official marking","stationCounts":"{\"free\":180,\"associated\":36}","stationLeak":true,"txtOwn":false,"txtSta":true}'
+OPS_XW='{"apKeys":"bssid,ssid,band,channel,security,class,rssi,heard","apsAll":true,"assocColo":true,"csvHead":"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud,watched","csvRows":243,"det":"true,true","dialog":"{\"open\":true,\"ta\":true,\"csv\":true,\"sitrep\":true,\"png\":true,\"printed\":1,\"printable\":true,\"esc\":true,\"closed\":true}","errors":0,"footers":"true,true,2","keys":"footer,generated,source,aps,stations,station_counts,mobile_hotspots,crowding","mobile":1,"nAps":25,"own":"02:00:00:00:07:01","sitrepHead":"SITREP · Starchorus / Starchorus · passive observation · not a government system · no official marking","stationCounts":"{\"free\":180,\"associated\":36}","stationLeak":true,"txtOwn":false,"txtSta":true}'
 if [ "$OPS_X" = "$OPS_XW" ] && [ "$OPS_XE" = 0 ]; then
   row "export: json/csv/sitrep with stations as first-class rows (P6), a station MAC AND its association present (co-located), own BSSIDs and phone hotspots still left out, footer + dialog intact" PASS
 else
@@ -296,7 +296,7 @@ const r=[cell(1,2)===A+"=1+1",cell(2,2)===A+"@SUM(A1)",cell(3,2)===A+"-2+3",cell
  row("ap,"+b(6)+",").indexOf(",\"Cafe, Bar\",")>0,row("ap,"+b(7)+",").indexOf(",\"say \"\"hi\"\"\",")>0,
  /^-5\d$/.test(cell(1,6))&&/^-5\d$/.test(cell(8,6)),row("ap,"+b(8)+",").indexOf(","+A+"=ALIAS(),")>0,
  row("station,3c:22:fb:10:20:41").indexOf(",\""+A+"=HYPERLINK(\"\"http://x\"\",\"\"y\"\")\",")>0,
- C.filter(l=>l.indexOf("ap,")===0).length===9,C[0].split(",").length===14,cell(9,2)===A+"-Infinity"].map(x=>x?1:0).join("");
+ C.filter(l=>l.indexOf("ap,")===0).length===9,C[0].split(",").length===15,cell(9,2)===A+"-Infinity"].map(x=>x?1:0).join("");
 document.getElementById("btn-export").click();await STARCHORUS.wait(100);
 const foc=document.getElementById("export-box").contains(document.activeElement)?1:0;document.getElementById("export-close").click();
 return r+"|"+foc;})()'

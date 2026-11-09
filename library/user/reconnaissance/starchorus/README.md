@@ -244,7 +244,7 @@ every access point whose address or name is listed, and every station and Blueto
 address is, carries
 `"watched": true` in `starchorus.json`; at most 64 entries count, from at most 512 lines. The collector
 reads the file and nothing else: the list is in no document and no log, and the page server does not
-serve it. The page draws the pin mark on them, names the list in the tooltip and in the detail sheet of an access point or a station, and counts the watched access points and stations in the report.
+serve it. The page draws the pin mark on them, names the list in the tooltip and in the detail sheet of an access point or a station, counts the watched access points and stations in the report and writes `1` in the `watched` column of the CSV export; the Overview counts them on its summary and ends their rows on Strongest networks and Stations with ` *`.
 
 **Settings file** `/root/loot/starchorus/settings.conf` (`$STARCHORUS_DIR/settings.conf`): the menu
 and `payload.sh set` write it, and only the keys that were changed, as `KEY=VALUE` lines via a

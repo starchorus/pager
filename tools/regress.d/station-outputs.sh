@@ -24,7 +24,7 @@ sou_n() { grep -cF "$1" "$H"; }
 SOU_ANCHORS="
 1|const stations = S.clientOrder.filter(n => n.target === 1 && !eventSkip(n))
 1|const par = (!n.free && !n.affinity && n.parent && !eventSkip(S.aps.get(n.parent))) ? n.parent : null;
-1|const head = \"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud\";
+1|const head = \"kind,bssid,ssid,band,channel,security,rssi,heard,alias,tags,association,randomized,probes,cloud,watched\";
 "
 SOU_BAD=$(printf '%s\n' "$SOU_ANCHORS" | while IFS='|' read -r _want _pat; do
   [ -n "$_pat" ] || continue

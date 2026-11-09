@@ -586,14 +586,14 @@ CLD_R23J=$(jq -c "$(cat "$CLD_T/jqlib.jq") .center.own_bssids = [\"da:c1:00:a1:0
 rowif "clouds: an own transmitter among the members is left out: cloud 120 (core 119), export 120 = 120 = 120, the address single; the Overview's rule 120 ($CLD_R23; $CLD_R23J)" [ "$CLD_R23/$CLD_R23J" = '{"cloud":[120,119,false],"errors":0,"export":[120,120,120],"own":null,"stats":[120,1]}/[139,1,120]' ]
 
 # ---- R24 what the numbers beside the cloud say: the Inventory's stations chip counts the hidden randomised addresses too (162 in all three
-# modes, beside '140 randomised · 121 in 1 cloud'); the legend's sub-label gives the members (' · 121 in 1 cloud'); the CSV has a trailing cloud
-# column with the cloud id on the 121 member rows and nothing else; the observation hedges ('probably one nearby device' for one cloud,
+# modes, beside '140 randomised · 121 in 1 cloud'); the legend's sub-label gives the members (' · 121 in 1 cloud'); the CSV has a cloud
+# column (the fourteenth) with the cloud id on the 121 member rows and nothing else; the observation hedges ('probably one nearby device' for one cloud,
 # 'possibly one or more nearby devices' for two); a kept cloud's sheet says its rhythm is no longer clear (R5's run, below)
 CLD_EV24='(async()=>{const W=STARCHORUS.wait,E=i=>document.getElementById(i),o={};STARCHORUS.setToggles({inventory:true,observations:true});await W(500);o.inv=[];
 for(const m of ["cloud","show","hide"]){STARCHORUS.setToggles({random:m});await W(500);const t=E("inv-body").textContent,a=t.match(/(\d+) stations \(count only\)/),b=t.match(/(\d+) randomised( · \d+ in \d+ clouds?)?/);o.inv.push(m+": "+(a?a[1]:"-")+" | "+(b?b[0]:"-"));}
 STARCHORUS.setToggles({random:"cloud"});await W(300);o.legend=E("leg-random-cl").textContent;
-const csv=STARCHORUS.exportText("csv").trim().split("\n"),head=csv[0].split(","),rows=csv.slice(1,-1),idc=rows.map(r=>r.split(",").pop()).filter(Boolean);
-o.csv=[head[head.length-1],[...new Set(rows.map(r=>r.split(",").length))].join(),rows.length,idc.length,[...new Set(idc)].length,idc[0].slice(0,3)];
+const csv=STARCHORUS.exportText("csv").trim().split("\n"),head=csv[0].split(","),rows=csv.slice(1,-1),ci=head.indexOf("cloud"),idc=rows.map(r=>r.split(",")[ci]).filter(Boolean);
+o.csv=[head[ci]+"@"+ci,[...new Set(rows.map(r=>r.split(",").length))].join(),rows.length,idc.length,[...new Set(idc)].length,idc[0].slice(0,3)];
 const d=await (await fetch("starchorus.json",{cache:"no-store"})).json();for(let i=0;i<3;i++){d.generated+=30;STARCHORUS.load(d,"cld-obs");await W(100);}
 o.obs=STARCHORUS.observations().map(x=>x.text).filter(t=>t.includes("randomised addresses in"));o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 runseq "$CLD_FX" "$CLD_T/nums" --eval "$CLD_EV24" --ready "$CLD_RDY" >/dev/null 2>&1
@@ -602,7 +602,7 @@ CLD_EV24B='(async()=>{const W=STARCHORUS.wait,o={};STARCHORUS.setToggles({observ
 o.obs=STARCHORUS.observations().map(x=>x.text).filter(t=>t.includes("randomised addresses in"));o.leg=document.getElementById("leg-random-cl").textContent;o.errors=STARCHORUS.errors().length;return JSON.stringify(o);})()'
 runseq "$CLD_T/twolevels.json" "$CLD_T/nums2" --eval "$CLD_EV24B" --ready "$CLD_RDY" >/dev/null 2>&1
 CLD_R24B=$(evalv "$CLD_T/nums2.json" 1 | cld_nj)
-rowif "clouds: the numbers beside a cloud: stations chip 162 in every mode, legend ' · 121 in 1 cloud' (' · 48 in 2 clouds'), CSV cloud column on 121 rows, observation texts for 1 and 2 clouds ($CLD_R24; $CLD_R24B)" [ "$CLD_R24/$CLD_R24B" = '{"csv":["cloud","14",168,121,1,"rc:"],"errors":0,"inv":["cloud: 162 | 140 randomised · 121 in 1 cloud","show: 162 | 140 randomised · 121 in 1 cloud","hide: 162 | 140 randomised · 121 in 1 cloud"],"legend":" · 121 in 1 cloud","obs":["121 randomised addresses in 1 cloud: probably one nearby device changing its address"]}/{"errors":0,"leg":" · 48 in 2 clouds","obs":["48 randomised addresses in 2 clouds: possibly one or more nearby devices changing their address"]}' ]
+rowif "clouds: the numbers beside a cloud: stations chip 162 in every mode, legend ' · 121 in 1 cloud' (' · 48 in 2 clouds'), CSV cloud column on 121 rows, observation texts for 1 and 2 clouds ($CLD_R24; $CLD_R24B)" [ "$CLD_R24/$CLD_R24B" = '{"csv":["cloud@13","15",168,121,1,"rc:"],"errors":0,"inv":["cloud: 162 | 140 randomised · 121 in 1 cloud","show: 162 | 140 randomised · 121 in 1 cloud","hide: 162 | 140 randomised · 121 in 1 cloud"],"legend":" · 121 in 1 cloud","obs":["121 randomised addresses in 1 cloud: probably one nearby device changing its address"]}/{"errors":0,"leg":" · 48 in 2 clouds","obs":["48 randomised addresses in 2 clouds: possibly one or more nearby devices changing their address"]}' ]
 
 # ---- R25 the probes bite: one-line copies of the page (served to headless Chrome on 127.0.0.1 only), each run on the scene that its rule
 # keeps right; the mutated answer is the predicted one (the unmutated page is the control: R3 and R5 to R24 themselves). Each target

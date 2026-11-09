@@ -5,6 +5,11 @@ All notable changes to Starchorus are listed here, newest first. The format foll
 
 ## Unreleased
 
+### Added
+
+- **The Overview marks the watch list.** A network or station on `watch.list` ends its row on Strongest networks and Stations with ` *`, and the summary counts them ('Watched: 2 (watch.list, marked *)'); the figure is the page's `stats().wl`, which display-parity compares with the Overview on a generated document; a listed own transmitter is left out, as the page leaves it out, while a listed phone hotspot, which the Overview cannot tell from its record, is counted and marked there though the page leaves it unmarked.
+- **The CSV export carries a `watched` column.** The fifteenth column of every row is `1` for a watched access point, station or Remote ID record and empty otherwise; the JSON and the SITREP said it already.
+
 ### Changed
 
 - **The dialogue on a companion alert of another version names the place.** 'In Settings, switch Alerts off, then on.', on two lines: the firmware's own Alerts page only renames the alert directory and renews nothing, so a reader sent to 'Alerts' went there; INSTALL.md and the library README say the same.

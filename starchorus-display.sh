@@ -947,6 +947,7 @@ JQ_SUMMARY='_D(
     _R("probing"; [probers] | length),
     _R("bt"; btlist | if . == null then empty else length end),
     _R("alaps"; alertaps),
+    _R("watched"; ([.center.own_bssids[]? | select(type == "string") | pgmac] | .[0:16]) as $own | ([.aps[] | select(.watched == true and ((((.bssid // "") | tostring | pgmac) as $b | $own | index($b)) == null))] + [.aps[].clients[]? | select(.watched == true)] + [.unassociated[] | select(.watched == true)]) | length),
     _R("center"; .center.label // "This device" | _chomp),
     _R("claim"; (.source // "") | tostring | ascii_downcase | contains("active")),
     _R("fresh"; (.generated | if type == "number" then . else null end) as $g | [.aps[] | apprep | tierof($g)] as $t
@@ -988,6 +989,7 @@ screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines,
     log       "APs $aps   ·   2.4:$b24  5:$b5  6:$b6$(bt_figure "$R_bt")"
     rnd_note
     log       "Clients  $free free$RN · $assoc associated"
+    [ "${R_watched:-0}" -gt 0 ] && log "Watched: $R_watched (watch.list, marked *)"
     log       "$R_fresh"
     log       "Crowding ${lvl:-1}/5 ($(crowd_word "${lvl:-1}"))${bz:+ · busiest $bz}"
     [ "${probing:-0}" -gt 0 ] && log "Probe requests: $probing client(s) naming a network"
@@ -998,9 +1000,9 @@ screen_summary() {   # 1 = no data yet (the waiting line, or the two slow lines,
 
 JQ_TOP='_D(
   _R("gen"; .generated // empty),
-  _R("top"; [.aps[] | {s:((.ssid // "") | oneline), h:((.ssid // "") | tostring | explode | map(select((. >= 32 and . < 127) or (. > 159 and (. < 8203 or . > 8207) and (. < 8234 or . > 8238) and (. < 8288 or . > 8297) and . != 65279))) | length == 0), b:(.band | bandnorm), r:(.rssi | rnum), sec:((.security // "") | oneline), a:(.security | isopenwep)}]
+  _R("top"; ([.center.own_bssids[]? | select(type == "string") | pgmac] | .[0:16]) as $own | [.aps[] | {w:(.watched == true and ((((.bssid // "") | tostring | pgmac) as $b | $own | index($b)) == null)), s:((.ssid // "") | oneline), h:((.ssid // "") | tostring | explode | map(select((. >= 32 and . < 127) or (. > 159 and (. < 8203 or . > 8207) and (. < 8234 or . > 8238) and (. < 8288 or . > 8297) and . != 65279))) | length == 0), b:(.band | bandnorm), r:(.rssi | rnum), sec:((.security // "") | oneline), a:(.security | isopenwep)}]
       | sort_by(.r // -999) | reverse | .[0:8][]
-      | (if .a then "!" else " " end) + (if .r == null then "n/a" else (.r|tostring) end) + " dBm  " + (if .h then "<hidden>" else .s end) + "  " + (if .b == "" then "?" else .b + "G" end) + "  " + .sec))'
+      | (if .a then "!" else " " end) + (if .r == null then "n/a" else (.r|tostring) end) + " dBm  " + (if .h then "<hidden>" else .s end) + "  " + (if .b == "" then "?" else .b + "G" end) + "  " + .sec + (if .w then " *" else "" end)))'
 screen_top() {   # strongest networks by RSSI
     jq_warn; ready top "$JQ_TOP" || return
     log blue "Strongest networks (GEN $GEN)"
@@ -1087,13 +1089,13 @@ JQ_CLIENTS='_D(
     _R("rnd"; $CL.rnd // empty), _R("ncl"; ($CL.clouds // empty) | length),
     _R("assoc"; [.aps[].clients // [] | length] | add // 0),
     _R("clist"; ([$CL.clouds[]?.ids[]]) as $IN
-      | [ (.aps[] | .bssid as $b | (.clients // [])[] | {mac:(.mac // "?"), r:(.rssi | rnum), a:$b, np:0}),
+      | [ (.aps[] | .bssid as $b | (.clients // [])[] | {mac:(.mac // "?"), r:(.rssi | rnum), a:$b, np:0, w:(.watched == true)}),
           (.unassociated[] | select(.mac == null or ((.mac | pgmac) as $p | $IN | index($p)) == null)
-           | {mac:(.mac // "?"), r:(.rssi | rnum), a:null, np:((.probes // []) | length)}),
-          ($CL.clouds[]? | {mac: "", r: (.mean | round), a: null, np: 0, k: .n}) ]
+           | {mac:(.mac // "?"), r:(.rssi | rnum), a:null, np:((.probes // []) | length), w:(.watched == true)}),
+          ($CL.clouds[]? | {mac: "", r: (.mean | round), a: null, np: 0, k: .n, w: false}) ]
       | sort_by(-(.r // -999), .mac) | .[0:8][]
       | if .k != null then (.r|tostring) + " dBm  cloud of \(.k) random addresses"
-        else (if .r == null then "n/a" else (.r|tostring) end) + " dBm  " + .mac + "  " + (if .a then "assoc " + .a else (if .np>0 then "named probe" else "free" end) end) end))'
+        else (if .r == null then "n/a" else (.r|tostring) end) + " dBm  " + .mac + "  " + (if .a then "assoc " + .a else (if .np>0 then "named probe" else "free" end) end) + (if .w then " *" else "" end) end))'
 screen_clients() {
     ready clients "$JQ_CLIENTS" || return
     ACTIVE=$R_claim
@@ -1510,13 +1512,16 @@ ST_JSON
         # access point without an rssi; an rssi of false and one that is a numeric string (both n/a: a reading is a number or nothing)
         ST_TMP=$(mktemp "${TMPDIR:-/tmp}/starchorus-display-st.XXXXXX" 2>/dev/null) || ST_TMP=
         if [ -n "$ST_TMP" ]; then
-            printf '%s\n' '{"generated":100,"source":"selftest","unassociated":[{"mac":"02:00:00:00:00:22","rssi":-70},{"mac":"02:00:00:00:00:23"},{"mac":"02:00:00:00:00:24","rssi":"-61"}],' \
+            printf '%s\n' '{"generated":100,"source":"selftest","unassociated":[{"mac":"02:00:00:00:00:22","rssi":-70,"watched":true},{"mac":"02:00:00:00:00:23"},{"mac":"02:00:00:00:00:24","rssi":"-61"}],' \
                 '"aps":[{"bssid":"02:00:00:00:00:11","ssid":"NoSig","band":"2.4GHz","security":"WPA2","clients":[{"mac":"02:00:00:00:00:21"}]},' \
-                '{"bssid":"02:00:00:00:00:12","ssid":"Sig","rssi":-50,"band":"5","security":"Open"},{"bssid":"02:00:00:00:00:13","ssid":"\n\t\n","rssi":-60,"band":"6","security":"WPA3"},' \
+                '{"bssid":"02:00:00:00:00:12","ssid":"Sig","rssi":-50,"band":"5","security":"Open","watched":true},{"bssid":"02:00:00:00:00:13","ssid":"\n\t\n","rssi":-60,"band":"6","security":"WPA3"},' \
                 '{"bssid":"02:00:00:00:00:14","ssid":"   ","rssi":-65,"security":"WPA2"},{"bssid":"02:00:00:00:00:15","ssid":"\u200b\ufeff","rssi":-62,"band":"5","security":"WPA2"},' \
                 '{"bssid":"02:00:00:00:00:16","ssid":"NoNum","rssi":false,"band":"5","security":"WPA2"}]}' > "$ST_TMP"
             JSON=$ST_TMP; unset CK_top CV_top CO_top CK_clients CV_clients CO_clients
-            st_tp=$(screen_top 2>&1); st_cl=$(screen_clients 2>&1)
+            st_tp=$(screen_top 2>&1); st_cl=$(screen_clients 2>&1); st_sm=$(screen_summary 2>&1)
+            st_has "screen_top: a network on the watch list ends its row with the mark *" "$st_tp" -qxF -- '-50 dBm  Sig  5G  Open *'
+            st_has "screen_clients: a station on the watch list ends its row with the mark *" "$st_cl" -qxF -- '-70 dBm  02:00:00:00:00:22  free *'
+            st_has "screen_summary: the Watched line counts the listed access point and station and names the mark" "$st_sm" -qxF 'Watched: 2 (watch.list, marked *)'
             st_has "screen_top: an access point without an rssi reads n/a, not a reading" "$st_tp" -qxF 'n/a dBm  NoSig  2.4G  WPA2'
             st_has "screen_top: a name of control bytes alone is <hidden>, as the page strips it" "$st_tp" -qxF -- '-60 dBm  <hidden>  6G  WPA3'
             st_has "screen_top: a name of blanks is kept and no band is ?" "$st_tp" -qxF -- '-65 dBm       ?  WPA2'
