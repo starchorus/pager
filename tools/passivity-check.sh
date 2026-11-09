@@ -1198,7 +1198,7 @@ starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/777/fd/0"; ln -s 
 starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/778/fd/0"; ln -s 'socket:[1]' "$BTS/gcproc/778/fd/3"
 starchorus-collect.sh:bt_selftest:ln -s /dev/null "$BTS/gcproc/779/fd/0"; ln -s /dev/null "$BTS/gcproc/779/fd/1"
 starchorus-collect.sh:selftest:( sh "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )
-starchorus-collect.sh:selftest:( sh "$tdir/own/airodump-ng" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
+starchorus-collect.sh:selftest:( sh "$tdir/own/airodump-ng" -w "$CAPPREFIX" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
 starchorus-collect.sh:selftest:( ( cd "$klw/$1" && exec sh "$klw/$1/starchorus-collect.sh" $2 ) </dev/null >/dev/null 2>&1 & echo $! > "$klw/spawn.pid" )
 starchorus-collect.sh:selftest:( cd "$klw/d1" && exec sh "$klw/d1/starchorus-collect.sh" ) </dev/null >/dev/null 2>&1 & klch=$!
 library/user/reconnaissance/starchorus/payload.sh:pl_status:./starchorus-collect.sh --status 2>&1 | while IFS= read -r pl_sl; do ui_log "${pl_sl#\[starchorus\] }"; done

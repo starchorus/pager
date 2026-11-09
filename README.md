@@ -495,7 +495,7 @@ that cycle is built from recon.db and the collector says so once.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview). The companion alert `alert-deauth.sh` does not use it: its log lives in `/root/loot/starchorus-alerts`, a directory of its own (see Alerts). No whitespace in the path: the dev-machine `payload.sh` refuses one, since it finds its servers by their directory as one word. |
+| `STARCHORUS_DIR` | `/root/loot/starchorus` | Installation directory (netcat server, Overview). The companion alert `alert-deauth.sh` does not use it: its log lives in `/root/loot/starchorus-alerts`, a directory of its own (see Alerts). No whitespace in the path: the dev-machine `payload.sh` and the netcat server `starchorus-serve.sh` refuse one (so the menu's netcat fallback does not start on such a path), since the servers are found by their directory as one word. |
 | `STARCHORUS_PORT` | `8199` | Port of the page server. |
 | `STARCHORUS_BIND` | `auto` | Address the page server listens on. `auto`: the IPv4 address of `br-lan` (USB-C and management Wi-Fi), otherwise `172.16.52.1` if an interface has it, otherwise `127.0.0.1` with a note. An IPv4 address: that address only. `all`: every interface, which makes the page and `starchorus.json` (every captured MAC address and SSID) reachable from every network the device is on. On-device payload: also the `bind` key. |
 | `STARCHORUS_MAX_AGE` | `3600` | On-device payload: window of the recon record in seconds (one hour); `0` = the whole record. The collector on its own uses `0`. |

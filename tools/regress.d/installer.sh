@@ -640,6 +640,9 @@ ins_dummy red cmds "$(INS_sl "mkdir -p $INS_L /tmp/x")"
 ins_dummy red cmds "$(INS_sl "head -c 400 /etc/passwd")"
 ins_dummy red cmds "$(INS_sl "opkg install x")"
 ins_dummy red cmds "$(INS_sl "mkdir -p $INS_L $INS_PL ; uname -a")"
+ins_dummy red cmds "$(INS_sl "chmod +x $INS_L/..")"                       # the directory itself or its parent is no file name: the judge's dp wants a name, never . or ..
+ins_dummy red cmds "$(INS_sl "cksum $INS_L/a.sh $INS_PL/.")"
+ins_dummy red cmds "$(INS_sl "mv -f $INS_L/a.sh.new $INS_L/a.sh && mv -f $INS_PL/..new $INS_PL/.")"   # the pairs are <name>.new onto <name>, but . is no name
 INS_CX='-o ControlPath=/x/cm -O exit'
 ins_dummy green cmds "$(INS_sl '' "$INS_CX")"
 ins_dummy red cmds "$(INS_sl '' "$INS_O -O forward -L8080:127.0.0.1:80")"
@@ -742,7 +745,7 @@ ins_dummy red cmds "$(printf 'scp-get\t%s\t-O %s\t%s\t/y' "$INS_HOST" "$INS_O" /
 ins_dummy red opts "$(printf 'ssh\t%s\t%s\t%s\t%s' "$INS_HOST" "$INS_O" 'true' '; uname -a')"
 ins_dummy red scp7 "$(printf '%s\n' "$INS_good" | sed '$d' | sed '$d' | sed '$d')" "$(printf 'scp-up\t%s\t-O %s\t/x\t%s\t%s' "$INS_HOST" "$INS_O" "$INS_PL/alert-deauth.sh.new" '; uname -a')" "$INS_chl" "$INS_mvl"
 printf '%s\n' "$INS_jo" | grep -q '^log line 8 (scp-up): 6 fields' || { INS_jbad=$((INS_jbad + 1)); echo "    judge case $INS_jn (scp7): red, but not for the 6-field line: $INS_jo"; }   # on the good shape: the shape rule is what bites
-INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 66 ] && INS_ok=1   # every case as expected, and none of the 43 of 0.2.4 left out (62 with the cases of the status read and the rename, 65 with the three of the rename pairs, 66 with the green control of the read-back case): one status, as rowif judges only the test it is given
+INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 69 ] && INS_ok=1   # every case as expected, and none of the 43 of 0.2.4 left out (62 with the cases of the status read and the rename, 65 with the three of the rename pairs, 66 with the green control of the read-back case, 69 with the three . and .. cases of 0.2.8): one status, as rowif judges only the test it is given
 rowif "installer judges bite on dummy logs ($((INS_jn - INS_jbad))/$INS_jn as expected: an extra command, a chained one, --status, --stop, a foreign path, a forward (-L and -O forward), an -O exit with a command or an option, a changed option, a third host, swapped, mis-sent and read-back files, a tab or a line break inside a command or a path, a short line, an unknown kind, an scp to or from a path not on the list)" [ "$INS_ok" = 1 ]
 
 # ---- 8. the real mutations: copies of install.sh that send more than the header allows; the judges are red on THEIR logs and green on the real installer's

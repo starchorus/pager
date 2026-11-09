@@ -268,7 +268,7 @@ BTCO_PATH=""        # the Bluetooth company list in use ("" = none: the blue5 so
 BTCO_STATE=""       # last logged company-list state: setup_btco logs only when it changes
 BTCO_MEMO=""        # id<TAB>name lines of the company identifiers earlier cycles looked up (an empty name = not in the list), at most 512; emptied by setup_btco
 STARTED_AIRODUMP=0  # 1 if THIS instance started airodump (only then does cleanup stop it)
-CSV_HOLD=""         # build_from_csv: why nothing was published this cycle (airodump gone, the CSV stale); run_cycle logs it once per episode (bt_issue)
+CSV_HOLD=""         # build_from_csv: why nothing was published this cycle (airodump gone, the CSV stale); run_cycle says it once per episode (bt_issue) and keeps the last document
 SA_KEEP_CSV=0       # 1 = start_airodump leaves the capture CSVs in CAPDIR alone (a --once beside the daemon: its airodump writes them)
 AD_PID=""           # the pid of that airodump: cleanup stops this one, never the one a later start wrote into the shared pidfile
 LOCK_BUDGET=100     # cache_lock: wait at most this long (0.1-s units) for a live holder
@@ -364,15 +364,19 @@ BT_MAXB=8388608     # a window's text over this many bytes: the monitor is stopp
 # seconds a nap really sleeps then), BT_SIGLOG / BT_SIGMSG = a log of the signals bt_sig sends and a directory that receives INT and TERM instead of
 # the processes.
 BT_PROC=${STARCHORUS_PROC_BT:-/proc}; BT_FAKE=""; BT_FAKE_NAP=""; BT_SIGLOG=""; BT_SIGMSG=""
-# The window length: whole seconds from 5 to 15, anything else is 5, the shortest (the daemon says so once at start, see the main section).
-BT_WIN_BAD=""
-case $BT_WIN in
-    ''|*[!0-9]*) BT_WIN_BAD=$BT_WIN ;;
-    *) BT_WIN_N=$BT_WIN
-       while [ "${#BT_WIN_N}" -gt 1 ] && [ "${BT_WIN_N#0}" != "$BT_WIN_N" ]; do BT_WIN_N=${BT_WIN_N#0}; done
-       if [ "$BT_WIN_N" -ge 5 ] && [ "$BT_WIN_N" -le 15 ]; then BT_WIN=$BT_WIN_N; else BT_WIN_BAD=$BT_WIN; fi ;;
-esac
-[ -z "$BT_WIN_BAD" ] || BT_WIN=5
+# The window length: whole seconds from 5 to 15, anything else is 5, the shortest (the daemon says so once at start, see the main section). Digits only,
+# leading zeros dropped (never octal); three digits or more are out of range before the shell has to read them as a number (twenty digits would fail its
+# test). $1 = the setting; sets BT_WIN, and BT_WIN_BAD to the rejected text (empty = fine). A function for the same reason as alert_window.
+bt_window_value() {
+    BT_WIN_BAD=""; BT_WIN=5
+    case $1 in
+        ''|*[!0-9]*) BT_WIN_BAD=$1 ;;
+        *) BW_N=$1
+           while [ "${#BW_N}" -gt 1 ] && [ "${BW_N#0}" != "$BW_N" ]; do BW_N=${BW_N#0}; done
+           if [ "${#BW_N}" -le 2 ] && [ "$BW_N" -ge 5 ] && [ "$BW_N" -le 15 ]; then BT_WIN=$BW_N; else BT_WIN_BAD=$1; fi ;;
+    esac
+}
+bt_window_value "$BT_WIN"
 BT_MON_S=$((BT_WIN + 8))     # the monitor's own dead-man timer: it covers the readiness wait, the pid lookup and the scan
 # The alert window: whole seconds from 60 to 86400, anything else is 600, said once at start (the main section). A function, so that the self-test
 # can put many values through it without starting a collector for each. $1 = the setting; sets ALERT_WIN, and ALERT_WIN_BAD to the rejected text (empty = fine).
@@ -485,7 +489,8 @@ is_own_child() {
 }
 
 # Is $1 the pid of a LIVE process whose command line contains $2? --stop and --status believe a pidfile only while its
-# pid still runs what was started there: the loop runs this script, the capture runs airodump.
+# pid still runs what was started there: the loop runs this script (and pid_meant wants it run as a loop), the capture runs
+# airodump-ng with this collector's -w prefix (the word 'airodump' alone would also name a tail on its log).
 pid_ours() {
     pid_alive "$1" || return 1
     if [ -d "/proc/$1" ]; then
@@ -498,14 +503,13 @@ pid_ours() {
     return 1
 }
 
-# The pids of the collector DAEMON LOOPS as `ps w` shows them, this process left out. A line counts when the script is the command
-# itself or the argument of a shell (sh, ash, bash, dash; a `{thread}` word may stand first, as BusyBox prints it when the comm differs),
-# and no later word is a "--" flag (--stop, --once, --status, --selftest). A line that merely names the file (an editor, a tail, md5sum,
-# a wrapper such as `timeout`) is no loop and is never signalled. The columns before the command are not counted: the word before the
-# script is a shell, or the STAT, TIME or TTY column, or the thread word.
-loop_list() {
-    # shellcheck disable=SC2009  # busybox pgrep/pkill -f are unreliable here; ps+awk is the portable way
-    ps w 2>/dev/null | awk -v s="$SELF_BASE" -v me="$$" '
+# The identity rule, on `ps w` lines (the pid first, then a STAT, TIME or TTY column, then the command): print the pid of every line that runs this
+# script as a loop, that is the script as the command itself or as the argument of a shell (sh, ash, bash, dash; a `{thread}` word may stand first, as
+# BusyBox prints it when the comm differs), with no later "--" flag (--stop, --once, --status, --selftest). A line that merely names the file (an
+# editor, a tail, md5sum, a wrapper such as `timeout`) is no loop and is never signalled. The columns before the command are not counted: the word
+# before the script is a shell, or the STAT, TIME or TTY column, or the thread word. $1 = the pid never to print (the caller).
+loop_ident() {
+    awk -v s="$SELF_BASE" -v me="$1" '
         $1 == me { next }
         function col(x) { return (x ~ /^[A-Z][A-Za-z<>+]*$/ || x ~ /^[0-9]+:[0-9][0-9]/ || x ~ /^(\?|-|pts\/[0-9]+|tty[A-Za-z0-9]*)$/) }   # a STAT, TIME or TTY column
         { k = 0; n = length(s)
@@ -517,6 +521,18 @@ loop_list() {
           else if (substr(p, 1, 1) != "{" && !col(p)) next
           for (i = k + 1; i <= NF; i++) if (substr($i, 1, 2) == "--") next
           print $1 }'
+}
+# The pids of the collector DAEMON LOOPS as `ps w` shows them, this process left out (the rule above).
+loop_list() {
+    # shellcheck disable=SC2009  # busybox pgrep/pkill -f are unreliable here; ps+awk is the portable way
+    ps w 2>/dev/null | loop_ident "$$"
+}
+# Does the pid pid_ours has just said yes to (its command line is in oc) run this script as a LOOP? The loop pidfile is believed only for such a pid:
+# the script's name anywhere in a command line (an editor on it, a tail) is not enough. The rule is loop_ident's, on one line made from that command
+# line; $2 = the word the caller matched, and any other word (the airodump's -w prefix) is judged by pid_ours alone.
+pid_meant() {
+    [ "$2" = "$SELF_BASE" ] || return 0
+    [ -n "$(printf '%s S 0:00 %s\n' "$1" "$oc" | loop_ident 0)" ]
 }
 
 # Kill every running collector DAEMON LOOP, with or without a pidfile (the backstop for the pidfile
@@ -598,11 +614,12 @@ start_claim() {
         if [ -n "$sc_p" ] && pid_ours "$sc_p" "$SELF_BASE"; then return 1; fi
         sc_n=$((sc_n + 1)); [ "$sc_n" -le 4 ] || return 1
         if [ -z "$sc_p" ] && [ "$sc_n" -le 2 ]; then sleep 1; continue; fi   # just made, its pid not written yet: a moment
-        # stale (its holder is gone): taken away by a rename, which only one of two starters wins; one re-made meanwhile (another pid inside) goes back
+        # stale (its holder is gone): taken away by a rename, which only one of two starters wins; one re-made meanwhile (another pid inside) goes back,
+        # unless a further start has taken the name in that moment: then the copy is dropped (a plain mv would nest it inside the new lock and report success)
         if mv "$sc_d" "$sc_d.stale.$$" 2>/dev/null; then
             sc_got=$(cat "$sc_d.stale.$$/pid" 2>/dev/null)
             if [ -z "$sc_got" ] || [ "$sc_got" = "$sc_p" ]; then rm -rf "$sc_d.stale.$$" 2>/dev/null
-            else mv "$sc_d.stale.$$" "$sc_d" 2>/dev/null || rm -rf "$sc_d.stale.$$" 2>/dev/null; fi
+            else [ -e "$sc_d" ] || mv "$sc_d.stale.$$" "$sc_d" 2>/dev/null; rm -rf "$sc_d.stale.$$" 2>/dev/null; fi
         fi
     done
     echo "$$" > "$sc_d/pid"; START_LOCK=$sc_d
@@ -618,7 +635,7 @@ start_release() {
 stop_pidfile() {   # $1 = pidfile, $2 = label, $3 = what its command line holds: kill the pid it names only while it is ours (sets stopped=1), drop the file
     [ -f "$1" ] || return 0
     sp=$(cat "$1" 2>/dev/null)
-    if pid_ours "$sp" "$3"; then
+    if pid_ours "$sp" "$3" && pid_meant "$sp" "$3"; then
         kill "$sp" 2>/dev/null && { log "stopped $2 pid $sp"; stopped=1; SP_KILLED=$sp; }
     elif pid_alive "$sp"; then
         log "left pid $sp alone: it is no $2 any more (stale $(basename "$1"))"
@@ -633,20 +650,21 @@ stop_instances() {
     before=$(loop_list | grep -c .)
     kill_loops stop "$own_sig"
     [ "${before:-0}" -gt 0 ] 2>/dev/null && stopped=1
-    stop_pidfile "$AIRODUMP_PIDFILE" airodump airodump
+    stop_pidfile "$AIRODUMP_PIDFILE" airodump "-w $CAPPREFIX"
     [ "$stopped" = "1" ] || log "nothing running for this OUTDIR ($OUTDIR)"
 }
 
 status_pidfile() {   # $1 = label, $2 = pidfile, $3 = what the command line of a running one holds
-    if [ -f "$2" ] && pid_ours "$(cat "$2" 2>/dev/null)" "$3"; then
-        log "$1 RUNNING (pid $(cat "$2"))"
+    stq_p=$(cat "$2" 2>/dev/null)
+    if [ -f "$2" ] && pid_ours "$stq_p" "$3" && pid_meant "$stq_p" "$3"; then
+        log "$1 RUNNING (pid $stq_p)"
     else
         log "$1 not running"
     fi
 }
 status_instances() {
     status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE"
-    status_pidfile airodump "$AIRODUMP_PIDFILE" airodump
+    status_pidfile airodump "$AIRODUMP_PIDFILE" "-w $CAPPREFIX"
     [ -f "$OUTFILE" ] && log "last JSON: $OUTFILE ($(wc -c < "$OUTFILE" 2>/dev/null) bytes)"
 }
 
@@ -842,7 +860,7 @@ start_airodump() {
     if [ "$SA_KEEP_CSV" != 1 ]; then   # a daemon start; a --once beside the daemon (SA_KEEP_CSV, set in main) leaves the daemon's airodump and its CSVs alone
         # an airodump a loop killed with -9 (no cleanup) may still run under the pidfile's pid: stopped first, else it would write beside this one
         sa_old=$(cat "$AIRODUMP_PIDFILE" 2>/dev/null)
-        if pid_ours "$sa_old" airodump; then kill "$sa_old" 2>/dev/null && log "stopped an airodump left by an earlier run (pid $sa_old)"; fi
+        if pid_ours "$sa_old" "-w $CAPPREFIX"; then kill "$sa_old" 2>/dev/null && log "stopped an airodump left by an earlier run (pid $sa_old)"; fi
         rm -f "$CAPDIR"/starchorus-*.csv 2>/dev/null
     fi
     # only the interface this run made is brought up; one it found (the recon service's, or STARCHORUS_IFACE) is used as it is
@@ -881,7 +899,7 @@ cleanup() {
     [ -z "$BT_MPID$BT_SPID" ] || bt_end abort
     # the airodump THIS instance started, by its own pid; the shared pidfile only while it still names that one (a later start may have written its own)
     if [ "$STARTED_AIRODUMP" = "1" ] && [ -n "$AD_PID" ]; then
-        pid_ours "$AD_PID" airodump && kill "$AD_PID" 2>/dev/null
+        pid_ours "$AD_PID" "-w $CAPPREFIX" && kill "$AD_PID" 2>/dev/null
         [ "$(cat "$AIRODUMP_PIDFILE" 2>/dev/null)" = "$AD_PID" ] && rm -f "$AIRODUMP_PIDFILE"
     fi
     [ "$(cat "$LOOP_PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$LOOP_PIDFILE"
@@ -2931,7 +2949,7 @@ build_from_csv() {
     [ -s "$csv" ] || return 1
     # a CSV airodump no longer writes is no capture: the airodump this run started must still run (its pid, by identity), and the file must have been
     # written within four intervals, 15 s at least (airodump rewrites it every 2 s); else nothing is published this cycle, said once per episode
-    if [ "$STARTED_AIRODUMP" = 1 ] && [ -n "$AD_PID" ] && ! pid_ours "$AD_PID" airodump; then
+    if [ "$STARTED_AIRODUMP" = 1 ] && [ -n "$AD_PID" ] && ! pid_ours "$AD_PID" "-w $CAPPREFIX"; then
         CSV_HOLD="airodump (pid $AD_PID) is gone: no capture this cycle"; return 1
     fi
     if [ "$STARTED_AIRODUMP" = 1 ]; then   # the cadence is known only for the airodump this run started; a CSV handed in (a test, a replay) is read as it is
@@ -4495,7 +4513,7 @@ refresh_generated() {   # $1 = now, $2 = where the document goes
 run_cycle() {
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
     tmp="$OUTFILE.tmp.$$"
-    ok=1; CENTER_DONE=0; rc_skip=0; RQ_HOLD=""; RQ_TORN=""
+    ok=1; CENTER_DONE=0; rc_skip=0; RQ_HOLD=""; RQ_TORN=""; CSV_HOLD=""
     BT_CUR=" "; BT_RC=3; TR_PID=""
     if [ "$BLUETOOTH" = 1 ]; then bt_pick; [ "$BT_SRC" = window ] && { bt_begin; BT_RC=$?; }; fi
     # RECON CHANNELS is called on the first cycle and then every second one: the AP service's command-line client is about 48 ticks a call on the device, and its own
@@ -4552,7 +4570,8 @@ run_cycle() {
     fi
     # Guard: never publish an empty, failed or cut-off temp over a good file. The base document must have the shape every builder gives it (doc_whole: "{"
     # first, "}" last, one "aps" line): a build that was cut short and still said 0 (a full /tmp, an awk that lost its output) fails it, and so does a pass whose
-    # copy of recon.db could not be read (RQ_HOLD). Neither is an answer about the air: rc_hold says why, the document published last stays, and the cycle is
+    # copy of recon.db could not be read (RQ_HOLD), or whose airodump is gone or its CSV stale (CSV_HOLD). None is an answer about the air: rc_hold says why,
+    # the document published last stays, and the cycle is
     # reported as failed. A pass that merely found nothing still publishes the explicit empty document, so that the front-end always has valid JSON.
     rs_good=0; rc_hold=""; rc_keep=0; rc_pub=0
     if [ "$ok" = 1 ] && [ -s "$tmp" ]; then rs_good=1; fi
@@ -4561,6 +4580,7 @@ run_cycle() {
         bt_issue shape "the document of this cycle came out incomplete (a full disk, or a build that was cut short); the last document stays"
     fi
     if [ -n "$RQ_HOLD" ]; then rs_good=0; rc_hold=$RQ_HOLD; fi      # said where it was found (build_from_recondb)
+    if [ -n "$CSV_HOLD" ]; then rs_good=0; rc_hold=$CSV_HOLD; fi    # the airodump this run started is gone, or its CSV is stale (build_from_csv; said above, once per episode)
     if [ "$rs_good" != 1 ] && [ -z "$rc_hold" ]; then
         { write_empty "$ts" "no data this cycle (source=$RESOLVED)" > "$tmp"; } 2>/dev/null
         if ! doc_whole "$tmp"; then
@@ -6557,6 +6577,14 @@ CSV
     else case $CSV_HOLD in "airodump (pid 4194305) is gone"*) st_pass "airodump: an airodump that is gone (its pid dead) gives no document, and the hold names it" ;; *) st_fail "airodump: dead pid hold [$CSV_HOLD]" ;; esac; fi
     STARTED_AIRODUMP=0; AD_PID=""; CSV_HOLD=""
 
+    # ---- 1a-ii) the Bluetooth window setting (text only): one function, as the collector reads STARCHORUS_BT_WINDOW ----------------------
+    bw_s=$BT_WIN; bw_b=$BT_WIN_BAD; bw_o=""
+    for bw_v in 9 07 4 16 five 99999999999999999999; do bt_window_value "$bw_v" 2>"$tdir/bw.err"; bw_o="$bw_o $BT_WIN/$BT_WIN_BAD"; [ -s "$tdir/bw.err" ] && bw_o="$bw_o!"; done
+    bt_window_value ""; bw_o="$bw_o $BT_WIN/$BT_WIN_BAD"
+    BT_WIN=$bw_s; BT_WIN_BAD=$bw_b
+    if [ "$bw_o" = " 9/ 7/ 5/4 5/16 5/five 5/99999999999999999999 5/" ]; then st_pass "bt_window_value: 9 and 07 read 9 and 7; 4, 16, a word and twenty digits are 5 with the text kept, and the shell is not asked to read the twenty digits as a number"
+    else st_fail "bt_window_value: [$bw_o] (want ' 9/ 7/ 5/4 5/16 5/five 5/99999999999999999999 5/')"; fi
+
     # ---- 1b) the iw scan parser (text only, no iw is run): an SSID that carries the field words, a hidden SSID as \x00 bytes
     iws_out=$(printf 'BSS 02:00:00:00:00:a1(on wlan0)\n\tfreq: 2412\n\tsignal: -60.00 dBm\n\tSSID: free freq: 5955 signal: -1 RSN:\n\tcapability: ESS (0x0401)\nBSS 02:00:00:00:00:a2(on wlan0)\n\tfreq: 5180\n\tsignal: -70.00 dBm\n\tSSID: \\x00\\x00\\x00\n\tRSN:\t * Version: 1\nBSS 02:00:00:00:00:a3(on wlan0)\n\tfreq: 2412\n\tsignal: -65.00 dBm\n\tSSID: Wep\n\tcapability: ESS Privacy ShortSlotTime (0x0411)\nBSS 02:00:00:00:00:a4(on wlan0)\n\tfreq: 2437\n\tsignal: -66.00 dBm\n\tSSID: WpaOnly\n\tWPA:\t * Version: 1\nBSS 02:00:00:00:00:a5(on wlan0)\n\tfreq: 2462\n\tsignal: -67.00 dBm\n\tSSID: Mixed\n\tWPA:\t * Version: 1\n\tRSN:\t * Version: 1\nBSS 02:00:00:00:00:a6(on wlan0)\n\tfreq: 2412\n\tsignal: -68.00 dBm\n\tSSID: WPA: Privacy\n' | iwscan_parse 1710000000 2>/dev/null)
     jcheck "iw-scan parse" "$iws_out"
@@ -8385,25 +8413,33 @@ SQL
     printf 'while [ -f "$0" ] && kill -0 %s 2>/dev/null; do sleep 1; done\n' "$$" > "$tdir/own/$SELF_BASE"; cp "$tdir/own/$SELF_BASE" "$tdir/own/airodump-ng"
     ( sleep 30 >/dev/null 2>&1 & echo $! > "$tdir/own/f.pid" )
     ( sh "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )
-    ( sh "$tdir/own/airodump-ng" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
+    ( sh "$tdir/own/airodump-ng" -w "$CAPPREFIX" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/a.pid" )
     fpid=$(cat "$tdir/own/f.pid"); opid=$(cat "$tdir/own/l.pid"); apid=$(cat "$tdir/own/a.pid")
     pl_save=$LOOP_PIDFILE; pa_save=$AIRODUMP_PIDFILE; LOOP_PIDFILE="$tdir/own/loop.pid"; AIRODUMP_PIDFILE="$tdir/own/ad.pid"
     printf '%s\n' "$fpid" > "$LOOP_PIDFILE"; printf '%s\n' "$fpid" > "$AIRODUMP_PIDFILE"
-    sout=$(status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE" 2>&1; status_pidfile airodump "$AIRODUMP_PIDFILE" airodump 2>&1)
+    sout=$(status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE" 2>&1; status_pidfile airodump "$AIRODUMP_PIDFILE" "-w $CAPPREFIX" 2>&1)
     stopped=0
-    stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE" 2>/dev/null; stop_pidfile "$AIRODUMP_PIDFILE" airodump airodump 2>/dev/null
+    stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE" 2>/dev/null; stop_pidfile "$AIRODUMP_PIDFILE" airodump "-w $CAPPREFIX" 2>/dev/null
     if pid_alive "$fpid" && [ "$stopped" = 0 ] && [ ! -e "$LOOP_PIDFILE" ] && [ ! -e "$AIRODUMP_PIDFILE" ] \
        && [ "$(printf '%s\n' "$sout" | grep -c 'not running$')" = 2 ]; then
         st_pass "stop/status: a pidfile naming a foreign process (pid reuse) -> no signal, file dropped, 'not running'"
     else st_fail "stop/status: foreign pid $fpid alive=$(pid_alive "$fpid" && echo yes || echo no) stopped=$stopped status=[$sout]"; fi
     printf '%s\n' "$opid" > "$LOOP_PIDFILE"; printf '%s\n' "$apid" > "$AIRODUMP_PIDFILE"
-    sout=$(status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE" 2>&1; status_pidfile airodump "$AIRODUMP_PIDFILE" airodump 2>&1)
-    stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE" 2>/dev/null; stop_pidfile "$AIRODUMP_PIDFILE" airodump airodump 2>/dev/null
+    sout=$(status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE" 2>&1; status_pidfile airodump "$AIRODUMP_PIDFILE" "-w $CAPPREFIX" 2>&1)
+    stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE" 2>/dev/null; stop_pidfile "$AIRODUMP_PIDFILE" airodump "-w $CAPPREFIX" 2>/dev/null
     n=0; while { pid_alive "$opid" || pid_alive "$apid"; } && [ "$n" -lt 25 ]; do sleep 0.2 2>/dev/null || sleep 1; n=$((n + 1)); done
     if ! pid_alive "$opid" && ! pid_alive "$apid" && [ "$stopped" = 1 ] \
        && printf '%s\n' "$sout" | grep -q "loop RUNNING (pid $opid)" && printf '%s\n' "$sout" | grep -q "airodump RUNNING (pid $apid)"; then
         st_pass "stop/status: our own loop and airodump are seen running and stopped"
     else st_fail "stop/status: own loop $opid / airodump $apid: stopped=$stopped status=[$sout]"; fi
+    # a pid that names the script without running it as a loop (a tail on the file) is no loop for the pidfile either: left alone, 'not running', the file dropped
+    ( tail -f "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/t.pid" ); tpid=$(cat "$tdir/own/t.pid")
+    printf '%s\n' "$tpid" > "$LOOP_PIDFILE"; sout=$(status_pidfile loop "$LOOP_PIDFILE" "$SELF_BASE" 2>&1)
+    stopped=0; stop_pidfile "$LOOP_PIDFILE" "collector loop" "$SELF_BASE" 2> "$tdir/own/t.log"
+    if pid_alive "$tpid" && [ "$stopped" = 0 ] && [ ! -e "$LOOP_PIDFILE" ] && printf '%s\n' "$sout" | grep -q 'loop not running$' && grep -q "left pid $tpid alone" "$tdir/own/t.log"; then
+        st_pass "stop/status: a pidfile pid that names the script without running it as a loop (a tail on the file) is left alone, 'not running', the file dropped"
+    else st_fail "stop/status: tail on the script $tpid alive=$(pid_alive "$tpid" && echo yes || echo no) stopped=$stopped status=[$sout] log=[$(cat "$tdir/own/t.log" 2>/dev/null)]"; fi
+    kill "$tpid" 2>/dev/null
     LOOP_PIDFILE=$pl_save; AIRODUMP_PIDFILE=$pa_save
     #   n) the daemon's start-up sweep of temporary output files: those of a dead pid, or of a pid that now runs something
     #      else (reused after a reboot), go; a live run's stay (a --once may be mid-cycle); a name without a pid is not ours
@@ -8695,7 +8731,7 @@ esac
 exit 1
 KLRL
     chmod +x "$klbin/ps" "$klbin/readlink"
-    # shellcheck disable=SC2086   # $2 is an optional flag (--status) or nothing
+    # shellcheck disable=SC2086   # $2 is an optional flag (--status), the two words of an airodump's -w prefix, or nothing
     # Detached (double fork): the stand-in is re-parented away from this shell, as another collector loop
     # would be, so kill_loops does not skip it as one of this run's own subshells (is_own_child).
     kl_spawn() {
@@ -8827,6 +8863,18 @@ KLRL
     start_release; klc3=$([ -d "$klk/starchorus-start.lock" ] && echo kept || echo gone)
     mkdir -p "$klk/starchorus-start.lock"; echo 4194305 > "$klk/starchorus-start.lock/pid"   # a start that died: no process has this pid
     START_LOCK=""; start_claim; klc4=$?; klc4p=$(cat "$klk/starchorus-start.lock/pid" 2>/dev/null); start_release
+    # a lock re-made by a further start while a stale one is taken over: pid_ours and cat stand in for the moment (the first puts another pid inside
+    # the lock before the rename, the second re-makes the lock, with this process's pid, while the copy is read); the copy is dropped, nothing is
+    # nested inside the new lock, and this start gives way to it
+    mkdir -p "$klk/starchorus-start.lock"; echo 4194305 > "$klk/starchorus-start.lock/pid"
+    ( pid_ours() { [ "$1" = "$$" ] && return 0; echo 4194306 > "$PIDDIR/starchorus-start.lock/pid" 2>/dev/null; return 1; }
+      cat() { case $1 in *.stale.*/pid) mkdir "$PIDDIR/starchorus-start.lock" 2>/dev/null && echo "$$" > "$PIDDIR/starchorus-start.lock/pid" ;; esac; command cat "$@"; }
+      START_LOCK=""; start_claim; echo "rc=$?" > "$klk/klc5" )
+    klc5n=0; for klc5f in "$klk"/starchorus-start.lock/*.stale.*; do [ -e "$klc5f" ] && klc5n=$((klc5n + 1)); done   # a copy nested inside the new lock
+    klc5=$(cat "$klk/klc5" 2>/dev/null); klc5p=$(cat "$klk/starchorus-start.lock/pid" 2>/dev/null)
+    if [ "$klc5/$klc5n/$klc5p" = "rc=1/0/$$" ] && [ -z "$(ls -d "$klk"/starchorus-start.lock.stale.* 2>/dev/null)" ]; then st_pass "start claim: a lock re-made by a further start while a stale one is taken over keeps that start's lock with nothing nested inside, the copy is dropped, and this start gives way"
+    else st_fail "start claim, a lock re-made meanwhile: $klc5 nested=$klc5n pid=[$klc5p] (want rc=1, 0, $$) stale=[$(ls -d "$klk"/starchorus-start.lock.stale.* 2>/dev/null)]"; fi
+    rm -rf "$klk/starchorus-start.lock" 2>/dev/null
     PIDDIR=$klsP
     if [ "$klc1/$klc_pid/$klc2/$klc3/$klc4/$klc4p" = "0/$$/1/gone/0/$$" ] && [ -z "$(ls -d "$klk"/starchorus-start.lock.stale.* 2>/dev/null)" ]; then st_pass "start claim: the first start holds the lock with its pid, a second gives way, the release removes it, a stale lock whose pid is gone is taken over"
     else st_fail "start claim: claimed $klc1 pid [$klc_pid] second $klc2 after release $klc3 stale $klc4 [$klc4p]"; fi
@@ -8846,7 +8894,7 @@ KLRL
     else st_fail "cleanup second signal: the first line is pinned $kln_pin times (want 1)"; fi
     printf '#!/bin/sh\nexit 0\n' > "$kln/bin/airodump-ng"; chmod +x "$kln/bin/airodump-ng"
     exec 4>&2 2>/dev/null
-    kl_spawn d1 airodump-standin; kln_ad=$klsp   # the 6l stand-in script once more, with a word that names it an airodump for pid_ours
+    kl_spawn d1 "-w $kln/cap/starchorus"; kln_ad=$klsp   # the 6l stand-in script once more, its arguments the -w prefix that names an airodump of ours for pid_ours (CAPPREFIX below)
     exec 2>&4 4>&-
     kln_sC=$CAPDIR; kln_sP=$AIRODUMP_PIDFILE; kln_sM=$MONIF; kln_sX=$CAPPREFIX; kln_sPATH=$PATH   # start_airodump sets CAP_METHOD, STARTED_AIRODUMP and AD_PID: cleared below, as the selftest holds them
     CAPDIR="$kln/cap"; AIRODUMP_PIDFILE="$kln/airodump.pid"; MONIF=wlanX; CAPPREFIX="$kln/cap/starchorus"; PATH="$kln/bin:$PATH"
@@ -8860,6 +8908,26 @@ KLRL
     PATH=$kln_sPATH; CAPDIR=$kln_sC; AIRODUMP_PIDFILE=$kln_sP; MONIF=$kln_sM; CAPPREFIX=$kln_sX; SA_KEEP_CSV=0; STARTED_AIRODUMP=0; AD_PID=""; CAP_METHOD=""
     if [ "$kln_r1/$kln_c1/$kln_l1/$kln_r2/$kln_c2/$kln_l2" = "0/kept/0/0/gone/1" ]; then st_pass "start_airodump: beside a daemon (SA_KEEP_CSV) the daemon's airodump and its CSV stay; a daemon start stops the left-over airodump the pidfile names and clears the CSVs"
     else st_fail "start_airodump beside a daemon: rc $kln_r1 csv $kln_c1 alive $kln_l1 | rc $kln_r2 csv $kln_c2 alive $kln_l2"; fi
+    # a pidfile pid whose command line merely says airodump (a tail on its log, a reused pid) carries no -w prefix of ours: a daemon start leaves it alone
+    exec 4>&2 2>/dev/null; kl_spawn d1 airodump; kln_ad2=$klsp; exec 2>&4 4>&-
+    kln_sC=$CAPDIR; kln_sP=$AIRODUMP_PIDFILE; kln_sM=$MONIF; kln_sX=$CAPPREFIX; kln_sPATH=$PATH
+    CAPDIR="$kln/cap"; AIRODUMP_PIDFILE="$kln/airodump.pid"; MONIF=wlanX; CAPPREFIX="$kln/cap/starchorus"; PATH="$kln/bin:$PATH"
+    printf '%s\n' "$kln_ad2" > "$AIRODUMP_PIDFILE"; SA_KEEP_CSV=0; start_airodump 2>/dev/null; kln_r3=$?; sleep 0.5; kill -0 "$kln_ad2" 2>/dev/null; kln_l3=$?
+    exec 4>&2 2>/dev/null; kill -9 "$kln_ad2" 2>/dev/null; wait "$kln_ad2" 2>/dev/null; exec 2>&4 4>&-
+    PATH=$kln_sPATH; CAPDIR=$kln_sC; AIRODUMP_PIDFILE=$kln_sP; MONIF=$kln_sM; CAPPREFIX=$kln_sX; SA_KEEP_CSV=0; STARTED_AIRODUMP=0; AD_PID=""; CAP_METHOD=""
+    if [ "$kln_r3/$kln_l3" = "0/0" ]; then st_pass "start_airodump: a pidfile pid whose command line merely says airodump (no -w prefix of ours) is left alone by a daemon start"
+    else st_fail "start_airodump stranger: rc $kln_r3 alive $kln_l3 (want 0/0: started, and the stranger alive)"; fi
+
+    # ---- 6i-ii) a held capture cycle keeps the last document: with the airodump this run started gone (a dead pid), run_cycle publishes nothing over the
+    #             document of the cycle before, as it does for a failed recon.db pass, returns 1 and names the hold
+    RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$tdir/starchorus.json"; STARTED_AIRODUMP=0; AD_PID=""; CSV_HOLD=""
+    run_cycle >/dev/null 2>&1; hc_1=$(cksum < "$OUTFILE" 2>/dev/null)
+    STARTED_AIRODUMP=1; AD_PID=4194305
+    run_cycle >/dev/null 2>&1; hc_r=$?; hc_2=$(cksum < "$OUTFILE" 2>/dev/null); hc_h=$CSV_HOLD
+    STARTED_AIRODUMP=0; AD_PID=""; CSV_HOLD=""
+    if [ -n "$hc_1" ] && [ "$hc_1" = "$hc_2" ] && [ "$hc_r" = 1 ] && grep -q '"ssid": "AcmeNet"' "$OUTFILE" && case $hc_h in "airodump (pid 4194305) is gone"*) true ;; *) false ;; esac; then
+        st_pass "run_cycle: a held capture cycle (the airodump this run started is gone) leaves the last document as it was, returns 1 and names the hold"
+    else st_fail "run_cycle hold: before [$hc_1] after [$hc_2] rc $hc_r hold [$hc_h]"; fi
 
     # ---- 6j) run_cycle must not publish a post-pass result that is structurally wrong even when
     #          the pass returned 0 (an awk write error not reflected in its exit code). The mutants

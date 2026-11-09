@@ -1350,8 +1350,10 @@ layout, which has no `tools/` on the device, the dialogue names the file to dele
 
 The collector's pidfiles live in `/root/loot/starchorus`, on the eMMC: they outlive a reboot, and
 the pid they name may by then belong to another program. The payload and the collector's `--stop`
-and `--status` therefore count a pid as theirs only while `/proc/PID/cmdline` still names the
-collector (`starchorus-collect`), `airodump` or `starchorus-serve`; any other pidfile is deleted
+and `--status` therefore count a pid as theirs only while `/proc/PID/cmdline` still runs what the
+pidfile means: the collector's loop pid must run the script as a loop (the script as the command or
+the argument of a shell, not an editor or a tail on it), its airodump pid must carry this collector's
+`-w` capture prefix, and the server's pid must run `starchorus-serve`; any other pidfile is deleted
 without a signal. The collector sleeps in the foreground between passes, and BusyBox ash runs a
 trap only once that `sleep` has returned, so 'Stop' also ends the loop's `sleep` child (found through
 `/proc/*/stat`) and the loop goes at once. Temporary files of a pass cut short

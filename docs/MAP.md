@@ -139,7 +139,7 @@ A region runs from a marker line of a script to the line before the next one.
 | Script | Region | Anchors |
 |---|---|---|
 | `starchorus-collect.sh` | `configuration` | `interval_value()` `max_age_value()` `alert_window()` |
-| `starchorus-collect.sh` | `small helpers` | `clean_ctrl()` `pid_ours()` `replace_loops()` |
+| `starchorus-collect.sh` | `small helpers` | `clean_ctrl()` `pid_ours()` `pid_meant()` `loop_ident()` `replace_loops()` |
 | `starchorus-collect.sh` | `--stop / --status` | `stop_instances()` `status_instances()` |
 | `starchorus-collect.sh` | `interface setup` | `mgmt_iface()` `setup_monitor_iface()` |
 | `starchorus-collect.sh` | `recon DB locate` | `find_recon_db()` |

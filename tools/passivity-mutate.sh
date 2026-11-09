@@ -1693,7 +1693,7 @@ mut sink-run-file-python starchorus-collect.sh     fnappend 'python3 /tmp/zz_f.p
 mut sink-run-file-perl   starchorus-collect.sh     fnappend 'perl /tmp/zz_f.pl'                                           '' '§14.6h program-text'
 mut sink-run-file-payload library/user/reconnaissance/starchorus/payload.sh fnappend 's''h /tmp/zz_f'                      '' '§14.6h program-text'
 mut sink-run-file-display starchorus-display.sh    fnappend 's''h /tmp/zz_f'                                              '' '§14.6h program-text'
-mut sink-run-file-pin-edited starchorus-collect.sh subst    's''h "$tdir/own/airodump-ng" </dev/null' 's''h "$tdir/own/airodump-ng2" </dev/null' '§14.6h program-text'
+mut sink-run-file-pin-edited starchorus-collect.sh subst    's''h "$tdir/own/airodump-ng" -w "$CAPPREFIX" </dev/null' 's''h "$tdir/own/airodump-ng2" -w "$CAPPREFIX" </dev/null' '§14.6h program-text'
 mut sink-run-file-pin-gone starchorus-collect.sh   subst    '( s''h "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )' ': ' '§14.6h program-text'
 mut sink-run-file-pin-copy starchorus-collect.sh   fnappend '( s''h "$tdir/own/$SELF_BASE" </dev/null >/dev/null 2>&1 & echo $! > "$tdir/own/l.pid" )' '' '§14.6h program-text'
 # ---- the bypasses found while testing the first fixes (round 2): the programs that change an interface or a radio by name, the routing table, the neighbour table and the host name, a program run by a path outside the system directories, `tcpdump -z`, the options of `tar` that run a program,

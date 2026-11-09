@@ -177,6 +177,7 @@ ApNode = {
   // --- Input (normalised, §2.8) ---
   bssid, ssid: string ("" = hidden), ssidKnown: string|null,   // last non-empty name (§8.5)
   band: "2.4"|"5"|"6"|"unknown", channel, freq, rssi (default -75), security (raw), sec: SecClass, hidden, clientCount,
+  hid,                               // the name held only characters the page strips (§2.8), so it reads as hidden; when records share a BSSID it moves with the name
   vendor, rate, last_seen, width, phy, caps, beacons, packets, akm, cipher, auth, respondedSsids,   // optional
   ageS, freshTier,                   // D1 (§14.3)
   mobile,                            // P3: probable mobile hotspot (§14.5)
