@@ -273,16 +273,23 @@ case $DST_V1 in *"without ONIGURUMA"*) DST_W1=ok ;; *) DST_W1=missing ;; esac
 case $DST_V3 in *"endswith is broken"*) DST_W3=ok ;; *) DST_W3=missing ;; esac
 DST_MISS=""
 for DST_B in endswith until index "string slice" tostring ascii_downcase ascii_upcase rtrimstr ltrimstr contains \
-             startswith split/1 group_by sort_by unique add select "syntax // (alternative operator)" 'syntax '"\uXXXX escapes" \
+             startswith split/1 group_by sort_by unique add select explode "syntax // (alternative operator)" 'syntax '"\uXXXX escapes" \
              "add over strings"; do
   case $DST_B in "syntax "*) DST_PFX="PASS: jq $DST_B" ;; *) DST_PFX="PASS: jq builtin $DST_B" ;; esac
   grep -qF "$DST_PFX" "$DST_D/s1-root-sh.out" || DST_MISS="$DST_MISS [$DST_B]"
 done
-for DST_B in bandnorm secupper isopenwep sectag jq_healthy "screen_summary: band counters" "screen_summary: band counts" \
+for DST_B in bandnorm secupper isopenwep sectag rnum jq_healthy "screen_summary: band counters" "screen_summary: band counts" \
              "screen_summary: open/WEP" btlist btco bar8 actbar "screen_summary: the Bluetooth figure" "screen_bands: a band" \
              "screen_bluetooth: addresses" "screen_bluetooth: the strongest company" "screen_bluetooth: the cap on eleven companies, plain:" \
              "screen_bluetooth: the cap on eleven companies, a void window:" "screen_bluetooth: the cap on eleven companies, the ACTIVE claim:" \
-             "screen_bluetooth: the cap on eleven companies, a void window under the ACTIVE claim:"; do
+             "screen_bluetooth: the cap on eleven companies, a void window under the ACTIVE claim:" \
+             "screen_top: an access point without an rssi reads n/a" "screen_top: a name of control bytes alone is <hidden>" \
+             "screen_top: a name of zero-width marks alone is <hidden>" "screen_top: a name of blanks is kept and no band is ?" \
+             "screen_top: an rssi that is not a number reads n/a" "screen_top: the strongest first" \
+             "screen_clients: a station without an rssi reads n/a (assoc)" "screen_clients: a free station without an rssi reads n/a" \
+             "screen_clients: a free station whose rssi is a numeric string reads n/a" "screen_clients: the measured station first" \
+             "log: a line that is exactly red or blue is text" "age_str: the summary's age uses the frame's words" \
+             "selftest: a hangup removes the fixture too"; do
   grep -qF "PASS: $DST_B" "$DST_D/s1-root-sh.out" || DST_MISS="$DST_MISS [$DST_B]"
 done
 if [ "$DST_C1/$DST_C2/$DST_V2/$DST_W1" = 5/0/true/ok ] && [ "$DST_C3/$DST_C4/$DST_V4/$DST_W3" = 5/0/true/ok ] && [ -z "$DST_MISS" ]; then
