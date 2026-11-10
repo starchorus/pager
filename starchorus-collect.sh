@@ -546,13 +546,16 @@ pid_meant() {
 # loop this kills that is NOT the one named by this OUTDIR's pidfile is logged with its pid and working
 # directory. $1 is the context ("stop" from --stop, "replace" at daemon start-up); $2, when given, is
 # the pid of this OUTDIR's own loop, which stop_pidfile has signalled already: it is left alone here (a second
-# TERM would land in its cleanup) and not logged.
+# TERM would land in its cleanup) and not logged. A pid that is gone when its turn comes is passed over as well:
+# on BusyBox the members of this function's own pipeline show in `ps w` with the script's command line, and
+# they have ended by then (is_own_child can no longer place them); a loop may also have left by itself.
 kill_loops() {
     _kl_ctx=${1:-stop}
     _kl_own=${2:-}
     loop_list | while read -r p; do
         [ "$p" = "$$" ] && continue
         [ "$p" = "$_kl_own" ] && continue   # this OUTDIR's own loop: stop_pidfile has signalled it once; a second TERM would cut its cleanup short
+        kill -0 "$p" 2>/dev/null || [ -d "/proc/$p" ] || continue   # gone since the list was read: nothing is stopped, so nothing is said (see above)
         is_own_child "$p" && continue   # this run's own subshells, e.g. the one running this loop
         _kl_dir=$(loop_cwd "$p")
         if [ "$_kl_ctx" = replace ]; then
@@ -8982,6 +8985,14 @@ KLRL
     else
         log "  SKIP: kill_loops own-subshell case needs /proc"
     fi
+    # a line whose process is gone when its turn comes (on BusyBox the members of kill_loops' own pipeline look like loops in `ps w` and have ended by then; a loop may
+    # also have left by itself): nothing is stopped, so nothing is said, in a start and in a stop. The pid lies above the kernel's ceiling: no process can have it.
+    { printf '  PID USER       VSZ STAT COMMAND\n'; printf '%5s root      1508 S    {starchorus-coll} /bin/sh %s/d1/starchorus-collect.sh\n' 4194307 "$klw"; } > "$klw/ps.txt"
+    : > "$klw/proc.map"
+    PATH="$klbin:$PATH"
+    kill_loops replace 2>"$klw/kl4.log"; kill_loops stop 2>>"$klw/kl4.log"
+    PATH=$klsave
+    if [ ! -s "$klw/kl4.log" ]; then st_pass "kill_loops: a line whose process is gone is passed over, in a start and in a stop (no 'replaced', no 'also stopped')"; else st_fail "kill_loops: reported a process that is gone ($(head -n 1 "$klw/kl4.log"))"; fi
     # The stand-ins of the Bluetooth window end by themselves, within seconds, when the tree they poll is removed or the shell they watch is gone (an interrupted run, see st_abort).
     # A scan stand-in (bt_stub makes two, one body) is run on its own in two trees, as the loops above are run (kl_spawn starts a script of this name in a directory of klscope),
     # the first tree removed and the pid the second watches (a sleep here) killed. A stand-in that is still there is killed by kl_cleanup.
