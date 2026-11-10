@@ -1102,7 +1102,11 @@ addresses, one row per address and scan session, three sessions in nine days, 1.
 behind `bt_fixed_new`, cost 958 ms of CPU per run in its old form (a subquery per row) and 1,094 ms in the grouped form of 7 November, a
 stand-in for the B query beside it (one grouped pass, without its filters or its 120-s window) 596 ms: on a table with one row per address the grouped pass saves nothing, and this one query is in effect the whole
 cost of the rules; the saving the development machine showed (71 to 940 ms down to 4 to 9 ms) belongs to tables with many rows per
-address, which a device that keeps its scan sessions may grow into. Three readings beside it that day: the hourly line of the payload's
+address, which a device that keeps its scan sessions may grow into. Since 0.2.8 neither select of the `blue5` source groups the whole
+table: both test the 120-s window first, its older edge before its newer one, and the second goes through the table twice, once for the addresses
+heard within it and once for the rows of those addresses alone, and sorts only those rows. On a generated table of that evening's shape SQLite counts 130 thousand virtual-machine steps for the second select where the
+grouped form took 793 thousand, and 32 thousand for the B query where the earlier order of its tests took 180 thousand (development
+machine, SQLite 3.54, the rows the same byte for byte); the Pager's reading of the new form is still to be taken. Three readings beside it that day: the hourly line of the payload's
 own loop of 4 November (D11, eleven hours in a quiet room by day): 107 to 109 full cycles an hour, none skipped, mean wall time 3.4 to
 3.8 s; `time` is not monotonic in `rowid` in `recon.db` (D9: 1,317 of 58,898 rows of `ssid` carry a time below their predecessor's), so
 nothing may rely on rowid order for a time window; `/tmp` and `/mmc` are mounted `noatime` (D8), so a read of `starchorus.json` leaves no

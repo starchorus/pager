@@ -1166,7 +1166,9 @@ bt_blue5_done() {
 #   * rssi is rssi_avg (steadier than the last sample) and must be a real reading (-127..-1); reports is packets, floored at 1; company
 #     is kept only as a real id (0 and 65535 mean "no id"); the name BLOB has TAB/LF/CR turned to spaces and is cut to 32;
 #   * only addresses seen within BT_HOLD (120 s) before ts are kept, and up to 60 s after it: the copy is taken a few seconds after ts, so a row
-#     the firmware refreshed in between is kept, not dropped (AWK_LAYERS clamps such a stamp to ts); later than that is a clock that moved back;
+#     the firmware refreshed in between is kept, not dropped (AWK_LAYERS clamps such a stamp to ts); later than that is a clock that moved back.
+#     This test stands first in each WHERE clause, its older edge before its newer one: the table keeps every scan session, so all but a few
+#     of its rows are older than the hold and are dismissed on one comparison, before any text function runs;
 #   * one row per address, the newest, via MAX(last_seen) with its bare columns in a sub-query (the single-aggregate form SQLite defines);
 #   * fields 11-13, the class columns of the firmware's 2.0 schema (device-notes §2c), cut IN SQL so that only what the table in AWK_LAYERS can
 #     name leaves the database: of mfr the first three bytes as hex (the company id, little-endian, and the byte after it: Apple's message
@@ -1182,8 +1184,13 @@ bt_blue5_done() {
 #   * with STARCHORUS_WIDS=1 a second SELECT adds W-lines (W, addr, strongest rssi, reports, first_seen, last_seen) for bt_fixed_new in
 #     AWK_LAYERS: public or random-static addresses whose first row is younger than ten minutes, heard within the hold, stronger than -50 dBm
 #     with three reports or more, and only from a database whose oldest row is older than an hour (a fresh database makes nothing new); eight at most.
-#     The first row of an address comes from one grouped pass over the table joined on the address (a derived table SQLite indexes once), not from a
-#     subquery per row: on a table of two thousand rows the per-row form cost 25 times the B query and grew with the square of the rows (7 November 2026).
+#     The first row of an address may lie in an earlier scan session, so the strongest signal, the reports and the first and the last stamp are
+#     taken over every row of the address, but only for the addresses heard within the hold (the IN list, a handful): the select goes through
+#     the table twice, once for the list and once for the rows of the listed addresses, and sorts nothing but those rows. The table has no index
+#     on the address alone, and a form that groups all of it and joins the groups on the address costs the Pager about a second of CPU per cycle
+#     at ten thousand rows (docs/device-notes.md section 6a). The unary plus before mac keeps the planner to the plain pass where the database
+#     carries statistics (it would otherwise walk the key of scan and address once per scan session); the oldest row is asked for with EXISTS,
+#     which stops at the first old one.
 bt_blue5_sql() {
     if [ "$BT5_SV" = 1 ]; then b5_cx="'', '', '', ''"; b5_ci=""
     else
@@ -1194,15 +1201,20 @@ bt_blue5_sql() {
         b5_ci="mfr, appearance, svc16, svcd,"
     fi
     b5_w=""
+    # b5_f: the rows the W-select counts for an address (LE, a 12-hex address, whole-number readings, public or random-static)
+    b5_f="transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
+        AND typeof(rssi_avg)='integer' AND rssi_avg BETWEEN -127 AND -1 AND typeof(last_seen)='integer' AND typeof(packets)='integer'
+        AND (le_random=0 OR (instr('0123456789ABCDEF',substr(upper(mac),1,1))-1)/4=3)"
     [ "$WIDS" != 1 ] || [ "$BT5_SW" = 1 ] || b5_w="SELECT 'W', lower(substr(mac,1,2)||':'||substr(mac,3,2)||':'||substr(mac,5,2)||':'||substr(mac,7,2)||':'||substr(mac,9,2)||':'||substr(mac,11,2)), r, pk, fs, ls
-FROM (SELECT d.mac AS mac, MAX(d.rssi_avg) AS r, MIN(CAST(TOTAL(d.packets) AS INTEGER), 2147483647) AS pk, f.fs AS fs, MAX(d.last_seen) AS ls
-      FROM bt_device AS d
-      JOIN (SELECT mac, MIN(first_seen) AS fs FROM bt_device WHERE typeof(first_seen)='integer' GROUP BY mac) AS f ON f.mac=d.mac
-      WHERE d.transports=1 AND length(d.mac)=12 AND d.mac NOT GLOB '*[^0-9A-Fa-f]*'
-        AND typeof(d.rssi_avg)='integer' AND d.rssi_avg BETWEEN -127 AND -1 AND typeof(d.last_seen)='integer' AND typeof(d.packets)='integer'
-        AND (d.le_random=0 OR (instr('0123456789ABCDEF',substr(upper(d.mac),1,1))-1)/4=3)
-      GROUP BY d.mac, f.fs)
-WHERE fs IS NOT NULL AND fs>=$2-600 AND ls<=$2+60 AND ls>=$2-120 AND r>-50 AND pk>=3 AND (SELECT MIN(first_seen) FROM bt_device WHERE typeof(first_seen)='integer')<=$2-3600
+FROM (SELECT mac, MAX(CASE WHEN $b5_f THEN rssi_avg END) AS r,
+             MIN(CAST(TOTAL(CASE WHEN $b5_f THEN packets END) AS INTEGER), 2147483647) AS pk,
+             MIN(CASE WHEN typeof(first_seen)='integer' THEN first_seen END) AS fs,
+             MAX(CASE WHEN $b5_f THEN last_seen END) AS ls
+      FROM bt_device
+      WHERE +mac IN (SELECT mac FROM bt_device WHERE last_seen>=$2-120 AND last_seen<=$2+60 AND $b5_f)
+      GROUP BY mac)
+WHERE fs IS NOT NULL AND fs>=$2-600 AND ls<=$2+60 AND ls>=$2-120 AND r>-50 AND pk>=3
+  AND EXISTS (SELECT 1 FROM bt_device WHERE typeof(first_seen)='integer' AND first_seen<=$2-3600)
 ORDER BY r DESC LIMIT 8;"
     sqlite3 -readonly -noheader -bail -separator "$RECON_TAB" "$1" "
 SELECT 'B',
@@ -1222,9 +1234,9 @@ SELECT 'B',
   $b5_cx
 FROM (SELECT mac, le_random, rssi_avg, packets, company, name, connectable, $b5_ci MAX(last_seen) AS lastseen
       FROM bt_device
-      WHERE transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
+      WHERE last_seen>=$2-120 AND last_seen<=$2+60
+        AND transports=1 AND length(mac)=12 AND mac NOT GLOB '*[^0-9A-Fa-f]*'
         AND rssi_avg IS NOT NULL AND rssi_avg BETWEEN -127 AND -1
-        AND last_seen<=$2+60 AND last_seen>=$2-120
       GROUP BY mac)
 ORDER BY rssi_avg DESC;
 $b5_w
@@ -5800,6 +5812,12 @@ lay_selftest() {
         if [ "$lw_e1" = '[{"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:01", "n": 5}, {"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:08", "n": 3}, {"type": "bt_fixed_new", "t": 5000000, "ap": "aa:bb:cc:00:04:0b", "n": 5}, {"type": "bt_fixed_new", "t": 5000000, "ap": "c0:aa:bb:00:04:02", "n": 3}],' ] && [ "$lw_e1b" = 1 ] && [ -z "$lw_e0" ] && json_ok < "$lw_d/doc.json"; then
             st_pass "wids: bt_fixed_new: of twelve addresses of the blue5 source a public, a random-static, one exactly ten minutes old with exactly three reports and one stamped 3 s after the clock (kept, at the clock), strong, from a database older than an hour -> four entries, n = the reports; one stamped 61 s after the clock is not read, a resolvable address, an older first row, a weak signal, exactly -50 dBm, a signal of 0 and two reports say nothing; with the switch off the query asks for none"
         else st_fail "wids: bt_fixed_new ([$lw_e1] off [$lw_e0] record $lw_e1b)"; fi
+        # the same rule on addresses with more than one row (the ninth set, clock 6000000): the first row of an address is its oldest in any scan
+        # session and of any transport, its reports are those of all its rows, and its newest stamp is the newest of them
+        WIDS_SEEN=""; BT_HELD=""; ts=6000000; lw_doc ''; lw_run; lw_e2=$(lw_al); ts=5000000
+        if [ "$lw_e2" = '[{"type": "bt_fixed_new", "t": 6000000, "ap": "aa:bb:cc:00:05:02", "n": 4}],' ] && json_ok < "$lw_d/doc.json"; then
+            st_pass "wids: bt_fixed_new reads every row of an address: two young rows in two scan sessions give one entry, n = their reports together (2 and 2); an older row in an earlier session, an older classic row and a row stamped more than 60 s after the clock each keep their address silent"
+        else st_fail "wids: bt_fixed_new over the rows of an address ([$lw_e2])"; fi
         BLUETOOTH=0; BT_SRC=window
     fi
     # caps and rank: ten own_name candidates and a deauth report on the first
@@ -6693,7 +6711,10 @@ CSV
 $b5x_rows" 2>/dev/null
         # the class set: Apple types 12/07/02/10/0F/0C/05 and an unlisted 99; services FE2C/FEAA/1812/181A and the unlisted FD59; the appearance categories
         # 1,2,3,5,6,8,9,10,15,21 (64 each) and the refused 0, 70000, 12, 13, 49, 11; the rank (1E-20); the refusals (21-25: a Microsoft head under
-        # company 76, mfr as text, two bytes, a quote, a TAB); a list and lower case (26, 27); an address whose newest row changes its class (28)
+        # company 76, mfr as text, two bytes, a quote, a TAB); a list and lower case (26, 27); an address whose newest row changes its class (28).
+        # The ninth set (clock 6000000) gives four fixed addresses two rows each, in two scan sessions, for the rule 'new fixed address': an older
+        # first row beside a young one, two young rows whose reports add up, an older classic row beside a young LE one, a row stamped more than
+        # 60 s after the clock beside a good one
         sqlite3 "$LAY_BLUE5_FIX" "CREATE TABLE bt_device(scan INT,mac TEXT,first_seen INT,last_seen INT,transports INT,le_random INT,connectable INT,rssi INT,rssi_min INT,rssi_max INT,rssi_avg INT,tx_power INT,company INT,cod INT,packets INT,name BLOB,name_complete INT,ad_flags INT,appearance INT,svc16 TEXT,svc_other INT,mfr BLOB,svcd BLOB,PRIMARY KEY(scan,mac) ON CONFLICT REPLACE);
 $b5x_rows
 INSERT INTO bt_device(scan,mac,last_seen,transports,le_random,connectable,rssi_avg,packets,company,name,mfr,appearance,svc16) VALUES
@@ -6759,7 +6780,11 @@ INSERT INTO bt_device(scan,mac,first_seen,last_seen,transports,le_random,connect
  (8,'AABBCC000405',4999900,5000000,1,0,1,-55,5,NULL,''),(8,'AABBCC000406',4999900,5000000,1,0,1,-40,2,NULL,''),
  (8,'AABBCC000407',4000000,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC000408',4999400,5000000,1,0,1,-49,3,NULL,''),
  (8,'AABBCC000409',4999900,5000000,1,0,1,-50,5,NULL,''),(8,'AABBCC00040A',4999900,5000000,1,0,1,0,5,NULL,''),
- (8,'AABBCC00040B',4999900,5000003,1,0,1,-40,5,NULL,''),(8,'AABBCC00040C',4999900,5000061,1,0,1,-40,5,NULL,'');" 2>/dev/null
+ (8,'AABBCC00040B',4999900,5000003,1,0,1,-40,5,NULL,''),(8,'AABBCC00040C',4999900,5000061,1,0,1,-40,5,NULL,''),
+ (10,'AABBCC000501',5900000,5900050,1,0,1,-45,5,NULL,''),(11,'AABBCC000501',5999900,6000000,1,0,1,-45,5,NULL,''),
+ (10,'AABBCC000502',5999500,5999700,1,0,1,-60,2,NULL,''),(11,'AABBCC000502',5999800,6000000,1,0,1,-45,2,NULL,''),
+ (10,'AABBCC000503',5900000,5900050,2,0,1,-45,5,NULL,''),(11,'AABBCC000503',5999900,6000000,1,0,1,-45,5,NULL,''),
+ (10,'AABBCC000504',5999900,6000100,1,0,1,-45,5,NULL,''),(11,'AABBCC000504',5999900,6000000,1,0,1,-45,5,NULL,'');" 2>/dev/null
         # two more schemas, neither seen on any firmware, for the forms the query falls back to with Alert Rules on: the 2.0 columns without first_seen,
         # and the 0.2.6 columns without first_seen (the same first rows, so the records are those of the control at the same clock)
         LAY_BLUE5_NOFS="$tdir/blue5-nofs.db"; LAY_BLUE5_NOFSOLD="$tdir/blue5-nofsold.db"; rm -f "$LAY_BLUE5_NOFS" "$LAY_BLUE5_NOFSOLD"
