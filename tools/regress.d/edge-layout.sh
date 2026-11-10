@@ -9,12 +9,21 @@
 # a panel that leaves the viewport counts as an overlap too. The mode strings (stats/chan/legend-scroll/
 # motto) are the measured D15 decisions: they are pinned at 1440x900 and 1000x640, and only reported at
 # 1280x800, where the row count depends on the theme's font metrics.
+# The overlap answer also names how many visible elements were measured in each theme and which drawer was showing (EDG_OVL below), and a row
+# binds the whole of it: a renamed .panel class, a hidden surface or a drawer that did not open is red although the area is 0. The counts are
+# pinned as measured; a panel added to the page or taken from it moves them on purpose, in every drop-in that reads EDG_OVL.
 # The runs may keep ?fixed from boot: nothing here reads a node position or the canvas, only DOM boxes,
 # computed styles and token values (under a frozen clock the stars never fade in, but the chrome is final).
 # The "[data-theme=" baseline lives in tools/static.sh (BASE_DATA_THEME = 0).
 
-EDG_OVL="(()=>{const I=['masthead','stats','source','legend','controls','chanbar','classbar-top','classbar-bot','dtg'];const vis=e=>{if(!e||!e.getClientRects().length)return false;const c=getComputedStyle(e);if(c.display==='none'||c.visibility==='hidden')return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0};const m=()=>{const s=new Set(I.map(i=>document.getElementById(i)).filter(Boolean));document.querySelectorAll('.panel').forEach(e=>s.add(e));const B=[...s].filter(vis).map(e=>[e.id||e.className,e.getBoundingClientRect()]);let a=0;const bad=[];for(let i=0;i<B.length;i++){const p=B[i][1];if(p.left<-0.5||p.top<-0.5||p.right>innerWidth+0.5||p.bottom>innerHeight+0.5){a+=1;bad.push('off:'+B[i][0]);}for(let j=i+1;j<B.length;j++){const q=B[j][1];const w=Math.min(p.right,q.right)-Math.max(p.left,q.left),h=Math.min(p.bottom,q.bottom)-Math.max(p.top,q.top);if(w>0&&h>0){a+=w*h;bad.push(B[i][0]+'/'+B[j][0]+' '+Math.round(w)+'x'+Math.round(h));}}}return [a,bad]};let tot=0;const why=[];for(const t of ['foundation','wargames','whitehall']){STARCHORUS.setTheme(t);STARCHORUS.deselect();let r=m();tot+=r[0];if(r[1].length)why.push(t+':'+r[1]);for(const n of STARCHORUS.nodes('ap')){STARCHORUS.select(n.id);r=m();tot+=r[0];if(r[1].length)why.push(t+'+'+n.id+':'+r[1]);}STARCHORUS.deselect();}STARCHORUS.setTheme('foundation');return Math.round(tot)===0?'0':Math.round(tot)+' '+why.slice(0,3).join(' | ')})()"
+EDG_OVL="(()=>{const I=['masthead','stats','source','legend','controls','chanbar','classbar-top','classbar-bot','dtg'];const vis=e=>{if(!e||!e.getClientRects().length)return false;const c=getComputedStyle(e);if(c.display==='none'||c.visibility==='hidden')return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0};const m=()=>{const dd=document.documentElement.dataset.drawer;dw.add(dd+':'+(vis(document.getElementById(dd+'-body'))?'shown':'hidden'));const s=new Set(I.map(i=>document.getElementById(i)).filter(Boolean));document.querySelectorAll('.panel').forEach(e=>s.add(e));const B=[...s].filter(vis).map(e=>[e.id||e.className,e.getBoundingClientRect()]);let a=0;const bad=[];for(let i=0;i<B.length;i++){const p=B[i][1];if(p.left<-0.5||p.top<-0.5||p.right>innerWidth+0.5||p.bottom>innerHeight+0.5){a+=1;bad.push('off:'+B[i][0]);}for(let j=i+1;j<B.length;j++){const q=B[j][1];const w=Math.min(p.right,q.right)-Math.max(p.left,q.left),h=Math.min(p.bottom,q.bottom)-Math.max(p.top,q.top);if(w>0&&h>0){a+=w*h;bad.push(B[i][0]+'/'+B[j][0]+' '+Math.round(w)+'x'+Math.round(h));}}}return [a,bad,B.length]};let tot=0;const why=[],cn={},dw=new Set();for(const t of ['foundation','wargames','whitehall']){STARCHORUS.setTheme(t);STARCHORUS.deselect();let r=m();cn[t]=r[2];tot+=r[0];if(r[1].length)why.push(t+':'+r[1]);for(const n of STARCHORUS.nodes('ap')){STARCHORUS.select(n.id);r=m();cn[t]=Math.min(cn[t],r[2]);tot+=r[0];if(r[1].length)why.push(t+'+'+n.id+':'+r[1]);}STARCHORUS.deselect();}STARCHORUS.setTheme('foundation');return Math.round(tot)+' n='+Object.keys(cn).map(t=>t+':'+cn[t]).join(',')+' d='+[...dw].join('+')+(why.length?' '+why.slice(0,3).join(' | '):'')})()"
 EDG_MODES="['foundation','wargames','whitehall'].map(t=>{STARCHORUS.setTheme(t);const c=STARCHORUS.edgeLayout(),b=document.getElementById('legend-body');return c.stats+'/'+c.chan+'/'+(b.scrollHeight>b.clientHeight?'scroll':'full')+'/'+getComputedStyle(document.querySelector('#masthead .motto')).display}).join(' ')"
+# EDG_OVL answers "AREA n=THEME:COUNT,... d=DRAWER:shown": the overlap area, how many visible elements were measured in each theme (the
+# fewest over the deselected state and every selected AP) and which legend-box body was showing, with its own box on screen, at every
+# measurement. A row binds the whole string: a renamed .panel class, a hidden surface or a drawer that did not open leaves the area at 0
+# and changes the rest. Measured in three runs alike: 6 / 6 / 9 elements (Whitehall has both banners and the clock) from 1000x640 up.
+EDG_OVW="0 n=foundation:6,wargames:6,whitehall:9 d=legend:shown"
+EDG_OVC="0 n=foundation:6,wargames:6,whitehall:8 d=legend:shown"   # 1000x500 (and 760x600 in small-screen.sh): one element fewer in Whitehall
 EDG_Q="?poll=0&spin=0&fixed=$STARCHORUS_FIXED&intro=0"
 # --ready: the fonts are loaded, the capture is in and a frame has been painted after both (the layout decisions read font metrics and the loaded APs; --wait 4 stays the ceiling)
 EDG_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(() => r(!!window.STARCHORUS && STARCHORUS.nodes("ap").length > 0 && STARCHORUS.stats().sourceKind !== "demo"))))'
@@ -33,7 +42,7 @@ for EDG_VP in 1440x900 1280x800 1000x640; do
     1000x640) EDG_WANT="fit/docked/scroll/block fit/docked/scroll/block fit/docked/scroll/block" ;;
     *) EDG_WANT=$EDG_MD ;;   # 1280x800: the wrap depends on the theme's font metrics; only the overlap binds
   esac
-  if [ "$EDG_OV" = 0 ] && [ "$EDG_MD" = "$EDG_WANT" ] && [ "$EDG_ER" = 0 ]; then
+  if [ "$EDG_OV" = "$EDG_OVW" ] && [ "$EDG_MD" = "$EDG_WANT" ] && [ "$EDG_ER" = 0 ]; then
     row "D15 overlap 0 field-probes $EDG_VP" PASS
   else
     row "D15 overlap field-probes $EDG_VP (err ${EDG_ER:-?})" FAIL
@@ -48,7 +57,7 @@ runq "$F/devices.json" "$EDG_Q&view=3d&deviceLinks=1&essMerge=1&affinity=1" "out
   --width 1000 --height 640 --wait 4 --ready "$EDG_RDY" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
 EDG_OV=$(evalv "out/$P-d15-3d.json" 1)
 EDG_ER=$(evalv "out/$P-d15-3d.json" 2)
-if [ "$EDG_OV" = 0 ] && [ "$EDG_ER" = 0 ]; then
+if [ "$EDG_OV" = "$EDG_OVW" ] && [ "$EDG_ER" = 0 ]; then
   row "D15 overlap 0 devices 3D+all rows 1000x640" PASS
 else
   row "D15 overlap devices 3D 1000x640 (err ${EDG_ER:-?})" FAIL
@@ -64,7 +73,7 @@ EDG_OV=$(evalv "out/$P-d15-cam.json" 1)
 EDG_V=$(evalv "out/$P-d15-cam.json" 2)
 EDG_ER=$(evalv "out/$P-d15-cam.json" 3)
 EDG_W='true,in+out+reset,Zoom in [+]|Zoom out [−]|Reset [0],true,left+right+up+down+in+out+reset,in+out+reset'
-if [ "$EDG_OV" = 0 ] && [ "$EDG_V" = "$EDG_W" ] && [ "$EDG_ER" = 0 ]; then
+if [ "$EDG_OV" = "$EDG_OVW" ] && [ "$EDG_V" = "$EDG_W" ] && [ "$EDG_ER" = 0 ]; then
   row "Camera row in 2D on the desktop: + - reset, arrows only in 3D, overlap 0 (1000x640)" PASS
 else
   row "Camera row in 2D (err ${EDG_ER:-?}, overlap area $(printf '%s' "${EDG_OV:-no-value}" | cut -c1-100))" FAIL
@@ -80,7 +89,7 @@ runq "$F/field-probes.json" "$EDG_Q" "out/$P-d15-camy" --width 1000 --height 620
 EDG_OV=$(evalv "out/$P-d15-camy.json" 1)
 EDG_V=$(evalv "out/$P-d15-camy.json" 2)
 EDG_ER=$(evalv "out/$P-d15-camy.json" 3)
-if [ "$EDG_OV" = 0 ] && [ "$EDG_V" = "false,true,false" ] && [ "$EDG_ER" = 0 ]; then
+if [ "$EDG_OV" = "$EDG_OVW" ] && [ "$EDG_V" = "false,true,false" ] && [ "$EDG_ER" = 0 ]; then
   row "Camera row yields in 2D at 620 px high or less, stays in 3D, overlap 0 (1000x620)" PASS
 else
   row "Camera row at 620 px (err ${EDG_ER:-?}, overlap area $(printf '%s' "${EDG_OV:-no-value}" | cut -c1-100))" FAIL
@@ -114,7 +123,7 @@ runq "$F/field-probes.json" "$EDG_Q&theme=wargames" "out/$P-d15-coll" --width 10
 EDG_V=$(evalv "out/$P-d15-coll.json" 1)
 EDG_OV=$(evalv "out/$P-d15-coll.json" 2)
 EDG_ER=$(evalv "out/$P-d15-coll.json" 3)
-if [ "$EDG_V" = "docked,collapsed,docked,false" ] && [ "$EDG_OV" = 0 ] && [ "$EDG_ER" = 0 ]; then
+if [ "$EDG_V" = "docked,collapsed,docked,false" ] && [ "$EDG_OV" = "$EDG_OVC" ] && [ "$EDG_ER" = 0 ]; then
   row "D15 chanbar yields to #detail (1000x500)" PASS
 else
   row "D15 chanbar collapse path (err ${EDG_ER:-?})" FAIL

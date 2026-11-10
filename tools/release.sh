@@ -13,6 +13,10 @@
 # archive or a SHA256SUMS that is already there: a release is made once, and the owner removes the old one on purpose. It refuses
 # (exit 2, before anything is made) an OUTDIR that is the repo root or lies inside the repo, which holds the payload's sources, in the
 # physical form of the path and by identity (the repo written in other letter case); OUTDIR is made only once the archive stands.
+# It refuses (exit 2, before anything is made) a tree that is not what the archive is named after: a page that is not the build of src/
+# (sh tools/build-page.sh --check does not exit 0: it differs, or it is missing or unusable), or a "# Version:" head, in any file that
+# carries one into the package or is its source (payload.sh in the repo root and in the payload directory, the collector, the Overview in
+# both places, the page server, the companion alert), or the page's own version line, that differs from the version of the payload; one of those files missing is refused as well.
 # Deterministic: the same sources and commit give the same bytes on one machine (zlib: below). Owner and group are root (uid 0,
 # gid 0, names "root"), no user name of the maintainer is in it; every entry carries one time, the commit time of HEAD (or
 # SOURCE_DATE_EPOCH, the reproducible-builds variable, where it is set to digits: for a tree with no git history); entries are in sorted
@@ -24,15 +28,15 @@
 # is identical), so compare the sums of the files inside, which SHA256SUMS lists, when the archives differ.
 # Verify a download (INSTALL.md): put the archive and SHA256SUMS in one directory, unpack the archive there, run
 #   shasum -a 256 -c SHA256SUMS        (sha256sum -c SHA256SUMS where that is the tool): the archive and every file read OK.
-# Exit: 0 = built, 2 = usage or setup problem (no OUTDIR, an OUTDIR in the repo, an archive or SHA256SUMS already there, no commit time, python3 missing,
-# the package step failed).
+# Exit: 0 = built, 2 = usage or setup problem (no OUTDIR, an OUTDIR in the repo, an archive or SHA256SUMS already there, a page that is not the
+# build of src/, a version that differs between files or a file whose version is read missing, no commit time, python3 missing, the package step failed).
 set -u
 
 die() { printf 'release: %s\n' "$*" >&2; exit 2; }
 R=$(cd "$(dirname "$0")/.." && pwd -P) || die "cannot find the repo"
 
 case ${1:-} in
-    -h|--help) sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option: $1 (see --help)" ;;
     '') die "the output directory is required (sh tools/release.sh OUTDIR); there is no default place to write a release" ;;
 esac
@@ -80,6 +84,23 @@ while :; do
 done
 OUT=$OUTP
 [ ! -e "$OUT/$ARCH" ] && [ ! -e "$OUT/SHA256SUMS" ] || die "$OUT already holds $ARCH or SHA256SUMS: a release is made once; remove them first if you mean to make it again"
+
+# the page must be the build of src/, and every version in the tree the one the archive is named after (nothing is made yet)
+[ -f "$R/tools/build-page.sh" ] || die "tools/build-page.sh is missing: cannot tell whether the page is the build of src/"
+sh "$R/tools/build-page.sh" --check >/dev/null 2>&1; _bc=$?
+case $_bc in
+    0) ;;
+    1) die "starchorus.html differs from the build of src/ (sh tools/build-page.sh --check): rebuild the page with sh tools/build-page.sh first" ;;
+    *) die "starchorus.html is missing or unusable, or its sources are (sh tools/build-page.sh --check exits $_bc): see sh tools/build-page.sh --check" ;;
+esac
+for _vf in payload.sh starchorus-collect.sh starchorus-display.sh starchorus-serve.sh "$PKGREL/starchorus-display.sh" "$PKGREL/alert-deauth.sh"; do
+    [ -f "$R/$_vf" ] || die "$_vf is missing: its version cannot be read"
+    _fv=$(sed -n 's/^# Version: *\([0-9][0-9A-Za-z.-]*\)$/\1/p' "$R/$_vf" | head -n 1)
+    [ -n "$_fv" ] || die "cannot read the version of $_vf (no '# Version:' head)"
+    [ "$_fv" = "$VER" ] || die "$_vf is version $_fv, but $PKGREL/payload.sh and so the archive are $VER"
+done
+_pv=$(sed -n 's/^  version: "\([0-9][0-9A-Za-z.-]*\)",$/\1/p' "$R/starchorus.html" | head -n 1)
+[ "$_pv" = "$VER" ] || die "starchorus.html is version ${_pv:-unreadable}, but $PKGREL/payload.sh and so the archive are $VER"
 
 # the files come from the work tree, the time from HEAD: uncommitted changes to tracked files are said (a warning, not a refusal; after the output directory is judged, so a refused run says only why)
 if [ "$WHENCE" = "the commit time of HEAD" ] && [ -n "$(git -C "$R" status --porcelain --untracked-files=no 2>/dev/null)" ]; then

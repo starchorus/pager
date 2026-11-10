@@ -5633,13 +5633,17 @@ lay_selftest() {
     lal_o="$LAY/alo"; mkdir -p "$lal_o"; lal_ok=1
     for lal_c in 20:1 abc:1 86401:1 60:0 600:0 86400:0 0600:0; do
         lal_v=${lal_c%%:*}; lal_x=${lal_c#*:}
-        STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW=$lal_v sh "$0" --once > /dev/null 2> "$LAY/w.log"
+        STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW=$lal_v sh "$0" --once > /dev/null 2> "$LAY/w.log"; lal_rc=$?
+        # the positive control of the counts below: the run ended well (a collector that died before any output would count none either)
+        if [ "$lal_rc" != 0 ] || ! grep -q 'single cycle complete' "$LAY/w.log"; then lal_ok=0; echo "    window '$lal_v': the run did not complete (exit $lal_rc)" >&2; fi
         lal_m=$(grep -c "Alerts: STARCHORUS_ALERT_WINDOW must be whole seconds from 60 to 86400 (got '$lal_v'); using 600" "$LAY/w.log")
         [ "$lal_m" = "$lal_x" ] && [ "$(grep -c 'Alerts' "$LAY/w.log")" = "$lal_x" ] || { lal_ok=0; echo "    window '$lal_v': $lal_m message(s), want $lal_x" >&2; }
     done
-    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERT_WINDOW=20 STARCHORUS_ALERTS=0 sh "$0" --once > /dev/null 2> "$LAY/w.log"
+    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERT_WINDOW=20 STARCHORUS_ALERTS=0 sh "$0" --once > /dev/null 2> "$LAY/w.log"; lal_rc=$?
+    [ "$lal_rc" = 0 ] && grep -q 'single cycle complete' "$LAY/w.log" || lal_ok=0   # positive control: the run ended well before its silence counts
     grep -q 'Alerts' "$LAY/w.log" && lal_ok=0
-    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW='' sh "$0" --once > /dev/null 2> "$LAY/w.log"
+    STARCHORUS_OUTDIR="$lal_o" STARCHORUS_SOURCE=recondb STARCHORUS_RECON_DB="$LAY/none-such.db" STARCHORUS_VENDOR=0 STARCHORUS_CREATE_MON=0 STARCHORUS_ALERTS=1 STARCHORUS_ALERT_WINDOW='' sh "$0" --once > /dev/null 2> "$LAY/w.log"; lal_rc=$?
+    [ "$lal_rc" = 0 ] && grep -q 'single cycle complete' "$LAY/w.log" || lal_ok=0   # positive control: the run ended well before its silence counts
     grep -q 'Alerts' "$LAY/w.log" && lal_ok=0
     if [ "$lal_ok" = 1 ]; then st_pass "STARCHORUS_ALERT_WINDOW: the log line: a bad value is named once at start, a good one, an empty one and a bad one with STARCHORUS_ALERTS=0 say nothing"; else st_fail "STARCHORUS_ALERT_WINDOW: the log line ($(grep Alerts "$LAY/w.log" | head -n 2))"; fi
 
@@ -6085,7 +6089,21 @@ BTWIN
             bts_h=$(sed -n 's/^SigIgn:[[:space:]]*//p' "$BTS/log/sigign.$bts_x"); bts_lo=${bts_h#"${bts_h%??}"}
             [ $((0x$bts_lo & 5)) = 5 ] || bts_ig=0
         done
-        if [ "$bts_ig" = 1 ]; then st_pass "bt_begin: the two tools start with HUP and QUIT ignored (SigIgn), so a closing terminal cannot end the scan past its INT handler"; else st_fail "bt_begin: SigIgn lines [$(cat "$BTS"/log/sigign.* 2>/dev/null)]"; fi
+        if [ "$bts_ig" = 1 ]; then st_pass "bt_begin: the two tools start with HUP and QUIT ignored (SigIgn), so a closing terminal cannot end the scan past its INT handler; of the two, HUP is what the trap adds (a background job of a shell without job control ignores QUIT of itself)"; else st_fail "bt_begin: SigIgn lines [$(cat "$BTS"/log/sigign.* 2>/dev/null)]"; fi
+        # the negative control of the HUP half: the same kind of start (a background job of a subshell, SigIgn read from /proc) without the trap shows HUP not ignored, with it HUP ignored.
+        # A shell that was itself started with HUP ignored (under nohup) hands that on to every child and cannot show the difference: no row then, and a line that says so
+        bts_h=$(sed -n 's/^SigIgn:[[:space:]]*//p' "/proc/$$/status" 2>/dev/null); bts_lo=${bts_h#"${bts_h%??}"}
+        case $bts_lo in ''|*[!0-9a-fA-F]*) bts_lo=1 ;; esac
+        if [ $((0x$bts_lo & 1)) = 1 ]; then log "  SKIP: the SigIgn control needs a shell that does not ignore HUP itself (this one does, or its /proc entry cannot be read)"
+        else
+            for bts_k in trap none; do
+                ( [ "$bts_k" = trap ] && trap '' HUP QUIT; grep '^SigIgn' /proc/self/status > "$BTS/log/ctl.$bts_k" 2>/dev/null & wait )
+                bts_h=$(sed -n 's/^SigIgn:[[:space:]]*//p' "$BTS/log/ctl.$bts_k"); bts_lo=${bts_h#"${bts_h%??}"}
+                case $bts_lo in ''|*[!0-9a-fA-F]*) bts_lo=0 ;; esac
+                if [ "$bts_k" = trap ]; then bts_hup_trap=$((0x$bts_lo & 1)); else bts_hup_none=$((0x$bts_lo & 1)); fi
+            done
+            if [ "$bts_hup_trap/$bts_hup_none" = 1/0 ]; then st_pass "bt_begin: the SigIgn reading tells the two starts apart (with trap '' HUP the job ignores HUP, without it does not), so the check above can fail"; else st_fail "bt_begin: SigIgn control, HUP ignored with the trap $bts_hup_trap, without $bts_hup_none (want 1 and 0)"; fi
+        fi
     else log "  SKIP: bt_begin SigIgn check needs /proc (this is not Linux)"; fi
     # the pid file: one line per tool, wrapper, tool and start (the stand-in /proc gives the start field)
     bts_pf=$(cat "$BT_PF" 2>/dev/null)
@@ -6495,10 +6513,19 @@ BTWIN
 # its cache and lock), run_cycle, a real overlapping --once and the apcli_ro allowlist.
 json_ok() {
     # Validate JSON on stdin. Prefer jq, then python3, else a minimal brace-balance sanity check.
-    if have jq; then jq -e . >/dev/null 2>&1
+    # With jq: exactly one top-level object (every caller hands it a document), and nothing that jq reads but the page's JSON.parse refuses: the
+    # words nan, inf and infinity in any letter case, and a number with a leading zero, with no digit before or after its point, or with a plus
+    # sign outside an exponent. The device's jq has no regular expressions, so sed blanks the strings and grep looks through the rest. The
+    # document is judged from a file, byte for byte: a shell variable would drop a NUL, which jq refuses.
+    if have jq; then
+        json_ok_f=$(mktemp "${tdir:-${TMPDIR:-/tmp}}/jok.XXXXXX" 2>/dev/null) || json_ok_f="${tdir:-${TMPDIR:-/tmp}}/jok.$$"
+        cat > "$json_ok_f"
+        if LC_ALL=C sed 's/"\([^"\\]*\(\\.[^"\\]*\)*\)"/""/g' "$json_ok_f" | LC_ALL=C grep -Eiq '(^|[^A-Za-z0-9_])(nan|inf|infinity)([^A-Za-z0-9_]|$)|(^|[^0-9.eE+-])-?0[0-9]|(^|[^0-9])\.[0-9]|[0-9]\.([^0-9]|$)|(^|[^eE])\+'; then rm -f "$json_ok_f"; return 1; fi
+        jq -e -s 'length == 1 and (.[0] | type == "object")' "$json_ok_f" >/dev/null 2>&1; json_ok_r=$?
+        rm -f "$json_ok_f"; return "$json_ok_r"
     elif have python3; then python3 -c 'import sys,json; json.load(sys.stdin)' >/dev/null 2>&1
     else
-        awk '{n+=gsub(/{/,"{"); m+=gsub(/}/,"}")} END{exit (n>0 && n==m)?0:1}'
+        awk '{n+=gsub(/[{]/,"{"); m+=gsub(/[}]/,"}")} END{exit (n>0 && n==m)?0:1}'   # the braces as bracket expressions: BusyBox awk reads a bare { as a repetition
     fi
 }
 
@@ -6590,9 +6617,24 @@ selftest() {
     checkno() {  # desc, haystack, needle that must be ABSENT
         if printf '%s' "$2" | grep -q -- "$3"; then st_fail "$1  (unexpected: $3)"; else st_pass "$1"; fi
     }
+    checkabs() {  # desc, haystack, needle that must be ABSENT; an empty haystack (the line or document under test was lost) fails
+        if [ -z "$2" ]; then st_fail "$1  (nothing to look in)"; elif printf '%s' "$2" | grep -q -- "$3"; then st_fail "$1  (unexpected: $3)"; else st_pass "$1"; fi
+    }
     jcheck() {  # name, document: "<name> valid JSON"
         if printf '%s' "$2" | json_ok; then st_pass "$1 valid JSON"; else st_fail "$1 JSON"; fi
     }
+    # json_ok itself, the check behind every jcheck and `json_ok <` row: it must refuse what the page's JSON.parse refuses, and keep a good document (jq only: the other two branches judge less)
+    if have jq; then
+        jo_bad=""
+        for jo_c in '{"a": nan}' '{"a": NaN}' '{"a": NAN}' '{"a": Infinity}' '{"a": -Infinity}' '{"a": infinity}' '{"a": inf}' '{"a": -inf}' '{"a": [1, nan]}' '{"a": 01}' '{"a": -01}' '{"a": .5}' '{"a": 1.}' '{"a": +1}' '{"a": 1}{"b": 2}' '{"a": 1} {"a": 1}' '[{"a": 1}]' '' '{"a": 1'; do
+            ! printf '%s\n' "$jo_c" | json_ok || jo_bad="$jo_bad [$jo_c]"
+        done
+        ! printf '{"a": "x\000y"}\n' | json_ok || jo_bad="$jo_bad [a NUL in a string]"
+        ! printf '{"a": 1}\000\n' | json_ok || jo_bad="$jo_bad [a NUL after the document]"
+        if [ -z "$jo_bad" ]; then st_pass "json_ok: nan, inf and infinity in any letter case (as a value and inside an array), a number with a leading zero, without a digit before or after its point or with a plus sign, a NUL byte, two documents in a row, an array, nothing and a cut-off document are refused"; else st_fail "json_ok: accepted$jo_bad"; fi
+        jo_good='{"a": 1, "b": "nan NaN inf Infinity -Infinity \"Infinity\" +1 .5 01 1. \\", "c": [1.5, -2, null, true, 0, -0.5, 10.05, 100, 1e+5, 1E-05], "nan": {"Infinity": "x", "inf": 0}}'
+        if printf '%s\n' "$jo_good" | json_ok && printf '%s\n' '{' '  "k": "v",' '  "n": 0' '}' | json_ok; then st_pass "json_ok: a good document is kept (the words and the odd number forms as text, in a key and after an escaped quote included, exponents and a zero before a point; one object over several lines)"; else st_fail "json_ok: a good document refused"; fi
+    else log "  SKIP: json_ok control rows need jq"; fi
 
     # bt_pick, the choice of the Bluetooth source (the device's default auto reads blue5.db when it is there, else the window; an unknown word is none, said once):
     # driven here, since the preamble above pins the source to window for every later case
@@ -6948,7 +6990,7 @@ SQL
         checkf "sec: TKIP+CCMP mixed mode is not marked" "$(sl 'a0:a0:a0:00:00:08')" '"security": "WPA2", "akm": ["psk"], "cipher": {"group": "tkip", "pairwise": ["tkip", "ccmp128"]}'
         checkf "sec: WPA2+WPA3 transition keeps both AKMs" "$(sl 'a0:a0:a0:00:00:09')" '"security": "WPA3/WPA2", "akm": ["psk", "sae"]'
         checkf "resp: BSSID answering for 3 SSIDs -> responded_ssids 3" "$(sl 'a0:a0:a0:00:00:10')" '"responded_ssids": 3'
-        checkno "resp: a single-SSID responder carries no count" "$(sl 'a0:a0:a0:00:00:11')" 'responded_ssids'
+        checkabs "resp: a single-SSID responder carries no count" "$(sl 'a0:a0:a0:00:00:11')" 'responded_ssids'
         checkno "packets: never on a station (no client field carries it)" "$out" '"packets"'
         # nothing in the additive fields may leak a client identity: only AP lines carry akm/cipher/auth/responded_ssids
         cl=$(printf '%s\n' "$out" | grep -c '"mac".*\("akm"\|"cipher"\|"auth"\|"responded_ssids"\)')
@@ -6965,7 +7007,7 @@ INSERT INTO ssid VALUES (3,0,1,8,'B0B0B0000003','HopC',0,$((hnow-30)),-60,5180,3
 SQL
         RECON_DB="$hdb"
         out=$(HOPINFO=0 SURVEY=0 build_from_recondb "$hnow" 2>/dev/null)
-        checkno "hop: no channels[] by default (flag off)" "$out" '"channels"'
+        checkabs "hop: no channels[] by default (flag off)" "$out" '"channels"'
         out=$(HOPINFO=1 build_from_recondb "$hnow" 2>/dev/null)
         if printf '%s' "$out" | json_ok; then st_pass "hop: valid JSON with channels[]"; else st_fail "hop: JSON"; fi
         checkf "hop: last_heard per frequency = newest row" "$out" '"channels": [{"freq": 2412, "last_heard": 1709999995}, {"freq": 5180, "last_heard": 1709999970}],'
@@ -6997,11 +7039,11 @@ SQL
         if printf '%s' "$hp" | json_ok; then st_pass "homing: valid JSON with the field"; else st_fail "homing: JSON"; fi
         checkf "homing: bssid lower-cased, dbm from the AP's own row, peak, t = generated" "$hp" '"homing": {"bssid": "a0:a0:a0:00:00:03", "dbm": -50, "peak": -50, "t": '
         if [ "$(printf '%s\n' "$hp" | grep -c '"homing"')" = 1 ] && [ "$(printf '%s\n' "$hp" | wc -l | tr -d ' ')" = "$(printf '%s\n' "$pub" | wc -l | tr -d ' ')" ]; then st_pass "homing: exactly one field, same line count as without"; else st_fail "homing: line count / count"; fi
-        HOMING_BSSID="11:22:aa:bb:cc:dd"; hp=$(hcyc); checkno "homing: a station (a MAC with no aps[] row) is refused" "$hp" '"homing"'
-        HOMING_BSSID="de:ad:be:ef:00:01"; hp=$(hcyc); checkno "homing: a BSSID that is not in this document is refused" "$hp" '"homing"'
-        HOMING_BSSID="not-a-mac"; hp=$(hcyc); checkno "homing: garbage is refused" "$hp" '"homing"'
+        HOMING_BSSID="11:22:aa:bb:cc:dd"; hp=$(hcyc); checkabs "homing: a station (a MAC with no aps[] row) is refused" "$hp" '"homing"'
+        HOMING_BSSID="de:ad:be:ef:00:01"; hp=$(hcyc); checkabs "homing: a BSSID that is not in this document is refused" "$hp" '"homing"'
+        HOMING_BSSID="not-a-mac"; hp=$(hcyc); checkabs "homing: garbage is refused" "$hp" '"homing"'
         HOMING_BSSID="a0:a0:a0:00:00:03"; OWN=1 STARCHORUS_SYSFS_NET="$tdir/sys"; printf 'A0:A0:A0:00:00:03\n' > "$tdir/sys/wlan0/address"
-        hp=$(OWN=1 STARCHORUS_SYSFS_NET="$tdir/sys" hcyc); checkno "homing: one of our own transmitters is refused" "$hp" '"homing"'
+        hp=$(OWN=1 STARCHORUS_SYSFS_NET="$tdir/sys" hcyc); checkabs "homing: one of our own transmitters is refused" "$hp" '"homing"'
         printf '00:C0:CA:11:22:33\n' > "$tdir/sys/wlan0/address"
         HOMING_BSSID=""; printf 'A0:A0:A0:00:00:04\r\nignored line\n' > "$tdir/homing.target"; hp=$(hcyc)
         checkf "homing: the file target works (first line, CRLF, upper case)" "$hp" '"homing": {"bssid": "a0:a0:a0:00:00:04"'
@@ -7026,7 +7068,7 @@ SQL
         n=0; while [ "$n" -lt 10 ]; do hrun; n=$((n + 1)); done; hp_k=$HOMING_PEAK
         hrun; hp_g=$HOMING_PEAK
         if [ "$hp_k" = -40 ] && [ -z "$hp_g" ]; then st_pass "homing: a target absent from the document keeps its peak for eleven cycles and loses it on the twelfth"; else st_fail "homing: absence hold [$hp_k] then [$hp_g]"; fi
-        HOMING_BSSID=""; rm -f "$tdir/homing.target"; hrun; checkno "homing: target removed -> field gone" "$hp" '"homing"'
+        HOMING_BSSID=""; rm -f "$tdir/homing.target"; hrun; checkabs "homing: target removed -> field gone" "$hp" '"homing"'
         if [ -z "$HOMING_PEAK" ]; then st_pass "homing: the peak is dropped with the target"; else st_fail "homing: peak kept ($HOMING_PEAK)"; fi
         OUTDIR=$OUTDIR_SAVE; HOMING_BSSID=${STARCHORUS_HOMING_BSSID:-}; HOMING_PEAK=""; HOMING_POLLS=0
         RESOLVED=none; RECON_DB=auto; OUTFILE=$OUTDIR/starchorus.json; VENDOR=${STARCHORUS_VENDOR:-1}; MAX_AGE=${STARCHORUS_MAX_AGE:-0}; INTERVAL=${STARCHORUS_INTERVAL:-5}
@@ -7608,6 +7650,31 @@ SQL
         # file_size: the byte count of wc -c, from ls; a name with blanks and a glob character is one name
         printf 'abcdefg' > "$rpt/a b*c"; file_size "$rpt/a b*c"; fs1=$FSZ; file_size "$rpt/no such file"; fs2=$FSZ
         if [ "$fs1" = 7 ] && [ -z "$fs2" ]; then st_pass "file_size: bytes from ls (a name with a blank and a star), nothing for a missing file"; else st_fail "file_size: [$fs1] [$fs2]"; fi
+        # The device's route, `ls -lnL --full-time` and its fifth field, which the ls of macOS cannot take: a stand-in ls in front of PATH for the length of the two rows (PATH is restored after them) prints BusyBox's line
+        # for each file that exists (the size 4242, not the real one, so that the wc fallback cannot pass for it; LSMODE=junk: a size that is no number), asks for exactly that form, and
+        # fails for a missing file.
+        mkdir -p "$rpt/lsfull"
+        cat > "$rpt/lsfull/ls" <<'LSFULL'
+#!/bin/sh
+[ "$1 $2" = "-lnL --full-time" ] || exit 2
+shift 2; rc=0
+for a in "$@"; do
+    if [ -e "$a" ]; then
+        if [ "$LSMODE" = junk ]; then sz=4x2; else sz=4242; fi
+        printf -- '-rw-r--r--    1 0        0           %7s 2026-10-10 12:00:00.000000000 +0000 %s\n' "$sz" "$a"
+    else rc=1; fi
+done
+exit $rc
+LSFULL
+        chmod +x "$rpt/lsfull/ls"
+        fl_sv=$PATH; PATH="$rpt/lsfull:$PATH"
+        file_size "$rpt/a b*c"; fl_a=$FSZ; fl_l=$FL; file_size "$rpt/no such file"; fl_r="$fl_a|${fl_l%% *}|$FSZ|$FL"
+        if [ "$fl_r" = "4242|-rw-r--r--||" ]; then st_pass "file_size: through the device's ls (--full-time, the fifth field; a name with a blank and a star), nothing for a missing file"; else st_fail "file_size: through a BusyBox-style ls [$fl_r], want 4242|-rw-r--r--||"; fi
+        printf 'abcdefg' > "$rpt/lsdb.db"
+        fl_s=$( RDB_PATH="$rpt/lsdb.db"; RDB_KEY=$RECON_DB; recon_sample 1789300000; printf '%s/%s/%s' "$?" "$ST_LS" "$RS_SZ" )
+        fl_j=$( LSMODE=junk; export LSMODE; RDB_PATH="$rpt/lsdb.db"; RDB_KEY=$RECON_DB; recon_sample 1789300000; printf '%s/%s/%s' "$?" "$ST_LS" "$RS_SZ" )
+        if [ "$fl_s/$fl_j" = "0/1/4242/1/1/0" ]; then st_pass "recon_sample: through the device's ls the size is the fifth field (ST_LS 1, RS_SZ from ls), and a size that is no number gives RS_SZ 0 and no sample"; else st_fail "recon_sample: through a BusyBox-style ls [$fl_s] [$fl_j], want 0/1/4242 and 1/1/0"; fi
+        PATH=$fl_sv; rm -rf "$rpt/lsfull" "$rpt/lsdb.db"
         # ---- 3b2) the copy is stamped again when it is made (recon_copy_settle), and a pass whose copy cannot be read keeps the last document.
         #      Stand-ins first in PATH: `ls` that counts, `cp` that copies and then plays the engine (cut1 = the FIRST copy comes out cut short and the source moves
         #      during it; move = the source moves during every copy), `sqlite3` that says what a damaged copy says. Each case is a full pass (RS_SIG empty).
@@ -8013,7 +8080,7 @@ Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ES
 98:76:54:32:10:00, 2026-09-13 10:00:00, 2026-09-13 10:05:00, -85, 1, (not associated),
 CSV
     base=$(build_from_csv 1710000000 2>/dev/null)     # plain emitter output (no post-pass)
-    checkno "vendor: emitter omits rate for Speed -1" "$(line_of "$base" 'aa:bb:cc:33:44:55')" '"rate"'
+    checkabs "vendor: emitter omits rate for Speed -1" "$(line_of "$base" 'aa:bb:cc:33:44:55')" '"rate"'
     # 6a) nmap format (hit for AP + associated client; duplicate, MA-M/MA-S and comment lines)
     cat > "$tdir/oui-nmap.txt" <<'TXT'
 # Nmap MAC prefixes (test file)
@@ -8034,12 +8101,12 @@ TXT
     checkf  "vendor(Nmap): quote + backslash escaped" "$out" '"vendor": "Acme \"Quoted\" \\ Corp"'
     check   "vendor: rate survives beside vendor"     "$out" '"rate": 130'
     check   "vendor: randomized client flagged"       "$out" '"mac": "9a:88:77:66:55:44", "randomized": true, "rssi": -80'
-    checkno "vendor: randomized client has no vendor" "$(line_of "$out" '9a:88:77:66:55:44')" '"vendor"'
+    checkabs "vendor: randomized client has no vendor" "$(line_of "$out" '9a:88:77:66:55:44')" '"vendor"'
     laa=$(line_of "$out" 'aa:bb:cc:33:44:55')
-    checkno "vendor: LAA bssid gets no vendor"        "$laa" '"vendor"'
-    checkno "vendor: LAA bssid gets no randomized"    "$laa" '"randomized"'
+    checkabs "vendor: LAA bssid gets no vendor"        "$laa" '"vendor"'
+    checkabs "vendor: LAA bssid gets no randomized"    "$laa" '"randomized"'
     checkf  "vendor: SSID injection inert"            "$laa" '"ssid": "\"mac\": \"00:11:22:33:44:55\""'
-    checkno "vendor: unknown prefix -> no field"      "$(line_of "$out" '98:76:54:32:10:00')" '"vendor"'
+    checkabs "vendor: unknown prefix -> no field"      "$(line_of "$out" '98:76:54:32:10:00')" '"vendor"'
     ccache=$(cat "$OUI_CACHE" 2>/dev/null)
     checkf  "vendor: cache header ties cache to file" "$ccache" "# oui=$tdir/oui-nmap.txt size="
     check   "vendor: cache positive entry"            "$ccache" "^A8BBCC${RECON_TAB}Acme Networks\$"
@@ -8194,7 +8261,7 @@ SQL
         check   "recon: AP vendor via run_cycle"         "$rout" '"bssid": "a8:bb:cc:00:00:01", "vendor": "Acme Networks"'
         check   "recon: last_seen = MAX(time) per AP"    "$rout" '"rssi": -55, "security": "WPA2", "last_seen": 2000'
         check   "recon: bare columns from MAX(signal) row" "$rout" '"ssid": "HomeNet-OLD"'
-        checkno "recon: time 0 -> no last_seen"          "$(line_of "$rout" 'NoTime')" '"last_seen"'
+        checkabs "recon: time 0 -> no last_seen"          "$(line_of "$rout" 'NoTime')" '"last_seen"'
         check   "recon: client vendor + last_seen"       "$rout" '"mac": "10:22:33:aa:bb:cc", "vendor": "Client Corp", "rssi": -60, "last_seen": 1300'
         check   "recon: randomized client + last_seen"   "$rout" '"mac": "9a:88:77:66:55:44", "randomized": true, "rssi": -90, "last_seen": 1500'
     fi
@@ -8209,8 +8276,8 @@ SQL
     OUI_PATH="$tdir/oui-gone.txt"
     out=$(printf '%s\n' "$newcl" | add_vendor 2>/dev/null); jrc=$?
     if [ "$jrc" = "0" ] && printf '%s' "$out" | json_ok; then st_pass "cache: unreadable OUI file -> post-pass rc 0, valid JSON"; else st_fail "cache: unreadable OUI file rc=$jrc"; fi
-    checkno "cache: unreadable OUI file -> NO negative entry"  "$(cat "$OUI_CACHE")" "^005056${RECON_TAB}\$"
-    checkno "cache: unreadable OUI file -> no vendor (yet)"    "$(line_of "$out" '00:50:56:12:34:56')" '"vendor"'
+    checkabs "cache: unreadable OUI file -> NO negative entry"  "$(cat "$OUI_CACHE")" "^005056${RECON_TAB}\$"
+    checkabs "cache: unreadable OUI file -> no vendor (yet)"    "$(line_of "$out" '00:50:56:12:34:56')" '"vendor"'
     OUI_PATH="$tdir/oui-nmap.txt"
     out=$(printf '%s\n' "$newcl" | add_vendor 2>/dev/null)
     check   "cache: file back -> vendor found (cache not poisoned)" "$out" '"mac": "00:50:56:12:34:56", "vendor": "VMware Inc"'
@@ -8420,7 +8487,7 @@ SQL
     printf '102233\tClient Corp\n' > "$tdir/newf-hdr"
     save_hdr=$OUI_HDR; OUI_HDR="# oui=$tdir/some-other-file.txt size=1 mtime=1"
     cache_append "$tdir/newf-hdr"; OUI_HDR=$save_hdr
-    checkno "lock: merge skipped when the cache was restarted for another file meanwhile" "$(cat "$OUI_CACHE")" '^102233'
+    checkabs "lock: merge skipped when the cache was restarted for another file meanwhile" "$(cat "$OUI_CACHE")" '^102233'
     if [ ! -d "$lk" ]; then st_pass "lock: released after the skipped merge"; else st_fail "lock: left behind after the skipped merge"; fi
     #   i) cache_append itself repairs an unterminated cache before appending (no fused line)
     vreset; printf 'A8BBCC\tAcme Net' >> "$OUI_CACHE"
@@ -8538,7 +8605,7 @@ SQL
     #      (unwritable directory): the shell passes SC_TERM, the awk commits lines one behind
     vreset; printf 'A8BBCC\tAcme Net' >> "$OUI_CACHE"
     out=$(printf '%s\n' "$base" | SC_CACHE="$OUI_CACHE" SC_OUI="" SC_NEWF="" SC_TERM=0 awk "$AWK_JSON_HELPERS$AWK_VENDOR" 2>/dev/null)
-    checkno "loader: cut-off last line ignored when unrepaired (SC_TERM=0)" "$out" 'Acme Net"'
+    checkabs "loader: cut-off last line ignored when unrepaired (SC_TERM=0)" "$out" 'Acme Net"'
     out=$(printf '%s\n' "$base" | SC_CACHE="$OUI_CACHE" SC_OUI="" SC_NEWF="" SC_TERM=1 awk "$AWK_JSON_HELPERS$AWK_VENDOR" 2>/dev/null)
     check   "loader: same line served when the cache is whole (SC_TERM=1)"  "$out" '"vendor": "Acme Net"'
     if [ "$(id -u 2>/dev/null)" != "0" ]; then
@@ -8638,7 +8705,8 @@ SQL
     checkf "index: (hex) line wins over the (base 16) line"        "$oxi" '"vendor": "IEEE Hex Corp"'
     checkf "index: quote and backslash escaped"                    "$oxi" '"vendor": "Acme \"Q\" \\ Corp"'
     checkf "index: last tab field of a manuf line"                 "$oxi" '"vendor": "VMware, Inc."'
-    checkno "index: MA-M / MA-S lines give no vendor"              "$(line_of "$oxi" '00:55:da:00:00:01')$(line_of "$oxi" '70:b3:d5:00:00:01')" '"vendor"'
+    checkabs "index: MA-M line gives no vendor"                     "$(line_of "$oxi" '00:55:da:00:00:01')" '"vendor"'
+    checkabs "index: MA-S line gives no vendor"                     "$(line_of "$oxi" '70:b3:d5:00:00:01')" '"vendor"'
     check  "index: a prefix the file lacks is a negative entry"    "$oxic" "^111111${RECON_TAB}\$"
     # an octet with many lines (here: more than 3) is split by its first two octets: one file per second octet, the lines that cannot be accepted dropped
     save_max=$OUI_IDX_MAX; OUI_IDX_MAX=3; rm -rf "$CAPDIR/oui-index"; setup_vendor 2>/dev/null; OUI_IDX_MAX=$save_max
@@ -8668,7 +8736,7 @@ SQL
     # an unreadable OUI file with a damaged index and a new prefix: nothing is known, so no negative entry (as in 6h)
     rm -f "$OUI_IDX/A8"; OUI_PATH="$tdir/oui-gone.txt"; vreset
     printf '%s\n' "$oxd" | add_vendor >/dev/null 2>&1
-    checkno "index: damaged index and no OUI file -> no negative entry for a prefix that is in the file" "$(cat "$OUI_CACHE")" "^A8BBCC${RECON_TAB}\$"
+    checkabs "index: damaged index and no OUI file -> no negative entry for a prefix that is in the file" "$(cat "$OUI_CACHE")" "^A8BBCC${RECON_TAB}\$"
     OUI_PATH="$ox"; setup_vendor 2>/dev/null
     # the OUI file changes (new size): a new index, with the new content
     printf 'CCDDEE New Corp\n' >> "$ox"; setup_vendor 2>/dev/null

@@ -200,11 +200,11 @@ eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
 for OPS_VP in 1440x900 1000x640; do
   runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&inv=1" "out/$P-ops-d15i-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   OPS_OV=$(evalv "out/$P-ops-d15i-$OPS_VP.json" 1); OPS_OVE=$(evalv "out/$P-ops-d15i-$OPS_VP.json" 2)
-  if [ "$OPS_OV" = 0 ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the inventory drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
+  if [ "$OPS_OV" = "0 n=foundation:6,wargames:6,whitehall:9 d=inv:shown" ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the inventory drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
   else row "operator drawers: D15 overlap 0 with the inventory drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" FAIL; fi
-  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-ops-d15h-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval "(async()=>{STARCHORUS.openHoming(true);await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
-  OPS_OV=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 2); OPS_OVE=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 3)
-  if [ "$OPS_OV" = 0 ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the homing drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
+  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-ops-d15h-$OPS_VP" --width "${OPS_VP%x*}" --height "${OPS_VP#*x}" --wait 4 --ready "window.STARCHORUS && STARCHORUS.stats().sourceKind !== 'demo'" --fps 0 --eval "(async()=>{STARCHORUS.openHoming(true);await STARCHORUS.wait(300);return STARCHORUS.openHoming(true)})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  OPS_OV=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 2); OPS_OVE=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 3); OPS_HO=$(evalv "out/$P-ops-d15h-$OPS_VP.json" 1)   # the API says the homing drawer is open; the probe also reads its body's own box
+  if [ "$OPS_HO" = true ] && [ "$OPS_OV" = "0 n=foundation:6,wargames:6,whitehall:9 d=home:shown" ] && [ "$OPS_OVE" = 0 ]; then row "operator drawers: D15 overlap 0 with the homing drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" PASS
   else row "operator drawers: D15 overlap 0 with the homing drawer open $OPS_VP (err ${OPS_OVE:-?}) [$(printf '%s' "$OPS_OV" | cut -c1-60)]" FAIL; fi
 done
 

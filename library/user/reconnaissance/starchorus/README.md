@@ -217,6 +217,9 @@ payload.sh set KEY VALUE   # check and store; exit 2 for an unknown key or an in
 payload.sh reset           # delete the settings file
 ```
 
+`set` and `reset` only save. While the collector is running they say so on stderr, and the new values
+apply at the next start: what is running keeps the values it was started with.
+
 ## Configuration
 
 Environment variables, all optional:

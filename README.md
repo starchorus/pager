@@ -361,8 +361,9 @@ read from a pidfile counts only while it still runs what was started, so a reboo
 false 'Running' or a signal to another program. The settings live in
 `/root/loot/starchorus/settings.conf`; the payload reads the file but never executes it, and an
 environment variable takes precedence. `payload.sh set KEY VALUE` sets the same settings;
-`payload.sh get`, `status`, `start` and `reset` work without the on-device menu. Details: the
-payload's README.
+`payload.sh get`, `status`, `start` and `reset` work without the on-device menu. Both `set` and
+`reset` only save: what is running keeps the values it was started with, and the payload says so
+while the collector runs; they apply at the next start. Details: the payload's README.
 
 Firmware: the payload's menus use Hak5's [`LIST_PICKER`](https://documentation.hak5.org/wifi-pineapple-pager/list_picker), which needs firmware 1.0.8 or later, and the
 QR dialogue of 'Open on Phone' is reported to need 1.1.1 or later (not tried here on an older firmware; where the command is missing, the payload shows the address as text).

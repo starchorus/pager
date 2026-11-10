@@ -10,7 +10,8 @@
 #                 missing or altered LICENSE; a generator that leaves a stale file behind or writes despite differing
 #                 Overview copies, or that removes the repo's own payload sources when told to build into the repo root (also when the root, the payload directory or a path
 #                 inside it is written in other letter case on a case-insensitive file system, which a string comparison misses); a packaged payload that cannot install itself from its own directory;
-#                 a packaged README that no longer says what the project checks (the phrase 'passivity check') or where that check ends (the phrase 'source text').
+#                 a packaged README that no longer says what the project checks (the phrase 'passivity check') or where that check ends (the phrase 'source text');
+#                 a release packer that packs a page that is not the build of src/ or a tree whose version heads disagree, or that goes on when a file whose head it reads is missing.
 # NEGATIVE PROBE: a file added to the generator's map, or the page packaged under its repo name => "file list" red; README.md
 #                 source edited after the build => "byte-identical" red; the Category line changed => "header" red; the
 #                 cmp guard removed from the generator => "refuses" red; the root-or-source guard removed => "OUTDIR = the repo root" red; the identity
@@ -20,6 +21,8 @@
 #                 2,201 or 2,199, or a tail of 1,999 or 2,001), umask, flock call or exit status changed => "companion alert" red (each tried on a copy).
 #                 The README's required phrases are read by one function (hkp_readme_bad): a copy of the packaged README without the paragraph on the passivity check, and copies with either of
 #                 its two phrases worded differently, must each be named for exactly what they lack => "README phrase check bites" red when the list lost a phrase or the function stopped reading.
+#                 The packer's refusals, each taken out of a copy of tools/release.sh in turn (the page that differs, the page that is missing, the version heads, a missing file, the
+#                 page's version line) => "tools/release.sh refuses" red on its own key.
 # NOT PROVEN:     that Hak5 accepts the directory (their review is by hand); anything on the device; the payload's first-run
 #                 install under BusyBox (payload-ui.sh runs it with stand-ins under sh/dash); the companion alert under the device's
 #                 shell and its own flock or tail (the run here has a stand-in flock and the machine's other tools).
@@ -347,7 +350,8 @@ HKP_CHK=$(cd "$HKP_X" && if command -v sha256sum >/dev/null 2>&1; then sha256sum
 # (a copy of its own, built here from every source the package step reads, the root starchorus-display.sh included: nothing is borrowed from section 5's copy)
 HKP_C="$HKP_T/relcopy"; mkdir -p "$HKP_C/tools" "$HKP_C/$HKP_REL" "$HKP_C/packaging/hak5"
 for HKP_f in tools/release.sh tools/hak5-package.sh starchorus-collect.sh starchorus.html starchorus-display.sh starchorus-serve.sh LICENSE \
-  packaging/hak5/README.md "$HKP_REL/payload.sh" "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh"; do cp "$HKP_f" "$HKP_C/$HKP_f"; done
+  packaging/hak5/README.md "$HKP_REL/payload.sh" "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh" tools/build-page.sh payload.sh; do cp "$HKP_f" "$HKP_C/$HKP_f"; done
+cp -R src "$HKP_C/src"   # the page is checked against the build of src/ before anything is packed
 (cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel c" > "$HKP_T/relc.out" 2>&1); HKP_C3=$?
 cmp -s "$HKP_R1/$HKP_RA" "$HKP_T/rel c/$HKP_RA" || HKP_BAD="$HKP_BAD copy-differs"
 echo '# a changed line' >> "$HKP_C/starchorus-serve.sh"
@@ -392,6 +396,45 @@ else (cd / && sh "$R/tools/release.sh" "$HKP_R1" > "$HKP_T/rel9.out" 2>&1); HKP_
 [ "$HKP_C5/$HKP_C6" = 2/2 ] && [ "$(cksum < "$HKP_R1/SHA256SUMS")" = "$HKP_H1" ] || HKP_BAD="$HKP_BAD refusals($HKP_C5/$HKP_C6)"
 rowif "hak5 package: tools/release.sh builds the archive twice with the same bytes, root/root uid 0 gid 0 and one time on every entry, SHA256SUMS = the archive and the 8 files inside it, checked OK after unpacking; a changed source changes exactly its sum and the archive's; no OUTDIR, an existing release or an OUTDIR in the repo (root, payload directory, a path inside it, a link, a new directory in it) is refused and nothing is made, a failed run leaves no directory (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 [ -z "$HKP_BAD" ] || { sed 's/^/    /' "$HKP_T/rel1.out" | head -n 5; printf '%s\n' "$HKP_CHK" | grep -v ': OK$' | head -n 5; }
+
+# the two refusals before anything is made (exit 2, the file named, nothing written into OUTDIR): a page that is not the build of src/ (one byte more), and a "# Version:" head,
+# or the page's own version line, that differs from the payload's; each on the copy, put right again afterwards (the copy then packs as before: the control)
+HKP_BAD=""
+hkp_refuse() {   # hkp_refuse LABEL OUTDIR WORD: the copy must exit 2, say WORD, and leave OUTDIR unmade
+  _hm=$(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$2" 2>&1); _hr=$?
+  [ "$_hr" = 2 ] || HKP_BAD="$HKP_BAD $1:rc$_hr"
+  case $_hm in *"release: "*"$3"*) ;; *) HKP_BAD="$HKP_BAD $1:message" ;; esac
+  [ ! -e "$2" ] || HKP_BAD="$HKP_BAD $1:made"
+}
+cp "$HKP_C/starchorus.html" "$HKP_T/page.keep"
+printf '\n' >> "$HKP_C/starchorus.html"
+hkp_refuse page "$HKP_T/rel g" "starchorus.html differs from the build"
+cp "$HKP_T/page.keep" "$HKP_C/starchorus.html"
+mv "$HKP_C/starchorus.html" "$HKP_C/starchorus.html.away"
+hkp_refuse nopage "$HKP_T/rel g" "starchorus.html is missing or unusable"
+mv "$HKP_C/starchorus.html.away" "$HKP_C/starchorus.html"
+for HKP_f in starchorus-collect.sh payload.sh starchorus-display.sh starchorus-serve.sh "$HKP_REL/starchorus-display.sh" "$HKP_REL/alert-deauth.sh"; do
+  cp "$HKP_C/$HKP_f" "$HKP_T/head.keep"
+  sed 's/^\(# Version: *\)[0-9][0-9A-Za-z.-]*$/\10.0.1/' "$HKP_T/head.keep" > "$HKP_C/$HKP_f"
+  hkp_refuse "head:$HKP_f" "$HKP_T/rel g" "$HKP_f is version 0.0.1"
+  cp "$HKP_T/head.keep" "$HKP_C/$HKP_f"
+done
+mv "$HKP_C/payload.sh" "$HKP_C/payload.sh.away"   # a file whose head is read, missing (the package step does not need this one, so nothing later would say so)
+hkp_refuse nofile "$HKP_T/rel g" "payload.sh is missing"
+mv "$HKP_C/payload.sh.away" "$HKP_C/payload.sh"
+cp "$HKP_C/$HKP_REL/payload.sh" "$HKP_T/head.keep"
+sed 's/^\(# Version: *\)[0-9][0-9A-Za-z.-]*$/\10.0.1/' "$HKP_T/head.keep" > "$HKP_C/$HKP_REL/payload.sh"
+hkp_refuse "head:payload-dir" "$HKP_T/rel g" "payload.sh is version $HKP_PV"
+cp "$HKP_T/head.keep" "$HKP_C/$HKP_REL/payload.sh"
+# the page's version line moved in the source and in the page together, so that the page is still the build of src/ and only the version differs
+cp "$HKP_C/src/js/40-debug-api.js" "$HKP_T/api.keep"
+sed 's/^  version: "[0-9][0-9A-Za-z.-]*",$/  version: "0.0.1",/' "$HKP_T/page.keep" > "$HKP_C/starchorus.html"
+sed 's/^  version: "[0-9][0-9A-Za-z.-]*",$/  version: "0.0.1",/' "$HKP_T/api.keep" > "$HKP_C/src/js/40-debug-api.js"
+hkp_refuse "page-version" "$HKP_T/rel g" "starchorus.html is version 0.0.1"
+cp "$HKP_T/page.keep" "$HKP_C/starchorus.html"; cp "$HKP_T/api.keep" "$HKP_C/src/js/40-debug-api.js"
+(cd / && SOURCE_DATE_EPOCH=$HKP_EP sh "$HKP_C/tools/release.sh" "$HKP_T/rel h" > "$HKP_T/relh.out" 2>&1); HKP_C8=$?
+{ [ "$HKP_C8" = 0 ] && [ -f "$HKP_T/rel h/$HKP_RA" ]; } || HKP_BAD="$HKP_BAD control:rc$HKP_C8"
+rowif "hak5 package: tools/release.sh refuses (exit 2, the file named, nothing made) a page that is not the build of src/ (one byte more, or missing), a '# Version:' head of the collector, the root payload, either Overview, the page server or the companion alert that differs from the payload's, a root payload that is missing, and a page version line that differs; the put-right copy packs (bad:${HKP_BAD:- none})" [ -z "$HKP_BAD" ]
 
 rm -rf "$HKP_T"
 fi

@@ -28,9 +28,9 @@
 #      say "jq incomplete".
 # Remote commands (nothing else is ever sent): mkdir -p, the collector's read-only status ("cd <dir> && ... ./starchorus-collect.sh" with
 # its status flag, which only reports), chmod, "mv -f <name>.new <name>" for every file, joined by && in ONE command, cksum,
-# "sh <installed script> --selftest", "cd <dir> && ... ./starchorus-collect.sh --once", head of starchorus.json,
+# "sh <installed script> --selftest", "date +%s; cd <dir> && ... ./starchorus-collect.sh --once" (the device's clock, then the capture), head of starchorus.json,
 # "sh <installed display script> --once summary".
-# The list was extended on 24 October 2026 by the owner's decision (the status read and the rename; tools/regress.d/installer.sh pins it).
+# The list was extended by the owner's decision on 24 October 2026 (the status read and the rename) and on 10 November 2026 (the clock read before the capture); tools/regress.d/installer.sh pins it.
 # No package manager, no config, no service control (the status read never stops anything), no AP-service calls.
 # MEASURED ON THE DEVICE (docs/device-notes.md, runs of 14 and 15 October 2026, firmware as shipped): the BusyBox applet
 # "cksum" is absent ("ash: cksum: not found", exit 127) and "head -c" works. The installer therefore verifies by reading
@@ -164,7 +164,8 @@ CMD_CHMOD="chmod +x $NEWX"
 CMD_CKSUM="cksum $ALLDEST"
 CMD_CSELF="sh $LOOT/starchorus-collect.sh --selftest"
 CMD_PSELF="sh $LOOT/starchorus-display.sh --selftest"
-CMD_ONCE="cd $LOOT && STARCHORUS_OUTDIR=$LOOT STARCHORUS_MAX_AGE=$MAX_AGE ./starchorus-collect.sh --once"
+# the device's clock is read first, in the same remote command (a failed read does not keep the collector from running: the two are joined by ";")
+CMD_ONCE="date +%s; cd $LOOT && STARCHORUS_OUTDIR=$LOOT STARCHORUS_MAX_AGE=$MAX_AGE ./starchorus-collect.sh --once"
 CMD_HEAD="head -c 400 $LOOT/starchorus.json"
 # STARCHORUS_DISPLAY_PLAIN=1: text on stdout even if the ssh session happens to see the device's LOG command
 CMD_SMOKE="STARCHORUS_JSON=$LOOT/starchorus.json STARCHORUS_DISPLAY_PLAIN=1 sh $LOOT/starchorus-display.sh --once summary"
@@ -406,6 +407,9 @@ fi
 
 say "==> one real passive capture (collector --once, STARCHORUS_MAX_AGE=$MAX_AGE as in the payload; 0 = the whole record)"
 rsh_cap "$WORK/once.out" "$CMD_ONCE"; rc=$?
+dev_now=$(LC_ALL=C sed -n '1p' "$WORK/once.out")   # the clock line of CMD_ONCE: digits, or not a clock reading at all
+case $dev_now in ''|*[!0-9]*) dev_now="" ;; esac
+[ "${#dev_now}" -le 12 ] || dev_now=""   # longer than any clock: not a reading, and too long for the test below
 tail -n 3 "$WORK/once.out" | indent
 if [ "$rc" = 0 ]; then res PASS "collector --once finished"
 else res WARN "collector --once exited $rc (source 'none'? see the log above) -- a passive source may be missing"; fi
@@ -418,6 +422,11 @@ say "  starchorus.json: generated=${gen:-?} source=${src:-?}   (content not echo
 SEEN_HEAD="exit $head_rc"
 [ "$head_rc" = 0 ] || SEEN_HEAD="exit $head_rc: $(firstline "$WORK/head.out")"
 [ -n "$gen" ] || res WARN "no readable starchorus.json at $LOOT after --once (head -c 400: $SEEN_HEAD)"
+# A document older than the clock read before the run was not written by this run (the run failed, or kept an earlier file). Not seen: a device whose
+# clock went back between sessions can hold a document from the future.
+if [ -z "$dev_now" ]; then res WARN "the device's clock could not be read as digits (first line of the --once output), so the age of starchorus.json was not judged"
+elif [ -n "$gen" ] && [ "${#gen}" -le 12 ] && [ "$gen" -lt "$dev_now" ]; then res WARN "starchorus.json was not written by this run: generated=$gen is older than the device's clock ($dev_now) read before --once"
+fi
 
 say "==> Overview smoke test (starchorus-display.sh --once summary reads that json)"
 rsh_cap "$WORK/sum.out" "$CMD_SMOKE"; rc=$?

@@ -263,9 +263,10 @@ eval "$(grep '^EDG_RDY=' tools/regress.d/edge-layout.sh)"
 CHT_RDY=$EDG_RDY   # the fonts are loaded, the served capture has replaced the built-in sky and a frame has been painted (the overlap reads font metrics)
 for CHT_VP in 1440x900 1000x640; do
   for CHT_D in air time rec; do
-    runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-cht-d15$CHT_D-$CHT_VP" --width "${CHT_VP%x*}" --height "${CHT_VP#*x}" --wait 4 --fps 0 --ready "$CHT_RDY" --eval "(async()=>{STARCHORUS.openDrawer('$CHT_D');await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+    runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-cht-d15$CHT_D-$CHT_VP" --width "${CHT_VP%x*}" --height "${CHT_VP#*x}" --wait 4 --fps 0 --ready "$CHT_RDY" --eval "(async()=>{STARCHORUS.openDrawer('$CHT_D');await STARCHORUS.wait(300);return STARCHORUS.openDrawer('$CHT_D')})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+    CHT_DO=$(evalv "out/$P-cht-d15$CHT_D-$CHT_VP.json" 1)   # the API names the open drawer; the probe also reads the drawer body's own box
     CHT_OV=$(evalv "out/$P-cht-d15$CHT_D-$CHT_VP.json" 2); CHT_OVE=$(evalv "out/$P-cht-d15$CHT_D-$CHT_VP.json" 3)
-    if [ "$CHT_OV" = 0 ] && [ "$CHT_OVE" = 0 ]; then row "channel/time drawers: D15 overlap 0 with the $CHT_D drawer open $CHT_VP (err ${CHT_OVE:-?}) [$(printf '%s' "$CHT_OV" | cut -c1-60)]" PASS
+    if [ "$CHT_DO" = "$CHT_D" ] && [ "$CHT_OV" = "0 n=foundation:6,wargames:6,whitehall:9 d=$CHT_D:shown" ] && [ "$CHT_OVE" = 0 ]; then row "channel/time drawers: D15 overlap 0 with the $CHT_D drawer open $CHT_VP (err ${CHT_OVE:-?}) [$(printf '%s' "$CHT_OV" | cut -c1-60)]" PASS
     else row "channel/time drawers: D15 overlap 0 with the $CHT_D drawer open $CHT_VP (err ${CHT_OVE:-?}) [$(printf '%s' "$CHT_OV" | cut -c1-60)]" FAIL; fi
   done
 done

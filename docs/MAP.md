@@ -247,7 +247,7 @@ negative probes: `tools/README.md` (Drop-ins) and the drop-in's own header.
 | `doc-drift` | `page` `collector` `overview` `payload` `serve` `00-embedded-font` `11-masthead-stats` `20-config` `21-themes-encoding` `37-ui` `40-debug-api` `CHANGELOG.md` `INSTALL.md` `README.md` `SECURITY.md` `docs/architecture.md` `library/user/reconnaissance/starchorus/README.md` `packaging/hak5/README.md` `tools/install.sh` |
 | `doc-truth` | `page` `collector` `overview` `payload` `serve` `fixtures` `docs` `tools` `tools/doc-truth.py` `tools/static.sh` |
 | `edge-layout` | `page` `fixtures` `30-step` `37-ui` `38-data-source` `41-boot` |
-| `hak5-package` | `page` `collector` `overview` `payload` `serve` `LICENSE` `README.md` `index.html` `packaging/hak5/README.md` `tools/hak5-package.sh` `tools/release.sh` |
+| `hak5-package` | `page` `collector` `overview` `payload` `serve` `40-debug-api` `LICENSE` `README.md` `index.html` `packaging/hak5/README.md` `tools/hak5-package.sh` `tools/release.sh` |
 | `hook-behavior` | `page` `hooks` `41-boot` `CONTRIBUTING.md` `DESIGN-DECISIONS.md` `README.md` `ROADMAP.md` `docs/MAP.md` `docs/architecture.md` `tools/README.md` `tools/quick.sh` |
 | `ingest-fuzz` | `page` `overview` `fixtures` `22-util` `23-normalize` `37-ui` `38-data-source` `tools/evals/ingest-fuzz.js` `tools/fuzz-doc.py` `tools/gen-testdata.py` |
 | `installer` | `page` `collector` `overview` `payload` `serve` `INSTALL.md` `index.html` `tools/install.sh` `tools/static.sh` |

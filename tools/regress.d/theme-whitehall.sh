@@ -145,7 +145,7 @@ eval "$(grep '^EDG_OVL=' tools/regress.d/edge-layout.sh)"
 for TWH_VP in 1440x900 1280x800 1000x640; do
   runq "$F/field-probes.json" "$TWH_Q" "out/$P-twh-d15-$TWH_VP" --width "${TWH_VP%x*}" --height "${TWH_VP#*x}" --wait 4 --ready "$TWH_RDY" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   TWH_OV=$(evalv "out/$P-twh-d15-$TWH_VP.json" 1); TWH_OVE=$(evalv "out/$P-twh-d15-$TWH_VP.json" 2)
-  if [ "$TWH_OV" = 0 ] && [ "$TWH_OVE" = 0 ]; then row "Whitehall: D15 overlap 0 with clock, tote lamps and banners $TWH_VP (err ${TWH_OVE:-?}) [$(printf '%s' "$TWH_OV" | cut -c1-60)]" PASS
+  if [ "$TWH_OV" = "0 n=foundation:6,wargames:6,whitehall:9 d=legend:shown" ] && [ "$TWH_OVE" = 0 ]; then row "Whitehall: D15 overlap 0 with clock, tote lamps and banners $TWH_VP (err ${TWH_OVE:-?}) [$(printf '%s' "$TWH_OV" | cut -c1-60)]" PASS
   else row "Whitehall: D15 overlap 0 with clock, tote lamps and banners $TWH_VP (err ${TWH_OVE:-?}) [$(printf '%s' "$TWH_OV" | cut -c1-60)]" FAIL; fi
 done
 TWH_NET=$(grep -cE 'method:|POST|XMLHttpRequest|WebSocket|EventSource|sendBeacon' starchorus.html); TWH_FE=$(grep -c 'fetch(' starchorus.html)

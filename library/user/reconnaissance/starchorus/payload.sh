@@ -1273,9 +1273,11 @@ case "$1" in
         [ "$pl_rc" = 0 ] && pl_has "$PL_ENV" "$2" && echo "Starchorus: note: $2 is set in the environment; the saved value applies only without it" >&2
         [ "$pl_rc" = 2 ] && { echo "Starchorus: refused: $2=$3 (unknown key or invalid value)" >&2; pl_usage; }
         [ "$pl_rc" = 1 ] && echo "Starchorus: cannot write $SETTINGS" >&2
+        [ "$pl_rc" = 0 ] && ! pl_has "$PL_ENV" "$2" && [ -n "$(pl_loop_pid)" ] && echo "Starchorus: note: Starchorus is running; $2 applies at the next start" >&2   # what is running keeps the values it was started with (for a key of the environment the note above says all there is)
         exit "$pl_rc" ;;
     reset)
-        pl_reset ;;
+        pl_reset
+        [ -n "$(pl_loop_pid)" ] && echo "Starchorus: note: Starchorus is running; the defaults apply at the next start" >&2 ;;
     *)
         pl_usage; exit 2 ;;
 esac

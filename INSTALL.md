@@ -249,6 +249,10 @@ The Pager has no `cksum`, so the `==> integrity` section is a single `[PASS]` li
 device has none and that all seven files were read back and compared byte for byte. That is how
 the installer checks them; it is not a warning.
 
+The installer also reads the Pager's clock just before the test capture. If the `starchorus.json` it finds
+afterwards is older than that clock, it gives a `!! [WARN]` saying that this run did not write it (the
+capture failed, or an earlier file was kept); if the clock cannot be read, it says that the age was not judged.
+
 A line marked `!! [WARN]` is a warning, not a failure; the installer repeats it in its closing
 summary with an explanation. Go on to [section 5](#5-start-starchorus).
 

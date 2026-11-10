@@ -165,7 +165,7 @@ OBV_RDY=$EDG_RDY   # the fonts are loaded, the served capture has replaced the b
 for OBV_VP in 1440x900 1000x640; do
   runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&obs=1&baseline=1" "out/$P-obv-d15-$OBV_VP" --width "${OBV_VP%x*}" --height "${OBV_VP#*x}" --wait 4 --fps 0 --ready "$OBV_RDY" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   OBV_OV=$(evalv "out/$P-obv-d15-$OBV_VP.json" 1); OBV_OVE=$(evalv "out/$P-obv-d15-$OBV_VP.json" 2)
-  if [ "$OBV_OV" = 0 ] && [ "$OBV_OVE" = 0 ]; then row "observations: D15 overlap 0 with the observations drawer open $OBV_VP (err ${OBV_OVE:-?}) [$(printf '%s' "$OBV_OV" | cut -c1-60)]" PASS
+  if [ "$OBV_OV" = "0 n=foundation:6,wargames:6,whitehall:9 d=obs:shown" ] && [ "$OBV_OVE" = 0 ]; then row "observations: D15 overlap 0 with the observations drawer open $OBV_VP (err ${OBV_OVE:-?}) [$(printf '%s' "$OBV_OV" | cut -c1-60)]" PASS
   else row "observations: D15 overlap 0 with the observations drawer open $OBV_VP (err ${OBV_OVE:-?}) [$(printf '%s' "$OBV_OV" | cut -c1-60)]" FAIL; fi
 done
 

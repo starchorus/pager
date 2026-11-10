@@ -10,7 +10,7 @@ SML_RDY='document.fonts.ready.then(() => new Promise(r => requestAnimationFrame(
 for SML_T in foundation wargames whitehall; do
   runq "$F/field-probes.json" "?poll=0&spin=0&intro=0&theme=$SML_T" "out/$P-sml-$SML_T" --width 760 --height 600 --wait 4 --ready "$SML_RDY" --fps 0 --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   SML_OV=$(evalv "out/$P-sml-$SML_T.json" 1); SML_OE=$(evalv "out/$P-sml-$SML_T.json" 2)
-  if [ "$SML_OV" = 0 ] && [ "$SML_OE" = 0 ]; then row "D15 760x600 $SML_T: overlap 0 with and without the detail sheet (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-70)]" PASS
+  if [ "$SML_OV" = "0 n=foundation:6,wargames:6,whitehall:8 d=legend:shown" ] && [ "$SML_OE" = 0 ]; then row "D15 760x600 $SML_T: overlap 0 with and without the detail sheet (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-70)]" PASS
   else row "D15 760x600 $SML_T: overlap 0 with and without the detail sheet (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-70)]" FAIL; fi
 done
 # the stats panel wraps into rows instead of a 100 px column, and the channel bar docks
@@ -19,8 +19,9 @@ SML_G=$(evalv "out/$P-sml-geo.json" 1)
 rowif "D15 760x600: #stats is a real panel again (width >= 230, height <= 260) and the channel bar docks [$SML_G]" [ "$(printf '%s' "$SML_G" | python3 -c 'import json,sys;a=json.load(sys.stdin);print(a[0]=="docked" and a[1]>=230 and a[2]<=260)' 2>/dev/null)" = True ]
 # the drawers (air, time, record, inventory) at 760x600 keep the edge panels apart too
 for SML_D in air time rec; do
-  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-sml-d-$SML_D" --width 760 --height 600 --wait 4 --ready "$SML_RDY" --fps 0 --eval "(async()=>{STARCHORUS.openDrawer('$SML_D');await STARCHORUS.wait(300);return 1})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
+  runq "$F/field-probes.json" "?poll=0&spin=0&intro=0" "out/$P-sml-d-$SML_D" --width 760 --height 600 --wait 4 --ready "$SML_RDY" --fps 0 --eval "(async()=>{STARCHORUS.openDrawer('$SML_D');await STARCHORUS.wait(300);return STARCHORUS.openDrawer('$SML_D')})()" --eval "$EDG_OVL" --eval "STARCHORUS.errors().length" >/dev/null 2>&1
   SML_OV=$(evalv "out/$P-sml-d-$SML_D.json" 2); SML_OE=$(evalv "out/$P-sml-d-$SML_D.json" 3)
-  if [ "$SML_OV" = 0 ] && [ "$SML_OE" = 0 ]; then row "D15 760x600 with the $SML_D drawer open: overlap 0 (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-60)]" PASS
+  SML_DO=$(evalv "out/$P-sml-d-$SML_D.json" 1)   # the API names the open drawer (an unknown name leaves the old one); the probe also reads the drawer body's own box
+  if [ "$SML_DO" = "$SML_D" ] && [ "$SML_OV" = "0 n=foundation:6,wargames:6,whitehall:8 d=$SML_D:shown" ] && [ "$SML_OE" = 0 ]; then row "D15 760x600 with the $SML_D drawer open: overlap 0 (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-60)]" PASS
   else row "D15 760x600 with the $SML_D drawer open: overlap 0 (err ${SML_OE:-?}) [$(printf '%s' "$SML_OV" | cut -c1-60)]" FAIL; fi
 done

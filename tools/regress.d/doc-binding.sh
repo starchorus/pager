@@ -22,6 +22,34 @@ python3 tools/spec-sync.py --check "$DBN_T/themes.json.neg" "$DBN_T/contrast.jso
 if [ "$DBN_NR" = 1 ] && [ -z "$DBN_NEG" ]; then row "spec binding: spec-sync.py notices a changed token (negative control, exit $DBN_NR = 1)" PASS
 else row "spec binding: spec-sync.py notices a changed token (negative control, exit $DBN_NR = 1)" FAIL; fi
 
+# the marker rules of replace(): a block whose markers are swapped, doubled or missing is exit 2 naming the marker (never 0 or 1), and the
+# write mode leaves the file as it was; one scratch copy of the spec per case (the themes block: the contrast block goes through the same function)
+python3 - "$DBN_SPEC" "$DBN_T" <<'PY'
+import sys
+doc = open(sys.argv[1], encoding="utf-8").read()
+b, e = "<!-- spec-sync:themes:begin -->", "<!-- spec-sync:themes:end -->"
+cases = {
+    "swapped": doc.replace(b, "@@").replace(e, b).replace("@@", e),
+    "twobegin": doc.replace(b, b + "\n" + b, 1),
+    "twoend": doc.replace(e, e + "\n" + e, 1),
+    "nobegin": doc.replace(b, "", 1),
+}
+for k, v in cases.items():
+    open("%s/mk-%s.md" % (sys.argv[2], k), "w", encoding="utf-8").write(v)
+PY
+DBN_MB="<!-- spec-sync:themes:begin -->"; DBN_ME="<!-- spec-sync:themes:end -->"
+for DBN_C in "swapped:$DBN_ME" "twobegin:$DBN_MB" "twoend:$DBN_ME" "nobegin:$DBN_MB"; do
+  DBN_CN=${DBN_C%%:*}; DBN_CM=${DBN_C#*:}; DBN_CF="$DBN_T/mk-$DBN_CN.md"; cp "$DBN_CF" "$DBN_CF.orig"
+  DBN_CO=$(python3 tools/spec-sync.py --check "$DBN_T/themes.json" "$DBN_T/contrast.json" "$DBN_CF" 2>&1); DBN_CR=$?
+  python3 tools/spec-sync.py "$DBN_T/themes.json" "$DBN_T/contrast.json" "$DBN_CF" >/dev/null 2>&1; DBN_WR=$?
+  DBN_CK=0; cmp -s "$DBN_CF" "$DBN_CF.orig" && DBN_CK=1
+  DBN_CN2=0; case $DBN_CO in *"$DBN_CM"*) DBN_CN2=1 ;; esac
+  case $DBN_CN in swapped) DBN_CW="swapped markers" ;; twobegin) DBN_CW="a second begin marker" ;; twoend) DBN_CW="a second end marker" ;; *) DBN_CW="a missing begin marker" ;; esac
+  if [ "$DBN_CR" = 2 ] && [ "$DBN_CN2" = 1 ] && [ "$DBN_WR" = 2 ] && [ "$DBN_CK" = 1 ]; then row "spec binding: spec-sync.py refuses $DBN_CW (negative control: --check exit $DBN_CR = 2 naming the marker, write exit $DBN_WR = 2, file unchanged)" PASS
+  else row "spec binding: spec-sync.py refuses $DBN_CW (negative control: --check exit $DBN_CR = 2 naming the marker, write exit $DBN_WR = 2, file unchanged)" FAIL
+    printf '    named %s, unchanged %s: %s\n' "$DBN_CN2" "$DBN_CK" "$(printf '%s' "$DBN_CO" | head -n 1 | cut -c1-120)"; fi
+done
+
 # every STARCHORUS function is named in §10 (from "## 10." to "## 11.")
 runq demo "?poll=0&spin=0&intro=0&debug=1" "out/$P-dbn-api" --wait 1 --fps 0 --ready --eval 'JSON.stringify(Object.keys(STARCHORUS).filter(k=>k!=="_internals"&&k!=="version"))' >/dev/null 2>&1
 DBN_API=$(evalv "out/$P-dbn-api.json" 1)

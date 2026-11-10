@@ -574,6 +574,41 @@ pui_is resetfile [ ! -e "$PUI_D/settings.conf" ]
 pui_is default [ "$(pui_get port)/$(pui_get window)/$(pui_get vendor)/$(pui_get page)/$(pui_get bluetooth)/$(pui_get traffic)/$(pui_get wids)" = "8199 default/3600 default/on default/on default/off default/off default/on default" ]
 rowif "payload ui: CLI set/get/reset (bluetooth, traffic and wids too), refusals (own/collector/dashboard/alerts, a Bluetooth or wids value that is not on or off) exit 2, file untouched, no .tmp (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
+# ---- 5b · set and reset only save: while the collector's loop runs they say that the values apply at the next start (the loop's pidfile and identity,
+#           as status reads them); without a loop they print nothing more; the exit codes stay, a refused set says nothing of it, and the running
+#           collector keeps the values it was started with
+PUI_BAD=""; pui_new
+pui_run "$PUI_HL" sh "$PUI_PL" set interval 60
+pui_is idle:set [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" reset
+pui_is idle:reset [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" set interval 60
+pui_run "$PUI_HL" sh "$PUI_PL" start
+pui_is started pui_col
+PUI_CP=$(pui_cpid)
+pui_run "$PUI_HL" sh "$PUI_PL" set interval 45
+pui_is run:set [ "$PUI_RC/$(grep -c '^Starchorus: note: Starchorus is running; interval applies at the next start$' "$PUI_T/out")/$(wc -l < "$PUI_T/out" | tr -d ' ')" = 0/1/1 ]
+pui_run "$PUI_HL" sh "$PUI_PL" set port 8301
+pui_is run:setkey [ "$PUI_RC/$(grep -c '^Starchorus: note: Starchorus is running; port applies at the next start$' "$PUI_T/out")" = 0/1 ]
+pui_run "$PUI_HL" STARCHORUS_INTERVAL=30 sh "$PUI_PL" set interval 45   # a key of the environment: its own note says that the saved value waits, and the other is not added
+pui_is run:env [ "$PUI_RC/$(grep -c "^Starchorus: note: interval is set in the environment" "$PUI_T/out")/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/1/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" set port 1471
+pui_is run:refused [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")/$(grep -c '^Starchorus: refused: port=1471' "$PUI_T/out")" = 2/0/1 ]
+pui_run "$PUI_HL" sh "$PUI_PL" set
+pui_is run:usage [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 2/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" get port
+pui_is run:get [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" reset
+pui_is run:reset [ "$PUI_RC/$(grep -c '^Starchorus: note: Starchorus is running; the defaults apply at the next start$' "$PUI_T/out")/$(wc -l < "$PUI_T/out" | tr -d ' ')" = 0/1/1 ]
+pui_is run:keeps [ "$(pui_env STARCHORUS_INTERVAL)/$(pui_env STARCHORUS_PORT)/$(pui_cpid)" = "60/8199/$PUI_CP" ]
+pui_run "$PUI_HL" sh "$PUI_PL" stop
+pui_is stopped pui_gone "${PUI_CP:-0}"
+pui_run "$PUI_HL" sh "$PUI_PL" set interval 45
+pui_is down:set [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/0 ]
+pui_run "$PUI_HL" sh "$PUI_PL" reset
+pui_is down:reset [ "$PUI_RC/$(grep -c 'Starchorus is running' "$PUI_T/out")" = 0/0 ]
+rowif "payload ui: set and reset say that the values apply at the next start while the collector runs, and say nothing without one; exit codes unchanged, a refused set says nothing of it, a key set in the environment gets that note alone (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+
 # ---- 6 · a failing grep during a set (it cannot read the old file) does not truncate settings.conf: rc 1, byte-identical
 PUI_BAD=""; pui_new "port=8300" "window=600" "interval=45" "vendor=off"
 cp "$PUI_D/settings.conf" "$PUI_T/before.conf"
@@ -1800,6 +1835,28 @@ rm -f "$PUI_D/starchorus-collect.sh"
 pui_ans "!2"; pui_run_ui "$PUI_UIP" sh "$PUI_B/payload.sh"
 pui_is dev:retake [ "$(pui_logc '^ERROR_DIALOG')/$(pui_logc '^LOG	Installed$')" = 0/1 ]
 rowif "payload ui: bundle installs itself once into an empty dir, never over an installed collector; a stale one is named, not replaced (bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
+# a relative STARCHORUS_DIR that does not exist yet is made absolute (the working directory joined with it) before any path is derived from it: the output
+# directory, the settings file and the pid directory lie in that one directory, and nothing in a directory of the same name below it. PUI_D is moved to
+# that directory for the row, so that the helpers read the collector's files there; what the row started is ended by its place before PUI_D goes back.
+PUI_BAD=""; PUI_DS=$PUI_D; PUI_WD="$PUI_T/relwd"; pui_bundle; rm -rf "$PUI_WD"; mkdir -p "$PUI_WD"; PUI_D="$PUI_WD/reldir"
+pui_rel() { pui_run "$PUI_HL" STARCHORUS_DIR=reldir sh -c "cd \"\$1\" || exit 9; shift; exec sh \"\$@\"" sh "$PUI_WD" "$PUI_B/payload.sh" "$@"; }   # pui_rel ARG... -> the payload's command line from $PUI_WD with the relative, absent directory reldir
+pui_rel start
+pui_is rel:started pui_col
+pui_is rel:installed pui_xall
+pui_is rel:outdir [ "$(pui_env STARCHORUS_OUTDIR)" = "$PUI_D" ]
+pui_is rel:pidfile [ -s "$PUI_D/starchorus-loop.pid" ]
+pui_is rel:pidlive pui_up
+pui_rel set port 8300
+pui_is rel:setrc [ "$PUI_RC/$(grep -c "^Starchorus: note: Starchorus is running; port applies at the next start\$" "$PUI_T/out")" = 0/1 ]   # the note: the payload finds the loop through the pid directory
+pui_is rel:file [ "$(cat "$PUI_D/settings.conf" 2>/dev/null)" = "port=8300" ]
+pui_is rel:one [ "$(find "$PUI_WD" -name reldir | wc -l | tr -d ' ')" = 1 ]
+pui_is rel:nocwd [ "$(find "$PUI_WD" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1 ]
+PUI_CP=$(pui_cpid)
+pui_rel stop
+pui_is rel:stopped pui_gone "${PUI_CP:-0}"
+pui_kd "$PUI_WD/"
+PUI_D=$PUI_DS
+rowif "payload ui: a relative STARCHORUS_DIR that does not exist yet is made absolute: output directory, settings file and pid directory in the one directory, no DIR/DIR (relative-dir; bad:${PUI_BAD:- none})" [ -z "$PUI_BAD" ]
 
 # ---- 27 · static: no active-scan path, the file is never sourced, the collector reads no settings file, POSIX-clean; every
 # picker title and row of the runs above within 28 characters (the device shows that many), ASCII only, the spinners one word,

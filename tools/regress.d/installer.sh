@@ -4,7 +4,7 @@
 # GUARDS AGAINST: an installer that sends one more remote command than its header promises ("Remote commands (nothing else is ever sent)"),
 #                 uploads in another order or to another place, takes a damaged upload for an intact one (the read-back compares every file),
 #                 goes on to the self-tests and the smoke test after an upload failed, or accepts a summary whose band counters are blank;
-#                 a command sent only on a failure path (the "nothing else" judge reads the log of every run of the real installer, twenty-eight
+#                 a command sent only on a failure path (the "nothing else" judge reads the log of every run of the real installer, thirty
 #                 of them, not only the clean ones, and every branch of install.sh after its first remote command is reached by at least one of
 #                 them: each die, WARN and FAIL from the failed mkdir to the smoke test, the repo's Overview without --selftest included); a cleanup that no longer closes the master connection with one `-O exit` as its last call;
 #                 a device with cksum where one file's CRC differs (only that file is read back, and its bytes decide).
@@ -25,7 +25,7 @@
 #                 (c) the judges are run on dummy logs that plant each fault (an extra command, a changed option, a third host, a forward, an -O call other
 #                 than the cleanup's `-O exit`, a file sent to another path, a read of a file that was never sent, a tab or a line break inside a command
 #                 or a path, raw or as the stand-ins log it, a short line, an unknown kind, an scp to or from a path outside the two directories) and
-#                 each must be red; the intact log must be green; the row also requires all 43 cases to have run.
+#                 each must be red; the intact log must be green; the row also requires every case to have run (a floor of 72).
 # NOT PROVEN:     what the real ssh and scp do (the stand-ins answer as the device is documented to answer in docs/device-notes.md; the Pager's
 #                 BusyBox, the master connection, the password prompt and the host key question are not played); that the device's files are
 #                 the right ones afterwards (the fake remote root is a directory on this machine); that the installer's text is true about a
@@ -144,7 +144,9 @@ case $cmd in
       rc)     echo "[display-selftest] SELFTEST: ALL PASS (300 checks)"; exit 4 ;;
     esac
     echo "[display-selftest] SELFTEST: ALL PASS (300 checks)" ;;
-  "cd $L && STARCHORUS_OUTDIR=$L STARCHORUS_MAX_AGE="*" ./starchorus-collect.sh --once")
+  "date +%s; cd $L && STARCHORUS_OUTDIR=$L STARCHORUS_MAX_AGE="*" ./starchorus-collect.sh --once")
+    # the clock first (INS_X_CLOCK: seconds, default = the document's own; "bad" = a date that prints no number), then the capture
+    case ${INS_X_CLOCK:-1789300000} in bad) echo "date: invalid date '+%s'" ;; *) echo "${INS_X_CLOCK:-1789300000}" ;; esac
     [ -x "$d$L/starchorus-collect.sh" ] || { echo "ash: ./starchorus-collect.sh: Permission denied" >&2; exit 126; }
     printf '{"generated": 1789300000, "source": "iw-scan-ACTIVE", "aps": []}\n' > "$d$L/starchorus.json"
     echo "[starchorus] one cycle done (stand-in)"
@@ -253,7 +255,7 @@ ins_cmds_bad() {   # ins_cmds_bad LOG -> the remote commands the header's list d
       ok[++n] = "^mv -f " dp "[.]new " dp "( && mv -f " dp "[.]new " dp ")*$"
       ok[++n] = "^sh /root/loot/starchorus/starchorus-collect[.]sh --selftest$"
       ok[++n] = "^sh /root/loot/starchorus/starchorus-display[.]sh --selftest$"
-      ok[++n] = "^cd /root/loot/starchorus && STARCHORUS_OUTDIR=/root/loot/starchorus STARCHORUS_MAX_AGE=[0-9]+ [.]/starchorus-collect[.]sh --once$"
+      ok[++n] = "^date [+]%s; cd /root/loot/starchorus && STARCHORUS_OUTDIR=/root/loot/starchorus STARCHORUS_MAX_AGE=[0-9]+ [.]/starchorus-collect[.]sh --once$"
       ok[++n] = "^head -c 400 /root/loot/starchorus/starchorus[.]json$"
       ok[++n] = "^STARCHORUS_JSON=/root/loot/starchorus/starchorus[.]json STARCHORUS_DISPLAY_PLAIN=1 sh /root/loot/starchorus/starchorus-display[.]sh --once summary$"
     }
@@ -468,6 +470,8 @@ ins_branch ds3 0 "$INS_KW_ALL" '[WARN] Overview (starchorus-display.sh) has no -
 ins_branch ds4 1 "$INS_KW_ALL" '[FAIL] Overview (starchorus-display.sh) selftest says ALL PASS but exited 4' INS_X_DSELFTEST=rc
 ins_branch onc 0 "$INS_KW_ALL" '[WARN] collector --once exited 2' INS_X_ONCE_RC=2
 ins_branch hd 0 "$INS_KW_ALL" "[WARN] no readable starchorus.json at $INS_L after --once (head -c 400: exit 1: head: $INS_L/starchorus.json: I/O error)" INS_X_HEAD=fail
+ins_branch ckst 0 "$INS_KW_ALL" '[WARN] starchorus.json was not written by this run: generated=1789300000 is older than the device'"'"'s clock (1789300500)' INS_X_CLOCK=1789300500
+ins_branch ckbd 0 "$INS_KW_ALL" "[WARN] the device's clock could not be read as digits" INS_X_CLOCK=bad
 # the repo's Overview without --selftest: a copy root (the real installer copied byte for byte, the Overview copies with the flag renamed)
 INS_Q="$INS_T/qroot"; mkdir -p "$INS_Q/tools" "$INS_Q/library/user/reconnaissance/starchorus"
 cp "$R/tools/install.sh" "$INS_Q/tools/install.sh"
@@ -480,8 +484,24 @@ INS_IN="$INS_Q/tools/install.sh"
 ins_branch odisp 0 "mkdir status up*7 chmod mv cksum get*7 csel once head smoke" '[WARN] starchorus-display.sh in this repo has no --selftest yet -- the Overview selftest was skipped'
 INS_IN="$R/tools/install.sh"
 [ "$INS_qsame" = 1 ] && INS_RUNS="$INS_RUNS odisp"   # the copy IS the real installer: its run is one of the real installer's runs
-INS_ok=0; [ -z "$INS_qbad" ] && [ "$INS_qn" = 13 ] && [ "$INS_qsame" = 1 ] && INS_ok=1
-rowif "installer's other failure branches, each reached by a run of its own ($INS_qn of 13: chmod fails; cksum no use, other numbers, other numbers and a read-back fails; collector self-test without a result line, ALL PASS with exit 3; Overview self-test red, without a result line, missing, ALL PASS with exit 4; --once exit 2; head fails; the repo's Overview without --selftest)${INS_qbad:+ -- $INS_qbad}" [ "$INS_ok" = 1 ]
+INS_ok=0; [ -z "$INS_qbad" ] && [ "$INS_qn" = 15 ] && [ "$INS_qsame" = 1 ] && INS_ok=1
+rowif "installer's other failure branches, each reached by a run of its own ($INS_qn of 15: chmod fails; cksum no use, other numbers, other numbers and a read-back fails; collector self-test without a result line, ALL PASS with exit 3; Overview self-test red, without a result line, missing, ALL PASS with exit 4; --once exit 2; head fails; the document older than the device's clock; the clock that is no number; the repo's Overview without --selftest)${INS_qbad:+ -- $INS_qbad}" [ "$INS_ok" = 1 ]
+
+# the clock read before --once: a document older than the device's clock was not written by this run. The clean run (clock = generated, no WARN of
+# either kind and none at all), a stale document (one WARN with both numbers, exit 0, the run goes on), a clock that is no number (one WARN, and the collector
+# still ran: its PASS line and the later steps are there), and the dry-run plan, which sends the clock read as part of the capture's own command
+INS_ckok=0; INS_ckwn=$(grep -c '^!! \[WARN\]' "$INS_T/dev.out")
+[ "$INS_ckwn" = 0 ] && ! grep -qF 'not written by this run' "$INS_T/dev.out" && ! grep -qF "clock could not be read" "$INS_T/dev.out" && grep -qF '[PASS] collector --once finished' "$INS_T/dev.out" && INS_ckok=1
+rowif "installer, a document as new as the device's clock gives no WARN (the clean run has none at all)" [ "$INS_ckok" = 1 ]
+INS_ckok=0
+grep -q '==> result: [0-9]* passed, 1 warning(s), 0 failed' "$INS_T/ckst.out" && [ "$(grep -c 'not written by this run' "$INS_T/ckst.out")" = 2 ] && ! grep -qF "clock could not be read" "$INS_T/ckst.out" && INS_ckok=1
+rowif "installer, a document older than the device's clock: one WARN with both numbers (repeated once in the closing summary), exit 0" [ "$INS_ckok" = 1 ]
+INS_ckok=0
+grep -q '==> result: [0-9]* passed, 1 warning(s), 0 failed' "$INS_T/ckbd.out" && grep -qF '[PASS] collector --once finished' "$INS_T/ckbd.out" && ! grep -qF 'not written by this run' "$INS_T/ckbd.out" && grep -qF 'age of starchorus.json was not judged' "$INS_T/ckbd.out" && INS_ckok=1
+rowif "installer, a clock that cannot be read as digits: one WARN that the age was not judged, and the collector ran all the same" [ "$INS_ckok" = 1 ]
+sh "$INS_IN" --dry-run > "$INS_T/ckdry.out" 2>&1; INS_ckrc=$?
+INS_ckok=0; [ "$INS_ckrc" = 0 ] && grep -qE "^ *[0-9]+\. ssh .* 'date [+]%s; cd /root/loot/starchorus && STARCHORUS_OUTDIR=/root/loot/starchorus STARCHORUS_MAX_AGE=[0-9]+ ./starchorus-collect.sh --once'" "$INS_T/ckdry.out" && INS_ckok=1
+rowif "installer, the --dry-run plan shows the clock read in the command of the capture" [ "$INS_ckok" = 1 ]
 
 # ---- 6b. the header's promise on EVERY run of the real installer, the failure paths included (a command sent only when a check fails
 #      would pass every row above, which judge the commands on the clean runs only), and the cleanup call that closes the master connection
@@ -495,14 +515,14 @@ ins_every_bad() {   # ins_every_bad NAME ... -> INS_eo: "NAME: what" for every l
   done
   INS_eo=$(cat "$INS_T/every.txt")
 }
-INS_ALL="bad chm ck ckbad ckj ckn cko cs1 cs2 dev ds1 ds2 ds3 ds4 hd nossh nr odisp onc sm1 sm2 sm3 sm4 sm5 sm6 sm7 st up3"   # sorted (C): the runs of the real installer above, failure runs included
+INS_ALL="bad chm ck ckbad ckbd ckj ckn cko ckst cs1 cs2 dev ds1 ds2 ds3 ds4 hd nossh nr odisp onc sm1 sm2 sm3 sm4 sm5 sm6 sm7 st up3"   # sorted (C): the runs of the real installer above, failure runs included
 INS_rs=$(printf '%s' "$INS_RUNS" | tr ' ' '\n' | sed '/^$/d' | LC_ALL=C sort | tr '\n' ' '); INS_rs=${INS_rs% }
 # shellcheck disable=SC2086   # INS_ALL is a word list on purpose
 ins_every_bad $INS_ALL; INS_eb=$INS_eo
 # shellcheck disable=SC2086   # INS_ALL is a word list on purpose
 INS_na=$(printf '%s\n' $INS_ALL | wc -l | tr -d ' ')
-INS_ok=0; [ "$INS_rs" = "$INS_ALL" ] && [ "$INS_na" = 28 ] && [ "$INS_ejn" = 28 ] && [ -z "$INS_eb" ] && INS_ok=1
-rowif "installer sends nothing but the header's remote commands in every run, the failure paths included ($INS_ejn of 28 logs judged: clean, cksum, damaged, unreadable, failed upload, unreachable, red self-test, seven smoke cases, the thirteen other failure branches; runs recorded = the list: $([ "$INS_rs" = "$INS_ALL" ] && echo yes || echo "no [$INS_rs]"))" [ "$INS_ok" = 1 ]
+INS_ok=0; [ "$INS_rs" = "$INS_ALL" ] && [ "$INS_na" = 30 ] && [ "$INS_ejn" = 30 ] && [ -z "$INS_eb" ] && INS_ok=1
+rowif "installer sends nothing but the header's remote commands in every run, the failure paths included ($INS_ejn of 30 logs judged: clean, cksum, damaged, unreadable, failed upload, unreachable, red self-test, seven smoke cases, the fifteen other failure branches; runs recorded = the list: $([ "$INS_rs" = "$INS_ALL" ] && echo yes || echo "no [$INS_rs]"))" [ "$INS_ok" = 1 ]
 [ -z "$INS_eb" ] || printf '%s\n' "$INS_eb" | sed 's/^/    /'
 # the cleanup: a run whose master connection came up closes it with one `-O exit` call, its last call; the run that never connected sends none
 INS_cxbad=""; INS_cxn=0
@@ -514,12 +534,12 @@ for INS_e in $INS_ALL; do
     case $INS_cxc:$INS_cxl in "1:-o ControlPath="*" -O exit") INS_cxn=$((INS_cxn + 1)) ;; *) INS_cxbad="$INS_cxbad $INS_e($INS_cxc)" ;; esac
   fi
 done
-INS_ok=0; [ "$INS_cxn" = 27 ] && [ -z "$INS_cxbad" ] && INS_ok=1
-rowif "installer's cleanup closes the master connection: one '-O exit' call, the last of the run, in $INS_cxn of 27 runs that connected, none in the run that could not; the judges above accept it${INS_cxbad:+ -- wrong:$INS_cxbad}" [ "$INS_ok" = 1 ]
+INS_ok=0; [ "$INS_cxn" = 29 ] && [ -z "$INS_cxbad" ] && INS_ok=1
+rowif "installer's cleanup closes the master connection: one '-O exit' call, the last of the run, in $INS_cxn of 29 runs that connected, none in the run that could not; the judges above accept it${INS_cxbad:+ -- wrong:$INS_cxbad}" [ "$INS_ok" = 1 ]
 
 # ---- 6c. the status read and the rename (0.2.5): a loop that is running is a WARN and the run goes on and exits 0; an idle loop is only said; the old file is replaced by the rename;
 #      a failed rename ends the run (exit 1) after the exec bits and before cksum; a rename that fails at the third pair has done two (the && chain stops there) and the run says so
-INS_ALL2="mv3 mvf sti stw"   # sorted (C): the new runs of the real installer; each is judged by the same judges as the 28 above
+INS_ALL2="mv3 mvf sti stw"   # sorted (C): the new runs of the real installer; each is judged by the same judges as the 30 above
 ins_run stw INS_X_STATUS=running
 INS_k=$(ins_kinds "$INS_T/stw.log"); INS_ok=0
 [ "$INS_RC" = 0 ] && [ "$INS_k" = "$INS_kw" ] && grep -qF '[WARN] a collector loop is running on the device (pid 4242): it keeps its old script until it is stopped and started again; INSTALL.md says to stop it first' "$INS_T/stw.out" \
@@ -606,11 +626,11 @@ INS_vcj=0; ins_clean_judge vk-control 7 && INS_vcj=1   # the control is judged a
 INS_ok=0; [ -z "$INS_vbad" ] && [ "$INS_vn2" = 6 ] && [ "$INS_cr" = 0 ] && [ "$INS_vk" = "$INS_kw" ] && [ "$INS_vcj" = 1 ] && INS_ok=1
 rowif "installer, the files to install disagree on the version (page, collector, display, server, payload, the companion alert: $INS_vn2 of 6 copy roots with one file at 9.9.9): exit 1 before the first remote command, in the run and in the --dry-run, the message names the versions; the unchanged copy installs (exit $INS_cr)${INS_vbad:+ -- $INS_vbad}" [ "$INS_ok" = 1 ]
 rm -rf "$INS_V"
-# every run of the real installer is one the rows above judge: the runs recorded (ins_run) are exactly the 28 of INS_ALL and the four of INS_ALL2, so a run added later cannot go unjudged
+# every run of the real installer is one the rows above judge: the runs recorded (ins_run) are exactly the 30 of INS_ALL and the four of INS_ALL2, so a run added later cannot go unjudged
 INS_rs2=$(printf '%s' "$INS_RUNS" | tr ' ' '\n' | sed '/^$/d' | LC_ALL=C sort | tr '\n' ' '); INS_rs2=${INS_rs2% }
 # shellcheck disable=SC2086   # the lists are word lists on purpose
 INS_rw2=$(printf '%s\n' $INS_ALL $INS_ALL2 | LC_ALL=C sort | tr '\n' ' '); INS_rw2=${INS_rw2% }
-rowif "installer, the runs of the real installer are exactly the listed 32 (INS_ALL + INS_ALL2): none is left unjudged [$INS_rs2]" [ "$INS_rs2" = "$INS_rw2" ]
+rowif "installer, the runs of the real installer are exactly the listed 34 (INS_ALL + INS_ALL2): none is left unjudged [$INS_rs2]" [ "$INS_rs2" = "$INS_rw2" ]
 
 # ---- 7. the judges bite: dummy logs with one planted fault each (the intact log is green)
 INS_O="-o ControlMaster=auto -o ControlPath=/x/cm -o ControlPersist=300 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
@@ -629,7 +649,10 @@ ins_dummy() {   # ins_dummy WANT JUDGE 'log line' ... -> JUDGE on a log made of 
 INS_sl() { printf 'ssh\t%s\t%s\t%s' "${3:-$INS_HOST}" "${2:-$INS_O}" "$1"; }
 ins_dummy green cmds "$(INS_sl 'mkdir -p /root/loot/starchorus /root/payloads/user/reconnaissance/starchorus')" "$(INS_sl "chmod +x $INS_L/a.sh $INS_PL/b.sh")" \
   "$(INS_sl "cksum $INS_L/a.sh $INS_PL/b.sh")" "$(INS_sl "sh $INS_L/starchorus-collect.sh --selftest")" \
-  "$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L STARCHORUS_MAX_AGE=3600 ./starchorus-collect.sh --once")" "$(INS_sl "head -c 400 $INS_L/starchorus.json")"
+  "$(INS_sl "date +%s; cd $INS_L && STARCHORUS_OUTDIR=$INS_L STARCHORUS_MAX_AGE=3600 ./starchorus-collect.sh --once")" "$(INS_sl "head -c 400 $INS_L/starchorus.json")"
+ins_dummy red cmds "$(INS_sl "date -s @1789300000; cd $INS_L && STARCHORUS_OUTDIR=$INS_L STARCHORUS_MAX_AGE=3600 ./starchorus-collect.sh --once")"
+ins_dummy red cmds "$(INS_sl "date +%s")"
+ins_dummy red cmds "$(INS_sl "cd $INS_L && STARCHORUS_OUTDIR=$INS_L STARCHORUS_MAX_AGE=3600 ./starchorus-collect.sh --once")"
 ins_dummy red cmds "$(INS_sl 'uname -a')"
 ins_dummy red cmds "$(INS_sl "sh $INS_L/starchorus-collect.sh --selftest; reboot")"
 ins_dummy red cmds "$(INS_sl "sh $INS_L/starchorus-collect.sh --status")"
@@ -745,7 +768,7 @@ ins_dummy red cmds "$(printf 'scp-get\t%s\t-O %s\t%s\t/y' "$INS_HOST" "$INS_O" /
 ins_dummy red opts "$(printf 'ssh\t%s\t%s\t%s\t%s' "$INS_HOST" "$INS_O" 'true' '; uname -a')"
 ins_dummy red scp7 "$(printf '%s\n' "$INS_good" | sed '$d' | sed '$d' | sed '$d')" "$(printf 'scp-up\t%s\t-O %s\t/x\t%s\t%s' "$INS_HOST" "$INS_O" "$INS_PL/alert-deauth.sh.new" '; uname -a')" "$INS_chl" "$INS_mvl"
 printf '%s\n' "$INS_jo" | grep -q '^log line 8 (scp-up): 6 fields' || { INS_jbad=$((INS_jbad + 1)); echo "    judge case $INS_jn (scp7): red, but not for the 6-field line: $INS_jo"; }   # on the good shape: the shape rule is what bites
-INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 69 ] && INS_ok=1   # every case as expected, and none of the 43 of 0.2.4 left out (62 with the cases of the status read and the rename, 65 with the three of the rename pairs, 66 with the green control of the read-back case, 69 with the three . and .. cases of 0.2.8): one status, as rowif judges only the test it is given
+INS_ok=0; [ "$INS_jbad" = 0 ] && [ "$INS_jn" -ge 72 ] && INS_ok=1   # every case as expected, and none of the 43 of 0.2.4 left out (62 with the cases of the status read and the rename, 65 with the three of the rename pairs, 66 with the green control of the read-back case, 69 with the three . and .. cases of 0.2.8, 72 with the three of the clock read: a clock set instead of read, the read alone, the capture without it): one status, as rowif judges only the test it is given
 rowif "installer judges bite on dummy logs ($((INS_jn - INS_jbad))/$INS_jn as expected: an extra command, a chained one, --status, --stop, a foreign path, a forward (-L and -O forward), an -O exit with a command or an option, a changed option, a third host, swapped, mis-sent and read-back files, a tab or a line break inside a command or a path, a short line, an unknown kind, an scp to or from a path not on the list)" [ "$INS_ok" = 1 ]
 
 # ---- 8. the real mutations: copies of install.sh that send more than the header allows; the judges are red on THEIR logs and green on the real installer's
@@ -806,8 +829,8 @@ ins_mut fpsm stopsm INS_X_SUMMARY=blank; INS_fm3=$INS_MUT; ins_every_bad fpsm; I
 # shellcheck disable=SC2086   # INS_ALL is a word list on purpose
 ins_every_bad $INS_ALL; INS_fe3=$INS_eo; INS_fj3=$INS_ejn
 INS_ok=0; [ "$INS_fm1$INS_fm2$INS_fm3" = 111 ] && [ "$INS_fblind" = 1 ] && [ "$INS_fj1$INS_fj2" = 11 ] \
-  && printf '%s\n' "$INS_fe1" | grep -q -- '--stop$' && printf '%s\n' "$INS_fe2" | grep -q -- '--stop$' && [ -z "$INS_fe3" ] && [ "$INS_fj3" = 28 ] && INS_ok=1
-rowif "installer, negative probe: copies that send --stop only when the collector self-test is red, or only when the smoke test is red (the clean judge is blind to them on the clean flow: $INS_fblind), are caught by the judge of every run on their failure runs; the real installer's 28 logs stay green" [ "$INS_ok" = 1 ]
+  && printf '%s\n' "$INS_fe1" | grep -q -- '--stop$' && printf '%s\n' "$INS_fe2" | grep -q -- '--stop$' && [ -z "$INS_fe3" ] && [ "$INS_fj3" = 30 ] && INS_ok=1
+rowif "installer, negative probe: copies that send --stop only when the collector self-test is red, or only when the smoke test is red (the clean judge is blind to them on the clean flow: $INS_fblind), are caught by the judge of every run on their failure runs; the real installer's 30 logs stay green" [ "$INS_ok" = 1 ]
 [ "$INS_ok" = 1 ] || printf '%s\n' "$INS_fe1" "$INS_fe2" "$INS_fe3" | sed '/^$/d; s/^/    /'
 # the same on a branch that only a run of 6a reaches: a copy that sends --stop only when --once exits non-zero (a WARN, the run still exits 0)
 ins_mut fpok2 stopon; INS_fm4=$INS_MUT; INS_fblind2=0; ins_clean_judge fpok2 7 && INS_fblind2=1
