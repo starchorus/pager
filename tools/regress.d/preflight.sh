@@ -2,9 +2,11 @@
 # shellcheck shell=sh
 # tools/regress.d/preflight.sh -- a missing tool is "MISSING: tool" and exit 2, never a pile of follow-up FAILs.
 # GUARDS AGAINST: a preflight that was dropped, moved behind the first row, or that names the wrong tool; a sqlite3 switch that
-#                 turns the collector selftest into a quiet PASS (or a misleading FAIL) instead of "NOT COVERED".
+#                 turns the collector selftest into a quiet PASS (or a misleading FAIL) instead of "NOT COVERED"; a selftest case
+#                 that leans on a tool the Pager has not got (cksum) and so can only fail there.
 # NEGATIVE PROBE: preflight call removed from regress.sh/quick.sh => rows 1 and 4 red; PF_TOOLS_QUICK without jq =>
-#                 row 1 red ("no MISSING: jq"); the NOT-COVERED redirection in selftest_verdict removed => row 3 red.
+#                 row 1 red ("no MISSING: jq"); the NOT-COVERED redirection in selftest_verdict removed => row 3 red;
+#                 a selftest case that reads a document's cksum (the collector of d9f777a) => row 3b red, as that case was on the Pager.
 # NOT PROVEN:     a missing Chrome is checked only through the stub function _pf_chrome (static.sh), not with a really
 #                 hidden Chrome; no tool versions (env_report prints them, without a pin); nothing under BusyBox.
 # Sourced by tools/regress.sh (T2: all four rows, both scripts) and tools/quick.sh (T1: quick.sh only, no Chrome/sqlite3/selftest
@@ -59,6 +61,14 @@ else
       PFL_okc=0; [ "$PFL_fair" = 1 ] && [ "$PFL_vc" = 3 ] && PFL_okc=1
       rowif "selftest without sqlite3 (PATH farm): ${PFL_n:-no} checks ran, verdict NOT COVERED (rc $PFL_vc, want 3)" [ "$PFL_okc" = 1 ]
       [ "$PFL_okc" = 1 ] || { printf '%s\n' "$PFL_v" | cut -c1-200 | sed 's/^/    /'; tail -n 5 "$PFL_t/st.txt" | cut -c1-200 | sed 's/^/    /'; }
+      # 3b. a tool the Pager has not got (docs/device-notes.md section 2: cksum is missing there): the REAL collector selftest on a farm without it passes
+      #     in full, so no case leans on it (stat, missing there too, is left on the farm: this machine's ls has no --full-time and the collector reads sizes through stat here)
+      mkdir "$PFL_t/nock"; path_farm "$PFL_t/nock" cksum
+      ( cd "$R" && PATH="$PFL_t/nock" "$PFL_sh" starchorus-collect.sh --selftest ) > "$PFL_t/st-nock.txt" 2>&1
+      PFL_kn=$(sed -n 's/.*SELFTEST: ALL PASS (\([0-9][0-9]*\) checks).*/\1/p' "$PFL_t/st-nock.txt" | tail -n 1)
+      PFL_okk=0; [ ! -e "$PFL_t/nock/cksum" ] && [ -x "$PFL_t/nock/jq" ] && [ -x "$PFL_t/nock/sqlite3" ] && [ -n "$PFL_kn" ] && [ "$PFL_kn" -ge "$MIN_SELFTEST" ] && PFL_okk=1
+      rowif "selftest without cksum, which the Pager has not got (PATH farm): ALL PASS, ${PFL_kn:-no} checks (>= $MIN_SELFTEST)" [ "$PFL_okk" = 1 ]
+      [ "$PFL_okk" = 1 ] || { grep -F 'FAIL:' "$PFL_t/st-nock.txt" | head -n 5 | cut -c1-200 | sed 's/^/    /'; tail -n 1 "$PFL_t/st-nock.txt" | cut -c1-200 | sed 's/^/    /'; }
     else
       echo "note: selftest without sqlite3 is not probed here (20 s; it runs in tools/regress.sh, tier T2)"
     fi

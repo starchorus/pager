@@ -9082,13 +9082,15 @@ KLRL
     # ---- 6i-ii) a held capture cycle keeps the last document: with the airodump this run started gone (a dead pid), run_cycle publishes nothing over the
     #             document of the cycle before, as it does for a failed recon.db pass, returns 1 and names the hold
     RESOLVED=capture; CAP_METHOD=airodump; OUTFILE="$tdir/starchorus.json"; STARTED_AIRODUMP=0; AD_PID=""; CSV_HOLD=""
-    run_cycle >/dev/null 2>&1; hc_1=$(cksum < "$OUTFILE" 2>/dev/null)
+    # (the document is kept as a copy and compared with cmp: the Pager has no cksum)
+    run_cycle >/dev/null 2>&1; hc_1=0; [ -s "$OUTFILE" ] && cp "$OUTFILE" "$tdir/hold.before" && hc_1=1
     STARTED_AIRODUMP=1; AD_PID=4194305
-    run_cycle >/dev/null 2>&1; hc_r=$?; hc_2=$(cksum < "$OUTFILE" 2>/dev/null); hc_h=$CSV_HOLD
+    run_cycle >/dev/null 2>&1; hc_r=$?; hc_2=0; cmp -s "$OUTFILE" "$tdir/hold.before" && hc_2=1; hc_h=$CSV_HOLD
     STARTED_AIRODUMP=0; AD_PID=""; CSV_HOLD=""
-    if [ -n "$hc_1" ] && [ "$hc_1" = "$hc_2" ] && [ "$hc_r" = 1 ] && grep -q '"ssid": "AcmeNet"' "$OUTFILE" && case $hc_h in "airodump (pid 4194305) is gone"*) true ;; *) false ;; esac; then
+    if [ "$hc_1" = 1 ] && [ "$hc_2" = 1 ] && [ "$hc_r" = 1 ] && grep -q '"ssid": "AcmeNet"' "$OUTFILE" && case $hc_h in "airodump (pid 4194305) is gone"*) true ;; *) false ;; esac; then
         st_pass "run_cycle: a held capture cycle (the airodump this run started is gone) leaves the last document as it was, returns 1 and names the hold"
-    else st_fail "run_cycle hold: before [$hc_1] after [$hc_2] rc $hc_r hold [$hc_h]"; fi
+    else st_fail "run_cycle hold: a document before $hc_1, the same after $hc_2, rc $hc_r, hold [$hc_h]"; fi
+    rm -f "$tdir/hold.before"
 
     # ---- 6j) run_cycle must not publish a post-pass result that is structurally wrong even when
     #          the pass returned 0 (an awk write error not reflected in its exit code). The mutants

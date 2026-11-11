@@ -1106,7 +1106,11 @@ address, which a device that keeps its scan sessions may grow into. Since 0.2.8 
 table: both test the 120-s window first, its older edge before its newer one, and the second goes through the table twice, once for the addresses
 heard within it and once for the rows of those addresses alone, and sorts only those rows. On a generated table of that evening's shape SQLite counts 130 thousand virtual-machine steps for the second select where the
 grouped form took 793 thousand, and 32 thousand for the B query where the earlier order of its tests took 180 thousand (development
-machine, SQLite 3.54, the rows the same byte for byte); the Pager's reading of the new form is still to be taken. Three readings beside it that day: the hourly line of the payload's
+machine, SQLite 3.54, the rows the same byte for byte). On the Pager itself, on 11 November 2026 (the function of 0.2.7 and the new one called side by
+side on one RAM copy of the firmware's database, by then 14,945 rows for 14,902 addresses with 22 inside the window; SQLite 3.46.1, five calls
+each): the B query alone took 512 ms of CPU per call before and 102 ms after, both selects together 2,112 ms before and 292 ms after, the output the
+same byte for byte. The loop of 0.2.7 running beside it took about 387 ticks a cycle over ten minutes (rules, Bluetooth and Traffic on), of which
+the two selects were about 211. Three readings beside it on 7 November: the hourly line of the payload's
 own loop of 4 November (D11, eleven hours in a quiet room by day): 107 to 109 full cycles an hour, none skipped, mean wall time 3.4 to
 3.8 s; `time` is not monotonic in `rowid` in `recon.db` (D9: 1,317 of 58,898 rows of `ssid` carry a time below their predecessor's), so
 nothing may rely on rowid order for a time window; `/tmp` and `/mmc` are mounted `noatime` (D8), so a read of `starchorus.json` leaves no
