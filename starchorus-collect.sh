@@ -20,9 +20,10 @@
 #
 # ---------------------------------------------------------------------------------------------
 # PASSIVITY CONTRACT (read this):
-#   Allowed here      : monitor-mode RX (airodump-ng with NO injection, tcpdump, tshark),
-#                       reading an existing recon SQLite DB read-only, channel *tuning*
-#                       (receiver retuning is not a transmission), and, opt-in only
+#   Allowed here      : monitor-mode RX (tcpdump -p on a monitor interface; airodump-ng with NO injection,
+#                       and channel tuning, only on a monitor interface this run made itself, which it makes
+#                       only when told to: STARCHORUS_CREATE_MON=1), reading an existing recon SQLite DB
+#                       read-only, and, opt-in only
 #                       (STARCHORUS_SOURCE=pineap), the AP service's two read-only recon list
 #                       commands (RECON APS / RECON DEVICES, format=json; docs/device-notes.md V-3).
 #                       Opt-in only (STARCHORUS_TRAFFIC=1): one more read-only command of the AP service,
@@ -70,7 +71,7 @@
 #                        each: 46 s for 2,100 devices).  (default recent)
 #   STARCHORUS_RECON_DB       Path to recon SQLite DB, or "auto" to find it. (default auto)
 #   STARCHORUS_ALLOW_ACTIVE   1 = allow the ACTIVE `iw scan` fallback.       (default 0 = never)
-#   STARCHORUS_CREATE_MON     1 = allow creating a monitor VIF if none.      (default 1)
+#   STARCHORUS_CREATE_MON     1 = may add a monitor VIF of its own: only on a free radio, never while a recon.db can be read.  (default 0)
 #   STARCHORUS_MAX_AGE        recon.db and pineap only: show only devices seen in the
 #                        last N seconds (live-presence view). 0 = off,
 #                        show the full accumulated history.             (default 0)
@@ -213,7 +214,7 @@ IFACE=${STARCHORUS_IFACE:-auto}
 SOURCE=${STARCHORUS_SOURCE:-auto}
 RECON_DB=${STARCHORUS_RECON_DB:-auto}
 ALLOW_ACTIVE=${STARCHORUS_ALLOW_ACTIVE:-0}
-CREATE_MON=${STARCHORUS_CREATE_MON:-1}
+CREATE_MON=${STARCHORUS_CREATE_MON:-0}
 MAX_AGE=${STARCHORUS_MAX_AGE:-0}
 CAPDIR=${STARCHORUS_CAPDIR:-$OUTDIR/cap}
 TMPDIR_RAM=${STARCHORUS_TMPDIR:-/tmp}
@@ -254,6 +255,7 @@ CENTER_LABEL="This device"
 # Runtime state (filled in by setup)
 MONIF=""            # the monitor interface we ended up using
 CREATED_MON=0       # 1 if we created it and must tear it down on exit
+MON_ID=""           # its ifindex:wdev when it was made: cleanup removes it only while it still has them
 CAP_METHOD=""       # airodump | tcpdump  (only meaningful when SOURCE resolves to capture)
 RESOLVED=none
 OUI_PATH=""         # resolved OUI file ("" = none found -> no vendor field)
@@ -705,15 +707,19 @@ existing_monitors() {
 # The radio is judged by its phy, not by the name: a phy that holds any mgmt interface (mgmt_iface) or any interface of
 # type AP is skipped whole, so wlan0cli, which shares phy0 with wlan0mgmt on the device, is never taken, nor a client
 # beside a management AP that a firmware names otherwise. The names reach awk through the environment (a value of two
-# lines given with -v is fatal to some awks). Prefer the recon radio (wlan1*).
+# lines given with -v is fatal to some awks). Prefer wlan1* (the Pager's tri-band radio). Asked with "free" (for a monitor
+# interface of our own), a phy that holds a connected interface (an ssid line) or an interface of any type but managed (a
+# mesh point, say) is skipped too: that radio is in use. The opt-in ACTIVE scan asks without it.
 candidate_base_iface() {
     mg=$(mgmt_iface)
     if have iw; then
-        iw dev 2>/dev/null | SC_MG="$mg" awk '
+        iw dev 2>/dev/null | SC_MG="$mg" SC_FREE="${1:-}" awk '
             BEGIN { n = split(ENVIRON["SC_MG"], m, "\n"); for (i = 1; i <= n; i++) if (m[i] != "") mgn[m[i]] = 1 }
             /^phy#/                  { phy=$1; ifc="" }
             /^[[:space:]]*Interface/ { ifc=$2; k++; nm[k]=ifc; ph[k]=phy; if (ifc in mgn) bad[phy]=1 }
             /type AP/                { bad[phy]=1 }
+            /^[[:space:]]*ssid /     { if (ENVIRON["SC_FREE"] == "free") bad[phy]=1 }
+            /^[[:space:]]*type /     { if (ENVIRON["SC_FREE"] == "free" && $2 != "managed") bad[phy]=1 }
             /type managed/ && ifc != "" { man[k]=1 }
             END {
                 for (i = 1; i <= k; i++) {
@@ -724,9 +730,9 @@ candidate_base_iface() {
     fi
 }
 
-# Create a monitor VIF on the recon adapter WITHOUT disturbing the mgmt link.
-# We deliberately avoid `airmon-ng start` as a first resort because its check-kill can
-# tear down processes on the mgmt radio; we add a VIF with `iw` instead.
+# Add a monitor VIF of our own on the free radio candidate_base_iface found: `iw phy ... interface add` leaves every other
+# interface as it is. There is no fallback: `airmon-ng start` takes down or removes the interface it starts from, which is
+# not ours to touch.
 create_monitor() {
     base=$1
     [ -z "$base" ] && return 1
@@ -742,8 +748,10 @@ create_monitor() {
                 printf '%s\n' "$newif"; return 0
             fi
         fi
+        return 1
     fi
-    # Last resort: airmon-ng (may rename to <base>mon). Only if iw path failed.
+    # Not reached: a base comes from iw alone (candidate_base_iface), and a failed iw path returns above. The lines below
+    # stay as they are pinned (tools/passivity-check.sh, SECURITY.md).
     if have airmon-ng; then
         out=$(airmon-ng start "$base" 2>/dev/null)
         m=$(printf '%s\n' "$out" | awk 'tolower($0) ~ /monitor mode.*enabled|vif enabled/ {for(i=1;i<=NF;i++) if($i ~ /mon$/){print $i}}' | tail -1)
@@ -775,18 +783,34 @@ setup_monitor_iface() {
         return 0
     fi
     if [ "$CREATE_MON" = "1" ]; then
-        base=$(candidate_base_iface)
+        # never while a recon database can be read: the radio may be the recon service's, briefly without its interface
+        if [ -n "$(find_recon_db)" ]; then
+            log "a recon database can be read, so no monitor interface of our own is made"
+            return 1
+        fi
+        base=$(candidate_base_iface free)
+        if [ -n "$base" ] && [ -z "$(mon_ident "$base")" ]; then
+            log "iw shows no ifindex and wdev for $base, so no interface of our own is made (it could not be told apart at the end)"
+            return 1
+        fi
         if [ -n "$base" ]; then
             m=$(create_monitor "$base")
             if [ -n "$m" ]; then
-                MONIF=$m; CREATED_MON=1
+                MONIF=$m; CREATED_MON=1; MON_ID=$(mon_ident "$m")
                 log "created monitor interface $MONIF on base $base"
                 return 0
             fi
         fi
-        log "could not create a monitor interface (no non-mgmt adapter found?)"
+        log "could not create a monitor interface (no free radio, or iw could not add one)"
     fi
     return 1
+}
+
+# The identity of an interface as iw reports it (a read): "ifindex:wdev". Another program can make an interface of the same
+# name after this run made its own; cleanup removes the interface only while it still has the identity it was made with.
+mon_ident() {
+    have iw || return 1
+    iw dev "$1" info 2>/dev/null | awk '/^[[:space:]]*ifindex /{i=$2} /^[[:space:]]*wdev /{w=$2} END{ if (i != "" && w != "") print i ":" w }'
 }
 
 # --------------------------------------------------------------------------- recon DB locate
@@ -815,11 +839,12 @@ find_recon_db() {
 }
 
 # --------------------------------------------------------------------------- source decision
-# Resolve SOURCE=auto to a concrete method, honouring the passivity contract and the
-# single-recon-radio contention rule:
-#   * a monitor iface we did NOT create may belong to the channel-hopping recon engine; a 2nd
-#     capture on that PHY would fight it, so the engine's recon DB is preferred (zero contention);
-#   * a monitor VIF of our OWN gets our own passive capture (self-contained).
+# Resolve SOURCE=auto to a concrete method, honouring the passivity contract:
+#   * a monitor iface we did NOT create may belong to the channel-hopping recon engine, so the
+#     engine's recon DB is preferred; without one, such an interface is only listened to
+#     (tcpdump -p, never airodump-ng, which changes channels);
+#   * a monitor VIF of our OWN (STARCHORUS_CREATE_MON=1, made only while no recon DB can be read)
+#     gets our own passive capture.
 # On the device this resolves to `recondb`: wlan1mon belongs to the Recon engine (CREATED_MON=0)
 # and sqlite3 is pre-installed; airodump-ng is not, so the capture fallback there is tcpdump.
 # Force a source with STARCHORUS_SOURCE=recondb|capture if auto guesses wrong.
@@ -845,9 +870,8 @@ resolve_source() {
     if [ -n "$dbpath" ] && have sqlite3; then
         RESOLVED=recondb; return 0
     fi
-    if [ -n "$MONIF" ] && { have airodump-ng || have tcpdump; }; then
-        log "WARNING: capturing on pre-existing monitor $MONIF; if the device's recon engine"
-        log "         owns this radio, channel-hop contention is possible (still RX-only)."
+    if [ -n "$MONIF" ] && have tcpdump; then
+        log "listening on $MONIF, an interface this run did not make: tcpdump -p only, its channel is left as it is"
         RESOLVED=capture; return 0
     fi
     if [ "$ALLOW_ACTIVE" = "1" ] && have iw; then
@@ -879,6 +903,23 @@ start_airodump() {
     AD_PID=$!; echo "$AD_PID" > "$AIRODUMP_PIDFILE"
     CAP_METHOD="airodump"; STARTED_AIRODUMP=1
     log "started passive airodump-ng (pid $(cat "$AIRODUMP_PIDFILE")) on $MONIF"
+    return 0
+}
+
+# The capture's method, once at the start: airodump-ng (it changes channels, and keeps its CSV fresh) only on the interface
+# this run made; any other interface is listened to with tcpdump -p bursts. $1 = the first argument of the run (--once).
+start_capture() {
+    [ "$RESOLVED" = "capture" ] || return 0
+    [ "$1" != "--once" ] || SA_KEEP_CSV=1
+    if [ "$CREATED_MON" = 1 ] && have airodump-ng; then
+        start_airodump || log "airodump start failed; will fall back to tcpdump bursts"
+    elif have airodump-ng; then
+        log "airodump-ng changes channels, so it runs only on an interface this run made"
+    fi
+    [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
+    if [ "$CAP_METHOD" = "tcpdump" ] && { [ -z "$MONIF" ] || ! have tcpdump; }; then
+        log "nothing here can listen (tcpdump and an interface are needed): each cycle publishes an empty document"
+    fi
     return 0
 }
 
@@ -924,10 +965,12 @@ cleanup() {
     [ -n "$VENDOR_NEWF" ] && rm -f "$VENDOR_NEWF" 2>/dev/null
     [ "${CACHE_LOCKED:-0}" -gt 0 ] 2>/dev/null && CACHE_LOCKED=1  # release fully, whatever the depth
     cache_unlock
-    if [ "$CREATED_MON" = "1" ] && [ -n "$MONIF" ]; then
-        # only the VIF we created; never the mgmt radio or a VIF we reused
+    if [ "$CREATED_MON" = "1" ] && [ -n "$MONIF" ] && [ -n "$MON_ID" ] && [ "$(mon_ident "$MONIF")" = "$MON_ID" ]; then
+        # only the VIF we created, while it is still that VIF (the same ifindex and wdev); never the mgmt radio or a VIF we reused
         if have iw; then iw dev "$MONIF" del 2>/dev/null; fi
         log "removed monitor interface $MONIF"
+    elif [ "$CREATED_MON" = "1" ] && [ -n "$MONIF" ]; then
+        log "left $MONIF in place: it cannot be shown to be the interface this run made"
     fi
 }
 
@@ -3068,8 +3111,8 @@ build_from_csv() {
 build_from_tcpdump() {
     [ -n "$MONIF" ] || return 1
     have tcpdump || return 1
-    # as in start_airodump: only the interface this run made, never one it found
-    if [ "$CREATED_MON" = 1 ]; then
+    # as in start_airodump: only the interface this run made, never one it found, and each cycle only while it is still that one
+    if [ "$CREATED_MON" = 1 ] && [ -n "$MON_ID" ] && [ "$(mon_ident "$MONIF")" = "$MON_ID" ]; then
         have ip && ip link set "$MONIF" up 2>/dev/null
     fi
     burst=$INTERVAL
@@ -3081,14 +3124,15 @@ build_from_tcpdump() {
 
 # Grab one burst of management frames. `timeout` bounds it to one cycle. If timeout is missing
 # we background tcpdump and kill it after $burst seconds. Split out so --selftest can feed text.
+# -p: the interface is never asked for promiscuous mode (it may be another program's).
 tcpdump_burst() {
     burst=$1
     filt='(type mgt subtype beacon) or (type mgt subtype probe-req) or (type mgt subtype probe-resp)'
     if have timeout; then
-        timeout "$burst" tcpdump -i "$MONIF" -l -e -s 256 "$filt" 2>/dev/null
+        timeout "$burst" tcpdump -p -i "$MONIF" -l -e -s 256 "$filt" 2>/dev/null
     else
         tf="$CAPDIR/tcpdump.$$"
-        tcpdump -i "$MONIF" -l -e -s 256 "$filt" >"$tf" 2>/dev/null &
+        tcpdump -p -i "$MONIF" -l -e -s 256 "$filt" >"$tf" 2>/dev/null &
         tdpid=$!
         i=0
         while [ "$i" -lt "$burst" ]; do sleep 1; i=$((i+1)); done
@@ -6548,6 +6592,7 @@ selftest() {
     STARCHORUS_BT_SOURCE=window; STARCHORUS_BLUE5_DB=/nonexistent/starchorus-selftest-blue5.db; STARCHORUS_BT_COMPANIES_FILE=/nonexistent/starchorus-selftest-bt-companies.txt
     export STARCHORUS_BLUETOOTH STARCHORUS_TRAFFIC STARCHORUS_APCLI_RO STARCHORUS_ALLOW_ACTIVE STARCHORUS_SYSFS_BT STARCHORUS_ALERTS STARCHORUS_ALERT_DIR STARCHORUS_WATCH_FILE STARCHORUS_WIDS
     export STARCHORUS_BT_SOURCE STARCHORUS_BLUE5_DB STARCHORUS_BT_COMPANIES_FILE
+    STARCHORUS_CREATE_MON=0; CREATE_MON=0; export STARCHORUS_CREATE_MON   # no interface of our own: the cases of 6o switch it on with stand-ins for iw and ip
     BLUETOOTH=0; TRAFFIC=0; APCLI_RO=0; ALLOW_ACTIVE=0; BT_SYSFS=$STARCHORUS_SYSFS_BT; ALERTS=0; ALERT_DIR=$STARCHORUS_ALERT_DIR; WL_FILE=$STARCHORUS_WATCH_FILE; WIDS=0
     BT_SOURCE=window; BLUE5_DB=$STARCHORUS_BLUE5_DB; BT_SRC=window; BTCO_FILE=$STARCHORUS_BT_COMPANIES_FILE; BTCO_PATH=""
     tdir=$(mktemp -d 2>/dev/null || echo /tmp/starchorus-selftest.$$)
@@ -9092,6 +9137,180 @@ KLRL
     else st_fail "run_cycle hold: a document before $hc_1, the same after $hc_2, rc $hc_r, hold [$hc_h]"; fi
     rm -f "$tdir/hold.before"
 
+    # ---- 6o) a monitor interface of our own: off by default; never while a recon database can be read; only on a radio with no management,
+    #          access-point or connected interface; removed at the end only while it is still the one made. An interface this run did not make is
+    #          only listened to (tcpdump -p, never airodump-ng). iw, ip, ifconfig, tcpdump and airodump-ng are stand-ins first on PATH that write their
+    #          arguments to $OM_D/log. A stand-in that cannot run (a temporary directory mounted noexec, say) would let the real tool run in its
+#          place, so the first case proves that all five run, and without that om_env ends every other case before it starts. The names (zzst*,
+#          phy#97 to phy#99) are none a device has.
+    om="$tdir/ownmon"; mkdir -p "$om/bin"
+    cat > "$om/bin/iw" <<'OMIW'
+#!/bin/sh
+printf '%s\n' "iw $*" >> "$OM_D/log"
+case "$1" in
+    dev) if [ "$#" = 1 ]; then cat "$OM_D/iwdev"; exit 0; fi
+         case "$3" in info) cat "$OM_D/info.$2" 2>/dev/null ;; *) rm -f "$OM_D/info.$2" ;; esac ;;
+    phy) [ -e "$OM_D/addfail" ] && exit 1
+         if [ -e "$OM_D/nowdev" ]; then printf '\tifindex 51\n\twiphy 97\n\ttype monitor\n' > "$OM_D/info.$5"
+         else printf '\tifindex 51\n\twdev 0x9700000002\n\twiphy 97\n\ttype monitor\n' > "$OM_D/info.$5"; fi ;;
+esac
+OMIW
+    cat > "$om/bin/ip" <<'OMIP'
+#!/bin/sh
+printf '%s\n' "${0##*/} $*" >> "$OM_D/log"
+exit 0
+OMIP
+    for om_n in ifconfig tcpdump airodump-ng; do cp "$om/bin/ip" "$om/bin/$om_n"; done
+    chmod +x "$om/bin/iw" "$om/bin/ip" "$om/bin/ifconfig" "$om/bin/tcpdump" "$om/bin/airodump-ng"
+    om_t1=$(printf 'phy#97\n\tInterface zzst0\n\t\tifindex 41\n\t\twdev 0x9700000001\n\t\ttype managed')
+    om_t2=$(printf 'phy#98\n\tInterface zzst1\n\t\tifindex 42\n\t\twdev 0x9800000001\n\t\tssid zz-net\n\t\ttype managed\n%s' "$om_t1")
+    om_t3=$(printf 'phy#98\n\tInterface zzst1\n\t\tifindex 42\n\t\twdev 0x9800000001\n\t\tssid zz-net\n\t\ttype managed\nphy#99\n\tInterface zzst2\n\t\tifindex 43\n\t\twdev 0x9900000001\n\t\ttype mesh point\n\tInterface zzst3\n\t\tifindex 44\n\t\twdev 0x9900000002\n\t\ttype managed')
+    om_t4=$(printf 'phy#97\n\tInterface zzst9mon\n\t\tifindex 49\n\t\twdev 0x9700000009\n\t\ttype monitor')
+    # om_case NAME TEXT: a case directory with that `iw dev` text, an empty log and the info of the free base zzst0
+    om_case() { mkdir -p "$om/$1"; : > "$om/$1/log"; printf '%s\n' "$2" > "$om/$1/iwdev"; printf 'Interface zzst0\n\tifindex 41\n\twdev 0x9700000001\n\twiphy 97\n\ttype managed\n' > "$om/$1/info.zzst0"; }
+    # Each case runs in a subshell, and these functions set the state of the code under test there: om_env NAME puts the stand-ins first on PATH
+    # and names the case directory; om_end runs cleanup with its own state pointed at that directory (it removes only files of this pid, and a lock
+    # it never took).
+    om_env() { [ "$om_ok" = 1 ] || exit 1; OM_D="$om/$1"; export OM_D; PATH="$om/bin:$PATH"; }
+    om_end() { OUTFILE="$OM_D/x.json"; TMPDIR_RAM="$OM_D"; CAPDIR="$OM_D"; LOOP_PIDFILE="$OM_D/loop.pid"; AIRODUMP_PIDFILE="$OM_D/ad.pid"; START_LOCK=""
+               STARTED_AIRODUMP=0; AD_PID=""; BT_ARM=""; BT_MPID=""; BT_SPID=""; TR_PID=""; VENDOR_NEWF=""; CACHE_LOCKED=0; OUI_CACHE="$OM_D/oui"; PSEC="$OM_D/sec"
+               cleanup 2>"$OM_D/clean.err"; }
+    om_made() {   # $1 = case: switched on, no recon database, a free radio; with $2 = again, someone makes one of the same name before the end
+        om_env "$1"; IFACE=auto; CREATE_MON=1; RECON_DB="$om/none-such.db"; MONIF=""; CREATED_MON=0; MON_ID=""
+        setup_monitor_iface 2>"$OM_D/err"; printf '%s|%s|%s\n' "$MONIF" "$CREATED_MON" "$MON_ID" > "$OM_D/state"; cp "$OM_D/log" "$OM_D/log.made"
+        [ "$2" != again ] || printf 'Interface zzst0mon\n\tifindex 52\n\twdev 0x9700000003\n\ttype monitor\n' > "$OM_D/info.zzst0mon"
+        om_end
+    }
+    om_db() {     # switched on beside a readable recon database
+        om_env c4; IFACE=auto; CREATE_MON=1; RECON_DB="$om/c4/recon.db"; MONIF=""; CREATED_MON=0; MON_ID=""
+        setup_monitor_iface 2>"$OM_D/err"; printf '%s|%s|%s\n' "$MONIF" "$CREATED_MON" "$MON_ID" > "$OM_D/state"
+    }
+    om_found() {  # $1 = case: a monitor interface this run did not make and no recon database; with $2 = notcpdump, no tcpdump is there
+        om_env "$1"; SOURCE=auto; IFACE=auto; CREATE_MON=0; RECON_DB="$om/none-such.db"; ALLOW_ACTIVE=0; MONIF=""; CREATED_MON=0
+        if [ "$2" = notcpdump ]; then have() { [ "$1" != tcpdump ] && command -v "$1" >/dev/null 2>&1; }; fi
+        resolve_source 2>"$OM_D/err"; printf '%s|%s|%s\n' "$RESOLVED" "$MONIF" "$CREATED_MON" > "$OM_D/state"
+    }
+    om_cap() {    # $1 = case: start_capture on an interface this run found (c9) or made (c10)
+        om_env "$1"; RESOLVED=capture; CAP_METHOD=""; STARTED_AIRODUMP=0; AD_PID=""; SA_KEEP_CSV=0
+        CAPDIR="$OM_D/cap"; AIRODUMP_PIDFILE="$OM_D/ad.pid"; CAPPREFIX="$OM_D/cap/starchorus"
+        if [ "$1" = c9 ]; then CREATED_MON=0; MONIF=zzst9mon; else CREATED_MON=1; MONIF=zzst0mon; fi
+        start_capture --once 2>"$OM_D/err"; [ -z "$AD_PID" ] || wait "$AD_PID" 2>/dev/null; printf '%s\n' "$CAP_METHOD" > "$OM_D/state"
+    }
+    om_fail() {   # iw cannot add the interface: nothing else is tried (the have stand-in notes every name asked; only iw, ip and ifconfig are there)
+        om_env c12; IFACE=auto; CREATE_MON=1; RECON_DB="$om/none-such.db"; MONIF=""; CREATED_MON=0; MON_ID=""
+        # shellcheck disable=SC2329  # called by name from the code under test
+        have() { printf '%s\n' "$1" >> "$OM_D/asked"; { [ "$1" = iw ] || [ "$1" = ip ] || [ "$1" = ifconfig ]; } && command -v "$1" >/dev/null 2>&1; }
+        setup_monitor_iface 2>"$OM_D/err"; printf '%s|%s|%s\n' "$MONIF" "$CREATED_MON" "$MON_ID" > "$OM_D/state"
+    }
+    om_burst() {  # tcpdump bursts on an interface this run found (never brought up), with timeout and without it
+        om_env c11; MONIF=zzst9mon; CAPDIR="$OM_D"; CREATED_MON=0; INTERVAL=2
+        build_from_tcpdump 0 >/dev/null 2>&1
+        have() { [ "$1" != timeout ] && command -v "$1" >/dev/null 2>&1; }
+        build_from_tcpdump 0 >/dev/null 2>&1
+    }
+    om_up() {     # tcpdump bursts on the interface this run made: brought up while it is the one made, not once another has taken its name
+        om_env c15; MONIF=zzst0mon; CAPDIR="$OM_D"; CREATED_MON=1; MON_ID="51:0x9700000002"; INTERVAL=1
+        printf 'Interface zzst0mon\n\tifindex 51\n\twdev 0x9700000002\n\ttype monitor\n' > "$OM_D/info.zzst0mon"
+        build_from_tcpdump 0 >/dev/null 2>&1
+        printf 'Interface zzst0mon\n\tifindex 52\n\twdev 0x9700000003\n\ttype monitor\n' > "$OM_D/info.zzst0mon"
+        build_from_tcpdump 0 >/dev/null 2>&1
+    }
+    om_probe() { OM_D="$om/c0"; export OM_D; PATH="$om/bin:$PATH"; iw dev zzst-probe info; ip link show zzst-probe; ifconfig zzst-probe; tcpdump --version; airodump-ng --help; }
+
+    # the stand-ins run in place of the tools: each of the five writes its line, or no case of 6o runs
+    om_case c0 "$om_t1"; ( om_probe ) >/dev/null 2>&1; om_ok=0
+    [ "$(grep -c -x -E 'iw dev zzst-probe info|ip link show zzst-probe|ifconfig zzst-probe|tcpdump --version|airodump-ng --help' "$om/c0/log")" = 5 ] && om_ok=1
+    if [ "$om_ok" = 1 ]; then st_pass "own monitor interface: the five stand-ins run in place of the tools (each wrote its line), so the cases below reach nothing real"
+    else st_fail "own monitor interface: the stand-ins did not all run ([$(tr '\n' '|' < "$om/c0/log")]), so none of the cases of 6o ran"; fi
+
+    # off by default: a whole run without STARCHORUS_CREATE_MON, a free radio and no recon database
+    om_case c1 "$om_t1"
+    ( unset STARCHORUS_CREATE_MON; om_env c1
+      STARCHORUS_OUTDIR="$om/c1" STARCHORUS_PIDDIR="$om/c1" STARCHORUS_SOURCE=auto STARCHORUS_IFACE=auto STARCHORUS_RECON_DB="$om/none-such.db" STARCHORUS_VENDOR=0 \
+          sh "$0" --once >/dev/null 2>"$om/c1/once.log" )
+    if [ "$(grep -c '^iw phy ' "$om/c1/log")" = 0 ] && grep -qx 'iw dev' "$om/c1/log" && grep -q 'resolved data source: none' "$om/c1/once.log"; then
+        st_pass "own monitor interface: off by default (a run without STARCHORUS_CREATE_MON looks, adds none on a free radio and finds no source)"
+    else st_fail "own monitor interface by default: [$(tr '\n' '|' < "$om/c1/log")] [$(grep 'resolved data source' "$om/c1/once.log")]"; fi
+
+    # switched on, no recon database, a free radio: one is made there and brought up, its identity kept; at the end it goes while it is the same,
+    # and stays when someone has made one of the same name again (another ifindex and wdev)
+    om_case c2 "$om_t2"; om_case c3 "$om_t1"; ( om_made c2 ); ( om_made c3 again )
+    if [ "$(cat "$om/c2/state")" = "zzst0mon|1|51:0x9700000002" ] && [ "$(grep -c '^iw phy ' "$om/c2/log.made")" = 1 ] \
+       && grep -qx 'iw phy phy97 interface add zzst0mon type monitor' "$om/c2/log.made" && grep -qx 'ip link set zzst0mon up' "$om/c2/log.made"; then
+        st_pass "own monitor interface: switched on, with no recon database and a free radio, one is made there and brought up, its ifindex and wdev kept"
+    else st_fail "own monitor interface made: [$(cat "$om/c2/state")] [$(tr '\n' '|' < "$om/c2/log.made")]"; fi
+    if [ "$(grep -cx 'iw dev zzst0mon del' "$om/c2/log")" = 1 ] && grep -q 'removed monitor interface zzst0mon$' "$om/c2/clean.err"; then
+        st_pass "own monitor interface: removed at the end while it is still the one made"
+    else st_fail "own monitor interface removed: [$(tr '\n' '|' < "$om/c2/log")] [$(cat "$om/c2/clean.err")]"; fi
+    if [ "$(cat "$om/c3/state")" = "zzst0mon|1|51:0x9700000002" ] && [ "$(grep -c ' del$' "$om/c3/log")" = 0 ] && grep -q 'left zzst0mon in place' "$om/c3/clean.err"; then
+        st_pass "own monitor interface: one of the same name made again by someone else (another ifindex and wdev) is left in place at the end"
+    else st_fail "own monitor interface, name taken again: [$(cat "$om/c3/state")] [$(tr '\n' '|' < "$om/c3/log")] [$(cat "$om/c3/clean.err")]"; fi
+
+    # made, but iw showed it without a wdev line: left in place at the end, since it cannot be told apart
+    om_case c13 "$om_t1"; : > "$om/c13/nowdev"; ( om_made c13 )
+    if [ "$(cat "$om/c13/state")" = "zzst0mon|1|" ] && [ "$(grep -c ' del$' "$om/c13/log")" = 0 ] && grep -q 'left zzst0mon in place' "$om/c13/clean.err"; then
+        st_pass "own monitor interface: one whose ifindex and wdev could not be read when it was made is left in place at the end"
+    else st_fail "own monitor interface without identity: [$(cat "$om/c13/state")] [$(tr '\n' '|' < "$om/c13/log")] [$(cat "$om/c13/clean.err")]"; fi
+
+    # iw shows the base without a wdev line: no interface of our own is made, since it could not be told apart at the end
+    om_case c14 "$om_t1"; printf 'Interface zzst0\n\tifindex 41\n\twiphy 97\n\ttype managed\n' > "$om/c14/info.zzst0"; ( om_made c14 )
+    if [ "$(cat "$om/c14/state")" = "|0|" ] && [ "$(grep -c '^iw phy ' "$om/c14/log")" = 0 ] && grep -q 'iw shows no ifindex and wdev for zzst0' "$om/c14/err"; then
+        st_pass "own monitor interface: none where iw shows no ifindex and wdev to tell it apart by at the end"
+    else st_fail "own monitor interface, no identity shown: [$(cat "$om/c14/state")] [$(tr '\n' '|' < "$om/c14/log")] [$(cat "$om/c14/err")]"; fi
+
+    # iw cannot add it: nothing else is tried, nothing is brought up
+    om_case c12 "$om_t1"; : > "$om/c12/addfail"; : > "$om/c12/asked"; ( om_fail )
+    if [ "$(cat "$om/c12/state")" = "|0|" ] && [ "$(grep -c '^iw phy ' "$om/c12/log")" = 1 ] && [ "$(grep -c -E '^(ip link|ifconfig)' "$om/c12/log")" = 0 ] \
+       && ! grep -q -v -x -E 'iw|ip|ifconfig' "$om/c12/asked"; then
+        st_pass "own monitor interface: when iw cannot add it, nothing else is tried and nothing is brought up"
+    else st_fail "own monitor interface, iw failed: [$(cat "$om/c12/state")] [$(tr '\n' '|' < "$om/c12/log")] asked [$(tr '\n' ' ' < "$om/c12/asked")]"; fi
+
+    # never while a recon database can be read, even switched on
+    om_case c4 "$om_t1"; : > "$om/c4/recon.db"; ( om_db )
+    if [ "$(cat "$om/c4/state")" = "|0|" ] && [ "$(grep -c '^iw phy ' "$om/c4/log")" = 0 ] && grep -q 'a recon database can be read' "$om/c4/err"; then
+        st_pass "own monitor interface: none while a recon database can be read, even switched on"
+    else st_fail "own monitor interface beside a recon database: [$(cat "$om/c4/state")] [$(tr '\n' '|' < "$om/c4/log")]"; fi
+
+    # a radio with a connected interface (an ssid line) is passed over for one of our own; the opt-in active scan asks without "free" and still sees it
+    om_case c5 "$om_t2"; om_case c6 "$om_t3"
+    om_f5=$(om_env c5; candidate_base_iface free); om_a5=$(om_env c5; candidate_base_iface)
+    om_f6=$(om_env c6; candidate_base_iface free); om_a6=$(om_env c6; candidate_base_iface)
+    if [ "$om_f5/$om_a5/$om_f6/$om_a6" = "zzst0/zzst1//zzst1" ]; then
+        st_pass "own monitor interface: a radio with a connected interface, or with one of another kind (a mesh point), is passed over (the free one is taken, or none); the opt-in active scan still sees it"
+    else st_fail "candidate_base_iface free: [$om_f5/$om_a5/$om_f6/$om_a6] (want zzst0/zzst1//zzst1)"; fi
+
+    # an interface this run did not make, and no recon database: a source only where tcpdump is, and it is listened to
+    om_case c7 "$om_t4"; om_case c8 "$om_t4"; ( om_found c7 ); ( om_found c8 notcpdump )
+    if [ "$(cat "$om/c7/state")" = "capture|zzst9mon|0" ] && grep -q 'listening on zzst9mon, an interface this run did not make' "$om/c7/err" \
+       && [ "$(cat "$om/c8/state")" = "none|zzst9mon|0" ]; then
+        st_pass "a monitor interface this run did not make: a source only where tcpdump can listen to it (with airodump-ng alone, none)"
+    else st_fail "found monitor interface: [$(cat "$om/c7/state")] [$(cat "$om/c8/state")] [$(cat "$om/c7/err")]"; fi
+
+    # start_capture: airodump-ng (it changes channels) only on the interface this run made; any other is left to tcpdump
+    om_case c9 "$om_t4"; om_case c10 "$om_t1"; ( om_cap c9 ); ( om_cap c10 )
+    if [ "$(cat "$om/c9/state")" = tcpdump ] && [ "$(grep -c '^airodump-ng' "$om/c9/log")" = 0 ] \
+       && [ "$(cat "$om/c10/state")" = airodump ] && [ "$(grep -c '^airodump-ng .* zzst0mon$' "$om/c10/log")" = 1 ]; then
+        st_pass "start_capture: airodump-ng runs only on the interface this run made; one it found is left to tcpdump"
+    else st_fail "start_capture: [$(cat "$om/c9/state")|$(tr '\n' '|' < "$om/c9/log")] [$(cat "$om/c10/state")|$(tr '\n' '|' < "$om/c10/log")]"; fi
+
+    # tcpdump bursts never ask the interface for promiscuous mode, with timeout and without, and bring up no interface this run did not make
+    om_case c11 "$om_t4"; ( om_burst )
+    if [ "$(grep -c '^tcpdump ' "$om/c11/log")" = 2 ] && [ "$(grep -c '^tcpdump -p -i zzst9mon ' "$om/c11/log")" = 2 ] && [ "$(grep -c -E '^(ip|ifconfig) ' "$om/c11/log")" = 0 ]; then
+        st_pass "tcpdump bursts: the interface is never asked for promiscuous mode (-p, with timeout and without), nor brought up when this run did not make it"
+    else st_fail "tcpdump bursts: [$(tr '\n' '|' < "$om/c11/log")]"; fi
+    om_case c15 "$om_t1"; ( om_up )
+    if [ "$(grep -c -x 'ip link set zzst0mon up' "$om/c15/log")" = 1 ] && [ "$(grep -c '^tcpdump -p -i zzst0mon ' "$om/c15/log")" = 2 ]; then
+        st_pass "tcpdump bursts on the interface this run made: brought up while it is the one made, not once another has taken its name"
+    else st_fail "tcpdump bursts, own interface: [$(tr '\n' '|' < "$om/c15/log")]"; fi
+    # the two call lines that carry the decision are pinned once each: the opt-in active scan asks without "free", and the start goes through start_capture
+    # shellcheck disable=SC2016  # the lines are matched as text
+    om_p1=$(grep -c '^    scanif=$IFACE; \[ "$scanif" = "auto" \] && scanif=$(candidate_base_iface)$' "$0")
+    # shellcheck disable=SC2016  # the line is matched as text
+    om_p2=$(grep -c '^start_capture "$1"$' "$0")
+    if [ "$om_p1/$om_p2" = 1/1 ]; then st_pass "own monitor interface: the active scan asks for its interface without the free rule, and the start goes through start_capture (each line pinned once)"
+    else st_fail "own monitor interface, pinned lines: active scan $om_p1, start_capture $om_p2 (want 1/1)"; fi
+    rm -rf "$om"
+
     # ---- 6j) run_cycle must not publish a post-pass result that is structurally wrong even when
     #          the pass returned 0 (an awk write error not reflected in its exit code). The mutants
     #          replace add_vendor for the rest of the run (POSIX sh cannot copy a function back),
@@ -9200,21 +9419,14 @@ fi
 
 if [ "$RESOLVED" = "none" ]; then
     ts=$(date +%s 2>/dev/null); [ -n "$ts" ] || ts=0
-    write_empty "$ts" "no passive data source available (need tcpdump/airodump-ng + monitor iface, or a readable recon.db)" > "$OUTFILE.tmp.$$" 2>/dev/null \
+    write_empty "$ts" "no passive data source available (need tcpdump and a monitor interface, an interface of our own with STARCHORUS_CREATE_MON=1, or a readable recon.db)" > "$OUTFILE.tmp.$$" 2>/dev/null \
         && mv -f "$OUTFILE.tmp.$$" "$OUTFILE" 2>/dev/null   # through a temp file and a rename, as run_cycle publishes: a reader never meets a cut file
     log "no usable passive source; wrote an empty document to $OUTFILE"
-    log "hint: set STARCHORUS_IFACE=<monitor-if>, or STARCHORUS_RECON_DB=<path>, or (ACTIVE) STARCHORUS_ALLOW_ACTIVE=1."
+    log "hint: set STARCHORUS_IFACE=<monitor-if>, or STARCHORUS_RECON_DB=<path>, or STARCHORUS_CREATE_MON=1 (an interface of our own on a free radio), or (ACTIVE) STARCHORUS_ALLOW_ACTIVE=1."
     exit 1
 fi
 
-# Our own capture: start airodump once and let it keep the CSV fresh; without it the capture is tcpdump bursts.
-if [ "$RESOLVED" = "capture" ]; then
-    [ "$1" != "--once" ] || SA_KEEP_CSV=1
-    if have airodump-ng; then
-        start_airodump || log "airodump start failed; will fall back to tcpdump bursts"
-    fi
-    [ "$CAP_METHOD" = "" ] && CAP_METHOD="tcpdump"
-fi
+start_capture "$1"
 
 if [ "$1" = "--once" ]; then
     # For a single cycle with airodump, give it a moment to populate the CSV.

@@ -13,8 +13,8 @@ declined, even as an option and even behind a switch. Specifically, the followin
 - anything that sends frames to force a result.
 
 Only receiving is permitted: reading the recon database read-only (a copy, `sqlite3 -readonly`),
-receiving in monitor mode (`tcpdump`/`airodump-ng` without injection), and tuning the receiver to a
-channel. `iw scan` sends probe requests and counts as active; it stays behind
+receiving in monitor mode (`tcpdump -p`, and `airodump-ng` without injection only on a monitor
+interface the collector made itself), and tuning that interface alone to a channel. `iw scan` sends probe requests and counts as active; it stays behind
 `STARCHORUS_ALLOW_ACTIVE=1` and is off by default. The details are in [SECURITY.md](SECURITY.md).
 
 ## The passivity check is mandatory

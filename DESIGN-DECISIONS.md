@@ -23,8 +23,9 @@ place, because a long read would hold a lock that stalls the writer.
 
 ## The data sources are layered, and degrade
 
-The collector follows an order of sources (a monitor interface it made itself, the recon database,
-an existing monitor interface, and, only with the active opt-in, `iw scan`). Each extra reading that
+The collector follows an order of sources (a monitor interface it made itself, which it makes only
+when told to and never while a recon database can be read; the recon database; an existing monitor
+interface, only listened to; and, only with the active opt-in, `iw scan`). Each extra reading that
 depends on device behaviour yet to be verified (Bluetooth, channel activity) is opt-in and off by
 default; the alert log, a file that exists only once the companion alert is in place, and the five
 derived kinds of alert, which read nothing from the air, are on by default. When a source gives

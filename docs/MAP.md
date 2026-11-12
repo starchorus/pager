@@ -144,7 +144,7 @@ A region runs from a marker line of a script to the line before the next one.
 | `starchorus-collect.sh` | `interface setup` | `mgmt_iface()` `setup_monitor_iface()` |
 | `starchorus-collect.sh` | `recon DB locate` | `find_recon_db()` |
 | `starchorus-collect.sh` | `source decision` | `resolve_source()` |
-| `starchorus-collect.sh` | `capture: start` | `start_airodump()` |
+| `starchorus-collect.sh` | `capture: start` | `start_airodump()` `start_capture()` |
 | `starchorus-collect.sh` | `teardown` | `cleanup()` |
 | `starchorus-collect.sh` | `BLUETOOTH: ONE PASSIVE LE SCAN WINDOW PER CYCLE` | `bt_begin()` `bt_end()` `bt_blue5_read()` `bt_sweep()` |
 | `starchorus-collect.sh` | `reading a window` | `AWK_BT=` `bt_parse()` `bt_judge()` |

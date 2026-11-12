@@ -441,10 +441,13 @@ Confirmed on the device with `iw dev`:
   that this service fills, and starts no second capture on the same radio.
 - `wlan1mon` and the management radio stay **untouched**. Among several monitor interfaces, `auto`
   picks `wlan1mon` first, then any one other than `wlan0mon`, otherwise the first.
-- The collector creates a monitor VIF of its own only when **none at all** exists
-  (`STARCHORUS_CREATE_MON=1`, the default), and never on the management radio. The exit handler
-  removes only a VIF it created itself; on the device that never happens.
-- Tuning the receiver's channel is permitted; transmitting of any kind is not.
+- The collector adds a monitor VIF of its own only when told to (`STARCHORUS_CREATE_MON=1`, off by
+  default), only when **none at all** exists, only on a radio that carries no management,
+  access-point or connected interface, and never while a recon database can be read. On the device
+  the radios are the firmware's and `recon.db` can be read, so it makes none. The exit handler
+  removes only a VIF it made itself, and only while it still has the ifindex and wdev it was made with.
+- An interface the collector did not make is only listened to: `tcpdump -p`, never `airodump-ng`, so
+  it is never retuned or asked for promiscuous mode. Transmitting of any kind is not permitted.
 - One collector runs per Pager, so that two loops never share the monitor interface or radio:
   starting or stopping any instance stops every other collector loop on the device (`--once` and
   `--status` runs are left alone), and each loop so stopped is logged with its pid and working

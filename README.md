@@ -209,8 +209,9 @@ Only the following is permitted:
   `sqlite3 -readonly`, so that capture is never locked;
 - asking the device's AP service for the recon lists it already holds, with two read-only commands
   (`STARCHORUS_SOURCE=pineap`, opt-in; see [SECURITY.md](SECURITY.md));
-- receiving in monitor mode (`tcpdump`, or `airodump-ng` without injection);
-- tuning the receiver to a channel;
+- receiving in monitor mode: `tcpdump -p` on a monitor interface, and `airodump-ng` (without injection) only on one
+  the collector made itself;
+- tuning a monitor interface the collector made itself to a channel, and no other;
 - a passive Bluetooth LE scan (`STARCHORUS_BLUETOOTH=1`, opt-in, off by default): `hcitool -i hci0 lescan --passive --duplicates`
   for 5 seconds per refresh, read with `btmon -i hci0`. A passive scan sends no scan request; it listens for advertisements that
   devices broadcast anyway. A window counts only when `btmon` shows the collector's own scan parameters as `Passive`, and nothing else
@@ -228,8 +229,11 @@ Only the following is permitted:
 - the watch list `$STARCHORUS_OUTDIR/watch.list` when you have written one (addresses and network names, one per line; see the table below):
   every access point listed by address or name, and every station and Bluetooth record listed by address, is marked `"watched": true` in the document and wears the pin mark on the page, and the list itself never leaves the device.
 
-The collector creates its own monitor interface only if none exists, and removes it again on exit.
-It never touches the recon radio or the management radio.
+Nothing is ever sent. An interface Starchorus did not make is only listened to: it is never retuned,
+never asked for promiscuous mode, never brought up, taken down or reconfigured. Starchorus adds a
+monitor interface of its own only when told to (`STARCHORUS_CREATE_MON=1`), only on a radio that
+carries no management, access-point or connected interface, and never while a recon database can
+be read; it tunes that interface alone, and when it stops it removes that interface and no other.
 
 **The one exception is named plainly.** `iw scan` sends probe requests and is therefore active. The
 collector uses it only with the explicit opt-in `STARCHORUS_ALLOW_ACTIVE=1`, and then as a last
@@ -444,7 +448,7 @@ All variables are optional.
 | `STARCHORUS_SOURCE` | `auto` | `auto`, `capture`, `recondb`, `pineap` (opt-in: the AP service's own recon lists, read-only commands) or `iwscan` (only with `STARCHORUS_ALLOW_ACTIVE=1`). `auto` never picks `pineap`. |
 | `STARCHORUS_RECON_DB` | `auto` | Path to the recon database, or `auto` to search for it. |
 | `STARCHORUS_ALLOW_ACTIVE` | `0` | `1` permits the **active** `iw scan`. Leave it off. |
-| `STARCHORUS_CREATE_MON` | `1` | `1` permits creating a monitor interface if none exists. |
+| `STARCHORUS_CREATE_MON` | `0` | `1` lets the collector add a monitor interface of its own when none exists: only on a radio that carries no management, access-point or connected interface, and never while a recon database can be read; when it stops it removes that interface and no other. Environment only. |
 | `STARCHORUS_MAX_AGE` | `0` | Recon database and `pineap` sources: only devices from the last N seconds (live window, e.g. `120`); `0` = the whole record. |
 | `STARCHORUS_CAPDIR` | `$OUTDIR/cap` | Capture files, the vendor cache and the index of the OUI file (flash: the cache only grows and the index is built once per OUI file, neither is rewritten every cycle; the capture files of `airodump-ng` are, every 2 s, and so is the database copy when `STARCHORUS_TMPDIR` has no room for it). |
 | `STARCHORUS_TMPDIR` | `/tmp` | Recon database and `pineap` sources: where the working copy of the database lives (RAM on the device) and the `pineap` security cache (`starchorus-sec.txt`). With too little room for the database copy, `STARCHORUS_CAPDIR` is used as before; if it is not a writable directory at all, the `pineap` source can look up no security and marks every access point `Unknown`. |
@@ -471,9 +475,11 @@ All variables are optional.
 
 With `STARCHORUS_SOURCE=auto`, this order applies:
 
-1. a monitor interface the collector created itself → `capture`;
+1. a monitor interface the collector made itself (only with `STARCHORUS_CREATE_MON=1`, and only while no recon
+   database can be read) → `capture`;
 2. otherwise a readable recon database → `recondb`;
-3. otherwise an existing monitor interface it did not create → `capture`, with a warning;
+3. otherwise an existing monitor interface it did not make → `capture` with `tcpdump -p` alone, listening only
+   (`airodump-ng` changes channels, so it never runs there);
 4. otherwise, only with `STARCHORUS_ALLOW_ACTIVE=1`, `iwscan`;
 5. otherwise `none`.
 
