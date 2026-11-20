@@ -34,7 +34,7 @@ Where to look inside each part, with the text to find it by and the drop-ins tha
 | `starchorus-collect.sh` | The collector: a POSIX shell script that reads the recon database (a read-only copy), or listens in monitor mode, or reads the AP service's recon lists, and writes `starchorus.json`. The largest file; it carries its `awk` programs as shell strings. |
 | `starchorus-display.sh` | The Overview: the on-device screen (eight screens), driven by the device's display commands and `jq`. A byte-identical copy lives under `library/.../starchorus/`. |
 | `starchorus-serve.sh` | The page server: a small netcat listener that serves the page and the JSON on the device. |
-| `payload.sh` | A lean launcher to copy by hand: it starts the collector and a static page server. The Hak5 payload itself, with the menu and Settings, is `library/user/reconnaissance/starchorus/payload.sh`. |
+| `payload.sh` | A lean launcher to copy by hand: it starts the collector and a static page server, and `stop` and `status` end and report them. The Hak5 payload itself, with the menu and Settings, is `library/user/reconnaissance/starchorus/payload.sh`. |
 | `starchorus.html` | The page: a single self-contained file, **built** from the fragments under `src/`, never edited by hand. |
 | `src/` | The page's fragments (one per section, named by section number) and the build manifest. `sh tools/build-page.sh` joins them into `starchorus.html`. |
 | `docs/` | The specification (`architecture.md`), the device notes (`device-notes.md`), the ways to reach the page (`display-paths.md`). |

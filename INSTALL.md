@@ -572,7 +572,7 @@ place is fixed (`/root/loot/starchorus-alerts`): the companion takes no director
 | the Overview shows 'jq incomplete' in red | an Overview filter failed on the Pager | run the installer again and report its output in an issue |
 | the Overview shows 'No new scan for …' in red | the collector stopped writing | go back with B (twice from a screen: to the list of screens, then to the menu); the menu then says whether it still runs |
 | the Overview shows 'This scan took over 20 s to read.' | 'Show Last' under 'Settings' is too long for the Pager's CPU | choose a shorter time (the default is 1 h) |
-| a dialogue says 'Installed …, payload …' or 'Installed files differ …' | the payload and the files in `/root/loot/starchorus` come from different builds (another version, or another `# Contract:` number) | replace all seven files: run the installer again (section 3); with the Hak5 library copy, delete `/root/loot/starchorus/starchorus-collect.sh` and open the payload again |
+| a dialogue says 'Installed …, payload …' or 'Installed files differ …' | the payload and the files in `/root/loot/starchorus` come from different builds (another version, or another `# Contract:` number) | replace all seven files: run the installer again (section 3); with the Hak5 library copy, delete `/root/loot/starchorus/starchorus-collect.sh` and open the payload again; when the dialogue ends with 'In Settings, switch Alerts off, then on.', it is the companion alert in the firmware's alert tree: do just that in this payload's Settings (the firmware's own Alerts page only renames the directory) |
 
 When you report a problem, never post real network names, MAC addresses or capture files. The
 installer's output is safe to paste; the contents of `starchorus.json` are not.

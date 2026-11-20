@@ -10,7 +10,7 @@ by Hak5; see [Trademarks](#trademarks).
 
 [![quick (T1)](https://github.com/starchorus/pager/actions/workflows/quick.yml/badge.svg)](https://github.com/starchorus/pager/actions/workflows/quick.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/Licence-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release: v0.2.7](https://img.shields.io/badge/Release-v0.2.7-orange.svg)](https://github.com/starchorus/pager/releases)
+[![Release: v0.2.8](https://img.shields.io/badge/Release-v0.2.8-orange.svg)](https://github.com/starchorus/pager/releases)
 
 [Quick start](#quick-start) · [Installation](INSTALL.md) · [Payload](#payload) · [Passivity](#passivity-as-a-design-guarantee) ·
 [Configuration](#configuration) · [Licence](#licence) · [Contributing](CONTRIBUTING.md) ·
@@ -94,14 +94,14 @@ the licence does not require one.
 
 ## Version
 
-Starchorus 0.2.7. The main parts carry the same number:
+Starchorus 0.2.8. The main parts carry the same number:
 
 | Part | File | Version |
 |---|---|---|
-| Page | `starchorus.html` | 0.2.7 |
-| Collector | `starchorus-collect.sh` | 0.2.7 |
-| On-device Overview | `starchorus-display.sh` | 0.2.7 |
-| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.7 |
+| Page | `starchorus.html` | 0.2.8 |
+| Collector | `starchorus-collect.sh` | 0.2.8 |
+| On-device Overview | `starchorus-display.sh` | 0.2.8 |
+| Payload | `library/user/reconnaissance/starchorus/payload.sh` | 0.2.8 |
 
 ## What the page shows
 
@@ -453,7 +453,7 @@ All variables are optional.
 | `STARCHORUS_CAPDIR` | `$OUTDIR/cap` | Capture files, the vendor cache and the index of the OUI file (flash: the cache only grows and the index is built once per OUI file, neither is rewritten every cycle; the capture files of `airodump-ng` are, every 2 s, and so is the database copy when `STARCHORUS_TMPDIR` has no room for it). |
 | `STARCHORUS_TMPDIR` | `/tmp` | Recon database and `pineap` sources: where the working copy of the database lives (RAM on the device) and the `pineap` security cache (`starchorus-sec.txt`). With too little room for the database copy, `STARCHORUS_CAPDIR` is used as before; if it is not a writable directory at all, the `pineap` source can look up no security and marks every access point `Unknown`. |
 | `STARCHORUS_SKIP_UNCHANGED` | `1` | Recon database only: a cycle in which the database is unchanged since the last full pass, and no row can have left the window, only refreshes `generated` of that pass's document (the Bluetooth and traffic layers are still taken every cycle; with Bluetooth on, a skipped cycle lasts about the window). `0` = always rebuild. |
-| `STARCHORUS_PIDDIR` | `$OUTDIR` | Pidfiles. |
+| `STARCHORUS_PIDDIR` | `$OUTDIR` | Pidfiles, and `starchorus-start.lock`, the directory a start holds while it replaces other loops. |
 | `STARCHORUS_VENDOR` | `1` | `1` = fields `vendor`/`randomized` from a local OUI file; `0` = never. |
 | `STARCHORUS_OUI_FILE` | `auto` | Path of the OUI file; `auto` tries the usual paths (listed in the collector's header). |
 | `STARCHORUS_HOPINFO` | `0` | `1` = `channels[]` with `freq`/`last_heard` from the recon database. |
@@ -603,7 +603,7 @@ specification.
 | `src/` | the page's source: one fragment for each section (CSS, DOM, JavaScript) and the frame, and `PAGE.list`, the order in which `sh tools/build-page.sh` joins them into `starchorus.html` (see [docs/architecture.md](docs/architecture.md) §1.0); not installed on the device |
 | `starchorus-display.sh` | the Overview on the device's display |
 | `starchorus-serve.sh` | netcat page server, the normal one on a Pager without `uhttpd` or `python3` |
-| `payload.sh` | lean launcher: collector and page server (`uhttpd`, BusyBox `httpd` or `python3`); the Pager's payload is the one under `library/` |
+| `payload.sh` | lean launcher (`start`, `stop`, `status`): collector and page server (`uhttpd`, BusyBox `httpd` or `python3`); the Pager's payload is the one under `library/` |
 | `library/user/reconnaissance/starchorus/` | payload (see above) |
 | `packaging/hak5/` | README for the self-contained payload directory that `tools/hak5-package.sh` builds for Hak5's payload library |
 | `docs/architecture.md` | specification of the page (themes, layout, keys, query parameters, `window.STARCHORUS`) |

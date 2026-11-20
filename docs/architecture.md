@@ -1,6 +1,6 @@
 # Starchorus – Architecture of `starchorus.html`
 
-This file is the functional reference for the page `starchorus.html` (Starchorus 0.2.7) and for the parts of
+This file is the functional reference for the page `starchorus.html` (Starchorus 0.2.8) and for the parts of
 `starchorus-collect.sh` that define its data format. It describes what the code is and why it is built that way.
 Where numbers appear, they are the values in the code; the machine-generated blocks (§3.8, §7.0a) and the bound
 lists (§2.7 query parameters, §9.6 keys, §10 API) are checked against the code by the regression (`tools/regress.d/doc-binding.sh`).
@@ -2270,7 +2270,7 @@ are released only as observed values or counts (§14.5). `Object.freeze` on the 
 
 ```js
 window.STARCHORUS = Object.freeze({
-  version: "0.2.7",
+  version: "0.2.8",
   // Theme / View
   setTheme(id) → string,                 // "foundation"|"wargames"|"whitehall"; like #t-theme, without intro; returns the active theme
   getTheme() → string,
@@ -2987,7 +2987,7 @@ there, and no row proves them:
 - a detail sheet for a Bluetooth mark (the member list, the 'addresses, not devices' note): a mark has a tooltip, a click selects nothing (since 0.2.7 a mark with Remote ID has a sheet of its own, without a member list, with the plan of its two positions under the rows, §2.8);
 - the baked tag ('n · BT') on a folded mark: a folded mark has a dot, its count is in the tooltip and in the legend and counter;
 - the `bt()` function of the test API: `stats().bluetooth` is the whole of it;
-- the SITREP line for Bluetooth, and Bluetooth rows or columns in the CSV export (the CSV is the 0.1 table; the JSON export has `bluetooth` and
+- the SITREP line for Bluetooth, and Bluetooth rows or columns in the CSV export (the CSV has no Bluetooth row or column of its own; the JSON export has `bluetooth` and
   `bluetooth_counts`; since 0.2.7 only an address with Remote ID adds ten CSV columns, a row and a SITREP block, §2.8, and an `alert` row of the kind `bt_fixed_new` carries a Bluetooth
   address in `bssid` with the columns `alert` and `count`, §14.5);
 - two of the three idioms of the traffic cue (a halo, a bloom): the cue is four short ticks round the dot in every theme;

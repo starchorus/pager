@@ -54,7 +54,7 @@ therefore runs **without** `opkg` and **without** internet access on the device.
 | `timeout` | present: `/usr/libexec/timeout-coreutils` (GNU coreutils; measured 17 October 2026, A2 in §2b). It forks: the command is its child with a pid of its own, and a TERM sent to `timeout` ends the child (a hand run of `timeout -s INT 10 hcitool lescan --passive --duplicates` on 16 October 2026 had ended with exit status 124, which a `timeout` that executes its program in its own process cannot return). Whether it passes INT on is still open. GNU `timeout` installs handlers of its own for INT, QUIT, HUP and TERM (the coreutils source; not measured here), so its command starts with those four signals at default whatever the caller had ignored: the collector's `trap '' HUP QUIT` around the two launches does not reach the tools on the device, and a SIGINT that reaches `hcitool` before it has installed its own handler ends it. The Bluetooth window therefore notes the pid of the tool itself, signals only the tool, and holds the first SIGINT of an abort back for a scan younger than a second | bounds the Overview's `jq` (`timeout 20`, where `timeout` exists), the collector's Bluetooth tools (§2b) and the AP service calls, and nothing else of the Overview's: never a key wait, never any other UI command, because killing the client of a UI command might leave its request pending in the UI service (M7 in §7 saw no such effect, on weak evidence) and the Overview needs no `timeout` for its work; the Overview ends a `jq` that a key has cut short together with the processes `timeout` started for it, because whether it passes INT on is not known; `tools/device-probe.sh` reports which implementation it is (`timeout.kind`) |
 | `nice`, `setsid` | present (BusyBox) | the payload starts the collector (detached with `setsid`), the page server and the Overview at nice 19 |
 | `nc` | present | **GNU netcat 0.7.1** (not BusyBox nc); carries the page server `starchorus-serve.sh`; offers `-s ADDRESS` (local address, §8) |
-| `cksum` | missing | `ash: cksum: not found`, exit 127 (seen 11 October 2026, and in the installer runs of 14 and 15 October). `tools/install.sh` therefore verifies by reading all six files back with `scp` and comparing them with `cmp`, and reports that as a pass: a missing applet is a fact about the device, not a warning |
+| `cksum` | missing | `ash: cksum: not found`, exit 127 (seen 11 October 2026, and in the installer runs of 14 and 15 October). `tools/install.sh` therefore verifies by reading all seven files back with `scp` and comparing them with `cmp`, and reports that as a pass: a missing applet is a fact about the device, not a warning |
 | `head -c` | present | `head -c 400` works, exit 0 (installer runs of 14 and 15 October 2026); the installer reads the first 400 bytes of `starchorus.json` with it and prints only `generated` and `source` |
 | `mv -f` | present (BusyBox; the payload's own bundle copy writes `.tmp` and renames it with `mv`) | `tools/install.sh` of 0.2.5 renames its uploads (`<name>.new`) into place with one command, `mv -f a.new a && mv -f b.new b ...`, after the last upload, and reads the collector's `--status` before the uploads. As of 24 October 2026 neither has run on the device: the stand-ins of `tools/regress.d/installer.sh` are all the evidence, and the first real run should be watched |
 | `stat` | missing | the collector reads the size and mtime of `recon.db` with one `ls -lnL --full-time` instead (§6a) |
@@ -364,7 +364,7 @@ call: the collector asks without that select as well, so the layer keeps its rec
 silent, logged once and retried at the re-check.
 Measured on the device on 30 October 2026: `mfr` filled in 1,840 of 1,963 rows (1,830 of them
 Apple's), `svc16` in 120 (FCB2 in 107, which names no class), `appearance` in 1. The share of the type bytes and
-the cost of the three columns per cycle are still to be measured there.
+that of the three columns in the cost of a cycle are still to be measured there; the read as a whole was measured on 11 November 2026 (section 6a).
 
 **Remote ID (0.2.7).** The same query also lets `svcd` (the service data) out as hex, only when it is a blob of 8
 to 255 bytes whose hex holds the service head `FAFF0D` (the service `FFFA`, little-endian, and the app code `0D` of
@@ -417,8 +417,8 @@ leaves `ad_flags` and `svc_other` alone), and `mac` is twelve hex digits as assu
 `tools/install.sh` ended VERIFIED on this firmware for the first time: the collector's self-test ALL PASS on the device
 (531 checks as of 30 October 2026, where the development machine runs 543: cases gated on tools the device lacks), the
 Overview's ALL PASS (113 checks as of the same day), all seven files byte-identical, and the Overview's Bluetooth screen naming `Apple, Inc.`
-and `Robert Bosch GmbH` where it had said `company id 76` and `678`. **Still open:** the cost of the read on the device,
-per cycle.
+and `Robert Bosch GmbH` where it had said `company id 76` and `678`. **Still open** on that day: the cost of the read on the device,
+per cycle; it was measured on 11 November 2026 (section 6a).
 
 ---
 
@@ -477,7 +477,7 @@ the skip test takes before the copy (size and modification time of the database,
 it, from one `ls`) is therefore taken once more when the copy is made; if it differs, the copy is thrown away and made again
 after 0.2 s, and if the file moved during that copy as well, the second copy is read all the same and the collector says so once.
 The batch's error output goes to a small file beside the copy (`starchorus-recon-<pid>.db-err`, removed with it): a batch that
-reports `malformed`, `disk I/O` or `not a database`, or whose `sqlite3` ends with a status of 2 or more, is a failed pass, and the
+reports `malformed`, `disk I/O` or `not a database`, or says that it could not open, lock or write the copy (`database is locked`, `unable to open database`, `disk is full`, `attempt to write a readonly database`), or whose `sqlite3` ends with a status of 2 or more, is a failed pass, and the
 document published last stays (an exit status of 1 on its own is not read this way: the alternatives of the batch fail on purpose).
 On the development machine (a synthetic 3.2 MB database, a writer committing six-row transactions, a plain file copy; tried on
 24 October 2026 by the hardening review's prototype, not by the collector) a stamp of size, modification time in nanoseconds and
@@ -780,7 +780,7 @@ only, against stand-in variables (`tools/regress.d/hak5-package.sh`), and the co
 | g3 | What does the firmware count as many, and does it tell a deauthentication from a disassociation | the same burst, varied in length | the wording 'many deauth/disassoc frames' |
 | g4 | Do two launches for the same burst overlap, and does the firmware end one on a timeout | two events in quick succession, `ps` during the run | whether the lock in the companion is needed |
 | g5 | Are `LOG`, `VIBRATE`, `LED` and `RINGTONE` there inside an alert payload, with which exit codes and argument format | a throw-away alert that calls each | the owner's decision whether the companion adds a signal (it adds none) |
-| g6 | Does a hand-copied alert need `chmod +x`, does it start enabled, how does a `DISABLED.` directory behave | copy it by hand (README, Alerts) and look at the firmware's Alerts page | the install instructions, and the Settings row 'Alerts' (it installs and removes the companion after a confirmation and enables nothing, so a copied alert that starts disabled stays for the Alerts page; it reads 'OFF (firmware)' while only a `DISABLED.starchorus` directory is there and installs nothing over it, and that rename is read from the firmware's files, not yet seen on the Pager) |
+| g6 | Does a hand-copied alert need `chmod +x`, does it start enabled, how does a `DISABLED.` directory behave | copy it by hand (README, Alerts) and look at the firmware's Alerts page | the install instructions, and the Settings row 'Alerts' (it installs and removes the companion after a confirmation and enables nothing, so a copied alert that starts disabled stays for the Alerts page; it reads 'OFF (firmware)' while only a `DISABLED.starchorus` directory is there and installs nothing over it, and that rename is read from the firmware's files; on the Pager, on 8 November 2026, after the owner had switched Alerts off and on, the copy and its directory were as they had been, no `DISABLED.starchorus` was there, and only the directory above them had a new time, which points to the firmware's Alerts page, since the Settings row would have made the copy anew) |
 | g7 | Does the alert engine need the AP service's recon or listening to be running, or is it always on | one burst with recon stopped, one with it running | when an empty `alerts.log` means 'nothing heard' |
 | g8 | Does the alert fire on the Pager's own deauth frames, and with which SOURCE | the Pager deauthing a network the owner controls, by another payload (an owner's decision; Starchorus never sends one) | whether an alert can be the owner's own test; nothing in the log tells it apart |
 
@@ -1121,7 +1121,7 @@ access time; and the eMMC took 476 KiB of writes a minute over the ten minutes w
 own databases). The cap, as measured rather than set: a steady 30-s cycle of this collector on this device costs 152 to 214 ticks without
 the rules (the loops of 1, 3 and 7 November: 27 to 28 access points, one to 190 stations, 13 to 28 Bluetooth addresses) and 264 to 333
 with them (3 and 7 November); the plan's 200-tick figure holds without the rules at up to about 70 stations and 16 Bluetooth addresses (1 and 7 November), not at 160 to
-190 stations (3 November), and with the rules nowhere.
+190 stations (3 November), and with the rules nowhere. Those loops ran development builds of 0.2.7; a loop since 0.2.8, whose two selects take about 180 ticks a cycle less (11 November 2026), has not been measured.
 
 ## 7. No web server, and how the display works
 
@@ -1361,7 +1361,7 @@ version too (an installed script with a version but no contract line counts as c
 page (the `version:` line of `index.html`) have no contract line and are compared by version alone (0.2.5). A
 difference is reported once at launch. The remedy is `tools/install.sh`; in the self-contained
 layout, which has no `tools/` on the device, the dialogue names the file to delete instead
-(`starchorus-collect.sh` in `/root/loot/starchorus`), after which the next run copies the bundle again.
+(`starchorus-collect.sh` in `/root/loot/starchorus`), after which the next run copies the bundle again. For the companion alert in the firmware's alert tree it names the Settings row instead ('In Settings, switch Alerts off, then on.'), the one place that renews that copy.
 
 The collector's pidfiles live in `/root/loot/starchorus`, on the eMMC: they outlive a reboot, and
 the pid they name may by then belong to another program. The payload and the collector's `--stop`

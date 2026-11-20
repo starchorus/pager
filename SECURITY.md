@@ -341,9 +341,9 @@ data.
 - Addresses the page groups into a cloud carry the cloud's id in JSON and in the CSV `cloud` column; the cloud entry holds counts,
   signal range, times and probed network names, all received, and is marked as an estimate.
 - With a Bluetooth capture the JSON export holds the `bluetooth` addresses (an array, with `bluetooth_counts`), each with its signal, company,
-  advertised name, `remote_id` where an address broadcasts one, and the mark it is drawn in, all received. The CSV has no Bluetooth row and no extra column,
+  advertised name, `remote_id` where an address broadcasts one, and the mark it is drawn in, all received. The CSV has no Bluetooth row and no Bluetooth column,
   except that while the export holds an alert it gains the two columns `alert` and `count` and an `alert` row per note (P6), and while an address
-  broadcasts Remote ID it gains ten `remote_id` columns on the right and a row for each such address; the SITREP then has a block for them. Both say 'as broadcast, not checked'; a position stands as numbers, and the one figure the page works out from them, the
+  broadcasts Remote ID it gains ten `remote_id` columns on the right and a row for each such address, whose `watched` column is `1` when the address is on watch.list; the SITREP then has a block for them. Both say 'as broadcast, not checked'; a position stands as numbers, and the one figure the page works out from them, the
   row 'Operator–aircraft', is the horizontal distance between the aircraft's and the operator's broadcast positions, in the tooltip, the sheet and
   the SITREP but not in the JSON or CSV; the sheet also draws the two positions to scale, north up, in no export; neither is a distance or a direction from the
   Pager, whose position Starchorus does not read.
@@ -438,8 +438,8 @@ server binds one address through `nc -s`; with an `nc` that lacks it, it starts 
 ### The installer and the release files
 
 `tools/install.sh` runs on the development machine and sends the remote commands its header lists, and no other: `mkdir -p`, the collector's read-only `--status`, `chmod`, one
-`mv -f <name>.new <name> && ...` command that moves the uploaded files into place, `cksum`, the two `--selftest` runs, one passive `--once`, `head -c 400` of `starchorus.json` and the Overview's
-`--once summary`. The status read and the rename were added in 0.2.5 by the owner's decision (24 October 2026); `tools/regress.d/installer.sh` pins the list, the order of every run and the
+`mv -f <name>.new <name> && ...` command that moves the uploaded files into place, `cksum`, the two `--selftest` runs, one passive `--once` (sent with `date +%s`, which reads the Pager's clock first), `head -c 400` of `starchorus.json` and the Overview's
+`--once summary`. The status read and the rename were added in 0.2.5 by the owner's decision (24 October 2026), the clock read before the capture in 0.2.8 by a further decision of the owner (10 November 2026); `tools/regress.d/installer.sh` pins the list, the order of every run and the
 shape of the uploads (to `<name>.new` first, so that a dropped connection leaves no truncated script at a path that is run). Nothing the installer sends transmits over the air, changes a radio or the
 controller, or stops a service. It refuses to start when the files it would install carry different versions.
 
