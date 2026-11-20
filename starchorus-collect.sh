@@ -548,24 +548,27 @@ pid_meant() {
 # loop this kills that is NOT the one named by this OUTDIR's pidfile is logged with its pid and working
 # directory. $1 is the context ("stop" from --stop, "replace" at daemon start-up); $2, when given, is
 # the pid of this OUTDIR's own loop, which stop_pidfile has signalled already: it is left alone here (a second
-# TERM would land in its cleanup) and not logged. A pid that is gone when its turn comes is passed over as well:
-# on BusyBox the members of this function's own pipeline show in `ps w` with the script's command line, and
-# they have ended by then (is_own_child can no longer place them); a loop may also have left by itself.
+# TERM would land in its cleanup) and not logged. The list is read whole before any pid is judged: on BusyBox the
+# helpers that read it (the subshell of the command substitution, loop_list's pipeline and its awk) show in `ps w`
+# with the script's command line, and the substitution returns only once every one of them has ended and been
+# reaped. A body run beside the listing (list | while) could find such a helper alive at the gate and gone before
+# is_own_child, and report it as a loop in 'unknown directory'. A pid that is gone when its turn comes is passed
+# over (the helpers are; a loop may also have left by itself): nothing is stopped, so nothing is said.
 kill_loops() {
     _kl_ctx=${1:-stop}
     _kl_own=${2:-}
-    loop_list | while read -r p; do
-        [ "$p" = "$$" ] && continue
-        [ "$p" = "$_kl_own" ] && continue   # this OUTDIR's own loop: stop_pidfile has signalled it once; a second TERM would cut its cleanup short
-        kill -0 "$p" 2>/dev/null || [ -d "/proc/$p" ] || continue   # gone since the list was read: nothing is stopped, so nothing is said (see above)
-        is_own_child "$p" && continue   # this run's own subshells, e.g. the one running this loop
-        _kl_dir=$(loop_cwd "$p")
+    for _kl_p in $(loop_list); do   # the whole list first (see above); the loop runs in this shell, so its names carry the _kl_ prefix
+        [ "$_kl_p" = "$$" ] && continue
+        [ "$_kl_p" = "$_kl_own" ] && continue   # this OUTDIR's own loop: stop_pidfile has signalled it once; a second TERM would cut its cleanup short
+        kill -0 "$_kl_p" 2>/dev/null || [ -d "/proc/$_kl_p" ] || continue   # gone since the list was read: nothing is stopped, so nothing is said (see above)
+        is_own_child "$_kl_p" && continue   # a process of this run that still runs (the listing's own helpers have ended)
+        _kl_dir=$(loop_cwd "$_kl_p")
         if [ "$_kl_ctx" = replace ]; then
-            log "replaced collector loop pid $p in $_kl_dir: one collector per device"
+            log "replaced collector loop pid $_kl_p in $_kl_dir: one collector per device"
         else
-            log "also stopped collector loop pid $p in $_kl_dir (one collector per device)"
+            log "also stopped collector loop pid $_kl_p in $_kl_dir (one collector per device)"
         fi
-        kill "$p" 2>/dev/null
+        kill "$_kl_p" 2>/dev/null
     done
 }
 
@@ -9038,6 +9041,26 @@ KLRL
     kill_loops replace 2>"$klw/kl4.log"; kill_loops stop 2>>"$klw/kl4.log"
     PATH=$klsave
     if [ ! -s "$klw/kl4.log" ]; then st_pass "kill_loops: a line whose process is gone is passed over, in a start and in a stop (no 'replaced', no 'also stopped')"; else st_fail "kill_loops: reported a process that is gone ($(head -n 1 "$klw/kl4.log"))"; fi
+    # The list is complete before any pid is judged: on BusyBox the helpers that read it show in `ps w` with the script's command line until they are reaped, so a body run
+    # beside the listing (a pipeline member) could find one alive at the gate and gone a moment later, and report it as a loop in 'unknown directory'. The stand-in listing
+    # prints a pid the gate takes for alive and stays until the judge has been called (3 s at most), then marks that it has ended; the stand-in is_own_child records which
+    # came first. A body in a pipeline is called while the listing still waits (before); a list read whole can be judged only once the listing has ended (after). The pid
+    # lies above the kernel's ceiling and kill is a stand-in in the subshell: nothing is signalled. The caller's p is left alone, and the pid is still reported once.
+    klo="$klw/order"; rm -rf "$klo"; mkdir -p "$klo"
+    (   kill() { return 0; }
+        loop_list() {
+            printf '%s\n' 4194307
+            klo_i=0; while [ "$klo_i" -lt 3 ] && [ ! -e "$klo/judged" ]; do sleep 1; klo_i=$((klo_i + 1)); done
+            : > "$klo/ended"
+        }
+        is_own_child() { if [ -e "$klo/ended" ]; then echo after; else echo before; fi > "$klo/when"; : > "$klo/judged"; return 1; }
+        loop_cwd() { echo somewhere; }
+        log() { printf '%s\n' "$*" >> "$klo/log"; }
+        p=keep; kill_loops replace; echo "$p" > "$klo/p" ) 2>/dev/null
+    klo_w=$(cat "$klo/when" 2>/dev/null); klo_p=$(cat "$klo/p" 2>/dev/null)
+    klo_n=$(grep -cF "replaced collector loop pid 4194307 in somewhere: one collector per device" "$klo/log" 2>/dev/null)
+    if [ "$klo_w/$klo_p/$klo_n" = "after/keep/1" ]; then st_pass "kill_loops: no pid is judged before its list is complete (the helpers that read it have ended), the caller's p is left alone, and the pid is still reported once"
+    else st_fail "kill_loops, the list read whole first: judged [$klo_w] p [$klo_p] lines [$klo_n] (want after, keep, 1)"; fi
     # The stand-ins of the Bluetooth window end by themselves, within seconds, when the tree they poll is removed or the shell they watch is gone (an interrupted run, see st_abort).
     # A scan stand-in (bt_stub makes two, one body) is run on its own in two trees, as the loops above are run (kl_spawn starts a script of this name in a directory of klscope),
     # the first tree removed and the pid the second watches (a sleep here) killed. A stand-in that is still there is killed by kl_cleanup.
